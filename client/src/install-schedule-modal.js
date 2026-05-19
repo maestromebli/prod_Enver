@@ -5,6 +5,7 @@ import { dayPresetOptions, getInstallDayRange, inputDateToUa } from "./install-c
 import { isInstallRelevant } from "./install-utils.js";
 import { state } from "./state.js";
 import { $, escapeHtml } from "./utils.js";
+import { runSave } from "./save-flow.js";
 import { toastError } from "./toast.js";
 
 let onSaved = () => {};
@@ -78,13 +79,15 @@ function ensureModal() {
   $("#clearInstallScheduleBtn")?.addEventListener("click", async () => {
     const positionId = Number($("#installSchedulePosition").value) || draft?.positionId;
     if (!positionId) return;
-    try {
-      await api.patchPositionInstall(positionId, { clear: true });
-      closeInstallScheduleModal();
-      await onSaved();
-    } catch (err) {
-      showError(err.message);
-    }
+    await runSave("Монтаж", {
+      saveFn: () => api.patchPositionInstall(positionId, { clear: true }),
+      successMessage: "Монтаж знято з календаря",
+      onSuccess: async () => {
+        closeInstallScheduleModal();
+        await onSaved();
+      },
+      onError: (err) => showError(err.message)
+    }).catch(() => {});
   });
 
   $("#installSchedulePresets")?.addEventListener("click", (e) => {
@@ -235,21 +238,29 @@ async function saveInstallSchedule() {
     return;
   }
 
-  try {
-    const updated = await api.patchPositionInstall(positionId, {
-      installDate: inputDateToUa(isoStart),
-      installEndDate: inputDateToUa(isoEnd),
-      installResponsible: installer,
-      installTimeStart: "",
-      installTimeEnd: ""
-    });
-    const idx = state.positions.findIndex((p) => p.id === positionId);
-    if (idx >= 0) state.positions[idx] = updated;
-    closeInstallScheduleModal();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+  const submitBtn = $("#installScheduleForm")?.querySelector('[type="submit"]');
+
+  await runSave("Монтаж", {
+    submitEl: submitBtn,
+    saveFn: async () => {
+      const updated = await api.patchPositionInstall(positionId, {
+        installDate: inputDateToUa(isoStart),
+        installEndDate: inputDateToUa(isoEnd),
+        installResponsible: installer,
+        installTimeStart: "",
+        installTimeEnd: ""
+      });
+      const idx = state.positions.findIndex((p) => p.id === positionId);
+      if (idx >= 0) state.positions[idx] = updated;
+      return updated;
+    },
+    successMessage: "Монтаж заплановано",
+    onSuccess: async () => {
+      closeInstallScheduleModal();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 export function initInstallScheduleModal() {

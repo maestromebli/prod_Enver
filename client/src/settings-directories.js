@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { isAdmin } from "./auth.js";
+import { runSettingsSave } from "./settings-save-feedback.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 
@@ -43,21 +44,23 @@ export function collectAllDirectoriesFromDom() {
   return result;
 }
 
-export async function saveDirectoryKey(key) {
+export async function saveDirectoryKey(key, { onReload } = {}) {
   const items = collectDirectoryItems(key);
   if (!items.length) {
     const { toastError } = await import("./toast.js");
     toastError("Додайте хоча б одне значення");
     return;
   }
-  const updated = await api.updateDirectories({ [key]: items });
-  state.directories = updated;
-  const { toastSuccess } = await import("./toast.js");
-  toastSuccess(`«${key}» збережено`);
-  return updated;
+  return runSettingsSave(`Довідник «${key}»`, {
+    onReload,
+    saveFn: () => api.updateDirectories({ [key]: items }),
+    onSuccess: (updated) => {
+      state.directories = updated;
+    }
+  });
 }
 
-export async function saveAllDirectories() {
+export async function saveAllDirectories({ onReload } = {}) {
   const payload = collectAllDirectoriesFromDom();
   for (const key of DIRECTORY_KEYS) {
     if (!payload[key]?.length) {
@@ -66,11 +69,13 @@ export async function saveAllDirectories() {
       return;
     }
   }
-  const updated = await api.updateDirectories(payload);
-  state.directories = updated;
-  const { toastSuccess } = await import("./toast.js");
-  toastSuccess("Довідники збережено");
-  return updated;
+  return runSettingsSave("Довідники", {
+    onReload,
+    saveFn: () => api.updateDirectories(payload),
+    onSuccess: (updated) => {
+      state.directories = updated;
+    }
+  });
 }
 
 function directoryItemRow(value, editable) {
@@ -177,16 +182,12 @@ export function handleDirectoriesClick(e, onChange) {
 
   const saveOne = e.target.closest("[data-save-directory]");
   if (saveOne) {
-    saveDirectoryKey(saveOne.dataset.saveDirectory)
-      .then(onChange)
-      .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+    saveDirectoryKey(saveOne.dataset.saveDirectory, { onReload: onChange }).catch(() => {});
     return true;
   }
 
   if (e.target.closest("#saveAllDirectoriesBtn")) {
-    saveAllDirectories()
-      .then(onChange)
-      .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+    saveAllDirectories({ onReload: onChange }).catch(() => {});
     return true;
   }
 

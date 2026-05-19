@@ -124,6 +124,8 @@ export const api = {
 
   getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
   operatorStart: (body) => request("/api/operator/start", { method: "POST", body: JSON.stringify(body) }),
+  operatorPause: (body) => request("/api/operator/pause", { method: "POST", body: JSON.stringify(body) }),
+  operatorResume: (body) => request("/api/operator/resume", { method: "POST", body: JSON.stringify(body) }),
   operatorFinish: (body) => request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
 
   getHistory: (params = {}) => {

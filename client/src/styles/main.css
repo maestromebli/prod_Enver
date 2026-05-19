@@ -6,6 +6,7 @@
   --border: #d6dce3;
   --border-soft: #e8edf3;
   --text: #111827;
+  --text-strong: #111827;
   --muted: #6b7280;
   --blue: #2563eb;
   --green: #16a34a;
@@ -14,7 +15,51 @@
   --orange: #ea580c;
   --gray: #6b7280;
   --white: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-2: #fafbfc;
+  --surface-hover: #f8fbff;
+  --input-bg: #ffffff;
+  --topbar-bg: rgba(245, 247, 250, 0.96);
+  --body-glow: rgba(37, 99, 235, 0.06);
+  --body-gradient-top: #ffffff;
+  --mini-list-divider: #edf1f5;
+  --bar-track: #e5e7eb;
+  --shadow-subtle: rgba(15, 42, 68, 0.04);
   --shadow: 0 2px 10px rgba(15, 42, 68, 0.08);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --navy: #93c5fd;
+  --navy-2: #60a5fa;
+  --navy-3: #0c1524;
+  --bg: #0e1218;
+  --border: #2a3544;
+  --border-soft: #1e2836;
+  --text: #e8edf3;
+  --text-strong: #f1f5f9;
+  --muted: #94a3b8;
+  --blue: #60a5fa;
+  --green: #4ade80;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --orange: #fb923c;
+  --gray: #94a3b8;
+  --white: #1a222d;
+  --surface: #1a222d;
+  --surface-muted: #151c26;
+  --surface-2: #121820;
+  --surface-hover: #243044;
+  --input-bg: #1a222d;
+  --topbar-bg: rgba(14, 18, 24, 0.94);
+  --body-glow: rgba(37, 99, 235, 0.14);
+  --body-gradient-top: #121820;
+  --mini-list-divider: #2a3544;
+  --bar-track: #334155;
+  --shadow-subtle: rgba(0, 0, 0, 0.25);
+  --shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
 }
 
 * {
@@ -29,8 +74,8 @@ body {
   margin: 0;
   font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 32%),
-    linear-gradient(180deg, #ffffff 0%, var(--bg) 28%, var(--bg) 100%);
+    radial-gradient(circle at top left, var(--body-glow), transparent 32%),
+    linear-gradient(180deg, var(--body-gradient-top) 0%, var(--bg) 28%, var(--bg) 100%);
   color: var(--text);
 }
 
@@ -55,7 +100,7 @@ select {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(245, 247, 250, 0.96);
+  background: var(--topbar-bg);
   backdrop-filter: blur(10px);
   padding: 8px 0 6px;
   border-bottom: 1px solid var(--border);
@@ -109,7 +154,7 @@ select {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.04);
+  box-shadow: 0 1px 2px var(--shadow-subtle);
   min-height: auto;
 }
 
@@ -173,7 +218,7 @@ select {
 .kpi-label {
   font-size: 12px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-strong);
   min-height: 28px;
   display: grid;
   place-items: center;
@@ -206,7 +251,7 @@ select {
 
 .tab-btn {
   border: 1px solid var(--border);
-  background: white;
+  background: var(--surface);
   color: var(--navy);
   padding: 6px 10px;
   border-radius: 8px;
@@ -214,7 +259,7 @@ select {
   cursor: pointer;
   font-size: 12px;
   transition: 0.15s ease;
-  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.04);
+  box-shadow: 0 1px 2px var(--shadow-subtle);
 }
 
 .tab-btn:hover {
@@ -242,7 +287,7 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0 12px;
-  background: white;
+  background: var(--input-bg);
   font-weight: 700;
   color: var(--text);
 }
@@ -280,7 +325,7 @@ select {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 9px;
   overflow: hidden;
@@ -310,7 +355,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
-  background: white;
+  background: var(--surface);
 }
 
 .table-wrap > table {
@@ -427,16 +472,16 @@ td {
 }
 
 th {
-  background: #f8fafc;
+  background: var(--surface-muted);
   font-weight: 900;
-  color: #111827;
+  color: var(--text-strong);
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
 tbody tr:hover {
-  background: #f8fbff;
+  background: var(--surface-hover);
 }
 
 .orders-legend {
@@ -488,7 +533,7 @@ tbody tr.row-order-new.row-order-no-assignment td {
 tbody tr.row-order-new:hover td,
 tbody tr.row-order-no-assignment:hover td,
 tbody tr.row-order-new.row-order-no-assignment:hover td {
-  background: #f8fbff;
+  background: var(--surface-hover);
 }
 
 .positions-hint {
@@ -516,7 +561,7 @@ tbody tr.row-order-new.row-order-no-assignment:hover td {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--surface-muted);
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
@@ -525,7 +570,7 @@ tbody tr.row-order-new.row-order-no-assignment:hover td {
 }
 
 .btn-tree:hover {
-  background: #eff6ff;
+  background: var(--surface-hover);
   border-color: #93c5fd;
 }
 
@@ -549,7 +594,7 @@ tbody tr.row-order-new.row-order-no-assignment:hover td {
 }
 
 tbody tr.row-sub-position td {
-  background: #fafbfc;
+  background: var(--surface-2);
 }
 
 tbody tr.row-sub-position td.col-item {
@@ -557,7 +602,7 @@ tbody tr.row-sub-position td.col-item {
 }
 
 tbody tr.row-sub-position:hover td {
-  background: #f3f6fa;
+  background: var(--surface-hover);
 }
 
 .drawer-parent-note {
@@ -633,7 +678,7 @@ th.left {
   width: 52px;
   height: 8px;
   border-radius: 999px;
-  background: #e5e7eb;
+  background: var(--bar-track);
   overflow: hidden;
 }
 
@@ -695,7 +740,7 @@ th.left {
   display: grid;
   place-items: center;
   font-size: 22px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .directory-grid {
@@ -709,12 +754,12 @@ th.left {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--surface);
 }
 
 .mini-list h4 {
   margin: 0;
-  background: #f8fafc;
+  background: var(--surface-muted);
   border-bottom: 1px solid var(--border);
   padding: 9px;
   font-size: 12px;
@@ -724,7 +769,7 @@ th.left {
 
 .mini-list div {
   padding: 8px 10px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid var(--mini-list-divider);
   font-size: 12px;
   font-weight: 700;
 }

@@ -838,11 +838,11 @@ body.view-operator .app {
 /* Action buttons */
 .op-action-bar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 720px) {
   .op-action-bar {
     grid-template-columns: 1fr;
   }
@@ -885,6 +885,26 @@ body.view-operator .app {
 
 .op-action-btn--start:not(:disabled):hover {
   box-shadow: 0 12px 28px rgba(37, 99, 235, 0.45);
+}
+
+.op-action-btn--pause {
+  color: #fff;
+  background: linear-gradient(145deg, #ea580c, #c2410c);
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.35);
+}
+
+.op-action-btn--pause:not(:disabled):hover {
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.45);
+}
+
+.op-action-btn--resume {
+  color: #fff;
+  background: linear-gradient(145deg, #0d9488, #0f766e);
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.35);
+}
+
+.op-action-btn--resume:not(:disabled):hover {
+  box-shadow: 0 12px 28px rgba(13, 148, 136, 0.45);
 }
 
 .op-action-btn--finish {

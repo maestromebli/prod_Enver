@@ -9,6 +9,7 @@ import {
 } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
+import { runSave } from "./save-flow.js";
 import { badge, escapeHtml } from "./utils.js";
 
 const STAGE_THEME = {
@@ -72,7 +73,7 @@ export async function loadOperatorData() {
 }
 
 export function syncOperatorPolling() {
-  if (activeSessionPositionId()) {
+  if (activeSessionPositionId() && !isSessionPaused()) {
     startMachinePolling(refreshMachineProgress);
   } else {
     stopMachinePolling();
@@ -133,6 +134,8 @@ function workPosition() {
   if (pos) return pos;
   const sess = state.operatorActiveSession;
   if (!sess?.position_id) return null;
+  const fromQueue = state.operatorQueue.find((p) => p.id === sess.position_id);
+  if (fromQueue) return fromQueue;
   const field = statusField();
   return {
     id: sess.position_id,
@@ -165,7 +168,28 @@ function canFinish() {
   if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
   const pos = workPosition();
   if (!pos) return false;
-  return activeSessionPositionId() === pos.id;
+  if (activeSessionPositionId() !== pos.id) return false;
+  const status = pos[statusField()];
+  return ["В роботі", "На паузі"].includes(status);
+}
+
+function canPause() {
+  if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
+  const pos = workPosition();
+  if (!pos || activeSessionPositionId() !== pos.id) return false;
+  return pos[statusField()] === "В роботі";
+}
+
+function canResume() {
+  if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
+  const pos = workPosition();
+  if (!pos || activeSessionPositionId() !== pos.id) return false;
+  return pos[statusField()] === "На паузі";
+}
+
+function isSessionPaused() {
+  const pos = workPosition();
+  return pos?.[statusField()] === "На паузі";
 }
 
 function statusField() {
@@ -184,7 +208,7 @@ function queueStats() {
   let waiting = 0;
   for (const p of state.operatorQueue) {
     const s = p[field];
-    if (s === "В роботі") working += 1;
+    if (s === "В роботі" || s === "На паузі") working += 1;
     else if (s === "Передано") waiting += 1;
   }
   return { total: state.operatorQueue.length, working, waiting };
@@ -506,6 +530,19 @@ export function renderOperatorView() {
                 <small>Розпочати обробку</small>
               </span>
             </button>
+            <button type="button" class="op-action-btn ${canResume() ? "op-action-btn--resume" : "op-action-btn--pause"}" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>
+              <span class="op-action-icon" aria-hidden="true">
+                ${
+                  canResume()
+                    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
+                    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg>'
+                }
+              </span>
+              <span class="op-action-text">
+                <strong>${canResume() ? "Продовжити" : "Пауза"}</strong>
+                <small>${canResume() ? "Відновити обробку" : "Тимчасово зупинити"}</small>
+              </span>
+            </button>
             <button type="button" class="op-action-btn op-action-btn--finish" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>
               <span class="op-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
@@ -518,8 +555,10 @@ export function renderOperatorView() {
           </div>
 
           ${
-            inWork && isOnActiveSessionStage()
-              ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Спочатку натисніть «Закінчив» — лише після цього можна взяти наступне замовлення з черги.</p>'
+            inWork && isOnActiveSessionStage() && isSessionPaused()
+              ? '<p class="op-hint"><span class="op-hint-icon">⏸</span> Завдання на паузі. Натисніть «Продовжити» або «Закінчив», щоб закрити етап.</p>'
+              : inWork && isOnActiveSessionStage()
+              ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Між «Почав» і «Закінчив» можна поставити на паузу. Наступне замовлення — лише після завершення.</p>'
               : inWork
                 ? '<p class="op-hint op-hint--warn"><span class="op-hint-icon">!</span> Нове замовлення недоступне, поки не завершите поточне на іншому етапі.</p>'
                 : ""
@@ -595,36 +634,79 @@ export function bindOperatorActions(onChange) {
         const pos = selectedPosition();
         if (!pos || !state.currentUser) return;
         if (!canStart()) return;
-        try {
-          await api.operatorStart({
-            userId: state.currentUser.id,
-            positionId: pos.id,
-            stageKey: state.operatorStage
-          });
-          await loadOperatorData();
-          operatorOnChange();
-        } catch (ex) {
-          import("./toast.js").then(({ toastError }) => toastError(ex.message));
+        const startBtn = e.target.closest("#operatorStartBtn");
+        await runSave("Завдання", {
+          submitEl: startBtn,
+          saveFn: () =>
+            api.operatorStart({
+              userId: state.currentUser.id,
+              positionId: pos.id,
+              stageKey: state.operatorStage
+            }),
+          successMessage: "Завдання розпочато",
+          onSuccess: async () => {
+            await loadOperatorData();
+            operatorOnChange();
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      if (e.target.closest("#operatorPauseBtn")) {
+        const pos = workPosition();
+        if (!pos || !state.currentUser) return;
+        const pauseBtn = e.target.closest("#operatorPauseBtn");
+        const payload = {
+          userId: state.currentUser.id,
+          positionId: pos.id,
+          stageKey: state.operatorStage
+        };
+        if (canResume()) {
+          await runSave("Завдання", {
+            submitEl: pauseBtn,
+            saveFn: () => api.operatorResume(payload),
+            successMessage: "Обробку відновлено",
+            onSuccess: async () => {
+              await loadOperatorData();
+              syncOperatorPolling();
+              operatorOnChange();
+            }
+          }).catch(() => {});
+        } else if (canPause()) {
+          await runSave("Завдання", {
+            submitEl: pauseBtn,
+            saveFn: () => api.operatorPause(payload),
+            successMessage: "Завдання на паузі",
+            onSuccess: async () => {
+              stopMachinePolling();
+              await loadOperatorData();
+              operatorOnChange();
+            }
+          }).catch(() => {});
         }
         return;
       }
 
       if (e.target.closest("#operatorFinishBtn")) {
-        const pos = selectedPosition();
-        if (!pos || !state.currentUser) return;
-        try {
-          await api.operatorFinish({
-            userId: state.currentUser.id,
-            positionId: pos.id,
-            stageKey: state.operatorStage
-          });
-          stopMachinePolling();
-          state.operatorSelectedPositionId = null;
-          await loadOperatorData();
-          operatorOnChange();
-        } catch (ex) {
-          import("./toast.js").then(({ toastError }) => toastError(ex.message));
-        }
+        const pos = workPosition();
+        if (!pos || !state.currentUser || !canFinish()) return;
+        const finishBtn = e.target.closest("#operatorFinishBtn");
+        await runSave("Завдання", {
+          submitEl: finishBtn,
+          saveFn: () =>
+            api.operatorFinish({
+              userId: state.currentUser.id,
+              positionId: pos.id,
+              stageKey: state.operatorStage
+            }),
+          successMessage: "Етап завершено",
+          onSuccess: async () => {
+            stopMachinePolling();
+            state.operatorSelectedPositionId = null;
+            await loadOperatorData();
+            operatorOnChange();
+          }
+        }).catch(() => {});
       }
     });
   }

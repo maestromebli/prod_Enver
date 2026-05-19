@@ -46,9 +46,9 @@ router.get("/queue/:stageKey", (req, res) => {
       `SELECT p.*, o.priority AS order_priority, o.plan_date
        FROM positions p
        LEFT JOIN orders o ON o.id = p.order_id
-       WHERE p.${field} IN ('Передано', 'В роботі')
+       WHERE p.${field} IN ('Передано', 'В роботі', 'На паузі')
        ORDER BY
-         CASE p.${field} WHEN 'В роботі' THEN 0 ELSE 1 END,
+         CASE p.${field} WHEN 'В роботі' THEN 0 WHEN 'На паузі' THEN 0 ELSE 1 END,
          CASE WHEN p.problem != '' THEN 0 ELSE 1 END,
          CASE WHEN p.overdue_days > 0 THEN 0 ELSE 1 END,
          CASE o.priority WHEN 'Високий' THEN 0 WHEN 'Середній' THEN 1 ELSE 2 END,
@@ -152,13 +152,7 @@ router.post("/finish", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const session = db
-    .prepare(
-      `SELECT * FROM operator_sessions
-       WHERE user_id = ? AND position_id = ? AND stage_key = ? AND finished_at IS NULL
-       ORDER BY id DESC LIMIT 1`
-    )
-    .get(userId, positionId, stageKey);
+  const session = getOpenSession(userId, positionId, stageKey);
 
   if (!session) {
     res.status(404).json({ error: "Активну сесію не знайдено" });
@@ -171,6 +165,11 @@ router.post("/finish", requireOperatorSelf, (req, res) => {
     return;
   }
 
+  if (!["В роботі", "На паузі"].includes(row[field])) {
+    res.status(400).json({ error: `Завершити можна лише з «В роботі» або «На паузі» (зараз «${row[field]}»)` });
+    return;
+  }
+
   const before = { ...row };
   row[field] = "Готово";
 
@@ -178,6 +177,84 @@ router.post("/finish", requireOperatorSelf, (req, res) => {
 
   savePosition(positionId, row);
   logStageChange(before, getPosition.get(positionId), stageKey, { status: "Готово" }, auditActor(req));
+
+  res.json({ position: mapPosition(getPosition.get(positionId)) });
+});
+
+function getOpenSession(userId, positionId, stageKey) {
+  return db
+    .prepare(
+      `SELECT * FROM operator_sessions
+       WHERE user_id = ? AND position_id = ? AND stage_key = ? AND finished_at IS NULL
+       ORDER BY id DESC LIMIT 1`
+    )
+    .get(userId, positionId, stageKey);
+}
+
+router.post("/pause", requireOperatorSelf, (req, res) => {
+  const { userId, positionId, stageKey } = req.body || {};
+  const field = STAGE_STATUS_FIELD[stageKey];
+  if (!userId || !positionId || !field) {
+    res.status(400).json({ error: "userId, positionId та stageKey обов'язкові" });
+    return;
+  }
+
+  const session = getOpenSession(userId, positionId, stageKey);
+  if (!session) {
+    res.status(404).json({ error: "Активну сесію не знайдено" });
+    return;
+  }
+
+  const row = getPosition.get(positionId);
+  if (!row) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  if (row[field] !== "В роботі") {
+    res.status(400).json({ error: `Пауза доступна лише у статусі «В роботі» (зараз «${row[field]}»)` });
+    return;
+  }
+
+  const before = { ...row };
+  row[field] = "На паузі";
+
+  savePosition(positionId, row);
+  logStageChange(before, getPosition.get(positionId), stageKey, { status: "На паузі" }, auditActor(req));
+
+  res.json({ position: mapPosition(getPosition.get(positionId)) });
+});
+
+router.post("/resume", requireOperatorSelf, (req, res) => {
+  const { userId, positionId, stageKey } = req.body || {};
+  const field = STAGE_STATUS_FIELD[stageKey];
+  if (!userId || !positionId || !field) {
+    res.status(400).json({ error: "userId, positionId та stageKey обов'язкові" });
+    return;
+  }
+
+  const session = getOpenSession(userId, positionId, stageKey);
+  if (!session) {
+    res.status(404).json({ error: "Активну сесію не знайдено" });
+    return;
+  }
+
+  const row = getPosition.get(positionId);
+  if (!row) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  if (row[field] !== "На паузі") {
+    res.status(400).json({ error: `Продовження доступне лише з паузи (зараз «${row[field]}»)` });
+    return;
+  }
+
+  const before = { ...row };
+  row[field] = "В роботі";
+
+  savePosition(positionId, row);
+  logStageChange(before, getPosition.get(positionId), stageKey, { status: "В роботі" }, auditActor(req));
 
   res.json({ position: mapPosition(getPosition.get(positionId)) });
 });

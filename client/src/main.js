@@ -52,6 +52,7 @@ import {
   restoreScrollPosition,
   schedulePersistUiState
 } from "./ui-persistence.js";
+import { initTheme } from "./theme.js";
 import { $ } from "./utils.js";
 
 let contentRenderTimer = null;
@@ -416,6 +417,7 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
 });
 
 initAuthFromStorage();
+initTheme();
 initUiPersistence();
 
 async function applyProductionUi() {

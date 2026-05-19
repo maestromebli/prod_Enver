@@ -3,7 +3,7 @@ import { canEditPositions } from "./auth.js";
 import { addDays, formatUaDate, fromIsoDate, toIsoDate } from "./install-calendar-dates.js";
 import { dayCount } from "./install-calendar-days.js";
 import { state } from "./state.js";
-import { toastError } from "./toast.js";
+import { runSave } from "./save-flow.js";
 
 const ROW_H = 36;
 
@@ -63,17 +63,17 @@ export function bindDayCalendarDrag(root, { onSaved, onOpenEdit }) {
     if (!moved) return;
     moved = false;
 
-    try {
-      await persistInstallDays(
-        positionId,
-        formatUaDate(fromIsoDate(startIso)),
-        formatUaDate(fromIsoDate(endIso))
-      );
-      await onSaved?.();
-    } catch (err) {
-      toastError(err.message);
-      window.__enverRender?.({ contentOnly: true });
-    }
+    await runSave("Монтаж", {
+      saveFn: () =>
+        persistInstallDays(
+          positionId,
+          formatUaDate(fromIsoDate(startIso)),
+          formatUaDate(fromIsoDate(endIso))
+        ),
+      successMessage: "Період монтажу збережено",
+      onSuccess: () => onSaved?.(),
+      onError: () => window.__enverRender?.({ contentOnly: true })
+    }).catch(() => {});
   };
 
   const onMove = (e) => {

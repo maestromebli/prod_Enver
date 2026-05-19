@@ -1,0 +1,320 @@
+/* Темна тема — перевизначення жорстко заданих кольорів у компонентах */
+
+[data-theme="dark"] .kpi-label {
+  color: var(--text-strong);
+}
+
+[data-theme="dark"] th {
+  background: var(--surface-muted);
+  color: var(--text-strong);
+}
+
+[data-theme="dark"] tbody tr:hover,
+[data-theme="dark"] tbody tr.row-order-new:hover td,
+[data-theme="dark"] tbody tr.row-order-no-assignment:hover td,
+[data-theme="dark"] tbody tr.row-order-new.row-order-no-assignment:hover td {
+  background: var(--surface-hover);
+}
+
+[data-theme="dark"] tbody tr.row-order-new td {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+[data-theme="dark"] tbody tr.row-order-no-assignment td {
+  background: rgba(234, 88, 12, 0.12);
+}
+
+[data-theme="dark"] tbody tr.row-order-new.row-order-no-assignment td {
+  background: linear-gradient(
+    90deg,
+    rgba(37, 99, 235, 0.14) 0%,
+    rgba(37, 99, 235, 0.14) 50%,
+    rgba(234, 88, 12, 0.12) 50%,
+    rgba(234, 88, 12, 0.12) 100%
+  );
+}
+
+[data-theme="dark"] tbody tr.row-sub-position td {
+  background: var(--surface-2);
+}
+
+[data-theme="dark"] tbody tr.row-sub-position:hover td {
+  background: var(--surface-hover);
+}
+
+[data-theme="dark"] .legend-new::before {
+  background: rgba(37, 99, 235, 0.35);
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
+[data-theme="dark"] .legend-no-assignment::before {
+  background: rgba(234, 88, 12, 0.28);
+  border-color: rgba(253, 186, 116, 0.45);
+}
+
+[data-theme="dark"] .btn-tree,
+[data-theme="dark"] .btn-tree:hover {
+  background: var(--surface-muted);
+}
+
+[data-theme="dark"] .btn-tree:hover {
+  border-color: rgba(147, 197, 253, 0.55);
+  background: rgba(37, 99, 235, 0.18);
+}
+
+[data-theme="dark"] .col-item .sub-label {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .drawer-parent-note,
+[data-theme="dark"] .note {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(147, 197, 253, 0.35);
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .badge.blue {
+  background: rgba(37, 99, 235, 0.28);
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.35);
+}
+
+[data-theme="dark"] .badge.yellow {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fcd34d;
+  border-color: rgba(253, 230, 138, 0.35);
+}
+
+[data-theme="dark"] .badge.green {
+  background: rgba(22, 163, 74, 0.22);
+  color: #86efac;
+  border-color: rgba(187, 247, 208, 0.3);
+}
+
+[data-theme="dark"] .badge.orange {
+  background: rgba(234, 88, 12, 0.22);
+  color: #fdba74;
+  border-color: rgba(254, 215, 170, 0.35);
+}
+
+[data-theme="dark"] .badge.red {
+  background: rgba(220, 38, 38, 0.22);
+  color: #fca5a5;
+  border-color: rgba(254, 202, 202, 0.35);
+}
+
+[data-theme="dark"] .badge.gray {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+  border-color: rgba(203, 213, 225, 0.25);
+}
+
+[data-theme="dark"] .bar {
+  background: #334155;
+}
+
+[data-theme="dark"] .btn-danger {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(254, 202, 202, 0.35);
+}
+
+[data-theme="dark"] .loading-overlay {
+  background: rgba(10, 14, 20, 0.78);
+}
+
+[data-theme="dark"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+[data-theme="dark"] .login-input-wrap input {
+  background: var(--input-bg);
+}
+
+[data-theme="dark"] .login-input-wrap input:hover {
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .login-input-wrap input:focus {
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.2);
+}
+
+[data-theme="dark"] .login-form-error {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(254, 202, 202, 0.35);
+}
+
+[data-theme="dark"] .toast {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .toast--info {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+[data-theme="dark"] .toast--success {
+  background: rgba(22, 163, 74, 0.18);
+}
+
+[data-theme="dark"] .toast--error {
+  background: rgba(220, 38, 38, 0.18);
+}
+
+[data-theme="dark"] .history-time {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .history-field {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-new {
+  color: var(--text);
+}
+
+/* position drawer */
+[data-theme="dark"] .drawer-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .drawer {
+  background: var(--surface);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .meta-pill {
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.35);
+}
+
+[data-theme="dark"] .pipeline-step {
+  background: var(--surface-muted);
+}
+
+[data-theme="dark"] .pipeline-step.stage-done {
+  border-color: rgba(134, 239, 172, 0.45);
+  background: rgba(22, 163, 74, 0.15);
+}
+
+[data-theme="dark"] .pipeline-step.stage-active {
+  border-color: rgba(253, 230, 138, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+[data-theme="dark"] .pipeline-step.stage-problem {
+  border-color: rgba(254, 202, 202, 0.45);
+  background: rgba(220, 38, 38, 0.15);
+}
+
+[data-theme="dark"] .drawer-tab {
+  background: var(--surface-muted);
+}
+
+[data-theme="dark"] .drawer-tab.active {
+  background: var(--navy-3);
+  border-color: var(--navy-2);
+  color: var(--navy);
+}
+
+[data-theme="dark"] .form-field input,
+[data-theme="dark"] .form-field select,
+[data-theme="dark"] .form-field textarea {
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+/* operator */
+[data-theme="dark"] body.view-operator {
+  background:
+    radial-gradient(ellipse 80% 50% at 0% -10%, color-mix(in srgb, var(--op-accent) 12%, transparent), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(0, 0, 0, 0.25), transparent 50%),
+    #0c1018;
+}
+
+[data-theme="dark"] .operator-shell {
+  --op-surface: #1a222d;
+  --op-surface-2: #151c26;
+  --op-border: rgba(148, 163, 184, 0.14);
+  --op-text: #e8edf3;
+  --op-muted: #94a3b8;
+  --op-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --op-shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.3), 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .op-queue-card {
+  background: var(--op-surface);
+}
+
+[data-theme="dark"] .op-queue-card.is-active {
+  background: color-mix(in srgb, var(--op-accent) 14%, var(--op-surface));
+}
+
+[data-theme="dark"] .op-btn-ghost {
+  background: var(--op-surface-2);
+}
+
+[data-theme="dark"] .op-empty-queue {
+  background: var(--op-surface-2);
+}
+
+/* install calendar */
+[data-theme="dark"] .install-mode-switch,
+[data-theme="dark"] .ical-toolbar-center {
+  background: var(--surface-2);
+}
+
+[data-theme="dark"] .ical-nav-btn,
+[data-theme="dark"] .ical-installer-filter {
+  background: var(--input-bg);
+}
+
+[data-theme="dark"] .ical-nav-btn:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="dark"] .ical-view-btn.active,
+[data-theme="dark"] .install-mode-btn.active {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .ical-sidebar,
+[data-theme="dark"] .ical-day {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .ical-day--outside {
+  background: var(--surface-2);
+}
+
+[data-theme="dark"] .install-mode-btn {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+[data-theme="dark"] .install-mode-btn.active {
+  background: var(--navy-3);
+  color: var(--navy);
+  border-color: var(--navy-2);
+}
+
+[data-theme="dark"] .install-list-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="dark"] .settings-nav-btn {
+  background: var(--surface-muted);
+}
+
+[data-theme="dark"] .settings-nav-btn.active {
+  background: rgba(37, 99, 235, 0.22);
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+/* responsive overrides */
+@media (max-width: 900px) {
+  [data-theme="dark"] .drawer-backdrop.open {
+    background: rgba(0, 0, 0, 0.65);
+  }
+}

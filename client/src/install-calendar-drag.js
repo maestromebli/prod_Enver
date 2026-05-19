@@ -14,7 +14,7 @@ import {
   topPxForMinutes
 } from "./install-calendar-times.js";
 import { state } from "./state.js";
-import { toastError } from "./toast.js";
+import { runSave } from "./save-flow.js";
 
 function findColumnAt(root, clientX) {
   const cols = root.querySelectorAll(".ical-time-col[data-drop-day]");
@@ -81,13 +81,12 @@ export function bindTimedCalendarDrag(root, { onSaved, onOpenEdit }) {
     if (!moved) return;
     moved = false;
 
-    try {
-      await persistInstall(positionId, isoDay, startMin, endMin);
-      await onSaved?.();
-    } catch (err) {
-      toastError(err.message);
-      window.__enverRender?.({ contentOnly: true });
-    }
+    await runSave("Монтаж", {
+      saveFn: () => persistInstall(positionId, isoDay, startMin, endMin),
+      successMessage: "Час монтажу збережено",
+      onSuccess: () => onSaved?.(),
+      onError: () => window.__enverRender?.({ contentOnly: true })
+    }).catch(() => {});
   };
 
   const onMove = (e) => {

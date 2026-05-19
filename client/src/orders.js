@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
 import { $ } from "./utils.js";
 
@@ -111,18 +112,18 @@ async function saveOrder(event) {
 
   const id = $("#orderId").value;
   const body = readForm();
+  const submitBtn = $("#orderForm")?.querySelector('[type="submit"]');
 
-  try {
-    if (id) {
-      await api.updateOrder(id, body);
-    } else {
-      await api.createOrder(body);
-    }
-    closeOrderModal();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+  await runSave(id ? "Замовлення" : "Нове замовлення", {
+    submitEl: submitBtn,
+    saveFn: () => (id ? api.updateOrder(id, body) : api.createOrder(body)),
+    successMessage: id ? "Замовлення збережено" : "Замовлення створено",
+    onSuccess: async () => {
+      closeOrderModal();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 async function deleteOrder() {
@@ -139,13 +140,15 @@ async function deleteOrder() {
     return;
   }
 
-  try {
-    await api.deleteOrder(id);
-    closeOrderModal();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+  await runSave("Замовлення", {
+    saveFn: () => api.deleteOrder(id),
+    successMessage: "Замовлення видалено",
+    onSuccess: async () => {
+      closeOrderModal();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 export function initOrderModal() {

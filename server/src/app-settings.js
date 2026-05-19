@@ -19,8 +19,12 @@ export function setSetting(key, value) {
 
 export function getAiSettings() {
   const raw = getSetting("ai", {});
+  const dbKey = String(raw.openaiApiKey || "").trim();
+  const envKey = String(process.env.OPENAI_API_KEY || "").trim();
   return {
-    openaiApiKey: raw.openaiApiKey || process.env.OPENAI_API_KEY || "",
+    openaiApiKey: dbKey || envKey,
+    dbApiKey: dbKey,
+    envApiKey: envKey,
     openaiModel: raw.openaiModel || process.env.OPENAI_MODEL || "gpt-4o-mini",
     enabled: raw.enabled !== false
   };

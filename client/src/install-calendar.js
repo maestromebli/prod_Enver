@@ -34,7 +34,7 @@ import { isInstallRelevant, READY_STATUS } from "./install-utils.js";
 import { openInstallScheduleModal } from "./install-schedule-modal.js";
 import { state } from "./state.js";
 import { badge, escapeHtml } from "./utils.js";
-import { toastError } from "./toast.js";
+import { runSave } from "./save-flow.js";
 
 export { isInstallRelevant } from "./install-utils.js";
 
@@ -656,18 +656,20 @@ export function bindInstallCalendar() {
       zone.classList.remove("ical-day--dragover");
       const iso = zone.dataset.dropDay;
       const ua = formatUaDate(fromIsoDate(iso));
-      try {
-        const updated = await api.patchPositionInstall(id, {
-          installDate: ua,
-          installEndDate: ua,
-          installTimeStart: "",
-          installTimeEnd: ""
-        });
-        upsertPosition(updated);
-        window.__enverRender?.({ contentOnly: true });
-      } catch (err) {
-        toastError(err.message);
-      }
+      await runSave("Монтаж", {
+        saveFn: async () => {
+          const updated = await api.patchPositionInstall(id, {
+            installDate: ua,
+            installEndDate: ua,
+            installTimeStart: "",
+            installTimeEnd: ""
+          });
+          upsertPosition(updated);
+          return updated;
+        },
+        successMessage: "Дату монтажу збережено",
+        onSuccess: () => window.__enverRender?.({ contentOnly: true })
+      }).catch(() => {});
     });
   });
 }

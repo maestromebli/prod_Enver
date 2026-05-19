@@ -5,13 +5,29 @@ import { requireAdmin, requireAuth } from "../middleware/auth.js";
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
+function aiSettingsResponse(updated, { keyUpdated = false } = {}) {
+  return {
+    ok: true,
+    enabled: updated.enabled,
+    openaiModel: updated.openaiModel,
+    hasApiKey: Boolean(updated.dbApiKey),
+    hasEnvKey: Boolean(updated.envApiKey),
+    keyUpdated,
+    openaiApiKeyMasked: maskSecret(updated.dbApiKey || updated.envApiKey),
+    message: keyUpdated
+      ? "API ключ збережено в базі"
+      : "Налаштування збережено"
+  };
+}
+
 router.get("/ai", (_req, res) => {
   const ai = getAiSettings();
   res.json({
     enabled: ai.enabled,
     openaiModel: ai.openaiModel,
-    hasApiKey: Boolean(ai.openaiApiKey),
-    openaiApiKeyMasked: maskSecret(ai.openaiApiKey)
+    hasApiKey: Boolean(ai.dbApiKey),
+    hasEnvKey: Boolean(ai.envApiKey),
+    openaiApiKeyMasked: maskSecret(ai.dbApiKey || ai.envApiKey)
   });
 });
 
@@ -19,30 +35,39 @@ router.put("/ai", (req, res) => {
   const current = getAiSettings();
   const { enabled, openaiModel, openaiApiKey, clearApiKey } = req.body || {};
 
-  let key = current.openaiApiKey;
+  let dbKey = current.dbApiKey;
+  let keyUpdated = false;
+
   if (clearApiKey) {
-    key = "";
-  } else if (typeof openaiApiKey === "string" && openaiApiKey.trim()) {
-    const trimmed = openaiApiKey.trim();
-    const masked = maskSecret(current.openaiApiKey);
-    if (trimmed !== masked && !trimmed.includes("…")) {
-      key = trimmed;
+    dbKey = "";
+    keyUpdated = true;
+  } else if (openaiApiKey !== undefined && openaiApiKey !== null) {
+    const trimmed = String(openaiApiKey).trim();
+    if (trimmed) {
+      if (trimmed.includes("…") || trimmed.includes("...")) {
+        res.status(400).json({ error: "Вкажіть повний API ключ, а не маску (sk-…)" });
+        return;
+      }
+      if (!/^sk-/i.test(trimmed)) {
+        res.status(400).json({ error: "Ключ OpenAI зазвичай починається з sk-" });
+        return;
+      }
+      dbKey = trimmed;
+      keyUpdated = true;
+    } else if (!current.dbApiKey) {
+      res.status(400).json({ error: "Вкажіть API ключ OpenAI (sk-…)" });
+      return;
     }
   }
 
   setSetting("ai", {
     enabled: enabled !== undefined ? Boolean(enabled) : current.enabled !== false,
     openaiModel: openaiModel?.trim() || current.openaiModel,
-    openaiApiKey: key
+    openaiApiKey: dbKey
   });
 
   const updated = getAiSettings();
-  res.json({
-    enabled: updated.enabled,
-    openaiModel: updated.openaiModel,
-    hasApiKey: Boolean(updated.openaiApiKey),
-    openaiApiKeyMasked: maskSecret(updated.openaiApiKey)
-  });
+  res.json(aiSettingsResponse(updated, { keyUpdated }));
 });
 
 router.post("/ai/test", async (req, res, next) => {
@@ -66,7 +91,7 @@ router.post("/ai/test", async (req, res, next) => {
       });
       return;
     }
-    res.json({ ok: true, message: "Ключ дійсний, з’єднання з OpenAI успішне" });
+    res.json({ ok: true, message: "Ключ дійсний, з'єднання з OpenAI успішне" });
   } catch (err) {
     next(err);
   }

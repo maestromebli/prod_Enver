@@ -1,14 +1,21 @@
 import { api } from "./api.js";
-import { canViewSettings } from "./auth.js";
+import { canViewSettings, isAdmin } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, ROLES, stageLabel } from "./users-constants.js";
 import { directoriesSectionHtml, handleDirectoriesClick } from "./settings-directories.js";
+import { runSave } from "./save-flow.js";
+import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
 
 let users = [];
 let permissions = {};
 let machineConfig = [];
-let aiSettings = { enabled: true, openaiModel: "gpt-4o-mini", hasApiKey: false };
+let aiSettings = {
+  enabled: true,
+  openaiModel: "gpt-4o-mini",
+  hasApiKey: false,
+  hasEnvKey: false
+};
 
 export async function loadSettingsData() {
   const [u, p, m, ai] = await Promise.all([
@@ -24,6 +31,17 @@ export async function loadSettingsData() {
   permissions = p;
   machineConfig = m;
   aiSettings = ai || aiSettings;
+}
+
+/** Лише налаштування ШІ — без повного перезавантаження вкладки. */
+export async function refreshAiSettingsFromServer() {
+  try {
+    const ai = await api.getAiSettings();
+    aiSettings = ai || aiSettings;
+  } catch (err) {
+    if (err.message?.includes("адміністратор")) throw err;
+    /* залишаємо локальний стан після успішного PUT */
+  }
 }
 
 export function openSettings(section = "users") {
@@ -258,10 +276,25 @@ function machinesSectionHtml() {
 
 
 function aiSectionHtml() {
+  if (!isAdmin()) {
+    return `
+    <div class="settings-section">
+      <h2>ШІ — OpenAI</h2>
+      <p class="settings-hint" style="color:#b91c1c">
+        Збереження API-ключа доступне лише користувачу з роллю <strong>адміністратор</strong>.
+        Увійдіть як <code>admin</code> або зверніться до адміністратора.
+      </p>
+    </div>`;
+  }
+
   const hasKey = Boolean(aiSettings.hasApiKey);
+  const hasEnv = Boolean(aiSettings.hasEnvKey);
+  const canTest = hasKey || hasEnv;
   const statusBadge = hasKey
-    ? '<span class="badge green">Ключ збережено</span>'
-    : '<span class="badge gray">Ключ не налаштовано</span>';
+    ? '<span class="badge green">Ключ у базі</span>'
+    : hasEnv
+      ? '<span class="badge orange">Лише в .env — натисніть «Зберегти»</span>'
+      : '<span class="badge gray">Ключ не збережено</span>';
 
   return `
     <div class="settings-section ai-settings-page">
@@ -274,7 +307,7 @@ function aiSectionHtml() {
         Без ключа працює лише евристичне зіставлення (номер замовлення, виріб, токени з логу).
       </p>
 
-      <div class="ai-settings-card">
+      <form class="ai-settings-card" id="aiSettingsForm">
         <label class="checkbox-label ai-enable-row">
           <input type="checkbox" id="aiEnabled" ${aiSettings.enabled !== false ? "checked" : ""} />
           Увімкнути AI-зіставлення
@@ -296,8 +329,10 @@ function aiSectionHtml() {
           </div>
           ${
             hasKey
-              ? `<p class="field-hint">Збережено: <code>${escapeHtml(aiSettings.openaiApiKeyMasked || "••••")}</code> — залиште поле порожнім, щоб не змінювати.</p>`
-              : ""
+              ? `<p class="field-hint">У базі: <code>${escapeHtml(aiSettings.openaiApiKeyMasked || "••••")}</code> — залиште поле порожнім, щоб не змінювати ключ.</p>`
+              : hasEnv
+                ? `<p class="field-hint">Ключ є в <code>.env</code> — вставте його сюди і натисніть «Зберегти», щоб записати в базу.</p>`
+                : ""
           }
         </div>
 
@@ -308,25 +343,25 @@ function aiSectionHtml() {
         </div>
 
         <div class="ai-settings-actions">
-          <button type="button" class="btn btn-primary" id="saveAiSettingsBtn">Зберегти</button>
-          <button type="button" class="btn" id="testAiSettingsBtn" ${hasKey ? "" : "disabled"}>Перевірити ключ</button>
+          <button type="submit" class="btn btn-primary" id="saveAiSettingsBtn">Зберегти</button>
+          <button type="button" class="btn" id="testAiSettingsBtn" ${canTest ? "" : "disabled"}>Перевірити ключ</button>
           ${hasKey ? '<button type="button" class="btn btn-danger btn-sm" id="clearAiKeyBtn">Видалити ключ</button>' : ""}
         </div>
         <p class="form-error" id="aiSettingsError" role="alert"></p>
-        <p class="form-success" id="aiSettingsSuccess" hidden></p>
-      </div>
+      </form>
     </div>
   `;
 }
 
 export function renderSettingsView() {
-  const section = state.settingsSection;
+  const section =
+    state.settingsSection === "ai" && !isAdmin() ? "users" : state.settingsSection;
   const nav = [
     ["users", "Користувачі"],
     ["access", "Доступи"],
     ["directories", "Довідники"],
     ["machines", "Станки"],
-    ["ai", "ШІ"]
+    ...(isAdmin() ? [["ai", "ШІ"]] : [])
   ];
 
   const sectionHtml =
@@ -354,6 +389,7 @@ export function renderSettingsView() {
           )
           .join("")}
       </div>
+      ${renderSettingsSaveBanner()}
       ${sectionHtml}
     </div>
   `;
@@ -492,16 +528,21 @@ export function initSettingsUi(onChange) {
       err.classList.add("visible");
       return;
     }
-    try {
-      if (id) await api.updateUser(Number(id), body);
-      else await api.createUser(body);
-      closeUserModal();
-      await loadSettingsData();
-      onChange();
-    } catch (ex) {
-      err.textContent = ex.message;
-      err.classList.add("visible");
-    }
+    const submitBtn = $("#userForm")?.querySelector('[type="submit"]');
+    await runSave(id ? "Користувач" : "Новий користувач", {
+      submitEl: submitBtn,
+      saveFn: () => (id ? api.updateUser(Number(id), body) : api.createUser(body)),
+      successMessage: id ? "Користувача збережено" : "Користувача створено",
+      onSuccess: async () => {
+        closeUserModal();
+        await loadSettingsData();
+        onChange();
+      },
+      onError: (ex) => {
+        err.textContent = ex.message;
+        err.classList.add("visible");
+      }
+    }).catch(() => {});
   });
 }
 
@@ -512,6 +553,13 @@ export function bindSettingsActions(onChange) {
   settingsOnChange = onChange;
   if (settingsActionsBound) return;
   settingsActionsBound = true;
+
+  document.addEventListener("submit", (e) => {
+    if (e.target?.id === "aiSettingsForm") {
+      e.preventDefault();
+      saveAiSettingsFromDom();
+    }
+  });
 
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".settings-page") && !e.target.closest("#userModal")) return;
@@ -557,63 +605,65 @@ export function bindSettingsActions(onChange) {
     if (delBtn) {
       e.preventDefault();
       if (!confirm("Видалити користувача?")) return;
-      api.deleteUser(Number(delBtn.dataset.deleteUser))
-        .then(() => loadSettingsData())
-        .then(settingsOnChange)
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+      runSave("Користувач", {
+        saveFn: () => api.deleteUser(Number(delBtn.dataset.deleteUser)),
+        successMessage: "Користувача видалено",
+        onSuccess: async () => {
+          await loadSettingsData();
+          settingsOnChange();
+        }
+      }).catch(() => {});
       return;
     }
 
     if (e.target.closest("#savePermissionsBtn")) {
-      api
-        .updatePermissions(collectPermissionsFromDom())
-        .then((p) => {
+      runSettingsSave("Доступи", {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.updatePermissions(collectPermissionsFromDom()),
+        onSuccess: (p) => {
           permissions = p;
-          import("./toast.js").then(({ toastSuccess }) => toastSuccess("Доступи збережено"));
-          settingsOnChange();
-        })
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+          return loadSettingsData();
+        }
+      }).catch(() => {});
       return;
     }
 
     const saveMachine = e.target.closest("[data-save-machine]");
     if (saveMachine) {
       const key = saveMachine.dataset.saveMachine;
-      api
-        .updateMachineConfig(key, collectMachineConfigFromDom(key))
-        .then(() => loadSettingsData())
-        .then(() => {
-          settingsOnChange();
-          import("./toast.js").then(({ toastSuccess }) => toastSuccess("Збережено"));
-        })
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+      const label = `Станок: ${stageLabel(key)}`;
+      runSettingsSave(label, {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.updateMachineConfig(key, collectMachineConfigFromDom(key)),
+        onSuccess: () => loadSettingsData()
+      }).catch(() => {});
       return;
     }
 
     const saveMachineApi = e.target.closest("[data-save-machine-api]");
     if (saveMachineApi) {
       const key = saveMachineApi.dataset.saveMachineApi;
-      api
-        .updateMachineConfig(key, {
-          apiUrl: document.querySelector(`[data-machine-url="${key}"]`)?.value ?? "",
-          apiToken: document.querySelector(`[data-machine-token="${key}"]`)?.value ?? "",
-          clearToken: !document.querySelector(`[data-machine-token="${key}"]`)?.value
-        })
-        .then(() => loadSettingsData())
-        .then(() => import("./toast.js").then(({ toastSuccess }) => toastSuccess("API збережено")))
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+      runSettingsSave(`API: ${stageLabel(key)}`, {
+        onReload: () => settingsOnChange(),
+        saveFn: () =>
+          api.updateMachineConfig(key, {
+            apiUrl: document.querySelector(`[data-machine-url="${key}"]`)?.value ?? "",
+            apiToken: document.querySelector(`[data-machine-token="${key}"]`)?.value ?? "",
+            clearToken: !document.querySelector(`[data-machine-token="${key}"]`)?.value
+          }),
+        onSuccess: () => loadSettingsData()
+      }).catch(() => {});
       return;
     }
 
     const ingestMachine = e.target.closest("[data-ingest-machine]");
     if (ingestMachine) {
       const key = ingestMachine.dataset.ingestMachine;
-      api
-        .ingestMachineLog(key)
-        .then((r) => import("./toast.js").then(({ toastSuccess }) => toastSuccess(r.message || "Сканування завершено")))
-        .then(() => loadSettingsData())
-        .then(settingsOnChange)
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+      runSettingsSave(`Сканування: ${stageLabel(key)}`, {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.ingestMachineLog(key),
+        onSuccess: () => loadSettingsData()
+      }).catch(() => {});
       return;
     }
 
@@ -621,70 +671,60 @@ export function bindSettingsActions(onChange) {
     if (fullScanMachine) {
       const key = fullScanMachine.dataset.fullScanMachine;
       if (!confirm("Повторно прочитати всі логи з початку для цього етапу?")) return;
-      api
-        .ingestMachineLog(key, { fullScan: true })
-        .then((r) => import("./toast.js").then(({ toastSuccess }) => toastSuccess(r.message || "Готово")))
-        .then(() => loadSettingsData())
-        .then(settingsOnChange)
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
+      runSettingsSave(`Повне сканування: ${stageLabel(key)}`, {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.ingestMachineLog(key, { fullScan: true }),
+        onSuccess: () => loadSettingsData()
+      }).catch(() => {});
       return;
     }
 
     if (e.target.closest("#machineUploadBtn")) {
       const stage = document.querySelector("#machineUploadStage")?.value;
       const text = document.querySelector("#machineUploadText")?.value ?? "";
-      api
-        .uploadMachineLog(stage, text)
-        .then((r) => import("./toast.js").then(({ toastSuccess }) => toastSuccess(r.message || "Імпортовано")))
-        .then(() => loadSettingsData())
-        .then(settingsOnChange)
-        .catch((ex) => import("./toast.js").then(({ toastError }) => toastError(ex.message)));
-      return;
-    }
-
-    if (e.target.closest("#saveAiSettingsBtn")) {
-      saveAiSettingsFromDom();
+      runSettingsSave("Імпорт логу", {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.uploadMachineLog(stage, text),
+        onSuccess: () => loadSettingsData()
+      }).catch(() => {});
       return;
     }
 
     if (e.target.closest("#clearAiKeyBtn")) {
       if (!confirm("Видалити збережений API ключ OpenAI?")) return;
-      api
-        .updateAiSettings({
-          enabled: document.querySelector("#aiEnabled")?.checked ?? true,
-          openaiModel: document.querySelector("#aiModel")?.value,
-          clearApiKey: true
-        })
-        .then((ai) => {
-          aiSettings = ai;
+      runSettingsSave("ШІ", {
+        onReload: () => settingsOnChange(),
+        saveFn: () =>
+          api.updateAiSettings({
+            enabled: document.querySelector("#aiEnabled")?.checked ?? true,
+            openaiModel: document.querySelector("#aiModel")?.value,
+            clearApiKey: true
+          }),
+        onSuccess: async (ai) => {
+          aiSettings = { ...aiSettings, ...ai };
           const input = document.querySelector("#aiApiKey");
           if (input) input.value = "";
-          return loadSettingsData();
-        })
-        .then(settingsOnChange)
-        .then(() => import("./toast.js").then(({ toastSuccess }) => toastSuccess("Ключ видалено")))
-        .catch((ex) => showAiSettingsError(ex.message));
+          await refreshAiSettingsFromServer();
+        }
+      }).catch(() => {});
       return;
     }
 
     if (e.target.closest("#testAiSettingsBtn")) {
       const errEl = document.querySelector("#aiSettingsError");
-      const okEl = document.querySelector("#aiSettingsSuccess");
       if (errEl) {
         errEl.textContent = "";
         errEl.classList.remove("visible");
       }
-      if (okEl) okEl.hidden = true;
-      api
-        .testAiSettings()
-        .then((r) => {
-          if (okEl) {
-            okEl.textContent = r.message || "Ключ працює";
-            okEl.hidden = false;
-          }
-          import("./toast.js").then(({ toastSuccess }) => toastSuccess(r.message || "Ключ працює"));
-        })
-        .catch((ex) => showAiSettingsError(ex.message));
+      runSettingsSave("Перевірка OpenAI", {
+        onReload: () => settingsOnChange(),
+        saveFn: () => api.testAiSettings()
+      }).catch((ex) => {
+        if (errEl) {
+          errEl.textContent = ex.message;
+          errEl.classList.add("visible");
+        }
+      });
       return;
     }
 
@@ -700,40 +740,70 @@ export function bindSettingsActions(onChange) {
   });
 }
 
-function showAiSettingsError(message) {
-  const errEl = document.querySelector("#aiSettingsError");
-  if (errEl) {
-    errEl.textContent = message;
-    errEl.classList.add("visible");
-  }
-  import("./toast.js").then(({ toastError }) => toastError(message));
-}
-
 function saveAiSettingsFromDom() {
+  if (!isAdmin()) {
+    import("./toast.js").then(({ toastError }) =>
+      toastError("Збереження ключа доступне лише адміністратору")
+    );
+    return;
+  }
+
   const errEl = document.querySelector("#aiSettingsError");
-  const okEl = document.querySelector("#aiSettingsSuccess");
+  const saveBtn = document.querySelector("#saveAiSettingsBtn");
   if (errEl) {
     errEl.textContent = "";
     errEl.classList.remove("visible");
   }
-  if (okEl) okEl.hidden = true;
 
   const rawKey = document.querySelector("#aiApiKey")?.value?.trim() ?? "";
   const body = {
     enabled: document.querySelector("#aiEnabled")?.checked,
     openaiModel: document.querySelector("#aiModel")?.value?.trim()
   };
-  if (rawKey) body.openaiApiKey = rawKey;
 
-  return api
-    .updateAiSettings(body)
-    .then((ai) => {
-      aiSettings = ai;
+  if (rawKey) {
+    if (rawKey.includes("…") || /\*{2,}/.test(rawKey)) {
+      const msg = "Вставте повний ключ sk-…, а не маску з підказки";
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.add("visible");
+      }
+      import("./toast.js").then(({ toastError }) => toastError(msg));
+      return;
+    }
+    body.openaiApiKey = rawKey;
+  } else if (!aiSettings.hasApiKey && !aiSettings.hasEnvKey) {
+    const msg = "Вкажіть API ключ OpenAI (sk-…)";
+    if (errEl) {
+      errEl.textContent = msg;
+      errEl.classList.add("visible");
+    }
+    import("./toast.js").then(({ toastError }) => toastError(msg));
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+
+  runSettingsSave("ШІ", {
+    onReload: () => settingsOnChange(),
+    saveFn: () => api.updateAiSettings(body),
+    onSuccess: async (ai) => {
+      aiSettings = { ...aiSettings, ...ai };
       const input = document.querySelector("#aiApiKey");
       if (input) input.value = "";
-      return loadSettingsData();
+      await refreshAiSettingsFromServer();
+    }
+  })
+    .catch((ex) => {
+      if (errEl) {
+        errEl.textContent = ex.message;
+        errEl.classList.add("visible");
+      }
     })
-    .then(settingsOnChange)
-    .then(() => import("./toast.js").then(({ toastSuccess }) => toastSuccess("Налаштування ШІ збережено")))
-    .catch((ex) => showAiSettingsError(ex.message));
+    .finally(() => {
+      if (saveBtn) saveBtn.disabled = false;
+    });
 }
+
+/** @deprecated Обробник submit на document у bindSettingsActions */
+export function bindAiSettingsForm() {}

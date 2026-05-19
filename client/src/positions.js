@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { runSave } from "./save-flow.js";
 import { loadPositionHistory, renderDrawerHistory } from "./history.js";
 import { expandPosition, getParentPosition } from "./position-tree.js";
 import { state } from "./state.js";
@@ -340,16 +341,24 @@ async function patchStage(stageKey, payload) {
     showError("Спочатку збережіть позицію");
     return;
   }
-  try {
-    const updated = await api.patchPositionStage(draft.id, stageKey, payload);
-    draft = { ...updated };
-    updateHeader();
-    renderDrawerContent();
-    if (activePanel === "history") await refreshDrawerHistory();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+  const stage = STAGES.find((s) => s.key === stageKey);
+  const stageName = stage?.label || stageKey;
+
+  await runSave(`Етап «${stageName}»`, {
+    saveFn: async () => {
+      const updated = await api.patchPositionStage(draft.id, stageKey, payload);
+      draft = { ...updated };
+      return updated;
+    },
+    successMessage: `Етап «${stageName}» збережено`,
+    onSuccess: async () => {
+      updateHeader();
+      renderDrawerContent();
+      if (activePanel === "history") await refreshDrawerHistory();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 async function savePosition() {
@@ -369,32 +378,43 @@ async function savePosition() {
     return;
   }
 
-  try {
-    const body = readForm();
-    if (draft.id) {
-      await api.updatePosition(draft.id, body);
-    } else {
+  const isEdit = Boolean(draft.id);
+  const submitBtn = $("#positionForm")?.querySelector('[type="submit"]');
+
+  await runSave(isEdit ? "Позиція" : "Нова позиція", {
+    submitEl: submitBtn,
+    saveFn: async () => {
+      const body = readForm();
+      if (isEdit) {
+        return api.updatePosition(draft.id, body);
+      }
       const created = await api.createPosition(body);
       if (created.parentId) expandPosition(created.parentId);
-    }
-    closePositionDrawer();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+      return created;
+    },
+    successMessage: isEdit ? "Позицію збережено" : "Позицію створено",
+    onSuccess: async () => {
+      closePositionDrawer();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 async function deletePosition() {
   if (!draft.id) return;
   const kind = draft.parentId ? "підпозицію" : "позицію";
   if (!window.confirm(`Видалити ${kind} #${draft.id} «${draft.item}»?`)) return;
-  try {
-    await api.deletePosition(draft.id);
-    closePositionDrawer();
-    await onSaved();
-  } catch (err) {
-    showError(err.message);
-  }
+
+  await runSave("Позиція", {
+    saveFn: () => api.deletePosition(draft.id),
+    successMessage: "Позицію видалено",
+    onSuccess: async () => {
+      closePositionDrawer();
+      await onSaved();
+    },
+    onError: (err) => showError(err.message)
+  }).catch(() => {});
 }
 
 function bindDrawerEvents() {
@@ -560,10 +580,17 @@ export async function quickAdvancePosition(id, stageKey) {
     stage.type === "constructor"
       ? { status: next, constructor: position.constructor }
       : { status: next, assemblyResponsible: position.assemblyResponsible };
-  const updated = await api.patchPositionStage(id, stageKey, payload);
-  const idx = state.positions.findIndex((p) => p.id === id);
-  if (idx >= 0) state.positions[idx] = updated;
-  await onSaved();
+
+  await runSave(`Етап «${stage.label}»`, {
+    saveFn: async () => {
+      const updated = await api.patchPositionStage(id, stageKey, payload);
+      const idx = state.positions.findIndex((p) => p.id === id);
+      if (idx >= 0) state.positions[idx] = updated;
+      return updated;
+    },
+    successMessage: `«${stage.label}»: ${next}`,
+    onSuccess: () => onSaved()
+  }).catch(() => {});
 }
 
 export function initPositionDrawer() {
