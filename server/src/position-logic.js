@@ -43,7 +43,7 @@ export function derivePositionStatus(row) {
   const allDone =
     hasConstructor && production.every((s) => STAGE_STATUS_DONE.has(s) || !s);
   const anyActive = production.some((s) =>
-    ["Передано", "В роботі", "Проблема"].includes(s)
+    ["Передано", "В роботі", "На паузі", "Проблема"].includes(s)
   );
 
   if (allDone && production.every((s) => STAGE_STATUS_DONE.has(s))) {
@@ -67,7 +67,7 @@ export function computeOverdueDays(row, planDateStr) {
   const plan = parseUaDate(planDateStr);
   if (!plan) return Number(row.overdue_days) || 0;
   const done = ["Готово до встановлення", "Завершено"].includes(row.position_status);
-  if (done || STAGE_STATUS_DONE.has(row.assembly_status) && row.progress >= 100) return 0;
+  if (done || (STAGE_STATUS_DONE.has(row.assembly_status) && row.progress >= 100)) return 0;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

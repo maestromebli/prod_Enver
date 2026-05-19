@@ -117,6 +117,8 @@ export const api = {
   confirmMachineMatch: (matchId) =>
     request(`/api/machine/logs/match/${matchId}/confirm`, { method: "PUT" }),
 
+  getClientsInfo: () => request("/api/clients/info"),
+
   getAiSettings: () => request("/api/settings/ai"),
   updateAiSettings: (body) =>
     request("/api/settings/ai", { method: "PUT", body: JSON.stringify(body) }),

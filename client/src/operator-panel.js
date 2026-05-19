@@ -48,6 +48,18 @@ export function openOperatorView(stageKey) {
   state.operatorSelectedPositionId = null;
 }
 
+/** Перехід у панель оператора з завантаженням черги та перемальовкою UI. */
+export async function enterOperatorView(stageKey) {
+  openOperatorView(stageKey);
+  try {
+    await loadOperatorData();
+  } catch (err) {
+    state.operatorQueue = [];
+    state.machineProgressMessage = err?.message || "Не вдалося завантажити чергу";
+  }
+  window.__enverRender?.();
+}
+
 export function closeOperatorView() {
   stopMachinePolling();
   state.view = isOperator() ? "operator" : "main";

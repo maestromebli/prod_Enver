@@ -1,3 +1,4 @@
+import { api } from "./api.js";
 import {
   canEditOrders,
   canEditPositions,
@@ -631,6 +632,8 @@ export function renderHeaderChrome() {
   const logout = document.querySelector("#logoutBtn");
   const topbar = document.querySelector(".topbar");
   const toolbar = document.querySelector("#mainToolbar");
+  const showMainChrome = state.view === "main";
+  const immersiveOperator = state.view === "operator" && isOperator();
 
   if (chip) {
     chip.hidden = !user;
@@ -650,20 +653,16 @@ export function renderHeaderChrome() {
       opBtn.textContent = "Панель цеху";
       actions?.insertBefore(opBtn, actions.querySelector("#logoutBtn"));
       opBtn.addEventListener("click", async () => {
-        const { openOperatorView } = await import("./operator-panel.js");
+        const { enterOperatorView } = await import("./operator-panel.js");
         const { operatorStages } = await import("./auth.js");
         const stages = operatorStages();
-        openOperatorView(stages[0] || "cutting");
-        window.__enverRender?.();
+        await enterOperatorView(stages[0] || "cutting");
       });
     }
     opBtn.hidden = !showMainChrome;
   } else if (opBtn) {
     opBtn.hidden = true;
   }
-
-  const showMainChrome = state.view === "main";
-  const immersiveOperator = state.view === "operator" && isOperator();
 
   if (topbar) {
     topbar.style.display = immersiveOperator ? "none" : "";
@@ -723,9 +722,19 @@ export function renderApp(options = {}) {
           import("./toast.js").then(({ toastError }) => toastError(err.message));
         }
       },
-      onOpenPosition: (id) => {
-        const position = state.positions.find((p) => p.id === id);
-        if (position) import("./positions.js").then(({ openPositionDrawer }) => openPositionDrawer(position));
+      onOpenPosition: async (id) => {
+        let position = state.positions.find((p) => p.id === id);
+        if (!position) {
+          try {
+            position = await api.getPosition(id);
+          } catch (err) {
+            const { toastError } = await import("./toast.js");
+            toastError(err.message || "Не вдалося відкрити позицію");
+            return;
+          }
+        }
+        const { openPositionDrawer } = await import("./positions.js");
+        openPositionDrawer(position);
       }
     });
   }

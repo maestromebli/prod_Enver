@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ENVER Оператор" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0f2a44" />
+    <title>ENVER — Панель оператора</title>
+    <link rel="manifest" href="/manifest-operator.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("enver_theme");
+          var theme =
+            t === "dark" || t === "light"
+              ? t
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="stylesheet" href="/src/styles/theme-dark.css" />
+    <link rel="stylesheet" href="/src/styles/modal.css" />
+    <link rel="stylesheet" href="/src/styles/operator.css" />
+    <link rel="stylesheet" href="/src/styles/operator-client.css" />
+    <link rel="stylesheet" href="/src/styles/toast.css" />
+    <link rel="stylesheet" href="/src/styles/login.css" />
+  </head>
+  <body class="enver-operator-client">
+    <div class="loading-overlay" id="loadingOverlay">Завантаження…</div>
+
+    <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
+      <div class="modal login-card" role="dialog" aria-labelledby="loginTitle">
+        <header class="login-hero">
+          <span class="login-hero-logo">ENVER</span>
+          <p class="login-hero-tagline">Панель оператора · планшет / станок</p>
+        </header>
+        <form id="loginForm" class="login-form" novalidate>
+          <div class="login-form-body">
+            <h2 class="login-title" id="loginTitle">Вхід оператора</h2>
+            <p class="login-subtitle">Логін і пароль, видані адміністратором</p>
+            <p class="login-form-error" id="loginFormError" role="alert"></p>
+            <div class="login-field">
+              <label for="loginInput">Логін</label>
+              <input id="loginInput" name="login" type="text" required autocomplete="username" autocapitalize="none" />
+            </div>
+            <div class="login-field">
+              <label for="loginPassword">Пароль</label>
+              <input id="loginPassword" name="password" type="password" required autocomplete="current-password" />
+            </div>
+          </div>
+          <div class="login-form-footer">
+            <button type="submit" class="btn btn-primary login-submit" id="loginSubmitBtn">
+              <span id="loginSubmitText">Увійти</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="operator-client-shell" id="appRoot" hidden>
+      <header class="operator-client-header">
+        <span class="brand-logo">ENVER</span>
+        <span class="operator-client-user" id="userChip"></span>
+        <button type="button" class="btn btn-sm" id="logoutBtn" hidden>Вийти</button>
+        <button type="button" class="btn btn-sm operator-kiosk-restore" id="kioskRestoreBtn" hidden>
+          На весь екран
+        </button>
+        <button type="button" class="btn btn-sm operator-kiosk-exit" id="kioskExitBtn" hidden>
+          Вийти з повноекранного
+        </button>
+      </header>
+      <main id="content" class="operator-client-content"></main>
+    </div>
+
+    <div class="modal-backdrop kiosk-password-modal" id="kioskPasswordModal" aria-hidden="true">
+      <div class="modal kiosk-password-card" role="dialog" aria-labelledby="kioskPasswordTitle">
+        <h2 id="kioskPasswordTitle">Вихід з повноекранного</h2>
+        <p class="login-subtitle">Введіть пароль для розблокування</p>
+        <form id="kioskPasswordForm" class="login-form" novalidate>
+          <p class="login-form-error" id="kioskPasswordError" role="alert"></p>
+          <div class="login-field">
+            <label for="kioskPasswordInput">Пароль</label>
+            <input id="kioskPasswordInput" type="password" inputmode="numeric" autocomplete="off" />
+          </div>
+          <div class="login-form-footer kiosk-password-actions">
+            <button type="button" class="btn" id="kioskPasswordCancel">Скасувати</button>
+            <button type="submit" class="btn btn-primary">Підтвердити</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="/src/operator-app.js"></script>
+  </body>
+</html>

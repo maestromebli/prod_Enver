@@ -1,0 +1,46 @@
+{
+  "name": "enver-operator-windows",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Повноекранний клієнт ENVER для операторів станків (Windows)",
+  "main": "src/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable --x64",
+    "pack:zip": "node scripts/pack-release.js"
+  },
+  "build": {
+    "appId": "ua.enver.operator",
+    "productName": "ENVER Operator",
+    "directories": {
+      "output": "../../releases/windows-build"
+    },
+    "files": ["src/**/*", "package.json", "config.default.json"],
+    "extraResources": [
+      {
+        "from": "config.default.json",
+        "to": "config.default.json"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "ENVER-Operator-${version}-portable.exe"
+    },
+    "portable": {
+      "artifactName": "ENVER-Operator.exe"
+    }
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6"
+  },
+  "devDependencies": {
+    "electron": "^35.2.1",
+    "electron-builder": "^26.0.12"
+  }
+}

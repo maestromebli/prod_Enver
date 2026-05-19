@@ -1,5 +1,9 @@
 node_modules/
 dist/
+releases/windows-build/
+releases/_windows-staging/
+releases/enver-operator-windows.zip
+desktop/windows/node_modules/
 server/data/*.db
 server/data/*.db-*
 .DS_Store

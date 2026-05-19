@@ -290,14 +290,28 @@ function repairProductionHead() {
   });
 }
 
-/** Додає права для нових ролей у вже існуючій базі. */
+/** Додає права для нових ролей і підмерджує нові ключі в існуючі записи. */
 function ensureRolePermissions() {
   const upsert = db.prepare(`
     INSERT OR IGNORE INTO role_permissions (role, permissions_json)
     VALUES (@role, @permissions_json)
   `);
-  for (const [role, perms] of Object.entries(DEFAULT_PERMISSIONS)) {
-    upsert.run({ role, permissions_json: JSON.stringify(perms) });
+  const update = db.prepare(`
+    UPDATE role_permissions SET permissions_json = @permissions_json WHERE role = @role
+  `);
+  const get = db.prepare("SELECT permissions_json FROM role_permissions WHERE role = ?");
+
+  for (const [role, defaults] of Object.entries(DEFAULT_PERMISSIONS)) {
+    upsert.run({ role, permissions_json: JSON.stringify(defaults) });
+    const row = get.get(role);
+    if (!row) continue;
+    let existing = {};
+    try {
+      existing = JSON.parse(row.permissions_json || "{}");
+    } catch {
+      existing = {};
+    }
+    update.run({ role, permissions_json: JSON.stringify({ ...defaults, ...existing }) });
   }
 }
 

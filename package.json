@@ -6,6 +6,8 @@
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix client",
+    "build:windows-client": "npm run build --prefix client && npm install --prefix desktop/windows && npm run build --prefix desktop/windows && npm run pack:zip --prefix desktop/windows",
+    "icons:pwa": "node scripts/generate-pwa-icons.mjs",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server"
   },

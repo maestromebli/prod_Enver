@@ -3,6 +3,7 @@ import { canViewSettings, isAdmin } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, ROLES, stageLabel } from "./users-constants.js";
 import { directoriesSectionHtml, handleDirectoriesClick } from "./settings-directories.js";
+import { bindClientsActions, clientsSectionHtml, loadClientsInfo } from "./settings-clients.js";
 import { runSave } from "./save-flow.js";
 import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
@@ -45,6 +46,12 @@ export async function loadSettingsData() {
   users = u;
   permissions = p;
   machineConfig = m;
+
+  try {
+    await loadClientsInfo();
+  } catch {
+    /* посилання на клієнти — з поточного origin */
+  }
 
   if (!isAdmin()) return;
 
@@ -391,6 +398,7 @@ export function renderSettingsView() {
     ["access", "Доступи"],
     ["directories", "Довідники"],
     ["machines", "Станки"],
+    ["clients", "Клієнти"],
     ...(isAdmin() ? [["ai", "ШІ"]] : [])
   ];
 
@@ -399,6 +407,8 @@ export function renderSettingsView() {
       ? usersSectionHtml()
       : section === "access"
         ? accessSectionHtml()
+      : section === "clients"
+        ? clientsSectionHtml()
         : section === "directories"
           ? directoriesSectionHtml()
           : section === "ai"
@@ -593,6 +603,7 @@ let settingsOnChange = () => {};
 
 export function bindSettingsActions(onChange) {
   settingsOnChange = onChange;
+  bindClientsActions();
   if (settingsActionsBound) return;
   settingsActionsBound = true;
 

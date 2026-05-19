@@ -16,6 +16,7 @@ import machineLogsRouter from "./routes/machine-logs.js";
 import settingsRouter from "./routes/settings.js";
 import operatorRouter from "./routes/operator.js";
 import productionRouter from "./routes/production.js";
+import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -54,6 +55,8 @@ function createApiApp() {
   app.use("/api/settings", settingsRouter);
   app.use("/api/operator", operatorRouter);
   app.use("/api/production", productionRouter);
+  app.use("/api/clients", clientsRouter);
+  registerDownloadRoutes(app);
 
   app.use((err, _req, res, _next) => {
     console.error(err);

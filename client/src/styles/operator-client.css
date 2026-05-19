@@ -1,0 +1,113 @@
+.enver-operator-client {
+  min-height: 100dvh;
+  min-height: 100svh;
+  background: var(--bg, #f4f6f9);
+  overscroll-behavior: none;
+}
+
+html.operator-pwa-capable,
+html.operator-pwa-capable body.enver-operator-client {
+  height: 100%;
+  overflow: hidden;
+}
+
+body.operator-kiosk-locked {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  height: 100svh;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.operator-kiosk-locked .operator-client-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+body.operator-kiosk-locked .operator-client-content {
+  overscroll-behavior: contain;
+}
+
+.enver-operator-client .loading-overlay.visible {
+  display: flex;
+}
+
+.operator-client-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.operator-client-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.operator-client-header .brand-logo {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--brand, #0f2a44);
+}
+
+.operator-client-user {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--muted, #64748b);
+}
+
+.operator-client-content {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.operator-kiosk-exit,
+.operator-kiosk-restore {
+  margin-left: 0.25rem;
+}
+
+.kiosk-password-card {
+  max-width: 22rem;
+  padding: 1.25rem;
+}
+
+.kiosk-password-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.kiosk-password-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.kiosk-password-modal .login-form-error.visible {
+  display: block;
+}
+
+.enver-operator-client .operator-panel {
+  min-height: calc(100dvh - 3.5rem);
+}
+
+.enver-operator-client .operator-actions button {
+  min-height: 3rem;
+  font-size: 1.05rem;
+}
+
+@media (pointer: coarse) {
+  .enver-operator-client .operator-queue-item {
+    padding: 0.85rem 1rem;
+  }
+}

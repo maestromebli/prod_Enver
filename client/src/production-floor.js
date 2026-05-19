@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { openOperatorView } from "./operator-panel.js";
+import { enterOperatorView } from "./operator-panel.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
 
@@ -134,14 +134,13 @@ export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
 
   document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      openOperatorView(btn.dataset.openOperatorStage);
-      onRefresh?.();
+      enterOperatorView(btn.dataset.openOperatorStage);
     });
   });
 
   document.querySelectorAll("[data-edit-position]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      onOpenPosition?.(Number(btn.dataset.editPosition));
+      void onOpenPosition?.(Number(btn.dataset.editPosition));
     });
   });
 }

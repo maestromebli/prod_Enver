@@ -108,8 +108,8 @@ router.post("/start", requireOperatorSelf, (req, res) => {
   }
 
   const current = row[field];
-  if (!["Передано", "В роботі", "Не розпочато"].includes(current)) {
-    res.status(400).json({ error: `Етап у статусі «${current}» — не можна почати` });
+  if (!["Передано", "Не розпочато"].includes(current)) {
+    res.status(400).json({ error: `Етап у статусі «${current || "—"}» — не можна почати` });
     return;
   }
 
@@ -128,13 +128,6 @@ router.post("/start", requireOperatorSelf, (req, res) => {
         error: "Спочатку завершіть поточне завдання (натисніть «Закінчив»), потім беріть наступне"
       });
     }
-    return;
-  }
-
-  if (current === "В роботі") {
-    res.status(409).json({
-      error: "Ця позиція вже в роботі. Завершіть її або зверніться до адміністратора"
-    });
     return;
   }
 
