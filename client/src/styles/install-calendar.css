@@ -1,0 +1,1106 @@
+.toolbar--calendar #stageFilter,
+.toolbar--calendar #exportCsvBtn {
+  display: none;
+}
+
+.install-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.install-mode-bar {
+  padding: 10px 14px;
+}
+
+.install-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f3f4;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.install-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.install-mode-btn:hover {
+  color: var(--text);
+}
+
+.install-mode-btn.active {
+  background: var(--white);
+  color: var(--blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.install-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.install-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.install-list-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  flex: 1;
+  min-width: 140px;
+}
+
+.install-list-stats {
+  display: flex;
+  gap: 14px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.install-list-stats strong {
+  color: var(--text);
+}
+
+.install-list-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.install-list-row td strong {
+  color: var(--blue);
+}
+
+.install-calendar {
+  padding: 0;
+  overflow: hidden;
+}
+
+.install-calendar.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.ical-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ical-toolbar-left,
+.ical-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ical-toolbar-center {
+  display: flex;
+  gap: 4px;
+  margin: 0 auto;
+  background: #f1f3f4;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.ical-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  min-width: 180px;
+}
+
+.ical-nav {
+  display: flex;
+  gap: 2px;
+}
+
+.ical-nav-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--text);
+}
+
+.ical-nav-btn:hover {
+  background: #f8f9fa;
+}
+
+.ical-view-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.ical-view-btn.active {
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ical-installer-filter {
+  min-width: 160px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.ical-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.ical-stat strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.ical-stat--warn strong {
+  color: var(--orange);
+}
+
+.ical-body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 620px;
+}
+
+.ical-sidebar {
+  border-right: 1px solid var(--border-soft);
+  padding: 16px;
+  background: #fafbfc;
+  overflow-y: auto;
+}
+
+.ical-create-btn {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.ical-mini-month {
+  margin-bottom: 20px;
+}
+
+.ical-mini-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.ical-mini-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.ical-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.ical-mini-day {
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  cursor: pointer;
+  position: relative;
+  color: var(--text);
+}
+
+.ical-mini-day--muted {
+  color: #9ca3af;
+}
+
+.ical-mini-day--today {
+  background: #e8f0fe;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.ical-mini-day--selected {
+  background: var(--blue);
+  color: #fff;
+}
+
+.ical-mini-day[data-count]::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.ical-queue h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ical-queue-count {
+  background: #fce8e6;
+  color: #c5221f;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.ical-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ical-queue-item {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--white);
+  cursor: grab;
+}
+
+.ical-queue-item:hover {
+  border-color: var(--blue);
+}
+
+.ical-queue-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.ical-queue-sub,
+.ical-queue-installer {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.ical-legend {
+  margin-top: 16px;
+}
+
+.ical-legend h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}
+
+.ical-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.ical-legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.ical-main {
+  overflow: auto;
+  padding: 12px;
+  background: var(--white);
+}
+
+.ical-month-head,
+.ical-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.ical-month-head span {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 8px 4px;
+  text-transform: uppercase;
+}
+
+.ical-month-grid {
+  border-top: 1px solid var(--border-soft);
+  border-left: 1px solid var(--border-soft);
+}
+
+.ical-day {
+  min-height: 110px;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 4px;
+  background: var(--white);
+  transition: background 0.15s;
+}
+
+.ical-day--outside {
+  background: #f8f9fa;
+}
+
+.ical-day--today .ical-day-num {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ical-day--dragover {
+  background: #e8f0fe;
+  outline: 2px dashed var(--blue);
+  outline-offset: -2px;
+}
+
+.ical-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.ical-day-num {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ical-day-wd {
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.ical-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ical-event {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-left: 3px solid var(--event-color, var(--blue));
+  background: color-mix(in srgb, var(--event-color, var(--blue)) 12%, white);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.ical-event:hover {
+  filter: brightness(0.97);
+}
+
+.ical-event.dragging {
+  opacity: 0.5;
+}
+
+.ical-event--ready {
+  border-left-color: var(--green);
+}
+
+.ical-event--problem {
+  background: #fef2f2;
+  border-left-color: var(--red);
+}
+
+.ical-event-title {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ical-event-meta,
+.ical-event-time {
+  display: none;
+}
+
+.ical-more {
+  font-size: 0.68rem;
+  color: var(--muted);
+  padding-left: 4px;
+}
+
+.ical-main--week,
+.ical-main--day {
+  overflow: auto;
+}
+
+.ical-time-grid {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  min-width: 720px;
+}
+
+.ical-time-gutter-head,
+.ical-time-col-head {
+  height: 48px;
+  border-bottom: 1px solid var(--border-soft);
+  background: #fafbfc;
+}
+
+.ical-time-gutter-body {
+  position: relative;
+  border-right: 1px solid var(--border-soft);
+}
+
+.ical-time-label {
+  position: absolute;
+  right: 8px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  transform: translateY(-50%);
+}
+
+.ical-time-cols {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(100px, 1fr));
+}
+
+.ical-main--day .ical-time-cols {
+  grid-template-columns: 1fr;
+}
+
+.ical-time-col-head {
+  text-align: center;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ical-time-col-head--today .ical-time-col-num {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.ical-time-col-wd {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.ical-time-col-num {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.ical-time-col-body {
+  border-right: 1px solid var(--border-soft);
+}
+
+.ical-time-col-inner {
+  position: relative;
+  overflow: hidden;
+}
+
+.ical-time-slots-bg {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 47px,
+    var(--border-soft) 47px,
+    var(--border-soft) 48px
+  );
+  pointer-events: none;
+}
+
+.ical-timed-event {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+  border-radius: 6px;
+  border-left: 4px solid var(--event-color, var(--blue));
+  background: color-mix(in srgb, var(--event-color, var(--blue)) 18%, white);
+  padding: 4px 6px 8px;
+  font-size: 0.72rem;
+  cursor: grab;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  user-select: none;
+  touch-action: none;
+}
+
+.ical-timed-event--active {
+  z-index: 5;
+  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.35);
+  opacity: 0.92;
+}
+
+.ical-timed-label {
+  display: block;
+  font-weight: 600;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
+.ical-resize-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.ical-time-col--dragover .ical-time-col-inner {
+  background: #e8f0fe;
+  outline: 2px dashed var(--blue);
+  outline-offset: -2px;
+}
+
+.install-schedule-modal {
+  max-width: 520px;
+}
+
+.install-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.install-presets-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.ical-day-view {
+  max-width: 900px;
+}
+
+.ical-day-view-allday {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 16px;
+}
+
+.ical-day-view-allday > span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.ical-day-view-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ical-day-view .ical-event {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.ical-day-view .ical-event-time {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.ical-detail-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.ical-detail-card:hover {
+  border-color: var(--blue);
+}
+
+.ical-detail-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.ical-detail-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+.ical-detail-card dt {
+  color: var(--muted);
+}
+
+.ical-agenda-group {
+  margin-bottom: 24px;
+}
+
+.ical-agenda-group h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--navy);
+}
+
+.ical-agenda-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 120px;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--event-color, var(--blue));
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--white);
+  cursor: pointer;
+}
+
+.ical-agenda-row:hover {
+  background: #f8f9fa;
+}
+
+.ical-agenda-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ical-agenda-main small {
+  color: var(--muted);
+}
+
+.ical-agenda-date {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ical-agenda-installer {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.ical-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.ical-hint {
+  margin: 0;
+  padding: 10px 18px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border-soft);
+  background: #fafbfc;
+}
+
+/* ——— Заповнення по днях ——— */
+.ical-day-fill {
+  margin-top: 4px;
+}
+
+.ical-day-fill-track {
+  height: 4px;
+  background: #e8edf3;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ical-day-fill-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s;
+}
+
+.ical-day-fill--empty .ical-day-fill-bar {
+  width: 0 !important;
+}
+
+.ical-day-fill--low .ical-day-fill-bar {
+  background: #86efac;
+}
+
+.ical-day-fill--medium .ical-day-fill-bar {
+  background: #fbbf24;
+}
+
+.ical-day-fill--high .ical-day-fill-bar {
+  background: #fb923c;
+}
+
+.ical-day-fill--over .ical-day-fill-bar {
+  background: #ef4444;
+}
+
+.ical-day-fill-count {
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.ical-mini-day--low {
+  background: #ecfdf5;
+}
+
+.ical-mini-day--medium {
+  background: #fffbeb;
+}
+
+.ical-mini-day--high {
+  background: #ffedd5;
+}
+
+.ical-mini-day--over {
+  background: #fee2e2;
+  font-weight: 700;
+}
+
+.ical-day--fill-low {
+  background: #f8fffb;
+}
+
+.ical-day--fill-medium {
+  background: #fffdf5;
+}
+
+.ical-day--fill-high {
+  background: #fff8f0;
+}
+
+.ical-day--fill-over {
+  background: #fef2f2;
+}
+
+.ical-occupancy {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: var(--white);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+.ical-occupancy-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.ical-occupancy-track {
+  height: 8px;
+  background: #e8edf3;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.ical-occupancy-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #86efac, #fbbf24, #ef4444);
+  border-radius: 4px;
+  transition: width 0.25s;
+}
+
+.ical-occupancy-pct {
+  font-size: 0.85rem;
+  color: var(--navy);
+}
+
+.ical-fill-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.fill-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.fill-swatch--empty {
+  background: #e8edf3;
+}
+
+.fill-swatch--low {
+  background: #86efac;
+}
+
+.fill-swatch--medium {
+  background: #fbbf24;
+}
+
+.fill-swatch--high {
+  background: #fb923c;
+}
+
+.fill-swatch--over {
+  background: #ef4444;
+}
+
+/* ——— Підказка: монтажі поза поточним періодом ——— */
+.ical-range-hint {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f5d565;
+  font-size: 0.85rem;
+}
+
+.ical-range-hint p {
+  margin: 0 0 10px;
+}
+
+/* ——— Тиждень: колонки по днях ——— */
+.ical-week-board {
+  display: flex;
+  flex-direction: column;
+  min-width: 700px;
+}
+
+.ical-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.ical-week-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.ical-week-col:last-child {
+  border-right: none;
+}
+
+.ical-week-col-events {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  min-height: 80px;
+}
+
+.ical-week-col-events .ical-event {
+  font-size: 0.72rem;
+  padding: 4px 6px;
+}
+
+.ical-empty-day {
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 4px;
+}
+
+.ical-week-cols {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ical-week-col-head {
+  padding: 8px 6px;
+  text-align: center;
+  border-right: 1px solid var(--border-soft);
+  background: #fafbfc;
+}
+
+.ical-week-col-head--today .ical-week-col-num {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.ical-week-col-wd {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.ical-week-col-num {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.ical-week-lanes {
+  position: relative;
+  border: 1px solid var(--border-soft);
+  border-top: none;
+  background: var(--white);
+  min-height: 80px;
+}
+
+.ical-span-event {
+  position: absolute;
+  z-index: 2;
+  border-radius: 6px;
+  border-left: 4px solid var(--event-color, var(--blue));
+  background: color-mix(in srgb, var(--event-color, var(--blue)) 20%, white);
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  cursor: grab;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  user-select: none;
+  touch-action: none;
+  min-height: 28px;
+}
+
+.ical-span-event--active {
+  z-index: 5;
+  opacity: 0.92;
+  outline: 2px solid var(--blue);
+}
+
+.ical-span-label {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.ical-resize-day {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.ical-day-panel {
+  max-width: 560px;
+}
+
+.ical-day-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .ical-body {
+    grid-template-columns: 1fr;
+  }
+
+  .ical-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    max-height: 280px;
+  }
+
+  .ical-toolbar-center {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ical-week-grid {
+    grid-template-columns: repeat(7, minmax(90px, 1fr));
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .ical-stats {
+    display: none;
+  }
+
+  .ical-agenda-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ical-day {
+    min-height: 80px;
+  }
+}

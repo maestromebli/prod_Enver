@@ -1,0 +1,18 @@
+services:
+  enver:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - enver-data:/app/server/data
+      - ./server/samples:/samples:ro
+      - machine-logs:/machine-logs:ro
+    restart: unless-stopped
+
+volumes:
+  enver-data:
+  machine-logs:

@@ -1,0 +1,85 @@
+import { getUserByToken } from "../auth-service.js";
+import { STAGE_STATUS_FIELD } from "../roles.js";
+
+function extractToken(req) {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) return header.slice(7).trim();
+  return null;
+}
+
+export function requireAuth(req, res, next) {
+  const token = extractToken(req);
+  const user = getUserByToken(token);
+  if (!user) {
+    res.status(401).json({ error: "Увійдіть у систему" });
+    return;
+  }
+  req.user = user;
+  req.authToken = token;
+  next();
+}
+
+export function requirePermission(key) {
+  return (req, res, next) => {
+    if (req.user?.permissions?.[key]) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "Недостатньо прав доступу" });
+  };
+}
+
+export function requireAdmin(req, res, next) {
+  if (req.user?.role === "admin") {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Доступ лише для адміністратора" });
+}
+
+/** Повний CRUD позицій або PATCH етапу в межах своїх stages (оператор). */
+export function requirePositionWrite(req, res, next) {
+  if (req.user?.permissions?.canEditPositions) {
+    next();
+    return;
+  }
+  const stageKey = req.params.stageKey;
+  if (stageKey && canOperatorStage(req.user, stageKey)) {
+    next();
+    return;
+  }
+  if (req.method === "PATCH" && stageKey) {
+    res.status(403).json({ error: "Немає доступу до цього етапу" });
+    return;
+  }
+  res.status(403).json({ error: "Недостатньо прав для зміни позицій" });
+}
+
+export function requireOrderWrite(req, res, next) {
+  return requirePermission("canEditOrders")(req, res, next);
+}
+
+function canOperatorStage(user, stageKey) {
+  if (user?.role !== "operator") return false;
+  const stages = [...(user.stages || []), ...(user.permissions?.stages || [])];
+  return stages.includes(stageKey) && Boolean(STAGE_STATUS_FIELD[stageKey]);
+}
+
+export function requireOperatorSelf(req, res, next) {
+  const bodyId = Number(req.body?.userId);
+  if (bodyId && bodyId !== req.user.id) {
+    res.status(403).json({ error: "Можна діяти лише від свого імені" });
+    return;
+  }
+  if (!bodyId) req.body.userId = req.user.id;
+  const stageKey = req.body?.stageKey || req.params.stageKey;
+  if (req.user.role === "operator" && stageKey && !canOperatorStage(req.user, stageKey)) {
+    res.status(403).json({ error: "Немає доступу до цього етапу" });
+    return;
+  }
+  next();
+}
+
+export function auditActor(req) {
+  return req.user ? { id: req.user.id, name: req.user.name } : null;
+}

@@ -1,0 +1,33 @@
+import { db } from "./db.js";
+
+export function getSetting(key, fallback = null) {
+  const row = db.prepare("SELECT value_json FROM app_settings WHERE key = ?").get(key);
+  if (!row) return fallback;
+  try {
+    return JSON.parse(row.value_json);
+  } catch {
+    return fallback;
+  }
+}
+
+export function setSetting(key, value) {
+  db.prepare(`
+    INSERT INTO app_settings (key, value_json) VALUES (@key, @value_json)
+    ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
+  `).run({ key, value_json: JSON.stringify(value) });
+}
+
+export function getAiSettings() {
+  const raw = getSetting("ai", {});
+  return {
+    openaiApiKey: raw.openaiApiKey || process.env.OPENAI_API_KEY || "",
+    openaiModel: raw.openaiModel || process.env.OPENAI_MODEL || "gpt-4o-mini",
+    enabled: raw.enabled !== false
+  };
+}
+
+export function maskSecret(value) {
+  if (!value) return "";
+  if (value.length <= 8) return "••••••••";
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+}

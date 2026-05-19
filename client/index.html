@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>ENVER — Виробничий контроль замовлень</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-family='Arial' font-weight='700' font-size='14'%3EE%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="stylesheet" href="/src/styles/modal.css" />
+    <link rel="stylesheet" href="/src/styles/position.css" />
+    <link rel="stylesheet" href="/src/styles/history.css" />
+    <link rel="stylesheet" href="/src/styles/settings.css" />
+    <link rel="stylesheet" href="/src/styles/operator.css" />
+    <link rel="stylesheet" href="/src/styles/toast.css" />
+    <link rel="stylesheet" href="/src/styles/login.css" />
+    <link rel="stylesheet" href="/src/styles/responsive.css" />
+    <link rel="stylesheet" href="/src/styles/install-calendar.css" />
+  </head>
+  <body>
+    <div class="loading-overlay" id="loadingOverlay">Завантаження даних…</div>
+
+    <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
+      <div class="modal login-card" role="dialog" aria-labelledby="loginTitle" aria-describedby="loginSubtitle">
+        <header class="login-hero">
+          <span class="login-hero-logo">ENVER</span>
+          <p class="login-hero-tagline">Виробничий контроль замовлень</p>
+        </header>
+        <form id="loginForm" class="login-form" novalidate>
+          <div class="login-form-body">
+            <div>
+              <h2 class="login-title" id="loginTitle">Вхід у систему</h2>
+              <p class="login-subtitle" id="loginSubtitle">Увійдіть за логіном і паролем, виданими адміністратором</p>
+            </div>
+            <p class="login-form-error" id="loginFormError" role="alert" aria-live="polite"></p>
+            <div class="login-field">
+              <label for="loginInput">Логін</label>
+              <div class="login-input-wrap">
+                <input
+                  id="loginInput"
+                  name="login"
+                  type="text"
+                  required
+                  autocomplete="username"
+                  placeholder="Ваш логін"
+                  autocapitalize="none"
+                  spellcheck="false"
+                />
+              </div>
+            </div>
+            <div class="login-field">
+              <label for="loginPassword">Пароль</label>
+              <div class="login-input-wrap login-input-wrap--password">
+                <input
+                  id="loginPassword"
+                  name="password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  class="login-password-toggle"
+                  id="loginPasswordToggle"
+                  aria-label="Показати пароль"
+                  aria-pressed="false"
+                >
+                  <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" hidden>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                    <path d="M1 1l22 22" />
+                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <details class="login-demo-hint" id="loginDemoHint">
+              <summary>Тестові облікові записи</summary>
+              <ul>
+                <li>Адмін: <code>admin</code> / <code>admin</code></li>
+                <li>Оператори: <code>porizka</code>, <code>krayka</code>, <code>prisadka</code>, <code>zbirka</code> — пароль <code>1234</code></li>
+              </ul>
+            </details>
+          </div>
+          <div class="login-form-footer">
+            <button type="submit" class="btn btn-primary login-submit" id="loginSubmitBtn">
+              <span class="login-submit-spinner" id="loginSubmitSpinner" hidden aria-hidden="true"></span>
+              <span class="login-submit-text" id="loginSubmitText">Увійти</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="app" id="appRoot">
+      <div class="topbar">
+        <div class="header-bar">
+          <div class="brand-compact">
+            <span class="brand-logo">ENVER</span>
+            <span class="brand-tagline">Київ · меблі на замовлення</span>
+          </div>
+          
+          <div class="kpi-strip" id="kpiGrid"></div>
+          <div class="kpi-trends" id="kpiTrends" hidden></div>
+          <div class="header-actions" id="headerActions">
+            <span class="user-chip" id="userChip" hidden></span>
+            <button type="button" class="btn-icon" id="settingsGearBtn" title="Налаштування" aria-label="Налаштування" hidden>⚙</button>
+            <button type="button" class="btn btn-sm" id="logoutBtn" hidden>Вийти</button>
+          </div>
+        </div>
+        <div class="tabs" id="tabs"></div>
+      </div>
+
+      <div class="toolbar" id="mainToolbar">
+        <input id="searchInput" placeholder="Пошук: замовлення, об'єкт, виріб..." />
+        <select id="statusFilter">
+          <option value="">Усі статуси</option>
+          <option value="Передано">Передано</option>
+          <option value="В роботі">В роботі</option>
+          <option value="Готово">Готово</option>
+          <option value="Готово до встановлення">Готово до встановлення</option>
+          <option value="На паузі">На паузі</option>
+          <option value="Проблема">Проблема</option>
+          <option value="Не розпочато">Не розпочато</option>
+        </select>
+        <select id="responsibleFilter">
+          <option value="">Усі відповідальні</option>
+        </select>
+        <select id="stageFilter" hidden aria-label="Етап">
+          <option value="">Усі етапи</option>
+          <option value="Конструктив">Конструктив</option>
+          <option value="Порізка">Порізка</option>
+          <option value="Крайкування">Крайкування</option>
+          <option value="Присадка">Присадка</option>
+          <option value="Збірка">Збірка</option>
+        </select>
+        <button id="resetBtn" type="button">Скинути</button>
+        <div class="toolbar-actions" id="toolbarActions"></div>
+      </div>
+
+      <main id="content"></main>
+    </div>
+
+    <div class="modal-backdrop" id="orderModal" aria-hidden="true">
+      <div class="modal" role="dialog" aria-labelledby="orderModalTitle">
+        <div class="modal-header">
+          <h2 id="orderModalTitle">Замовлення</h2>
+          <button type="button" class="modal-close" id="closeOrderModal" aria-label="Закрити">×</button>
+        </div>
+        <form id="orderForm">
+          <div class="modal-body">
+            <p class="form-error" id="orderFormError"></p>
+            <input type="hidden" id="orderId" name="id" />
+            <div class="form-field">
+              <label for="orderNumber">Номер замовлення</label>
+              <input id="orderNumber" name="orderNumber" required />
+            </div>
+            <div class="form-field">
+              <label for="orderObject">Об'єкт / Адреса</label>
+              <input id="orderObject" name="object" required />
+            </div>
+            <div class="form-field">
+              <label for="orderClient">Клієнт</label>
+              <input id="orderClient" name="client" />
+            </div>
+            <div class="form-field">
+              <label for="orderManager">Менеджер</label>
+              <input id="orderManager" name="manager" list="managersList" />
+              <datalist id="managersList"></datalist>
+            </div>
+            <div class="form-field">
+              <label for="orderStartDate">Дата запуску</label>
+              <input id="orderStartDate" name="startDate" placeholder="дд.мм.рррр" />
+            </div>
+            <div class="form-field">
+              <label for="orderPlanDate">Планова дата завершення</label>
+              <input id="orderPlanDate" name="planDate" placeholder="дд.мм.рррр" />
+            </div>
+            <div class="form-field">
+              <label for="orderStatus">Статус замовлення</label>
+              <select id="orderStatus" name="status"></select>
+            </div>
+            <div class="form-field">
+              <label for="orderPriority">Пріоритет</label>
+              <select id="orderPriority" name="priority"></select>
+            </div>
+            <div class="form-field">
+              <label for="orderComment">Коментар</label>
+              <textarea id="orderComment" name="comment"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-danger" id="deleteOrderBtn" style="margin-right: auto; display: none">
+              Видалити
+            </button>
+            <button type="button" class="btn" id="cancelOrderBtn">Скасувати</button>
+            <button type="submit" class="btn btn-primary">Зберегти</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
