@@ -13,10 +13,9 @@ export async function mapUser(row) {
   } catch {
     stages = [];
   }
-  const rolePerms = await one(
-    "SELECT permissions_json FROM role_permissions WHERE role = $1",
-    [row.role]
-  );
+  const rolePerms = await one("SELECT permissions_json FROM role_permissions WHERE role = $1", [
+    row.role
+  ]);
   let permissions = { ...(DEFAULT_PERMISSIONS[row.role] || DEFAULT_PERMISSIONS.operator) };
   if (rolePerms?.permissions_json) {
     try {
@@ -54,10 +53,11 @@ function createToken() {
 export async function createSession(userId) {
   const token = createToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  await run(
-    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
-    [token, userId, expiresAt]
-  );
+  await run(`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`, [
+    token,
+    userId,
+    expiresAt
+  ]);
   return { token, expiresAt };
 }
 
@@ -83,10 +83,9 @@ export async function getUserByToken(token) {
 }
 
 export async function authenticate(login, password) {
-  const row = await one(
-    "SELECT * FROM users WHERE lower(login) = lower($1) AND active = TRUE",
-    [login.trim()]
-  );
+  const row = await one("SELECT * FROM users WHERE lower(login) = lower($1) AND active = TRUE", [
+    login.trim()
+  ]);
   if (!row || !verifyPassword(password, row.password_hash)) return null;
   return mapUser(row);
 }

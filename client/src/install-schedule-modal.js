@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { canEditPositions } from "./auth.js";
-import { formatUaDate, parseUaDate, toIsoDate, fromIsoDate, addDays } from "./install-calendar-dates.js";
+import { parseUaDate, toIsoDate, fromIsoDate, addDays } from "./install-calendar-dates.js";
 import { dayPresetOptions, getInstallDayRange, inputDateToUa } from "./install-calendar-days.js";
 import { isInstallRelevant } from "./install-utils.js";
 import { state } from "./state.js";
@@ -58,7 +58,7 @@ function ensureModal() {
         </div>
       </form>
     </div>
-  `
+  `;
 
   document.body.appendChild(el);
 
@@ -158,7 +158,9 @@ export function openInstallScheduleModal(options = {}) {
     options.position ||
     (options.positionId ? state.positions.find((p) => p.id === options.positionId) : null);
 
-  const isoStart = options.isoDay || (position?.installDate ? isoFromUa(position.installDate) : toIsoDate(new Date()));
+  const isoStart =
+    options.isoDay ||
+    (position?.installDate ? isoFromUa(position.installDate) : toIsoDate(new Date()));
   const range = position ? getInstallDayRange(position) : null;
   const isoEnd = range ? toIsoDate(range.end) : isoStart;
 
@@ -172,7 +174,9 @@ export function openInstallScheduleModal(options = {}) {
   $("#installScheduleDateEnd").value = isoEnd;
   $("#installScheduleInstaller").value = position?.installResponsible || "";
 
-  $("#installScheduleTitle").textContent = position?.installDate ? "Редагувати монтаж" : "Запланувати монтаж";
+  $("#installScheduleTitle").textContent = position?.installDate
+    ? "Редагувати монтаж"
+    : "Запланувати монтаж";
   $("#clearInstallScheduleBtn").style.display = position?.installDate ? "" : "none";
 
   showError("");
@@ -201,9 +205,7 @@ export function captureInstallScheduleOverlay() {
 
 export function restoreInstallScheduleOverlay(saved) {
   if (!saved) return;
-  const position = saved.positionId
-    ? state.positions.find((p) => p.id === saved.positionId)
-    : null;
+  const position = saved.positionId ? state.positions.find((p) => p.id === saved.positionId) : null;
   openInstallScheduleModal({
     position,
     positionId: saved.positionId,

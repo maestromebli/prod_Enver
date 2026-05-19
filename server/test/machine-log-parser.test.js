@@ -16,7 +16,7 @@ describe("machine-log-parser", () => {
   });
 
   it("витягує job ref для зіставлення", () => {
-    const p = parseLogLine('Job: EN-2405-012 Kitchen panel', "generic");
+    const p = parseLogLine("Job: EN-2405-012 Kitchen panel", "generic");
     assert.ok(p.jobRef.includes("EN-2405") || p.tokens.length > 0);
   });
 

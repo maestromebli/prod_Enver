@@ -22,14 +22,10 @@ import {
   renderProductionFloorTab
 } from "./production-floor.js";
 import { state } from "./state.js";
-import { badge, escapeHtml, overdue, progressBar } from "./utils.js";
+import { badge, escapeHtml, overdue } from "./utils.js";
 import { orderRowHighlightClasses } from "./workflows.js";
 
 export { filteredPositions };
-
-function progress(value) {
-  return progressBar(value);
-}
 
 function emptyRow(colspan = 10) {
   return `<tr><td colspan="${colspan}" class="empty">Немає даних за обраними фільтрами</td></tr>`;
@@ -490,7 +486,6 @@ function dashboard() {
     </div>
   `;
 }
-
 
 function visibleTabs() {
   return TABS.filter((tab) => tab !== PRODUCTION_FLOOR_TAB || canViewProductionFloor());

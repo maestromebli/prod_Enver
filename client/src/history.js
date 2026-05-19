@@ -119,8 +119,7 @@ export function historyTab() {
     "    </table>",
     "  </div>",
     "</div>"
-  ]
-    .join("\n");
+  ].join("\n");
 }
 
 export function renderDrawerHistory(entries) {

@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { canEditPositions } from "./auth.js";
-import { formatUaDate, fromIsoDate, toIsoDate } from "./install-calendar-dates.js";
+import { formatUaDate, fromIsoDate } from "./install-calendar-dates.js";
 import {
   DAY_END_MIN,
   DAY_START_MIN,
@@ -127,7 +127,7 @@ export function bindTimedCalendarDrag(root, { onSaved, onOpenEdit }) {
     }
   };
 
-  const onUp = (e) => {
+  const onUp = () => {
     if (!moved && mode === "move" && el) {
       onOpenEdit?.(Number(el.dataset.installEvent));
     }

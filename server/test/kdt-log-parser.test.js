@@ -37,7 +37,11 @@ describe("kdt-log-parser", () => {
         time: ts.raw,
         date: ts.date,
         raw: line,
-        eventType: line.includes("开始加工") ? "cutting_started" : line.includes("加工完成") ? "cutting_completed" : "unknown",
+        eventType: line.includes("开始加工")
+          ? "cutting_started"
+          : line.includes("加工完成")
+            ? "cutting_completed"
+            : "unknown",
         job: extractJobFromXmlPath(line.match(/\.xml/i) ? line : null),
         counters: null
       });

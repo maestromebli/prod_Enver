@@ -1,9 +1,7 @@
 import { state } from "./state.js";
 
 const API_BASE =
-  typeof window !== "undefined" && window.location?.origin
-    ? window.location.origin
-    : "";
+  typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
 
 const TOKEN_KEY = "enver_token";
 
@@ -61,13 +59,16 @@ export const api = {
   getOrders: () => request("/api/orders"),
   getOrder: (id) => request(`/api/orders/${id}`),
   createOrder: (body) => request("/api/orders", { method: "POST", body: JSON.stringify(body) }),
-  updateOrder: (id, body) => request(`/api/orders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  updateOrder: (id, body) =>
+    request(`/api/orders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteOrder: (id) => request(`/api/orders/${id}`, { method: "DELETE" }),
 
   getPositions: () => request("/api/positions"),
   getPosition: (id) => request(`/api/positions/${id}`),
-  createPosition: (body) => request("/api/positions", { method: "POST", body: JSON.stringify(body) }),
-  updatePosition: (id, body) => request(`/api/positions/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  createPosition: (body) =>
+    request("/api/positions", { method: "POST", body: JSON.stringify(body) }),
+  updatePosition: (id, body) =>
+    request(`/api/positions/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   patchPositionStage: (id, stageKey, body) =>
     request(`/api/positions/${id}/stage/${stageKey}`, {
       method: "PATCH",
@@ -92,7 +93,8 @@ export const api = {
 
   getUsers: () => request("/api/users"),
   createUser: (body) => request("/api/users", { method: "POST", body: JSON.stringify(body) }),
-  updateUser: (id, body) => request(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  updateUser: (id, body) =>
+    request(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
 
   getPermissions: () => request("/api/users/permissions"),
@@ -127,10 +129,14 @@ export const api = {
   getProductionFloor: () => request("/api/production/floor"),
 
   getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
-  operatorStart: (body) => request("/api/operator/start", { method: "POST", body: JSON.stringify(body) }),
-  operatorPause: (body) => request("/api/operator/pause", { method: "POST", body: JSON.stringify(body) }),
-  operatorResume: (body) => request("/api/operator/resume", { method: "POST", body: JSON.stringify(body) }),
-  operatorFinish: (body) => request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
+  operatorStart: (body) =>
+    request("/api/operator/start", { method: "POST", body: JSON.stringify(body) }),
+  operatorPause: (body) =>
+    request("/api/operator/pause", { method: "POST", body: JSON.stringify(body) }),
+  operatorResume: (body) =>
+    request("/api/operator/resume", { method: "POST", body: JSON.stringify(body) }),
+  operatorFinish: (body) =>
+    request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
 
   getHistory: (params = {}) => {
     const q = new URLSearchParams();

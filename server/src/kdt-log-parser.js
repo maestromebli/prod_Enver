@@ -4,18 +4,18 @@ import path from "path";
 /** KDT Saw — парсер логів (адаптовано з kdt_log_parser_enver.js для ENVER). */
 
 export const KDT_EVENT_MAP = {
-  "清空加工数据": "clear_processing_data",
-  "重新获取": "reload_data",
-  "获取加工数据": "get_processing_data",
-  "数据校验成功": "data_validated",
-  "开始加工": "cutting_started",
-  "暂停加工": "cutting_paused",
-  "加工完成": "cutting_completed",
-  "大板加工完成": "main_board_completed",
-  "中间板加工完成": "middle_board_completed",
+  清空加工数据: "clear_processing_data",
+  重新获取: "reload_data",
+  获取加工数据: "get_processing_data",
+  数据校验成功: "data_validated",
+  开始加工: "cutting_started",
+  暂停加工: "cutting_paused",
+  加工完成: "cutting_completed",
+  大板加工完成: "main_board_completed",
+  中间板加工完成: "middle_board_completed",
   "循环加工结束，全部任务已完成加工": "all_tasks_completed",
-  "跳转准备加工": "prepare_next_pattern",
-  "点击开料编辑数据确认按钮": "cutting_data_confirmed",
+  跳转准备加工: "prepare_next_pattern",
+  点击开料编辑数据确认按钮: "cutting_data_confirmed",
   "System.UriFormatException": "data_push_error"
 };
 
@@ -207,9 +207,7 @@ export function determineKdtStatus(events) {
   const lastPushError = getLastEvent(events, "data_push_error");
   const lastStep = getLastEvent(events, "operation_step");
 
-  const eventsAfterLastStart = lastStart
-    ? events.filter((e) => e.date > lastStart.date)
-    : [];
+  const eventsAfterLastStart = lastStart ? events.filter((e) => e.date > lastStart.date) : [];
   const stepsAfterLastStart = eventsAfterLastStart.filter((e) => e.eventType === "operation_step");
   const currentStep = stepsAfterLastStart.length
     ? stepsAfterLastStart[stepsAfterLastStart.length - 1].step
@@ -314,7 +312,7 @@ export function kdtEventToEnverParsed(event, kdtStatus) {
   const progress =
     event.counters?.doneTotal > 0
       ? Math.round((event.counters.doneCurrent / event.counters.doneTotal) * 100)
-      : kdtStatus?.progress ?? null;
+      : (kdtStatus?.progress ?? null);
 
   let eventType = event.eventType;
   if (eventType === "cutting_completed" || eventType === "all_tasks_completed") {

@@ -1,5 +1,8 @@
 import { TABS } from "./constants.js";
-import { captureInstallScheduleOverlay, restoreInstallScheduleOverlay } from "./install-schedule-modal.js";
+import {
+  captureInstallScheduleOverlay,
+  restoreInstallScheduleOverlay
+} from "./install-schedule-modal.js";
 import { captureOrderModalState, restoreOrderModalState } from "./orders.js";
 import { capturePositionDrawerState, restorePositionDrawerState } from "./positions.js";
 import { state } from "./state.js";
@@ -111,7 +114,8 @@ export function applyUiState(snapshot) {
   }
 
   applyFilters(snapshot.filters);
-  if (snapshot.historyEntityFilter != null) state.historyEntityFilter = snapshot.historyEntityFilter;
+  if (snapshot.historyEntityFilter != null)
+    state.historyEntityFilter = snapshot.historyEntityFilter;
 
   if (Array.isArray(snapshot.expandedPositionIds)) {
     state.expandedPositionIds = new Set(

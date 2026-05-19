@@ -10,7 +10,7 @@ function crc32(buf) {
   let c = ~0;
   for (let i = 0; i < buf.length; i++) {
     c ^= buf[i];
-    for (let k = 0; k < 8; k++) c = c & 1 ? (0xedb88320 ^ (c >>> 1)) : c >>> 1;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
   }
   return ~c >>> 0;
 }
@@ -70,18 +70,9 @@ function drawIcon(size) {
     const accent = [56, 189, 248, 255];
     const mix = 1 - t * 0.35;
     const letter =
-      x > s * 0.28 &&
-      x < s * 0.72 &&
-      y > s * 0.22 &&
-      y < s * 0.78 &&
-      Math.abs(x - cx) < s * 0.14;
+      x > s * 0.28 && x < s * 0.72 && y > s * 0.22 && y < s * 0.78 && Math.abs(x - cx) < s * 0.14;
     if (letter) return accent;
-    return [
-      Math.round(bg[0] * mix),
-      Math.round(bg[1] * mix),
-      Math.round(bg[2] * mix),
-      255
-    ];
+    return [Math.round(bg[0] * mix), Math.round(bg[1] * mix), Math.round(bg[2] * mix), 255];
   });
 }
 

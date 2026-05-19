@@ -85,7 +85,6 @@ export function bindDayCalendarDrag(root, { onSaved, onOpenEdit }) {
     if (mode === "resize") {
       const hit = colFromPointer(colsWrap, e.clientX);
       if (!hit) return;
-      const colStart = Number(el.dataset.colStart);
       const start = fromIsoDate(origStartIso);
       const endCol = hit.index;
       const weekStart = fromIsoDate(colsWrap.dataset.weekStart);

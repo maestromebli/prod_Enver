@@ -9,7 +9,6 @@ import {
   STAGE_STATUSES,
   STAGES,
   getNextStatus,
-  getStageResponsible,
   getStageStatus,
   stageStatusClass
 } from "./workflows.js";
@@ -35,7 +34,9 @@ function showError(message) {
 }
 
 function fillSelect(el, options, value) {
-  el.innerHTML = options.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
+  el.innerHTML = options
+    .map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`)
+    .join("");
   if (value !== undefined && value !== "") el.value = value;
 }
 
@@ -68,7 +69,8 @@ function renderPipeline() {
     const statusSelect = `
       <select class="pipeline-select" data-pipeline-status="${stage.key}" aria-label="Статус ${escapeHtml(stage.label)}">
         ${STAGE_STATUSES.map(
-          (s) => `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
+          (s) =>
+            `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
         ).join("")}
       </select>
     `;
@@ -90,7 +92,10 @@ function renderPipeline() {
 function renderDrawerContent() {
   const p = draft;
   const orderOptions = state.orders
-    .map((o) => `<option value="${escapeHtml(o.orderNumber)}">${escapeHtml(o.orderNumber)} — ${escapeHtml(o.object)}</option>`)
+    .map(
+      (o) =>
+        `<option value="${escapeHtml(o.orderNumber)}">${escapeHtml(o.orderNumber)} — ${escapeHtml(o.object)}</option>`
+    )
     .join("");
 
   $("#positionDrawerBody").innerHTML = `
@@ -262,8 +267,7 @@ async function refreshDrawerHistory() {
   const el = $("#positionHistoryPanel");
   if (!el) return;
   if (!draft?.id) {
-    el.innerHTML =
-      '<p class="note">Збережіть позицію, щоб переглядати історію змін.</p>';
+    el.innerHTML = '<p class="note">Збережіть позицію, щоб переглядати історію змін.</p>';
     return;
   }
   el.innerHTML = '<p class="history-muted">Завантаження…</p>';
@@ -277,7 +281,8 @@ async function refreshDrawerHistory() {
 
 function updateHeader() {
   const kind = draft.parentId ? "Підпозиція" : "Позиція";
-  $("#positionDrawerTitle").textContent = draft.item || (draft.parentId ? "Нова підпозиція" : "Нова позиція");
+  $("#positionDrawerTitle").textContent =
+    draft.item || (draft.parentId ? "Нова підпозиція" : "Нова позиція");
   $("#positionDrawerSubtitle").innerHTML = `
     <span class="meta-pill">${kind}</span>
     <span class="meta-pill">#${draft.id || "нова"}</span>
@@ -289,9 +294,7 @@ function updateHeader() {
 }
 
 function readForm() {
-  const orderNumber = draft.parentId
-    ? draft.orderNumber
-    : $("#posOrderNumber").value.trim();
+  const orderNumber = draft.parentId ? draft.orderNumber : $("#posOrderNumber").value.trim();
   const order = state.orders.find((o) => o.orderNumber === orderNumber);
   return {
     parentId: draft.parentId ?? null,

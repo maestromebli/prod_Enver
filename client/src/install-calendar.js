@@ -257,9 +257,7 @@ function monthViewHtml(anchor, scheduled, loadMap) {
 }
 
 function agendaViewHtml(scheduled, unscheduled) {
-  const groups = scheduled
-    .map((e) => agendaRow(e))
-    .join("");
+  const groups = scheduled.map((e) => agendaRow(e)).join("");
   const queue =
     unscheduled.length > 0
       ? `<section class="ical-agenda-group ical-agenda-group--queue"><h3>Без дати (${unscheduled.length})</h3>${unscheduled.map((p) => agendaRow({ position: p, startDate: null })).join("")}</section>`
@@ -283,7 +281,8 @@ function occupancySummaryHtml(scheduled, view, anchor) {
   else if (view === "day") days = [anchor];
   else days = monthGridDays(anchor).filter((d) => d.getMonth() === anchor.getMonth());
   const { pct, usedSlots, totalSlots } = periodOccupancy(scheduled, days);
-  const level = pct > 100 ? "over" : pct > 85 ? "high" : pct > 50 ? "medium" : pct > 0 ? "low" : "empty";
+  const level =
+    pct > 100 ? "over" : pct > 85 ? "high" : pct > 50 ? "medium" : pct > 0 ? "low" : "empty";
   return `<div class="ical-occupancy ical-occupancy--${level}" title="Завантажено ${usedSlots} з ${totalSlots} слотів (${DEFAULT_DAILY_CAPACITY} монтажі/день)">
     <span class="ical-occupancy-label">Заповнення</span>
     <div class="ical-occupancy-track"><div class="ical-occupancy-bar" style="width:${Math.min(pct, 100)}%"></div></div>
@@ -309,7 +308,10 @@ function installerFilterOptions() {
   const current = state.installCalendar.installerFilter;
   return `<option value="">Усі монтажники</option>${Array.from(installers)
     .sort((a, b) => a.localeCompare(b, "uk"))
-    .map((n) => `<option value="${escapeHtml(n)}" ${n === current ? "selected" : ""}>${escapeHtml(n)}</option>`)
+    .map(
+      (n) =>
+        `<option value="${escapeHtml(n)}" ${n === current ? "selected" : ""}>${escapeHtml(n)}</option>`
+    )
     .join("")}`;
 }
 
@@ -365,13 +367,19 @@ function sidebarHtml(anchor, scheduled, unscheduled, loadMap, view) {
 
 function legendInstallers(scheduled, unscheduled) {
   const names = new Set();
-  [...scheduled.map((e) => e.position.installResponsible), ...unscheduled.map((p) => p.installResponsible)]
+  [
+    ...scheduled.map((e) => e.position.installResponsible),
+    ...unscheduled.map((p) => p.installResponsible)
+  ]
     .filter(Boolean)
     .forEach((n) => names.add(n));
   if (!names.size) return '<p class="ical-empty">—</p>';
   return Array.from(names)
     .sort((a, b) => a.localeCompare(b, "uk"))
-    .map((n) => `<span class="ical-legend-item"><i style="background:${installerColor(n)}"></i>${escapeHtml(n)}</span>`)
+    .map(
+      (n) =>
+        `<span class="ical-legend-item"><i style="background:${installerColor(n)}"></i>${escapeHtml(n)}</span>`
+    )
     .join("");
 }
 
@@ -410,7 +418,10 @@ function installStatusLabel(p) {
 function renderInstallList() {
   const { scheduled, unscheduled } = buildEvents();
   const rows = [
-    ...scheduled.map((ev) => ({ position: ev.position, range: formatDayRange(ev.startDate, ev.endDate) })),
+    ...scheduled.map((ev) => ({
+      position: ev.position,
+      range: formatDayRange(ev.startDate, ev.endDate)
+    })),
     ...unscheduled.map((p) => ({ position: p, range: "—" }))
   ];
 

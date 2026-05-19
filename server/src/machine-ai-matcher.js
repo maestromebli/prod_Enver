@@ -179,7 +179,9 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
       );
 
   const activeId = session?.position_id;
-  const { active, queue } = await getMatchCandidates(stageKey, { activeSessionPositionId: activeId });
+  const { active, queue } = await getMatchCandidates(stageKey, {
+    activeSessionPositionId: activeId
+  });
 
   const candidates = [];
   if (active) candidates.push(active);
@@ -189,10 +191,9 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
 
   if (!candidates.length) return null;
 
-  const config = await one(
-    "SELECT ai_matching_enabled FROM machine_config WHERE stage_key = $1",
-    [stageKey]
-  );
+  const config = await one("SELECT ai_matching_enabled FROM machine_config WHERE stage_key = $1", [
+    stageKey
+  ]);
   const aiAllowed = config?.ai_matching_enabled !== false;
 
   let best = null;

@@ -34,8 +34,7 @@
 body.view-operator {
   background:
     radial-gradient(ellipse 80% 50% at 0% -10%, var(--op-accent-soft), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(15, 42, 68, 0.04), transparent 50%),
-    #eef2f7;
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(15, 42, 68, 0.04), transparent 50%), #eef2f7;
 }
 
 body.view-operator .app {
@@ -172,7 +171,10 @@ body.view-operator .app {
   font-weight: 600;
   color: var(--op-text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
 }
 
 .op-btn-ghost:hover {
@@ -216,7 +218,10 @@ body.view-operator .app {
   font-weight: 600;
   color: var(--op-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
 }
 
 .op-stage-tab-icon {
@@ -238,7 +243,11 @@ body.view-operator .app {
 
 .op-stage-tab.is-active {
   color: #fff;
-  background: linear-gradient(135deg, var(--tab-accent), color-mix(in srgb, var(--tab-accent) 75%, #000));
+  background: linear-gradient(
+    135deg,
+    var(--tab-accent),
+    color-mix(in srgb, var(--tab-accent) 75%, #000)
+  );
   box-shadow: 0 4px 12px color-mix(in srgb, var(--tab-accent) 35%, transparent);
 }
 
@@ -858,7 +867,10 @@ body.view-operator .app {
   font-family: inherit;
   cursor: pointer;
   text-align: left;
-  transition: transform 0.12s, box-shadow 0.15s, opacity 0.15s;
+  transition:
+    transform 0.12s,
+    box-shadow 0.15s,
+    opacity 0.15s;
   min-height: 72px;
 }
 

@@ -16,7 +16,11 @@
     "directories": {
       "output": "../../releases/windows-build"
     },
-    "files": ["src/**/*", "package.json", "config.default.json"],
+    "files": [
+      "src/**/*",
+      "package.json",
+      "config.default.json"
+    ],
     "extraResources": [
       {
         "from": "config.default.json",
@@ -27,7 +31,9 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "ENVER-Operator-${version}-portable.exe"

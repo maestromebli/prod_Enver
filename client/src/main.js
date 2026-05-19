@@ -8,17 +8,12 @@ import {
   logout,
   operatorStages,
   refreshCurrentUser,
-  saveUser,
   shouldShowProductionFloorByDefault
 } from "./auth.js";
 import { PRODUCTION_FLOOR_TAB } from "./constants.js";
 import { loadProductionFloor } from "./production-floor.js";
 import { toastError } from "./toast.js";
-import {
-  initOrderModal,
-  openOrderModal,
-  setOrderSaveHandler
-} from "./orders.js";
+import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
 import { loadGlobalHistory } from "./history.js";
 import {
   initPositionDrawer,
@@ -38,10 +33,7 @@ import {
   initInstallScheduleModal,
   setInstallScheduleSaveHandler
 } from "./install-schedule-modal.js";
-import {
-  renderApp as paint,
-  renderResponsibleOptions
-} from "./render.js";
+import { renderApp as paint, renderResponsibleOptions } from "./render.js";
 import { bindSettingsActions, initSettingsUi, loadSettingsData, openSettings } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
 import { state } from "./state.js";

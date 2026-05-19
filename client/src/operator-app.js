@@ -12,7 +12,12 @@ import {
   enableOperatorKiosk,
   initOperatorKioskEarly
 } from "./operator-kiosk.js";
-import { bindOperatorActions, enterOperatorView, loadOperatorData, renderOperatorView } from "./operator-panel.js";
+import {
+  bindOperatorActions,
+  enterOperatorView,
+  loadOperatorData,
+  renderOperatorView
+} from "./operator-panel.js";
 import { state } from "./state.js";
 import { toastError } from "./toast.js";
 import { $ } from "./utils.js";

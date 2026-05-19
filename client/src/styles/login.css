@@ -203,7 +203,9 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
 
 .login-submit:disabled {

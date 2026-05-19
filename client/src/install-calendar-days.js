@@ -1,4 +1,10 @@
-import { addDays, formatUaDate, parseUaDate, toIsoDate, fromIsoDate } from "./install-calendar-dates.js";
+import {
+  addDays,
+  formatUaDate,
+  parseUaDate,
+  toIsoDate,
+  fromIsoDate
+} from "./install-calendar-dates.js";
 
 /** Скільки монтажів на день вважаємо 100% завантаження */
 export const DEFAULT_DAILY_CAPACITY = 3;
@@ -121,7 +127,6 @@ export function periodOccupancy(scheduled, days) {
   let usedSlots = 0;
   const capacity = DEFAULT_DAILY_CAPACITY;
   days.forEach((day) => {
-    const iso = toIsoDate(day);
     const count = scheduled.filter((ev) => eventCoversDay(ev, day)).length;
     totalSlots += capacity;
     usedSlots += Math.min(count, capacity);

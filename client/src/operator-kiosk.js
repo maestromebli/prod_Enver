@@ -8,7 +8,10 @@ let kioskLocked = false;
 let kioskListenersBound = false;
 
 function isIos() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 }
 
 function isStandalonePwa() {
@@ -34,7 +37,9 @@ function requestAppFullscreen() {
     el.webkitRequestFullscreen?.bind(el) ||
     el.webkitEnterFullscreen?.bind(el);
   if (!fn) return Promise.resolve(false);
-  return fn().then(() => true).catch(() => false);
+  return fn()
+    .then(() => true)
+    .catch(() => false);
 }
 
 function exitAppFullscreen() {

@@ -30,9 +30,7 @@ function normalizeItems(items) {
 function collectDirectoryItems(key) {
   const card = document.querySelector(`[data-directory="${CSS.escape(key)}"]`);
   if (!card) return [];
-  return normalizeItems(
-    [...card.querySelectorAll("[data-dir-input]")].map((input) => input.value)
-  );
+  return normalizeItems([...card.querySelectorAll("[data-dir-input]")].map((input) => input.value));
 }
 
 export function collectAllDirectoriesFromDom() {
@@ -91,9 +89,7 @@ function directoryItemRow(value, editable) {
 }
 
 function directoryCard(key, items, editable) {
-  const list = (items || [])
-    .map((item) => directoryItemRow(item, editable))
-    .join("");
+  const list = (items || []).map((item) => directoryItemRow(item, editable)).join("");
 
   const actions = editable
     ? `
@@ -121,9 +117,9 @@ export function directoriesSectionHtml() {
   const editable = isAdmin();
   const lists = state.directories;
 
-  const cards = DIRECTORY_KEYS.map((key) =>
-    directoryCard(key, lists[key] || [], editable)
-  ).join("");
+  const cards = DIRECTORY_KEYS.map((key) => directoryCard(key, lists[key] || [], editable)).join(
+    ""
+  );
 
   return `
     <div class="settings-section directories-section">
@@ -168,7 +164,6 @@ export function handleDirectoriesClick(e, onChange) {
   if (delBtn) {
     const li = delBtn.closest(".directory-item");
     const card = delBtn.closest("[data-directory]");
-    const key = card?.dataset.directory;
     const inputs = card?.querySelectorAll("[data-dir-input]") ?? [];
     if (inputs.length <= 1) {
       import("./toast.js").then(({ toastError }) =>

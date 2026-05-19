@@ -86,9 +86,7 @@ function usersSectionHtml() {
   const rows = users
     .map((u) => {
       const stages =
-        u.role === "operator"
-          ? (u.stages || []).map((k) => stageLabel(k)).join(", ") || "—"
-          : "—";
+        u.role === "operator" ? (u.stages || []).map((k) => stageLabel(k)).join(", ") || "—" : "—";
       return `
         <tr>
           <td>${escapeHtml(u.name)}</td>
@@ -187,7 +185,6 @@ function accessSectionHtml() {
     </div>
   `;
 }
-
 
 const PARSER_OPTIONS = [
   { id: "kdt", label: "KDT Saw (папка .txt)" },
@@ -304,7 +301,6 @@ function machinesSectionHtml() {
   `;
 }
 
-
 function aiSectionHtml() {
   if (!isAdmin()) {
     return `
@@ -391,8 +387,7 @@ function aiSectionHtml() {
 }
 
 export function renderSettingsView() {
-  const section =
-    state.settingsSection === "ai" && !isAdmin() ? "users" : state.settingsSection;
+  const section = state.settingsSection === "ai" && !isAdmin() ? "users" : state.settingsSection;
   const nav = [
     ["users", "Користувачі"],
     ["access", "Доступи"],
@@ -407,13 +402,13 @@ export function renderSettingsView() {
       ? usersSectionHtml()
       : section === "access"
         ? accessSectionHtml()
-      : section === "clients"
-        ? clientsSectionHtml()
-        : section === "directories"
-          ? directoriesSectionHtml()
-          : section === "ai"
-            ? aiSectionHtml()
-            : machinesSectionHtml();
+        : section === "clients"
+          ? clientsSectionHtml()
+          : section === "directories"
+            ? directoriesSectionHtml()
+            : section === "ai"
+              ? aiSectionHtml()
+              : machinesSectionHtml();
 
   return `
     <div class="settings-page">

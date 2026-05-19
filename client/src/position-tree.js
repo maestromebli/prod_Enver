@@ -1,7 +1,11 @@
 import { state } from "./state.js";
 
 /** Рядки таблиці: основна позиція або підпозиція (depth 1). */
-export function buildVisiblePositionRows(allPositions, filtered, expandedIds = state.expandedPositionIds) {
+export function buildVisiblePositionRows(
+  allPositions,
+  filtered,
+  expandedIds = state.expandedPositionIds
+) {
   const filteredIds = new Set(filtered.map((p) => p.id));
   const includeIds = new Set(filteredIds);
 

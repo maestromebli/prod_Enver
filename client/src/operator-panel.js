@@ -262,7 +262,9 @@ function stageIconSvg(type) {
 }
 
 function userInitials(name) {
-  const parts = String(name || "О").trim().split(/\s+/);
+  const parts = String(name || "О")
+    .trim()
+    .split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return (parts[0]?.[0] || "О").toUpperCase();
 }
@@ -288,8 +290,7 @@ function renderQueueItem(p, field) {
   const active = p.id === state.operatorSelectedPositionId;
   const working = p.id === activeSessionPositionId();
   const overdue = (p.overdueDays || 0) > 0;
-  const locked =
-    activeSessionPositionId() && p.id !== activeSessionPositionId();
+  const locked = activeSessionPositionId() && p.id !== activeSessionPositionId();
 
   return `
     <button type="button"
@@ -341,9 +342,7 @@ export function renderOperatorView() {
     })
     .join("");
 
-  const queueItems = state.operatorQueue
-    .map((p) => renderQueueItem(p, field))
-    .join("");
+  const queueItems = state.operatorQueue.map((p) => renderQueueItem(p, field)).join("");
 
   const initials = userInitials(state.currentUser?.name);
 
@@ -585,10 +584,10 @@ export function renderOperatorView() {
             inWork && isOnActiveSessionStage() && isSessionPaused()
               ? '<p class="op-hint"><span class="op-hint-icon">⏸</span> Завдання на паузі. Натисніть «Продовжити» або «Закінчив», щоб закрити етап.</p>'
               : inWork && isOnActiveSessionStage()
-              ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Між «Почав» і «Закінчив» можна поставити на паузу. Наступне замовлення — лише після завершення.</p>'
-              : inWork
-                ? '<p class="op-hint op-hint--warn"><span class="op-hint-icon">!</span> Нове замовлення недоступне, поки не завершите поточне на іншому етапі.</p>'
-                : ""
+                ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Між «Почав» і «Закінчив» можна поставити на паузу. Наступне замовлення — лише після завершення.</p>'
+                : inWork
+                  ? '<p class="op-hint op-hint--warn"><span class="op-hint-icon">!</span> Нове замовлення недоступне, поки не завершите поточне на іншому етапі.</p>'
+                  : ""
           }
         </main>
       </div>

@@ -142,9 +142,7 @@ router.put("/machine-config/:stageKey", async (req, res) => {
       parser_profile: parserProfile ?? existing.parser_profile ?? "generic",
       watch_enabled: watchEnabled !== undefined ? Boolean(watchEnabled) : existing.watch_enabled,
       ai_matching_enabled:
-        aiMatchingEnabled !== undefined
-          ? Boolean(aiMatchingEnabled)
-          : existing.ai_matching_enabled,
+        aiMatchingEnabled !== undefined ? Boolean(aiMatchingEnabled) : existing.ai_matching_enabled,
       reset_offset: Boolean(shouldResetSync)
     }
   );

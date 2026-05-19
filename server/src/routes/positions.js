@@ -100,10 +100,9 @@ async function resolveOrderLink(data) {
       if (!data.manager) data.manager = order.manager;
     }
   } else if (data.order_number) {
-    const order = await one(
-      "SELECT id, object, manager FROM orders WHERE order_number = $1",
-      [data.order_number]
-    );
+    const order = await one("SELECT id, object, manager FROM orders WHERE order_number = $1", [
+      data.order_number
+    ]);
     if (order) {
       data.order_id = order.id;
       if (!data.object) data.object = order.object;

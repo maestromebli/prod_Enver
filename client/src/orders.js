@@ -133,9 +133,7 @@ async function deleteOrder() {
   const order = state.orders.find((o) => String(o.id) === String(id));
   const label = order?.orderNumber || id;
   if (
-    !window.confirm(
-      `Видалити замовлення «${label}»? Позиції залишаться в системі без прив’язки.`
-    )
+    !window.confirm(`Видалити замовлення «${label}»? Позиції залишаться в системі без прив’язки.`)
   ) {
     return;
   }

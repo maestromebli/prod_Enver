@@ -40,9 +40,7 @@ export function registerDownloadRoutes(app) {
     }
     const filePath = path.join(releasesDir, safe);
     if (!fs.existsSync(filePath)) {
-      res.status(404).send(
-        "Архів Windows ще не зібрано. На сервері: npm run build:windows-client"
-      );
+      res.status(404).send("Архів Windows ще не зібрано. На сервері: npm run build:windows-client");
       return;
     }
     res.download(filePath, safe);

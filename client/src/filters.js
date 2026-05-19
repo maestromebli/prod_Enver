@@ -13,9 +13,7 @@ function getFilters() {
 
 export function filteredPositions(source = state.positions) {
   const { search, status, responsible } = getFilters();
-  const parentItems = new Map(
-    source.filter((p) => !p.parentId).map((p) => [p.id, p.item])
-  );
+  const parentItems = new Map(source.filter((p) => !p.parentId).map((p) => [p.id, p.item]));
 
   return source.filter((p) => {
     const parentItem = p.parentId ? parentItems.get(p.parentId) || "" : "";
@@ -40,9 +38,13 @@ export function filteredPositions(source = state.positions) {
     const matchSearch = !search || text.includes(search);
     const matchStatus =
       !status ||
-      [p.positionStatus, p.cuttingStatus, p.edgingStatus, p.drillingStatus, p.assemblyStatus].includes(
-        status
-      );
+      [
+        p.positionStatus,
+        p.cuttingStatus,
+        p.edgingStatus,
+        p.drillingStatus,
+        p.assemblyStatus
+      ].includes(status);
 
     const people = [p.manager, p.constructor, p.assemblyResponsible, p.installResponsible];
     const matchResponsible = !responsible || people.includes(responsible);

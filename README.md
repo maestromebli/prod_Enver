@@ -39,12 +39,13 @@ npm run dev               # сервер + Vite на :3000
 
 Один workflow `.github/workflows/ci-cd.yml`:
 
-| Тригер | Кроки |
-|---|---|
-| Pull request → main | `validate` (format check + lint + tests), `build` (Docker без push) |
-| Push до main | `validate`, `build` (push до GHCR із тегом `latest` і `${{ sha }}`), `migrate` (Supabase), `deploy` (SSH → Hetzner) |
+| Тригер              | Кроки                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Pull request → main | `validate` (format check + lint + tests), `build` (Docker без push)                                                 |
+| Push до main        | `validate`, `build` (push до GHCR із тегом `latest` і `${{ sha }}`), `migrate` (Supabase), `deploy` (SSH → Hetzner) |
 
 Потрібні GitHub Secrets:
+
 - `DATABASE_URL_MIGRATIONS` — direct connection (port 5432) для застосування міграцій
 - `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою
 
@@ -60,20 +61,20 @@ npm run dev               # сервер + Vite на :3000
 
 ## API
 
-| Метод | Шлях | Опис |
-|-------|------|------|
-| GET | `/api/orders` | Список замовлень |
-| GET | `/api/positions` | Позиції |
-| GET | `/api/kpis` | KPI |
-| GET | `/api/kpis/trends?days=14` | Тренд прострочень |
-| GET | `/api/machine/progress/:stageKey` | Прогрес (лог → API → симуляція) |
-| GET | `/api/machine/logs/events/:stageKey` | Останні події логу |
-| POST | `/api/machine/logs/ingest/:stageKey` | Сканувати файл логу |
-| POST | `/api/machine/logs/upload/:stageKey` | Імпорт тексту логу |
-| GET | `/api/settings/ai` | Налаштування OpenAI |
-| PUT | `/api/settings/ai` | Зберегти OpenAI |
-| POST | `/api/auth/login` | Вхід |
-| … | `/api/operator/*` | Черга оператора (пріоритет: проблема, прострочення) |
+| Метод | Шлях                                 | Опис                                                |
+| ----- | ------------------------------------ | --------------------------------------------------- |
+| GET   | `/api/orders`                        | Список замовлень                                    |
+| GET   | `/api/positions`                     | Позиції                                             |
+| GET   | `/api/kpis`                          | KPI                                                 |
+| GET   | `/api/kpis/trends?days=14`           | Тренд прострочень                                   |
+| GET   | `/api/machine/progress/:stageKey`    | Прогрес (лог → API → симуляція)                     |
+| GET   | `/api/machine/logs/events/:stageKey` | Останні події логу                                  |
+| POST  | `/api/machine/logs/ingest/:stageKey` | Сканувати файл логу                                 |
+| POST  | `/api/machine/logs/upload/:stageKey` | Імпорт тексту логу                                  |
+| GET   | `/api/settings/ai`                   | Налаштування OpenAI                                 |
+| PUT   | `/api/settings/ai`                   | Зберегти OpenAI                                     |
+| POST  | `/api/auth/login`                    | Вхід                                                |
+| …     | `/api/operator/*`                    | Черга оператора (пріоритет: проблема, прострочення) |
 
 ## Безпека
 

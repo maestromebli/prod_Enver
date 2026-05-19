@@ -38,10 +38,7 @@ function syncThemeToggle(theme) {
   if (!btn) return;
   const isDark = theme === "dark";
   btn.setAttribute("aria-pressed", isDark ? "true" : "false");
-  btn.setAttribute(
-    "aria-label",
-    isDark ? "Увімкнути світлу тему" : "Увімкнути темну тему"
-  );
+  btn.setAttribute("aria-label", isDark ? "Увімкнути світлу тему" : "Увімкнути темну тему");
   btn.title = isDark ? "Світла тема" : "Темна тема";
   btn.querySelector(".theme-icon-sun")?.toggleAttribute("hidden", isDark);
   btn.querySelector(".theme-icon-moon")?.toggleAttribute("hidden", !isDark);

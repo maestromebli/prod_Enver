@@ -40,8 +40,7 @@ export function derivePositionStatus(row) {
   ];
 
   const hasConstructor = Boolean(row.constructor_name?.trim());
-  const allDone =
-    hasConstructor && production.every((s) => STAGE_STATUS_DONE.has(s) || !s);
+  const allDone = hasConstructor && production.every((s) => STAGE_STATUS_DONE.has(s) || !s);
   const anyActive = production.some((s) =>
     ["Передано", "В роботі", "На паузі", "Проблема"].includes(s)
   );
@@ -58,7 +57,9 @@ export function derivePositionStatus(row) {
 
 function parseUaDate(str) {
   if (!str?.trim()) return null;
-  const m = String(str).trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  const m = String(str)
+    .trim()
+    .match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!m) return null;
   return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
 }
@@ -80,7 +81,10 @@ export function enrichPositionRow(row, { planDate } = {}) {
   const progress = computeProgress(row);
   const position_status = derivePositionStatus({ ...row, progress });
   const overdue_days = planDate
-    ? Math.max(computeOverdueDays({ ...row, progress, position_status }, planDate), Number(row.overdue_days) || 0)
+    ? Math.max(
+        computeOverdueDays({ ...row, progress, position_status }, planDate),
+        Number(row.overdue_days) || 0
+      )
     : Number(row.overdue_days) || 0;
   return { ...row, progress, position_status, overdue_days };
 }
