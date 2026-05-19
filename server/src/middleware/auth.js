@@ -37,6 +37,24 @@ export function requireAdmin(req, res, next) {
   res.status(403).json({ error: "Доступ лише для адміністратора" });
 }
 
+export function requirePermissionOrAdmin(key) {
+  return (req, res, next) => {
+    if (req.user?.role === "admin" || req.user?.permissions?.[key]) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "Недостатньо прав доступу" });
+  };
+}
+
+export function requireOperatorPanelView(req, res, next) {
+  if (req.user?.permissions?.canUseOperatorPanel) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Немає доступу до панелі оператора" });
+}
+
 /** Повний CRUD позицій або PATCH етапу в межах своїх stages (оператор). */
 export function requirePositionWrite(req, res, next) {
   if (req.user?.permissions?.canEditPositions) {
@@ -66,6 +84,10 @@ function canOperatorStage(user, stageKey) {
 }
 
 export function requireOperatorSelf(req, res, next) {
+  if (req.user?.role !== "operator") {
+    res.status(403).json({ error: "Цю дію може виконати лише оператор на станку" });
+    return;
+  }
   const bodyId = Number(req.body?.userId);
   if (bodyId && bodyId !== req.user.id) {
     res.status(403).json({ error: "Можна діяти лише від свого імені" });
@@ -73,7 +95,7 @@ export function requireOperatorSelf(req, res, next) {
   }
   if (!bodyId) req.body.userId = req.user.id;
   const stageKey = req.body?.stageKey || req.params.stageKey;
-  if (req.user.role === "operator" && stageKey && !canOperatorStage(req.user, stageKey)) {
+  if (stageKey && !canOperatorStage(req.user, stageKey)) {
     res.status(403).json({ error: "Немає доступу до цього етапу" });
     return;
   }

@@ -20,6 +20,7 @@ if (!fs.existsSync(dataDir)) {
 export const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
+db.pragma("busy_timeout = 5000");
 
 export function initSchema() {
   db.exec(`
@@ -133,9 +134,11 @@ export function initSchema() {
   seedUsersIfEmpty();
   if (process.env.NODE_ENV !== "production") {
     repairDemoOperators();
+    repairProductionHead();
   }
   seedMachineConfig();
   seedRolePermissions();
+  ensureRolePermissions();
   seedDirectoriesSettingIfEmpty();
 }
 
@@ -268,6 +271,36 @@ function seedIfEmpty() {
 }
 
 /** Завжди відновлює демо-операторів (пароль 1234, етапи) — якщо їх змінили вручну. */
+function repairProductionHead() {
+  const upsert = db.prepare(`
+    INSERT INTO users (name, login, password_hash, role, stages_json, active)
+    VALUES (@name, @login, @password_hash, @role, @stages_json, 1)
+    ON CONFLICT(login) DO UPDATE SET
+      name = excluded.name,
+      password_hash = excluded.password_hash,
+      role = excluded.role,
+      active = 1
+  `);
+  upsert.run({
+    name: "Начальник виробництва",
+    login: "virobnytstvo",
+    password_hash: hashPassword("1234"),
+    role: "production",
+    stages_json: "[]"
+  });
+}
+
+/** Додає права для нових ролей у вже існуючій базі. */
+function ensureRolePermissions() {
+  const upsert = db.prepare(`
+    INSERT OR IGNORE INTO role_permissions (role, permissions_json)
+    VALUES (@role, @permissions_json)
+  `);
+  for (const [role, perms] of Object.entries(DEFAULT_PERMISSIONS)) {
+    upsert.run({ role, permissions_json: JSON.stringify(perms) });
+  }
+}
+
 function repairDemoOperators() {
   const demos = [
     { name: "Оператор порізки", login: "porizka", password: "1234", role: "operator", stages: ["cutting"] },
@@ -312,6 +345,7 @@ function seedUsersIfEmpty() {
 
   const defaults = [
     { name: "Адміністратор", login: "admin", password: "admin", role: "admin", stages: [] },
+    { name: "Начальник виробництва", login: "virobnytstvo", password: "1234", role: "production", stages: [] },
     { name: "Оператор порізки", login: "porizka", password: "1234", role: "operator", stages: ["cutting"] },
     { name: "Оператор крайкування", login: "krayka", password: "1234", role: "operator", stages: ["edging"] },
     { name: "Оператор присадки", login: "prisadka", password: "1234", role: "operator", stages: ["drilling"] },

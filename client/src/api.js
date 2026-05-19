@@ -122,6 +122,8 @@ export const api = {
     request("/api/settings/ai", { method: "PUT", body: JSON.stringify(body) }),
   testAiSettings: () => request("/api/settings/ai/test", { method: "POST" }),
 
+  getProductionFloor: () => request("/api/production/floor"),
+
   getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
   operatorStart: (body) => request("/api/operator/start", { method: "POST", body: JSON.stringify(body) }),
   operatorPause: (body) => request("/api/operator/pause", { method: "POST", body: JSON.stringify(body) }),

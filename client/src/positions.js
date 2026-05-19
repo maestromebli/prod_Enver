@@ -5,6 +5,7 @@ import { expandPosition, getParentPosition } from "./position-tree.js";
 import { state } from "./state.js";
 import {
   POSITION_STATUSES,
+  PRODUCTION_PROGRESS_WEIGHTS,
   STAGE_STATUSES,
   STAGES,
   getNextStatus,
@@ -325,15 +326,18 @@ function syncDraftFromForm() {
 }
 
 function estimateProgress(p) {
-  const scores = STAGES.map((s) => {
-    const st = getStageStatus(p, s);
-    if (st === "Готово" || st === "Не потрібно") return 100;
-    if (st === "В роботі") return 65;
-    if (st === "Передано") return 35;
-    if (s.type === "constructor" && p.constructor) return 35;
-    return 0;
-  });
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  let weighted = 0;
+  for (const stage of STAGES) {
+    const w = PRODUCTION_PROGRESS_WEIGHTS[stage.key];
+    if (!w) continue;
+    const st = getStageStatus(p, stage);
+    let score = 0;
+    if (st === "Готово" || st === "Не потрібно") score = 100;
+    else if (st === "В роботі") score = 65;
+    else if (st === "Передано") score = 35;
+    weighted += w * score;
+  }
+  return Math.round(weighted / 100);
 }
 
 async function patchStage(stageKey, payload) {

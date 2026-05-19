@@ -37,6 +37,11 @@ const syncPositionsByOrderId = db.prepare(`
   WHERE order_id = @order_id
 `);
 
+const linkOrphanPositionsStmt = db.prepare(`
+  UPDATE positions SET order_id = @order_id, object = @object
+  WHERE order_number = @order_number AND order_id IS NULL
+`);
+
 router.get("/", (_req, res) => {
   const rows = listStmt.all();
   res.json(rows.map(mapOrder));
@@ -61,10 +66,11 @@ router.post("/", requireOrderWrite, (req, res) => {
   try {
     const result = insertStmt.run(data);
     const id = result.lastInsertRowid;
-    db.prepare(`
-      UPDATE positions SET order_id = ?, object = @object
-      WHERE order_number = @order_number AND order_id IS NULL
-    `).run({ order_id: id, order_number: data.order_number, object: data.object });
+    linkOrphanPositionsStmt.run({
+      order_id: id,
+      order_number: data.order_number,
+      object: data.object
+    });
     const row = getStmt.get(id);
     logOrderCreate(row, auditActor(req));
     res.status(201).json(mapOrder(row));

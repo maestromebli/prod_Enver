@@ -1,5 +1,13 @@
 export const STAGE_STATUS_DONE = new Set(["Готово", "Не потрібно"]);
 
+/** Ваги етапів виробництва для загального % готовності (сума 100). Конструктив і монтаж не входять. */
+export const PRODUCTION_PROGRESS_WEIGHTS = {
+  cutting: 20,
+  edging: 25,
+  drilling: 25,
+  assembly: 30
+};
+
 export function stageScore(status, { isConstructor = false, hasConstructor = false } = {}) {
   if (isConstructor) return hasConstructor ? 100 : 0;
   if (!status || status === "Не розпочато") return 0;
@@ -11,14 +19,13 @@ export function stageScore(status, { isConstructor = false, hasConstructor = fal
 }
 
 export function computeProgress(row) {
-  const scores = [
-    stageScore(null, { isConstructor: true, hasConstructor: Boolean(row.constructor_name?.trim()) }),
-    stageScore(row.cutting_status),
-    stageScore(row.edging_status),
-    stageScore(row.drilling_status),
-    stageScore(row.assembly_status)
-  ];
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const w = PRODUCTION_PROGRESS_WEIGHTS;
+  const weighted =
+    w.cutting * stageScore(row.cutting_status) +
+    w.edging * stageScore(row.edging_status) +
+    w.drilling * stageScore(row.drilling_status) +
+    w.assembly * stageScore(row.assembly_status);
+  return Math.round(weighted / 100);
 }
 
 export function derivePositionStatus(row) {

@@ -28,7 +28,11 @@ export async function runSave(label, options = {}) {
     silent = false
   } = options;
 
-  if (saveInFlight) return null;
+  if (saveInFlight) {
+    const busy = new Error("Зачекайте — попереднє збереження ще виконується");
+    if (!silent) toastError(busy.message);
+    throw busy;
+  }
 
   saveInFlight = true;
   setSubmitLoading(submitEl, true);

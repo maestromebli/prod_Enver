@@ -31,7 +31,8 @@ export function getAiSettings() {
 }
 
 export function maskSecret(value) {
-  if (!value) return "";
-  if (value.length <= 8) return "••••••••";
-  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+  const str = String(value || "").trim();
+  if (!str) return "";
+  if (str.length <= 8) return "••••••••";
+  return `${str.slice(0, 7)}...${str.slice(-4)}`;
 }

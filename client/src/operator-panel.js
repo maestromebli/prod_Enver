@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import {
   hasOperatorAccess,
   isOperator,
+  isSupervisorOperatorPanel,
   logout,
   operatorStages,
   startMachinePolling,
@@ -155,6 +156,7 @@ function hasBlockingSession() {
 }
 
 function canStart() {
+  if (isSupervisorOperatorPanel()) return false;
   if (hasBlockingSession()) return false;
   if (!isOnActiveSessionStage()) return false;
   const pos = selectedPosition();
@@ -165,6 +167,7 @@ function canStart() {
 }
 
 function canFinish() {
+  if (isSupervisorOperatorPanel()) return false;
   if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
   const pos = workPosition();
   if (!pos) return false;
@@ -174,6 +177,7 @@ function canFinish() {
 }
 
 function canPause() {
+  if (isSupervisorOperatorPanel()) return false;
   if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
   const pos = workPosition();
   if (!pos || activeSessionPositionId() !== pos.id) return false;
@@ -181,6 +185,7 @@ function canPause() {
 }
 
 function canResume() {
+  if (isSupervisorOperatorPanel()) return false;
   if (!hasBlockingSession() || !isOnActiveSessionStage()) return false;
   const pos = workPosition();
   if (!pos || activeSessionPositionId() !== pos.id) return false;
@@ -337,8 +342,8 @@ export function renderOperatorView() {
         <div class="op-header-brand">
           <div class="op-logo-mark">${stageIconSvg(theme.icon)}</div>
           <div>
-            <p class="op-eyebrow">ENVER · Робоча зона</p>
-            <h1 class="op-title">Панель оператора</h1>
+            <p class="op-eyebrow">ENVER · ${isSupervisorOperatorPanel() ? "Огляд цеху" : "Робоча зона"}</p>
+            <h1 class="op-title">${isSupervisorOperatorPanel() ? "Панель начальника виробництва" : "Панель оператора"}</h1>
           </div>
         </div>
 
@@ -360,6 +365,16 @@ export function renderOperatorView() {
       </header>
 
       ${stages.length > 1 ? `<nav class="op-stage-nav" aria-label="Етапи">${stageTabs}</nav>` : ""}
+
+      ${
+        isSupervisorOperatorPanel()
+          ? `
+        <div class="op-supervisor-banner" role="status">
+          <strong>Режим огляду</strong>
+          <p>Статуси змінюють оператори на станках. Тут ви бачите чергу, прогрес станка та активні сесії.</p>
+        </div>`
+          : ""
+      }
 
       ${
         sessionOnOtherStage

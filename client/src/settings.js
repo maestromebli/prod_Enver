@@ -14,15 +14,30 @@ let aiSettings = {
   enabled: true,
   openaiModel: "gpt-4o-mini",
   hasApiKey: false,
-  hasEnvKey: false
+  hasEnvKey: false,
+  openaiApiKeyMasked: ""
 };
+let aiSettingsLoadError = "";
+
+function mergeAiSettings(data) {
+  if (!data || typeof data !== "object") return;
+  aiSettings = {
+    enabled: data.enabled !== false,
+    openaiModel: data.openaiModel || aiSettings.openaiModel || "gpt-4o-mini",
+    hasApiKey: Boolean(data.hasApiKey),
+    hasEnvKey: Boolean(data.hasEnvKey),
+    openaiApiKeyMasked: data.openaiApiKeyMasked || aiSettings.openaiApiKeyMasked || ""
+  };
+  if (aiSettings.hasApiKey || aiSettings.hasEnvKey) {
+    aiSettingsLoadError = "";
+  }
+}
 
 export async function loadSettingsData() {
-  const [u, p, m, ai] = await Promise.all([
+  const [u, p, m] = await Promise.all([
     api.getUsers(),
     api.getPermissions(),
-    api.getMachineConfig(),
-    api.getAiSettings().catch(() => aiSettings)
+    api.getMachineConfig()
   ]);
   if (!Array.isArray(u)) throw new Error("Некоректна відповідь сервера: користувачі");
   if (!p || typeof p !== "object") throw new Error("Некоректна відповідь сервера: доступи");
@@ -30,18 +45,24 @@ export async function loadSettingsData() {
   users = u;
   permissions = p;
   machineConfig = m;
-  aiSettings = ai || aiSettings;
+
+  if (!isAdmin()) return;
+
+  try {
+    mergeAiSettings(await api.getAiSettings());
+    aiSettingsLoadError = "";
+  } catch (err) {
+    aiSettingsLoadError =
+      err.message ||
+      "Не вдалося завантажити статус ключа. Перезапустіть сервер (npm run dev) і відкрийте http://localhost:3000";
+  }
 }
 
 /** Лише налаштування ШІ — без повного перезавантаження вкладки. */
 export async function refreshAiSettingsFromServer() {
-  try {
-    const ai = await api.getAiSettings();
-    aiSettings = ai || aiSettings;
-  } catch (err) {
-    if (err.message?.includes("адміністратор")) throw err;
-    /* залишаємо локальний стан після успішного PUT */
-  }
+  const ai = await api.getAiSettings();
+  mergeAiSettings(ai);
+  aiSettingsLoadError = "";
 }
 
 export function openSettings(section = "users") {
@@ -103,7 +124,7 @@ function usersSectionHtml() {
           <tbody>${rows || '<tr><td colspan="6" class="empty">Немає користувачів</td></tr>'}</tbody>
         </table>
       </div>
-      <p class="settings-hint settings-demo-hint" hidden>Демо: <code>admin</code>/<code>admin</code>; оператори <code>porizka</code>, <code>krayka</code>, <code>prisadka</code>, <code>zbirka</code> — <code>1234</code>.</p>
+      <p class="settings-hint settings-demo-hint" hidden>Демо: <code>admin</code>/<code>admin</code>; начальник виробництва <code>virobnytstvo</code>/<code>1234</code>; оператори <code>porizka</code>, <code>krayka</code>, <code>prisadka</code>, <code>zbirka</code> — <code>1234</code>.</p>
     </div>
   `;
 }
@@ -135,7 +156,9 @@ function accessSectionHtml() {
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canManageAccess" ${p.canManageAccess ? "checked" : ""} /> Доступи</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canEditOrders" ${p.canEditOrders ? "checked" : ""} /> Замовлення</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canEditPositions" ${p.canEditPositions ? "checked" : ""} /> Позиції</label>
-          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canUseOperatorPanel" ${p.canUseOperatorPanel ? "checked" : ""} /> Панель оператора</label>
+          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canUseOperatorPanel" ${p.canUseOperatorPanel ? "checked" : ""} /> Панель оператора (огляд)</label>
+          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canViewProductionFloor" ${p.canViewProductionFloor ? "checked" : ""} /> Вкладка «Цех зараз»</label>
+          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canViewMachineLogs" ${p.canViewMachineLogs ? "checked" : ""} /> Перегляд логів станків</label>
         </div>
         <div class="access-stages">
           <div class="access-stages-title">Етапи</div>
@@ -294,7 +317,9 @@ function aiSectionHtml() {
     ? '<span class="badge green">Ключ у базі</span>'
     : hasEnv
       ? '<span class="badge orange">Лише в .env — натисніть «Зберегти»</span>'
-      : '<span class="badge gray">Ключ не збережено</span>';
+      : aiSettingsLoadError
+        ? '<span class="badge orange">Статус невідомий</span>'
+        : '<span class="badge gray">Ключ не збережено</span>';
 
   return `
     <div class="settings-section ai-settings-page">
@@ -302,6 +327,11 @@ function aiSectionHtml() {
         <h2>ШІ — OpenAI</h2>
         ${statusBadge}
       </div>
+      ${
+        aiSettingsLoadError
+          ? `<p class="form-error visible ai-settings-load-error">${escapeHtml(aiSettingsLoadError)}</p>`
+          : ""
+      }
       <p class="settings-hint">
         Ключ використовується для <strong>зіставлення рядків логу станка</strong> з позиціями замовлень у ENVER.
         Без ключа працює лише евристичне зіставлення (номер замовлення, виріб, токени з логу).
@@ -423,6 +453,18 @@ function collectPermissionsFromDom() {
         canEditOrders: true,
         canEditPositions: true,
         canUseOperatorPanel: true,
+        canViewProductionFloor: true,
+        canViewMachineLogs: true,
+        stages: OPERATOR_STAGES.map((s) => s.key)
+      });
+    }
+    if (role.id === "production") {
+      Object.assign(base, {
+        canEditOrders: true,
+        canEditPositions: true,
+        canUseOperatorPanel: true,
+        canViewProductionFloor: true,
+        canViewMachineLogs: true,
         stages: OPERATOR_STAGES.map((s) => s.key)
       });
     }
@@ -701,10 +743,15 @@ export function bindSettingsActions(onChange) {
             clearApiKey: true
           }),
         onSuccess: async (ai) => {
-          aiSettings = { ...aiSettings, ...ai };
+          mergeAiSettings(ai);
           const input = document.querySelector("#aiApiKey");
           if (input) input.value = "";
-          await refreshAiSettingsFromServer();
+          try {
+            await refreshAiSettingsFromServer();
+          } catch {
+            /* PUT уже оновив hasApiKey */
+          }
+          settingsOnChange();
         }
       }).catch(() => {});
       return;
@@ -762,8 +809,17 @@ function saveAiSettingsFromDom() {
   };
 
   if (rawKey) {
-    if (rawKey.includes("…") || /\*{2,}/.test(rawKey)) {
+    if (rawKey.includes("…") || rawKey.includes("...") || /\*{2,}/.test(rawKey)) {
       const msg = "Вставте повний ключ sk-…, а не маску з підказки";
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.add("visible");
+      }
+      import("./toast.js").then(({ toastError }) => toastError(msg));
+      return;
+    }
+    if (!/^sk-[A-Za-z0-9_-]{20,}$/.test(rawKey)) {
+      const msg = "Некоректний ключ: очікується sk-… (повний ключ з platform.openai.com)";
       if (errEl) {
         errEl.textContent = msg;
         errEl.classList.add("visible");
@@ -782,27 +838,27 @@ function saveAiSettingsFromDom() {
     return;
   }
 
-  if (saveBtn) saveBtn.disabled = true;
-
   runSettingsSave("ШІ", {
+    submitEl: saveBtn,
     onReload: () => settingsOnChange(),
     saveFn: () => api.updateAiSettings(body),
     onSuccess: async (ai) => {
-      aiSettings = { ...aiSettings, ...ai };
+      mergeAiSettings(ai);
       const input = document.querySelector("#aiApiKey");
       if (input) input.value = "";
-      await refreshAiSettingsFromServer();
-    }
-  })
-    .catch((ex) => {
-      if (errEl) {
-        errEl.textContent = ex.message;
-        errEl.classList.add("visible");
+      try {
+        await refreshAiSettingsFromServer();
+      } catch {
+        /* PUT уже оновив hasApiKey */
       }
-    })
-    .finally(() => {
-      if (saveBtn) saveBtn.disabled = false;
-    });
+      settingsOnChange();
+    }
+  }).catch((ex) => {
+    if (errEl) {
+      errEl.textContent = ex.message;
+      errEl.classList.add("visible");
+    }
+  });
 }
 
 /** @deprecated Обробник submit на document у bindSettingsActions */

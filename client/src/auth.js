@@ -56,6 +56,10 @@ export function canEditPositions() {
   return Boolean(state.currentUser?.permissions?.canEditPositions);
 }
 
+export function isProductionHead() {
+  return state.currentUser?.role === "production";
+}
+
 export function isOperator() {
   return state.currentUser?.role === "operator";
 }
@@ -66,10 +70,31 @@ export function operatorStages() {
   return [...new Set([...fromUser, ...fromPerms])];
 }
 
+export function canViewProductionFloor() {
+  return Boolean(state.currentUser?.permissions?.canViewProductionFloor);
+}
+
+export function canViewMachineLogs() {
+  return Boolean(state.currentUser?.permissions?.canViewMachineLogs);
+}
+
+/** Панель оператора в режимі огляду (начальник / адмін), без кнопок «Почав». */
+export function isSupervisorOperatorPanel() {
+  if (!state.currentUser?.permissions?.canUseOperatorPanel) return false;
+  return state.currentUser.role !== "operator";
+}
+
 export function hasOperatorAccess() {
   if (!state.currentUser) return false;
-  if (isAdmin() && state.currentUser.permissions?.canUseOperatorPanel) return true;
-  return isOperator() && operatorStages().length > 0;
+  if (state.currentUser.permissions?.canUseOperatorPanel) {
+    if (isOperator()) return operatorStages().length > 0;
+    return true;
+  }
+  return false;
+}
+
+export function shouldShowProductionFloorByDefault() {
+  return isProductionHead() && canViewProductionFloor();
 }
 
 let pollTimer = null;

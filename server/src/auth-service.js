@@ -26,6 +26,9 @@ export function mapUser(row) {
   if (row.role === "admin") {
     permissions = { ...permissions, ...DEFAULT_PERMISSIONS.admin };
   }
+  if (row.role === "production") {
+    permissions = { ...permissions, ...DEFAULT_PERMISSIONS.production };
+  }
   if (row.role === "operator" && stages.length) {
     permissions = { ...permissions, stages };
   }

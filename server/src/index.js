@@ -15,9 +15,10 @@ import machineRouter from "./routes/machine.js";
 import machineLogsRouter from "./routes/machine-logs.js";
 import settingsRouter from "./routes/settings.js";
 import operatorRouter from "./routes/operator.js";
+import productionRouter from "./routes/production.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.join(__dirname, "..", "..", "client");
 const clientDist = path.join(clientRoot, "dist");
@@ -52,6 +53,7 @@ function createApiApp() {
   app.use("/api/machine/logs", machineLogsRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/operator", operatorRouter);
+  app.use("/api/production", productionRouter);
 
   app.use((err, _req, res, _next) => {
     console.error(err);

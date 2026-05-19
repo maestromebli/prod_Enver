@@ -4,10 +4,23 @@ import { STAGE_STATUS_FIELD } from "../roles.js";
 import { mapPosition } from "../mappers.js";
 import { enrichPositionRow } from "../position-logic.js";
 import { logStageChange } from "../audit.js";
-import { auditActor, requireAuth, requireOperatorSelf } from "../middleware/auth.js";
+import {
+  auditActor,
+  requireAuth,
+  requireOperatorPanelView,
+  requireOperatorSelf
+} from "../middleware/auth.js";
 
 const router = Router();
 router.use(requireAuth);
+
+router.use((req, res, next) => {
+  if (req.method === "GET") {
+    requireOperatorPanelView(req, res, next);
+    return;
+  }
+  next();
+});
 
 const getPosition = db.prepare("SELECT * FROM positions WHERE id = ?");
 

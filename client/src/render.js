@@ -1,5 +1,12 @@
-import { canEditOrders, canEditPositions, canViewSettings, isOperator } from "./auth.js";
-import { STAGE_TABS, TABS } from "./constants.js";
+import {
+  canEditOrders,
+  canEditPositions,
+  canViewProductionFloor,
+  canViewSettings,
+  hasOperatorAccess,
+  isOperator
+} from "./auth.js";
+import { PRODUCTION_FLOOR_TAB, STAGE_TABS, TABS } from "./constants.js";
 import { STAGE_TAB_KEYS } from "./terminology.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
@@ -8,6 +15,11 @@ import { positionActionButtons, stageQuickActions } from "./positions.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { filteredPositions } from "./filters.js";
 import { renderInstallTab } from "./install-calendar.js";
+import {
+  bindProductionFloorActions,
+  loadProductionFloor,
+  renderProductionFloorTab
+} from "./production-floor.js";
 import { state } from "./state.js";
 import { badge, escapeHtml, overdue, progressBar } from "./utils.js";
 import { orderRowHighlightClasses } from "./workflows.js";
@@ -479,14 +491,20 @@ function dashboard() {
 }
 
 
+function visibleTabs() {
+  return TABS.filter((tab) => tab !== PRODUCTION_FLOOR_TAB || canViewProductionFloor());
+}
+
 export function renderTabs() {
-  document.querySelector("#tabs").innerHTML = TABS.map(
-    (tab) => `
+  document.querySelector("#tabs").innerHTML = visibleTabs()
+    .map(
+      (tab) => `
       <button type="button" class="tab-btn ${tab === state.activeTab ? "active" : ""}" data-tab="${escapeHtml(tab)}">
         ${escapeHtml(tab)}
       </button>
     `
-  ).join("");
+    )
+    .join("");
 }
 
 export function renderKpis() {
@@ -595,6 +613,7 @@ function renderContent() {
   const tab = state.activeTab;
 
   if (tab === "Дашборд") return dashboard();
+  if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === "Замовлення") return ordersTable(true);
   if (tab === "Позиції замовлення") return positionsTable(data, "Позиції замовлення", true);
   if (tab === "Виробництво за етапами") return productionTable();
@@ -619,6 +638,29 @@ export function renderHeaderChrome() {
   }
   if (gear) gear.hidden = !canViewSettings();
   if (logout) logout.hidden = !user;
+
+  let opBtn = document.querySelector("#productionOperatorBtn");
+  if (hasOperatorAccess() && !isOperator()) {
+    if (!opBtn) {
+      const actions = document.querySelector("#headerActions");
+      opBtn = document.createElement("button");
+      opBtn.type = "button";
+      opBtn.className = "btn btn-sm";
+      opBtn.id = "productionOperatorBtn";
+      opBtn.textContent = "Панель цеху";
+      actions?.insertBefore(opBtn, actions.querySelector("#logoutBtn"));
+      opBtn.addEventListener("click", async () => {
+        const { openOperatorView } = await import("./operator-panel.js");
+        const { operatorStages } = await import("./auth.js");
+        const stages = operatorStages();
+        openOperatorView(stages[0] || "cutting");
+        window.__enverRender?.();
+      });
+    }
+    opBtn.hidden = !showMainChrome;
+  } else if (opBtn) {
+    opBtn.hidden = true;
+  }
 
   const showMainChrome = state.view === "main";
   const immersiveOperator = state.view === "operator" && isOperator();
@@ -670,4 +712,21 @@ export function renderApp(options = {}) {
   }
   renderStageFilter();
   document.querySelector("#content").innerHTML = renderContent();
+
+  if (state.activeTab === PRODUCTION_FLOOR_TAB && canViewProductionFloor()) {
+    bindProductionFloorActions({
+      onRefresh: async () => {
+        try {
+          await loadProductionFloor();
+          renderApp({ contentOnly: true });
+        } catch (err) {
+          import("./toast.js").then(({ toastError }) => toastError(err.message));
+        }
+      },
+      onOpenPosition: (id) => {
+        const position = state.positions.find((p) => p.id === id);
+        if (position) import("./positions.js").then(({ openPositionDrawer }) => openPositionDrawer(position));
+      }
+    });
+  }
 }

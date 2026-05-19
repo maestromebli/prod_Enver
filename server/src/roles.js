@@ -1,6 +1,7 @@
 export const ROLES = {
   admin: "admin",
   manager: "manager",
+  production: "production",
   operator: "operator"
 };
 
@@ -10,6 +11,8 @@ export const OPERATOR_STAGES = [
   { key: "drilling", label: "Присадка" },
   { key: "assembly", label: "Збірка" }
 ];
+
+export const ALL_STAGE_KEYS = OPERATOR_STAGES.map((s) => s.key);
 
 export const STAGE_STATUS_FIELD = {
   cutting: "cutting_status",
@@ -26,7 +29,9 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: true,
     canEditPositions: true,
     canUseOperatorPanel: true,
-    stages: ["cutting", "edging", "drilling", "assembly"]
+    canViewMachineLogs: true,
+    canViewProductionFloor: true,
+    stages: ALL_STAGE_KEYS
   },
   manager: {
     canViewSettings: false,
@@ -35,7 +40,20 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: true,
     canEditPositions: true,
     canUseOperatorPanel: false,
+    canViewMachineLogs: false,
+    canViewProductionFloor: false,
     stages: []
+  },
+  production: {
+    canViewSettings: false,
+    canManageUsers: false,
+    canManageAccess: false,
+    canEditOrders: true,
+    canEditPositions: true,
+    canUseOperatorPanel: true,
+    canViewMachineLogs: true,
+    canViewProductionFloor: true,
+    stages: ALL_STAGE_KEYS
   },
   operator: {
     canViewSettings: false,
@@ -44,6 +62,8 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: false,
     canEditPositions: false,
     canUseOperatorPanel: true,
+    canViewMachineLogs: false,
+    canViewProductionFloor: false,
     stages: []
   }
 };

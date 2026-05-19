@@ -17,6 +17,14 @@ export const POSITION_STATUSES = [
   "Проблема"
 ];
 
+/** Ваги етапів виробництва для % готовності позиції (сума 100). Конструктив і монтаж не входять. */
+export const PRODUCTION_PROGRESS_WEIGHTS = {
+  cutting: 20,
+  edging: 25,
+  drilling: 25,
+  assembly: 30
+};
+
 export const STAGES = [
   {
     key: "constructor",

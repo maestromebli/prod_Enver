@@ -1,11 +1,18 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword } from "../auth-utils.js";
-import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import { requireAdmin, requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
 import { DEFAULT_PERMISSIONS, ROLES } from "../roles.js";
 
 const router = Router();
-router.use(requireAuth, requireAdmin);
+router.use(requireAuth);
+
+router.get("/machine-config", requirePermissionOrAdmin("canViewMachineLogs"), (_req, res) => {
+  const rows = db.prepare("SELECT * FROM machine_config ORDER BY stage_key").all();
+  res.json(rows.map(mapMachineConfigRow));
+});
+
+router.use(requireAdmin);
 
 function mapUser(row) {
   let stages = [];
@@ -48,7 +55,9 @@ router.put("/permissions", (req, res) => {
   const tx = db.transaction(() => {
     for (const [role, perms] of Object.entries(body)) {
       if (!DEFAULT_PERMISSIONS[role]) continue;
-      const toSave = role === "admin" ? { ...perms, ...DEFAULT_PERMISSIONS.admin } : perms;
+      let toSave = perms;
+      if (role === "admin") toSave = { ...perms, ...DEFAULT_PERMISSIONS.admin };
+      else if (role === "production") toSave = { ...perms, ...DEFAULT_PERMISSIONS.production };
       upsert.run({ role, permissions_json: JSON.stringify(toSave) });
     }
   });
@@ -83,11 +92,6 @@ function mapMachineConfigRow(r) {
     updatedAt: r.updated_at
   };
 }
-
-router.get("/machine-config", (_req, res) => {
-  const rows = db.prepare("SELECT * FROM machine_config ORDER BY stage_key").all();
-  res.json(rows.map(mapMachineConfigRow));
-});
 
 router.put("/machine-config/:stageKey", (req, res) => {
   const stageKey = req.params.stageKey;

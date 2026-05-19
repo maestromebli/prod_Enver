@@ -8,8 +8,11 @@ import {
   logout,
   operatorStages,
   refreshCurrentUser,
-  saveUser
+  saveUser,
+  shouldShowProductionFloorByDefault
 } from "./auth.js";
+import { PRODUCTION_FLOOR_TAB } from "./constants.js";
+import { loadProductionFloor } from "./production-floor.js";
 import { toastError } from "./toast.js";
 import {
   initOrderModal,
@@ -119,6 +122,9 @@ async function afterAuth({ restoreNavigation = false } = {}) {
       const stages = operatorStages();
       state.view = "operator";
       state.operatorStage = stages[0];
+    } else if (shouldShowProductionFloorByDefault()) {
+      state.view = "main";
+      state.activeTab = PRODUCTION_FLOOR_TAB;
     } else {
       state.view = "main";
     }
@@ -257,6 +263,13 @@ async function loadData({ silent = false } = {}) {
 }
 
 async function prepareViewData() {
+  if (state.view === "main" && state.activeTab === PRODUCTION_FLOOR_TAB) {
+    try {
+      await loadProductionFloor();
+    } catch (err) {
+      toastError(err.message);
+    }
+  }
   if (state.view === "settings" && canViewSettings()) {
     initSettingsUi(renderApp);
     await loadSettingsData();
@@ -276,6 +289,16 @@ async function prepareViewData() {
 
 async function setTab(tab) {
   state.activeTab = tab;
+  if (tab === PRODUCTION_FLOOR_TAB) {
+    setLoading(true);
+    try {
+      await loadProductionFloor();
+    } catch (err) {
+      toastError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
   if (tab === "Історія змін") {
     setLoading(true);
     try {

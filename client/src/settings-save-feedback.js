@@ -37,23 +37,23 @@ export function renderSettingsSaveBanner() {
   `;
 }
 
-export async function runSettingsSave(label, { saveFn, onSuccess, onReload }) {
+export async function runSettingsSave(label, { saveFn, onSuccess, onReload, submitEl }) {
   setSettingsSaveFeedback("saving", `${label}: збереження…`);
-  if (onReload) onReload();
 
   try {
     const result = await runSave(label, {
       saveFn,
       onSuccess,
+      submitEl,
       successMessage: `${label}: успішно збережено`
     });
     setSettingsSaveFeedback("success", `${label}: успішно збережено`);
+    if (onReload) onReload();
     return result;
   } catch (err) {
     const msg = `${label}: не збережено — ${err.message || "помилка"}`;
     setSettingsSaveFeedback("error", msg);
-    throw err;
-  } finally {
     if (onReload) onReload();
+    throw err;
   }
 }
