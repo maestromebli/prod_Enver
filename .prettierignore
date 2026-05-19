@@ -1,0 +1,8 @@
+node_modules
+dist
+client/dist
+server/data
+releases
+package-lock.json
+*.min.js
+.github

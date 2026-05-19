@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../db.js";
+import { all, one, run, withTransaction } from "../db.js";
 import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
@@ -7,48 +7,15 @@ import { mapOrder, orderToDb } from "../mappers.js";
 const router = Router();
 router.use(requireAuth);
 
-const listStmt = db.prepare("SELECT * FROM orders ORDER BY id");
-const getStmt = db.prepare("SELECT * FROM orders WHERE id = ?");
+const PG_UNIQUE_VIOLATION = "23505";
 
-const insertStmt = db.prepare(`
-  INSERT INTO orders (order_number, object, client, manager, start_date, plan_date, status, priority, comment)
-  VALUES (@order_number, @object, @client, @manager, @start_date, @plan_date, @status, @priority, @comment)
-`);
-
-const updateStmt = db.prepare(`
-  UPDATE orders SET
-    order_number = @order_number,
-    object = @object,
-    client = @client,
-    manager = @manager,
-    start_date = @start_date,
-    plan_date = @plan_date,
-    status = @status,
-    priority = @priority,
-    comment = @comment,
-    updated_at = datetime('now')
-  WHERE id = @id
-`);
-
-const deleteStmt = db.prepare("DELETE FROM orders WHERE id = ?");
-
-const syncPositionsByOrderId = db.prepare(`
-  UPDATE positions SET order_number = @order_number, object = @object
-  WHERE order_id = @order_id
-`);
-
-const linkOrphanPositionsStmt = db.prepare(`
-  UPDATE positions SET order_id = @order_id, object = @object
-  WHERE order_number = @order_number AND order_id IS NULL
-`);
-
-router.get("/", (_req, res) => {
-  const rows = listStmt.all();
+router.get("/", async (_req, res) => {
+  const rows = await all("SELECT * FROM orders ORDER BY id");
   res.json(rows.map(mapOrder));
 });
 
-router.get("/:id", (req, res) => {
-  const row = getStmt.get(req.params.id);
+router.get("/:id", async (req, res) => {
+  const row = await one("SELECT * FROM orders WHERE id = $1", [req.params.id]);
   if (!row) {
     res.status(404).json({ error: "Замовлення не знайдено" });
     return;
@@ -56,7 +23,7 @@ router.get("/:id", (req, res) => {
   res.json(mapOrder(row));
 });
 
-router.post("/", requireOrderWrite, (req, res) => {
+router.post("/", requireOrderWrite, async (req, res) => {
   const data = orderToDb(req.body);
   if (!data.order_number) {
     res.status(400).json({ error: "Вкажіть номер замовлення" });
@@ -64,18 +31,21 @@ router.post("/", requireOrderWrite, (req, res) => {
   }
 
   try {
-    const result = insertStmt.run(data);
-    const id = result.lastInsertRowid;
-    linkOrphanPositionsStmt.run({
-      order_id: id,
-      order_number: data.order_number,
-      object: data.object
-    });
-    const row = getStmt.get(id);
-    logOrderCreate(row, auditActor(req));
-    res.status(201).json(mapOrder(row));
+    const inserted = await one(
+      `INSERT INTO orders (order_number, object, client, manager, start_date, plan_date, status, priority, comment)
+       VALUES (@order_number, @object, @client, @manager, @start_date, @plan_date, @status, @priority, @comment)
+       RETURNING *`,
+      data
+    );
+    await run(
+      `UPDATE positions SET order_id = @order_id, object = @object
+       WHERE order_number = @order_number AND order_id IS NULL`,
+      { order_id: inserted.id, order_number: data.order_number, object: data.object }
+    );
+    await logOrderCreate(inserted, auditActor(req));
+    res.status(201).json(mapOrder(inserted));
   } catch (err) {
-    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    if (err.code === PG_UNIQUE_VIOLATION) {
       res.status(409).json({ error: "Замовлення з таким номером уже існує" });
       return;
     }
@@ -83,9 +53,9 @@ router.post("/", requireOrderWrite, (req, res) => {
   }
 });
 
-router.put("/:id", requireOrderWrite, (req, res) => {
+router.put("/:id", requireOrderWrite, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getStmt.get(id);
+  const existing = await one("SELECT * FROM orders WHERE id = $1", [id]);
   if (!existing) {
     res.status(404).json({ error: "Замовлення не знайдено" });
     return;
@@ -98,25 +68,40 @@ router.put("/:id", requireOrderWrite, (req, res) => {
   }
 
   try {
-    updateStmt.run({ ...data, id });
-    syncPositionsByOrderId.run({
-      order_id: id,
-      order_number: data.order_number,
-      object: data.object
-    });
-    db.prepare(`
-      UPDATE positions SET order_number = @order_number, object = @object
-      WHERE order_number = @old_order_number
-    `).run({
-      order_number: data.order_number,
-      object: data.object,
-      old_order_number: existing.order_number
-    });
-    const row = getStmt.get(id);
-    logOrderUpdate(existing, row, auditActor(req));
-    res.json(mapOrder(row));
+    const updated = await one(
+      `UPDATE orders SET
+        order_number = @order_number,
+        object = @object,
+        client = @client,
+        manager = @manager,
+        start_date = @start_date,
+        plan_date = @plan_date,
+        status = @status,
+        priority = @priority,
+        comment = @comment,
+        updated_at = now()
+      WHERE id = @id
+      RETURNING *`,
+      { ...data, id }
+    );
+    await run(
+      `UPDATE positions SET order_number = @order_number, object = @object
+       WHERE order_id = @order_id`,
+      { order_id: id, order_number: data.order_number, object: data.object }
+    );
+    await run(
+      `UPDATE positions SET order_number = @order_number, object = @object
+       WHERE order_number = @old_order_number`,
+      {
+        order_number: data.order_number,
+        object: data.object,
+        old_order_number: existing.order_number
+      }
+    );
+    await logOrderUpdate(existing, updated, auditActor(req));
+    res.json(mapOrder(updated));
   } catch (err) {
-    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    if (err.code === PG_UNIQUE_VIOLATION) {
       res.status(409).json({ error: "Замовлення з таким номером уже існує" });
       return;
     }
@@ -124,25 +109,20 @@ router.put("/:id", requireOrderWrite, (req, res) => {
   }
 });
 
-router.delete("/:id", requireOrderWrite, (req, res) => {
+router.delete("/:id", requireOrderWrite, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getStmt.get(id);
+  const existing = await one("SELECT * FROM orders WHERE id = $1", [id]);
   if (!existing) {
     res.status(404).json({ error: "Замовлення не знайдено" });
     return;
   }
 
-  const unlink = db.prepare(`
-    UPDATE positions SET order_id = NULL WHERE order_id = ?
-  `);
-
-  const remove = db.transaction(() => {
-    logOrderDelete(existing, auditActor(req));
-    unlink.run(id);
-    deleteStmt.run(id);
+  await withTransaction(async (tx) => {
+    await logOrderDelete(existing, auditActor(req));
+    await tx.run("UPDATE positions SET order_id = NULL WHERE order_id = $1", [id]);
+    await tx.run("DELETE FROM orders WHERE id = $1", [id]);
   });
 
-  remove();
   res.status(204).send();
 });
 

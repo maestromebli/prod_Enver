@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+import { one, run } from "./db.js";
 import { getLatestMatch } from "./machine-ai-matcher.js";
 import { ingestLogFile } from "./machine-log-ingest.js";
 
@@ -7,26 +7,24 @@ function parseProgressPayload(data) {
     return Math.max(0, Math.min(100, Math.round(data)));
   }
   if (!data || typeof data !== "object") return null;
-  const raw =
-    data.progress ?? data.percent ?? data.percentage ?? data.completion ?? data.value;
+  const raw = data.progress ?? data.percent ?? data.percentage ?? data.completion ?? data.value;
   if (raw === undefined || raw === null) return null;
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-function getConfig(stageKey) {
-  return db.prepare("SELECT * FROM machine_config WHERE stage_key = ?").get(stageKey);
+async function getConfig(stageKey) {
+  return one("SELECT * FROM machine_config WHERE stage_key = $1", [stageKey]);
 }
 
-function simulatedProgress(stageKey) {
-  const session = db
-    .prepare(
-      `SELECT * FROM operator_sessions
-       WHERE stage_key = ? AND finished_at IS NULL
-       ORDER BY started_at DESC LIMIT 1`
-    )
-    .get(stageKey);
+async function simulatedProgress(stageKey) {
+  const session = await one(
+    `SELECT * FROM operator_sessions
+     WHERE stage_key = $1 AND finished_at IS NULL
+     ORDER BY started_at DESC LIMIT 1`,
+    [stageKey]
+  );
 
   if (!session) return 0;
 
@@ -38,13 +36,13 @@ function simulatedProgress(stageKey) {
 }
 
 async function progressFromLogs(stageKey) {
-  const config = getConfig(stageKey);
+  const config = await getConfig(stageKey);
   if (!config?.log_path?.trim()) return null;
 
   await ingestLogFile(stageKey).catch(() => {});
 
-  const refreshed = getConfig(stageKey);
-  const match = getLatestMatch(stageKey);
+  const refreshed = await getConfig(stageKey);
+  const match = await getLatestMatch(stageKey);
 
   return {
     stageKey,
@@ -57,7 +55,7 @@ async function progressFromLogs(stageKey) {
   };
 }
 
-async function progressFromApi(stageKey, config, fallback) {
+async function progressFromApi(stageKey, config) {
   const headers = { Accept: "application/json" };
   if (config.api_token?.trim()) {
     headers.Authorization = `Bearer ${config.api_token.trim()}`;
@@ -81,30 +79,37 @@ async function progressFromApi(stageKey, config, fallback) {
     throw new Error("Невідомий формат відповіді станка");
   }
 
-  db.prepare(
-    `UPDATE machine_config SET last_progress = ?, updated_at = datetime('now') WHERE stage_key = ?`
-  ).run(progress, stageKey);
+  await run(
+    `UPDATE machine_config SET last_progress = $1, updated_at = now() WHERE stage_key = $2`,
+    [progress, stageKey]
+  );
 
-  return { stageKey, progress, source: "api", message: null, match: getLatestMatch(stageKey) };
+  return {
+    stageKey,
+    progress,
+    source: "api",
+    message: null,
+    match: await getLatestMatch(stageKey)
+  };
 }
 
 export async function fetchMachineProgress(stageKey) {
-  const config = getConfig(stageKey);
-  const fallback = simulatedProgress(stageKey);
+  const config = await getConfig(stageKey);
+  const fallback = await simulatedProgress(stageKey);
 
   const fromLogs = await progressFromLogs(stageKey);
   if (fromLogs) return fromLogs;
 
   if (config?.api_url?.trim()) {
     try {
-      return await progressFromApi(stageKey, config, fallback);
+      return await progressFromApi(stageKey, config);
     } catch (err) {
       return {
         stageKey,
         progress: config.last_progress ?? fallback,
         source: "cached",
         message: err.message || "Помилка з'єднання з API станка",
-        match: getLatestMatch(stageKey)
+        match: await getLatestMatch(stageKey)
       };
     }
   }
@@ -114,6 +119,6 @@ export async function fetchMachineProgress(stageKey) {
     progress: fallback,
     source: "simulated",
     message: "Налаштуйте шлях до логу станка або URL API",
-    match: getLatestMatch(stageKey)
+    match: await getLatestMatch(stageKey)
   };
 }

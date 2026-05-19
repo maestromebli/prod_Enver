@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+import { run } from "./db.js";
 import { mapOrder, mapPosition } from "./mappers.js";
 
 const ORDER_FIELDS = {
@@ -60,14 +60,6 @@ const ACTION_LABELS = {
   stage_change: "Етап змінено"
 };
 
-const insertStmt = db.prepare(`
-  INSERT INTO change_history (
-    entity_type, entity_id, action, summary, changes_json, order_number, item_label, user_id, user_name
-  ) VALUES (
-    @entity_type, @entity_id, @action, @summary, @changes_json, @order_number, @item_label, @user_id, @user_name
-  )
-`);
-
 export function diffFields(before, after, fieldMap) {
   const changes = [];
   for (const [key, label] of Object.entries(fieldMap)) {
@@ -92,7 +84,14 @@ function formatSummary(entityType, action, meta) {
   return `${actionLabel}: позиція #${meta.entityId} — ${meta.item || meta.orderNumber}`;
 }
 
-export function recordHistory({ entityType, entityId, action, changes = [], meta = {}, actor = null }) {
+export async function recordHistory({
+  entityType,
+  entityId,
+  action,
+  changes = [],
+  meta = {},
+  actor = null
+}) {
   const summary =
     meta.summary ||
     formatSummary(entityType, action, {
@@ -101,23 +100,30 @@ export function recordHistory({ entityType, entityId, action, changes = [], meta
       item: meta.item
     });
 
-  insertStmt.run({
-    entity_type: entityType,
-    entity_id: entityId,
-    action,
-    summary,
-    changes_json: JSON.stringify(changes),
-    order_number: meta.orderNumber ?? "",
-    item_label: meta.item ?? "",
-    user_id: actor?.id ?? null,
-    user_name: actor?.name ?? ""
-  });
+  await run(
+    `INSERT INTO change_history (
+      entity_type, entity_id, action, summary, changes_json, order_number, item_label, user_id, user_name
+    ) VALUES (
+      @entity_type, @entity_id, @action, @summary, @changes_json, @order_number, @item_label, @user_id, @user_name
+    )`,
+    {
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      summary,
+      changes_json: JSON.stringify(changes),
+      order_number: meta.orderNumber ?? "",
+      item_label: meta.item ?? "",
+      user_id: actor?.id ?? null,
+      user_name: actor?.name ?? ""
+    }
+  );
 }
 
-export function logOrderCreate(orderRow, actor = null) {
+export async function logOrderCreate(orderRow, actor = null) {
   const o = mapOrder(orderRow);
   const changes = diffFields({}, o, ORDER_FIELDS);
-  recordHistory({
+  await recordHistory({
     entityType: "order",
     entityId: o.id,
     action: "create",
@@ -127,12 +133,12 @@ export function logOrderCreate(orderRow, actor = null) {
   });
 }
 
-export function logOrderUpdate(beforeRow, afterRow, actor = null) {
+export async function logOrderUpdate(beforeRow, afterRow, actor = null) {
   const before = mapOrder(beforeRow);
   const after = mapOrder(afterRow);
   const changes = diffFields(before, after, ORDER_FIELDS);
   if (!changes.length) return;
-  recordHistory({
+  await recordHistory({
     entityType: "order",
     entityId: after.id,
     action: "update",
@@ -142,23 +148,22 @@ export function logOrderUpdate(beforeRow, afterRow, actor = null) {
   });
 }
 
-export function logOrderDelete(orderRow, actor = null) {
+export async function logOrderDelete(orderRow, actor = null) {
   const o = mapOrder(orderRow);
-  recordHistory({
+  await recordHistory({
     entityType: "order",
     entityId: o.id,
     action: "delete",
     changes: [],
-    meta: { orderNumber: o.orderNumber },
-    summary: `Видалено замовлення ${o.orderNumber}`,
+    meta: { orderNumber: o.orderNumber, summary: `Видалено замовлення ${o.orderNumber}` },
     actor
   });
 }
 
-export function logPositionCreate(positionRow, actor = null) {
+export async function logPositionCreate(positionRow, actor = null) {
   const p = mapPosition(positionRow);
   const changes = diffFields({}, p, POSITION_FIELDS);
-  recordHistory({
+  await recordHistory({
     entityType: "position",
     entityId: p.id,
     action: "create",
@@ -168,12 +173,12 @@ export function logPositionCreate(positionRow, actor = null) {
   });
 }
 
-export function logPositionUpdate(beforeRow, afterRow, actor = null) {
+export async function logPositionUpdate(beforeRow, afterRow, actor = null) {
   const before = mapPosition(beforeRow);
   const after = mapPosition(afterRow);
   const changes = diffFields(before, after, POSITION_FIELDS);
   if (!changes.length) return;
-  recordHistory({
+  await recordHistory({
     entityType: "position",
     entityId: after.id,
     action: "update",
@@ -183,20 +188,23 @@ export function logPositionUpdate(beforeRow, afterRow, actor = null) {
   });
 }
 
-export function logPositionDelete(positionRow, actor = null) {
+export async function logPositionDelete(positionRow, actor = null) {
   const p = mapPosition(positionRow);
-  recordHistory({
+  await recordHistory({
     entityType: "position",
     entityId: p.id,
     action: "delete",
     changes: [],
-    meta: { orderNumber: p.orderNumber, item: p.item },
-    summary: `Видалено позицію #${p.id}: ${p.item}`,
+    meta: {
+      orderNumber: p.orderNumber,
+      item: p.item,
+      summary: `Видалено позицію #${p.id}: ${p.item}`
+    },
     actor
   });
 }
 
-export function logStageChange(beforeRow, afterRow, stageKey, patch = {}, actor = null) {
+export async function logStageChange(beforeRow, afterRow, stageKey, patch = {}, actor = null) {
   const before = mapPosition(beforeRow);
   const after = mapPosition(afterRow);
   const stageLabel = STAGE_LABELS[stageKey] || stageKey;
@@ -224,18 +232,27 @@ export function logStageChange(beforeRow, afterRow, stageKey, patch = {}, actor 
     }
   ];
 
-  recordHistory({
+  await recordHistory({
     entityType: "position",
     entityId: after.id,
     action: "stage_change",
     changes: stageChanges.length ? stageChanges : changes,
-    meta: { orderNumber: after.orderNumber, item: after.item },
-    summary: `Позиція #${after.id}: «${stageLabel}» ${oldStatus} → ${newStatus}`,
+    meta: {
+      orderNumber: after.orderNumber,
+      item: after.item,
+      summary: `Позиція #${after.id}: «${stageLabel}» ${oldStatus} → ${newStatus}`
+    },
     actor
   });
 }
 
 export function mapHistory(row) {
+  let changes = [];
+  try {
+    changes = JSON.parse(row.changes_json || "[]");
+  } catch {
+    changes = [];
+  }
   return {
     id: row.id,
     entityType: row.entity_type,
@@ -243,7 +260,7 @@ export function mapHistory(row) {
     action: row.action,
     actionLabel: ACTION_LABELS[row.action] || row.action,
     summary: row.summary,
-    changes: JSON.parse(row.changes_json || "[]"),
+    changes,
     orderNumber: row.order_number,
     itemLabel: row.item_label,
     userId: row.user_id ?? null,

@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { db } from "../db.js";
+import { all } from "../db.js";
 import { mapHistory } from "../audit.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 router.use(requireAuth);
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { entityType, entityId, orderNumber, limit = "100" } = req.query;
   const max = Math.min(Number(limit) || 100, 500);
 
@@ -26,10 +26,10 @@ router.get("/", (req, res) => {
     params.order_number = String(orderNumber);
   }
 
-  sql += " ORDER BY datetime(created_at) DESC, id DESC LIMIT @limit";
+  sql += " ORDER BY created_at DESC, id DESC LIMIT @limit";
   params.limit = max;
 
-  const rows = db.prepare(sql).all(params);
+  const rows = await all(sql, params);
   res.json(rows.map(mapHistory));
 });
 

@@ -1,11 +1,11 @@
 import crypto from "crypto";
-import { db } from "./db.js";
+import { one, run } from "./db.js";
 import { verifyPassword } from "./auth-utils.js";
 import { DEFAULT_PERMISSIONS } from "./roles.js";
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function mapUser(row) {
+export async function mapUser(row) {
   if (!row) return null;
   let stages = [];
   try {
@@ -13,7 +13,10 @@ export function mapUser(row) {
   } catch {
     stages = [];
   }
-  const rolePerms = db.prepare("SELECT permissions_json FROM role_permissions WHERE role = ?").get(row.role);
+  const rolePerms = await one(
+    "SELECT permissions_json FROM role_permissions WHERE role = $1",
+    [row.role]
+  );
   let permissions = { ...(DEFAULT_PERMISSIONS[row.role] || DEFAULT_PERMISSIONS.operator) };
   if (rolePerms?.permissions_json) {
     try {
@@ -48,41 +51,42 @@ function createToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-export function createSession(userId) {
+export async function createSession(userId) {
   const token = createToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  db.prepare(
-    `INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)`
-  ).run(token, userId, expiresAt);
+  await run(
+    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [token, userId, expiresAt]
+  );
   return { token, expiresAt };
 }
 
-export function deleteSession(token) {
+export async function deleteSession(token) {
   if (!token) return;
-  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  await run("DELETE FROM sessions WHERE token = $1", [token]);
 }
 
-export function purgeExpiredSessions() {
-  db.prepare(`DELETE FROM sessions WHERE datetime(expires_at) < datetime('now')`).run();
+export async function purgeExpiredSessions() {
+  await run(`DELETE FROM sessions WHERE expires_at < now()`);
 }
 
-export function getUserByToken(token) {
+export async function getUserByToken(token) {
   if (!token) return null;
-  purgeExpiredSessions();
-  const row = db
-    .prepare(
-      `SELECT u.* FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND u.active = 1 AND datetime(s.expires_at) >= datetime('now')`
-    )
-    .get(token);
+  await purgeExpiredSessions();
+  const row = await one(
+    `SELECT u.* FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token = $1 AND u.active = TRUE AND s.expires_at >= now()`,
+    [token]
+  );
   return mapUser(row);
 }
 
-export function authenticate(login, password) {
-  const row = db
-    .prepare("SELECT * FROM users WHERE lower(login) = lower(?) AND active = 1")
-    .get(login.trim());
+export async function authenticate(login, password) {
+  const row = await one(
+    "SELECT * FROM users WHERE lower(login) = lower($1) AND active = TRUE",
+    [login.trim()]
+  );
   if (!row || !verifyPassword(password, row.password_hash)) return null;
   return mapUser(row);
 }

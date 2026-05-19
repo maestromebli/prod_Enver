@@ -1,7 +1,6 @@
-import { db } from "./db.js";
+import { all, one, run } from "./db.js";
 import { STAGE_STATUS_FIELD } from "./roles.js";
 import { enrichPositionRow } from "./position-logic.js";
-import { extractTokens } from "./machine-log-parser.js";
 import { getAiSettings } from "./app-settings.js";
 
 function normalize(str) {
@@ -47,30 +46,28 @@ function heuristicScore(parsed, row) {
   return Math.min(1, score);
 }
 
-export function getMatchCandidates(stageKey, { activeSessionPositionId } = {}) {
+export async function getMatchCandidates(stageKey, { activeSessionPositionId } = {}) {
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!field) return { active: null, queue: [] };
 
   const active = activeSessionPositionId
-    ? db.prepare("SELECT * FROM positions WHERE id = ?").get(activeSessionPositionId)
+    ? await one("SELECT * FROM positions WHERE id = $1", [activeSessionPositionId])
     : null;
 
-  const queue = db
-    .prepare(
-      `SELECT p.*, o.priority AS order_priority, o.plan_date
-       FROM positions p
-       LEFT JOIN orders o ON o.id = p.order_id
-       WHERE p.${field} IN ('Передано', 'В роботі')
-       ORDER BY
-         CASE p.${field} WHEN 'В роботі' THEN 0 ELSE 1 END,
-         CASE WHEN p.problem != '' THEN 0 ELSE 1 END,
-         CASE WHEN p.overdue_days > 0 THEN 0 ELSE 1 END,
-         CASE o.priority WHEN 'Високий' THEN 0 WHEN 'Середній' THEN 1 ELSE 2 END,
-         p.overdue_days DESC,
-         p.id`
-    )
-    .all()
-    .map((r) => enrichPositionRow(r, { planDate: r.plan_date }));
+  const rows = await all(
+    `SELECT p.*, o.priority AS order_priority, o.plan_date
+     FROM positions p
+     LEFT JOIN orders o ON o.id = p.order_id
+     WHERE p.${field} IN ('Передано', 'В роботі')
+     ORDER BY
+       CASE p.${field} WHEN 'В роботі' THEN 0 ELSE 1 END,
+       CASE WHEN p.problem <> '' THEN 0 ELSE 1 END,
+       CASE WHEN p.overdue_days > 0 THEN 0 ELSE 1 END,
+       CASE o.priority WHEN 'Високий' THEN 0 WHEN 'Середній' THEN 1 ELSE 2 END,
+       p.overdue_days DESC,
+       p.id`
+  );
+  const queue = rows.map((r) => enrichPositionRow(r, { planDate: r.plan_date }));
 
   return { active, queue };
 }
@@ -98,10 +95,10 @@ function buildHeuristicReason(parsed, row) {
 }
 
 async function matchWithOpenAI(parsed, candidates) {
-  const ai = getAiSettings();
+  const ai = await getAiSettings();
   if (!ai.enabled || !ai.openaiApiKey?.trim()) return null;
 
-  const statusField = STAGE_STATUS_FIELD[stageKey];
+  const statusField = STAGE_STATUS_FIELD[parsed.stageKey];
   const list = candidates.slice(0, 12).map((c, i) => ({
     index: i,
     id: c.id,
@@ -173,17 +170,16 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
   parsed.stageKey = stageKey;
 
   const session = operatorSessionId
-    ? db.prepare("SELECT * FROM operator_sessions WHERE id = ?").get(operatorSessionId)
-    : db
-        .prepare(
-          `SELECT * FROM operator_sessions
-           WHERE stage_key = ? AND finished_at IS NULL
-           ORDER BY started_at DESC LIMIT 1`
-        )
-        .get(stageKey);
+    ? await one("SELECT * FROM operator_sessions WHERE id = $1", [operatorSessionId])
+    : await one(
+        `SELECT * FROM operator_sessions
+         WHERE stage_key = $1 AND finished_at IS NULL
+         ORDER BY started_at DESC LIMIT 1`,
+        [stageKey]
+      );
 
   const activeId = session?.position_id;
-  const { active, queue } = getMatchCandidates(stageKey, { activeSessionPositionId: activeId });
+  const { active, queue } = await getMatchCandidates(stageKey, { activeSessionPositionId: activeId });
 
   const candidates = [];
   if (active) candidates.push(active);
@@ -193,8 +189,11 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
 
   if (!candidates.length) return null;
 
-  const config = db.prepare("SELECT ai_matching_enabled FROM machine_config WHERE stage_key = ?").get(stageKey);
-  const aiAllowed = config?.ai_matching_enabled !== 0;
+  const config = await one(
+    "SELECT ai_matching_enabled FROM machine_config WHERE stage_key = $1",
+    [stageKey]
+  );
+  const aiAllowed = config?.ai_matching_enabled !== false;
 
   let best = null;
 
@@ -225,14 +224,13 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
 
   const status = best.confidence >= 0.55 ? "auto" : "suggested";
 
-  const result = db
-    .prepare(
-      `INSERT INTO machine_task_matches (
-        stage_key, log_event_id, position_id, operator_session_id,
-        confidence, method, reason, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+  const result = await run(
+    `INSERT INTO machine_task_matches (
+      stage_key, log_event_id, position_id, operator_session_id,
+      confidence, method, reason, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id`,
+    [
       stageKey,
       logEventId,
       best.positionId,
@@ -241,24 +239,26 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
       best.method,
       best.reason,
       status
-    );
+    ]
+  );
 
-  db.prepare(
+  await run(
     `UPDATE machine_config SET
-      last_match_position_id = ?,
-      last_match_confidence = ?,
-      last_match_summary = ?,
-      updated_at = datetime('now')
-     WHERE stage_key = ?`
-  ).run(
-    best.positionId,
-    best.confidence,
-    `${best.row.order_number} — ${best.row.item}`.slice(0, 200),
-    stageKey
+      last_match_position_id = $1,
+      last_match_confidence = $2,
+      last_match_summary = $3,
+      updated_at = now()
+     WHERE stage_key = $4`,
+    [
+      best.positionId,
+      best.confidence,
+      `${best.row.order_number} — ${best.row.item}`.slice(0, 200),
+      stageKey
+    ]
   );
 
   return {
-    matchId: result.lastInsertRowid,
+    matchId: result.rows[0].id,
     positionId: best.positionId,
     orderNumber: best.row.order_number,
     item: best.row.item,
@@ -270,16 +270,15 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
   };
 }
 
-export function getLatestMatch(stageKey) {
-  const row = db
-    .prepare(
-      `SELECT m.*, p.order_number, p.item, p.object
-       FROM machine_task_matches m
-       JOIN positions p ON p.id = m.position_id
-       WHERE m.stage_key = ?
-       ORDER BY m.created_at DESC LIMIT 1`
-    )
-    .get(stageKey);
+export async function getLatestMatch(stageKey) {
+  const row = await one(
+    `SELECT m.*, p.order_number, p.item, p.object
+     FROM machine_task_matches m
+     JOIN positions p ON p.id = m.position_id
+     WHERE m.stage_key = $1
+     ORDER BY m.created_at DESC LIMIT 1`,
+    [stageKey]
+  );
 
   if (!row) return null;
   return {

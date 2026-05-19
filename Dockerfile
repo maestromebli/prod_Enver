@@ -1,22 +1,29 @@
-FROM node:22-bookworm-slim
-
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
+FROM node:22-alpine AS deps
 WORKDIR /app
-
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
+RUN npm install --prefix server --omit=dev
+RUN npm install --prefix client
 
-RUN npm run install:all
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/server/node_modules ./server/node_modules
+COPY --from=deps /app/client/node_modules ./client/node_modules
+COPY server ./server
+COPY client ./client
+RUN npm run build --prefix client
 
-COPY . .
-
-RUN npm run build
-
+FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
+WORKDIR /app
+RUN addgroup -S enver && adduser -S enver -G enver
 
+COPY --from=deps /app/server/node_modules ./server/node_modules
+COPY --from=build /app/server ./server
+COPY --from=build /app/client/dist ./client/dist
+
+USER enver
 EXPOSE 3000
-
-CMD ["npm", "start"]
+CMD ["node", "server/src/index.js"]

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../db.js";
+import { all, one, run } from "../db.js";
 import { STAGE_STATUS_FIELD } from "../roles.js";
 import { mapPosition } from "../mappers.js";
 import { enrichPositionRow } from "../position-logic.js";
@@ -22,54 +22,55 @@ router.use((req, res, next) => {
   next();
 });
 
-const getPosition = db.prepare("SELECT * FROM positions WHERE id = ?");
+async function getPosition(id) {
+  return one("SELECT * FROM positions WHERE id = $1", [id]);
+}
 
-function savePosition(id, row) {
+async function savePosition(id, row) {
   const enriched = enrichPositionRow(row);
-  db.prepare(`
-    UPDATE positions SET
+  await run(
+    `UPDATE positions SET
       cutting_status = @cutting_status,
       edging_status = @edging_status,
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
       position_status = @position_status,
       progress = @progress
-    WHERE id = @id
-  `).run({
-    id,
-    cutting_status: enriched.cutting_status,
-    edging_status: enriched.edging_status,
-    drilling_status: enriched.drilling_status,
-    assembly_status: enriched.assembly_status,
-    position_status: enriched.position_status,
-    progress: enriched.progress
-  });
-  return mapPosition(getPosition.get(id));
+    WHERE id = @id`,
+    {
+      id,
+      cutting_status: enriched.cutting_status,
+      edging_status: enriched.edging_status,
+      drilling_status: enriched.drilling_status,
+      assembly_status: enriched.assembly_status,
+      position_status: enriched.position_status,
+      progress: enriched.progress
+    }
+  );
+  return mapPosition(await getPosition(id));
 }
 
-router.get("/queue/:stageKey", (req, res) => {
+router.get("/queue/:stageKey", async (req, res) => {
   const field = STAGE_STATUS_FIELD[req.params.stageKey];
   if (!field) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
 
-  const rows = db
-    .prepare(
-      `SELECT p.*, o.priority AS order_priority, o.plan_date
-       FROM positions p
-       LEFT JOIN orders o ON o.id = p.order_id
-       WHERE p.${field} IN ('Передано', 'В роботі', 'На паузі')
-       ORDER BY
-         CASE p.${field} WHEN 'В роботі' THEN 0 WHEN 'На паузі' THEN 0 ELSE 1 END,
-         CASE WHEN p.problem != '' THEN 0 ELSE 1 END,
-         CASE WHEN p.overdue_days > 0 THEN 0 ELSE 1 END,
-         CASE o.priority WHEN 'Високий' THEN 0 WHEN 'Середній' THEN 1 ELSE 2 END,
-         p.overdue_days DESC,
-         p.id`
-    )
-    .all()
-    .map((r) => mapPosition(enrichPositionRow(r, { planDate: r.plan_date })));
+  const rows = await all(
+    `SELECT p.*, o.priority AS order_priority, o.plan_date
+     FROM positions p
+     LEFT JOIN orders o ON o.id = p.order_id
+     WHERE p.${field} IN ('Передано', 'В роботі', 'На паузі')
+     ORDER BY
+       CASE p.${field} WHEN 'В роботі' THEN 0 WHEN 'На паузі' THEN 0 ELSE 1 END,
+       CASE WHEN p.problem <> '' THEN 0 ELSE 1 END,
+       CASE WHEN p.overdue_days > 0 THEN 0 ELSE 1 END,
+       CASE o.priority WHEN 'Високий' THEN 0 WHEN 'Середній' THEN 1 ELSE 2 END,
+       p.overdue_days DESC,
+       p.id`
+  );
+  const queue = rows.map((r) => mapPosition(enrichPositionRow(r, { planDate: r.plan_date })));
 
   const userId = req.user?.id;
   if (!userId) {
@@ -77,23 +78,31 @@ router.get("/queue/:stageKey", (req, res) => {
     return;
   }
 
-  const activeSession = db
-    .prepare(
-      `SELECT os.*, p.order_number, p.item, p.object
-       FROM operator_sessions os
-       JOIN positions p ON p.id = os.position_id
-       WHERE os.user_id = ? AND os.finished_at IS NULL
-       ORDER BY
-         CASE WHEN os.stage_key = ? THEN 0 ELSE 1 END,
-         os.started_at DESC
-       LIMIT 1`
-    )
-    .get(userId, req.params.stageKey);
+  const activeSession = await one(
+    `SELECT os.*, p.order_number, p.item, p.object
+     FROM operator_sessions os
+     JOIN positions p ON p.id = os.position_id
+     WHERE os.user_id = $1 AND os.finished_at IS NULL
+     ORDER BY
+       CASE WHEN os.stage_key = $2 THEN 0 ELSE 1 END,
+       os.started_at DESC
+     LIMIT 1`,
+    [userId, req.params.stageKey]
+  );
 
-  res.json({ queue: rows, activeSession: activeSession || null });
+  res.json({ queue, activeSession: activeSession || null });
 });
 
-router.post("/start", requireOperatorSelf, (req, res) => {
+async function getOpenSession(userId, positionId, stageKey) {
+  return one(
+    `SELECT * FROM operator_sessions
+     WHERE user_id = $1 AND position_id = $2 AND stage_key = $3 AND finished_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+    [userId, positionId, stageKey]
+  );
+}
+
+router.post("/start", requireOperatorSelf, async (req, res) => {
   const { userId, positionId, stageKey } = req.body || {};
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!userId || !positionId || !field) {
@@ -101,7 +110,7 @@ router.post("/start", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const row = getPosition.get(positionId);
+  const row = await getPosition(positionId);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
@@ -113,13 +122,12 @@ router.post("/start", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const open = db
-    .prepare(
-      `SELECT id, position_id, stage_key FROM operator_sessions
-       WHERE user_id = ? AND finished_at IS NULL
-       ORDER BY started_at DESC LIMIT 1`
-    )
-    .get(userId);
+  const open = await one(
+    `SELECT id, position_id, stage_key FROM operator_sessions
+     WHERE user_id = $1 AND finished_at IS NULL
+     ORDER BY started_at DESC LIMIT 1`,
+    [userId]
+  );
   if (open) {
     if (open.position_id === positionId) {
       res.status(409).json({ error: "Це завдання вже в роботі — натисніть «Закінчив»" });
@@ -134,23 +142,29 @@ router.post("/start", requireOperatorSelf, (req, res) => {
   const before = { ...row };
   row[field] = "В роботі";
 
-  const session = db
-    .prepare(
-      `INSERT INTO operator_sessions (user_id, position_id, stage_key, started_at)
-       VALUES (?, ?, ?, datetime('now'))`
-    )
-    .run(userId, positionId, stageKey);
+  const session = await one(
+    `INSERT INTO operator_sessions (user_id, position_id, stage_key, started_at)
+     VALUES ($1, $2, $3, now())
+     RETURNING id`,
+    [userId, positionId, stageKey]
+  );
 
-  savePosition(positionId, row);
-  logStageChange(before, getPosition.get(positionId), stageKey, { status: "В роботі" }, auditActor(req));
+  await savePosition(positionId, row);
+  await logStageChange(
+    before,
+    await getPosition(positionId),
+    stageKey,
+    { status: "В роботі" },
+    auditActor(req)
+  );
 
   res.json({
-    sessionId: session.lastInsertRowid,
-    position: mapPosition(getPosition.get(positionId))
+    sessionId: session.id,
+    position: mapPosition(await getPosition(positionId))
   });
 });
 
-router.post("/finish", requireOperatorSelf, (req, res) => {
+router.post("/finish", requireOperatorSelf, async (req, res) => {
   const { userId, positionId, stageKey } = req.body || {};
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!userId || !positionId || !field) {
@@ -158,46 +172,44 @@ router.post("/finish", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const session = getOpenSession(userId, positionId, stageKey);
+  const session = await getOpenSession(userId, positionId, stageKey);
 
   if (!session) {
     res.status(404).json({ error: "Активну сесію не знайдено" });
     return;
   }
 
-  const row = getPosition.get(positionId);
+  const row = await getPosition(positionId);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
   }
 
   if (!["В роботі", "На паузі"].includes(row[field])) {
-    res.status(400).json({ error: `Завершити можна лише з «В роботі» або «На паузі» (зараз «${row[field]}»)` });
+    res.status(400).json({
+      error: `Завершити можна лише з «В роботі» або «На паузі» (зараз «${row[field]}»)`
+    });
     return;
   }
 
   const before = { ...row };
   row[field] = "Готово";
 
-  db.prepare(`UPDATE operator_sessions SET finished_at = datetime('now') WHERE id = ?`).run(session.id);
+  await run(`UPDATE operator_sessions SET finished_at = now() WHERE id = $1`, [session.id]);
 
-  savePosition(positionId, row);
-  logStageChange(before, getPosition.get(positionId), stageKey, { status: "Готово" }, auditActor(req));
+  await savePosition(positionId, row);
+  await logStageChange(
+    before,
+    await getPosition(positionId),
+    stageKey,
+    { status: "Готово" },
+    auditActor(req)
+  );
 
-  res.json({ position: mapPosition(getPosition.get(positionId)) });
+  res.json({ position: mapPosition(await getPosition(positionId)) });
 });
 
-function getOpenSession(userId, positionId, stageKey) {
-  return db
-    .prepare(
-      `SELECT * FROM operator_sessions
-       WHERE user_id = ? AND position_id = ? AND stage_key = ? AND finished_at IS NULL
-       ORDER BY id DESC LIMIT 1`
-    )
-    .get(userId, positionId, stageKey);
-}
-
-router.post("/pause", requireOperatorSelf, (req, res) => {
+router.post("/pause", requireOperatorSelf, async (req, res) => {
   const { userId, positionId, stageKey } = req.body || {};
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!userId || !positionId || !field) {
@@ -205,33 +217,41 @@ router.post("/pause", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const session = getOpenSession(userId, positionId, stageKey);
+  const session = await getOpenSession(userId, positionId, stageKey);
   if (!session) {
     res.status(404).json({ error: "Активну сесію не знайдено" });
     return;
   }
 
-  const row = getPosition.get(positionId);
+  const row = await getPosition(positionId);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
   }
 
   if (row[field] !== "В роботі") {
-    res.status(400).json({ error: `Пауза доступна лише у статусі «В роботі» (зараз «${row[field]}»)` });
+    res
+      .status(400)
+      .json({ error: `Пауза доступна лише у статусі «В роботі» (зараз «${row[field]}»)` });
     return;
   }
 
   const before = { ...row };
   row[field] = "На паузі";
 
-  savePosition(positionId, row);
-  logStageChange(before, getPosition.get(positionId), stageKey, { status: "На паузі" }, auditActor(req));
+  await savePosition(positionId, row);
+  await logStageChange(
+    before,
+    await getPosition(positionId),
+    stageKey,
+    { status: "На паузі" },
+    auditActor(req)
+  );
 
-  res.json({ position: mapPosition(getPosition.get(positionId)) });
+  res.json({ position: mapPosition(await getPosition(positionId)) });
 });
 
-router.post("/resume", requireOperatorSelf, (req, res) => {
+router.post("/resume", requireOperatorSelf, async (req, res) => {
   const { userId, positionId, stageKey } = req.body || {};
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!userId || !positionId || !field) {
@@ -239,13 +259,13 @@ router.post("/resume", requireOperatorSelf, (req, res) => {
     return;
   }
 
-  const session = getOpenSession(userId, positionId, stageKey);
+  const session = await getOpenSession(userId, positionId, stageKey);
   if (!session) {
     res.status(404).json({ error: "Активну сесію не знайдено" });
     return;
   }
 
-  const row = getPosition.get(positionId);
+  const row = await getPosition(positionId);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
@@ -259,10 +279,16 @@ router.post("/resume", requireOperatorSelf, (req, res) => {
   const before = { ...row };
   row[field] = "В роботі";
 
-  savePosition(positionId, row);
-  logStageChange(before, getPosition.get(positionId), stageKey, { status: "В роботі" }, auditActor(req));
+  await savePosition(positionId, row);
+  await logStageChange(
+    before,
+    await getPosition(positionId),
+    stageKey,
+    { status: "В роботі" },
+    auditActor(req)
+  );
 
-  res.json({ position: mapPosition(getPosition.get(positionId)) });
+  res.json({ position: mapPosition(await getPosition(positionId)) });
 });
 
 export default router;

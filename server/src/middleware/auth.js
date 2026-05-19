@@ -7,16 +7,20 @@ function extractToken(req) {
   return null;
 }
 
-export function requireAuth(req, res, next) {
-  const token = extractToken(req);
-  const user = getUserByToken(token);
-  if (!user) {
-    res.status(401).json({ error: "Увійдіть у систему" });
-    return;
+export async function requireAuth(req, res, next) {
+  try {
+    const token = extractToken(req);
+    const user = await getUserByToken(token);
+    if (!user) {
+      res.status(401).json({ error: "Увійдіть у систему" });
+      return;
+    }
+    req.user = user;
+    req.authToken = token;
+    next();
+  } catch (err) {
+    next(err);
   }
-  req.user = user;
-  req.authToken = token;
-  next();
 }
 
 export function requirePermission(key) {

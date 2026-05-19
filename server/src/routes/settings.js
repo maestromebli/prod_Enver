@@ -14,15 +14,13 @@ function aiSettingsResponse(updated, { keyUpdated = false } = {}) {
     hasEnvKey: Boolean(updated.envApiKey),
     keyUpdated,
     openaiApiKeyMasked: maskSecret(updated.dbApiKey || updated.envApiKey),
-    message: keyUpdated
-      ? "API ключ збережено в базі"
-      : "Налаштування збережено"
+    message: keyUpdated ? "API ключ збережено в базі" : "Налаштування збережено"
   };
 }
 
-router.get("/ai", (_req, res) => {
+router.get("/ai", async (_req, res) => {
   try {
-    const ai = getAiSettings();
+    const ai = await getAiSettings();
     res.json({
       enabled: ai.enabled,
       openaiModel: ai.openaiModel,
@@ -36,9 +34,9 @@ router.get("/ai", (_req, res) => {
   }
 });
 
-router.put("/ai", (req, res) => {
+router.put("/ai", async (req, res) => {
   try {
-    const current = getAiSettings();
+    const current = await getAiSettings();
     const { enabled, openaiModel, openaiApiKey, clearApiKey } = req.body || {};
 
     let dbKey = current.dbApiKey;
@@ -56,7 +54,8 @@ router.put("/ai", (req, res) => {
         }
         if (!/^sk-[A-Za-z0-9_-]{20,}$/.test(trimmed)) {
           res.status(400).json({
-            error: "Некоректний формат ключа OpenAI (очікується sk-…, мінімум 20 символів після префікса)"
+            error:
+              "Некоректний формат ключа OpenAI (очікується sk-…, мінімум 20 символів після префікса)"
           });
           return;
         }
@@ -68,13 +67,13 @@ router.put("/ai", (req, res) => {
       }
     }
 
-    setSetting("ai", {
+    await setSetting("ai", {
       enabled: enabled !== undefined ? Boolean(enabled) : current.enabled !== false,
       openaiModel: openaiModel?.trim() || current.openaiModel,
       openaiApiKey: dbKey
     });
 
-    const updated = getAiSettings();
+    const updated = await getAiSettings();
     res.json(aiSettingsResponse(updated, { keyUpdated }));
   } catch (err) {
     console.error("PUT /api/settings/ai:", err);
@@ -82,31 +81,27 @@ router.put("/ai", (req, res) => {
   }
 });
 
-router.post("/ai/test", async (req, res, next) => {
-  try {
-    const ai = getAiSettings();
-    if (!ai.openaiApiKey?.trim()) {
-      res.status(400).json({ error: "Спочатку збережіть API ключ OpenAI" });
-      return;
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch("https://api.openai.com/v1/models", {
-      headers: { Authorization: `Bearer ${ai.openaiApiKey.trim()}` },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      res.status(400).json({
-        error: err.error?.message || `OpenAI відповів кодом ${response.status}`
-      });
-      return;
-    }
-    res.json({ ok: true, message: "Ключ дійсний, з'єднання з OpenAI успішне" });
-  } catch (err) {
-    next(err);
+router.post("/ai/test", async (_req, res) => {
+  const ai = await getAiSettings();
+  if (!ai.openaiApiKey?.trim()) {
+    res.status(400).json({ error: "Спочатку збережіть API ключ OpenAI" });
+    return;
   }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const response = await fetch("https://api.openai.com/v1/models", {
+    headers: { Authorization: `Bearer ${ai.openaiApiKey.trim()}` },
+    signal: controller.signal
+  });
+  clearTimeout(timeout);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    res.status(400).json({
+      error: err.error?.message || `OpenAI відповів кодом ${response.status}`
+    });
+    return;
+  }
+  res.json({ ok: true, message: "Ключ дійсний, з'єднання з OpenAI успішне" });
 });
 
 export default router;

@@ -1,7 +1,7 @@
-import { db } from "./db.js";
+import { one, run } from "./db.js";
 
-export function getSetting(key, fallback = null) {
-  const row = db.prepare("SELECT value_json FROM app_settings WHERE key = ?").get(key);
+export async function getSetting(key, fallback = null) {
+  const row = await one("SELECT value_json FROM app_settings WHERE key = $1", [key]);
   if (!row) return fallback;
   try {
     return JSON.parse(row.value_json);
@@ -10,15 +10,16 @@ export function getSetting(key, fallback = null) {
   }
 }
 
-export function setSetting(key, value) {
-  db.prepare(`
-    INSERT INTO app_settings (key, value_json) VALUES (@key, @value_json)
-    ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
-  `).run({ key, value_json: JSON.stringify(value) });
+export async function setSetting(key, value) {
+  await run(
+    `INSERT INTO app_settings (key, value_json) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value_json = excluded.value_json`,
+    [key, JSON.stringify(value)]
+  );
 }
 
-export function getAiSettings() {
-  const raw = getSetting("ai", {});
+export async function getAiSettings() {
+  const raw = (await getSetting("ai", {})) || {};
   const dbKey = String(raw.openaiApiKey || "").trim();
   const envKey = String(process.env.OPENAI_API_KEY || "").trim();
   return {

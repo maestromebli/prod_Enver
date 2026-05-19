@@ -1,9 +1,10 @@
 import express from "express";
+import "express-async-errors";
 import cors from "cors";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import "./db.js";
+import { pool, shutdownDb } from "./db.js";
 import ordersRouter from "./routes/orders.js";
 import positionsRouter from "./routes/positions.js";
 import kpisRouter from "./routes/kpis.js";
@@ -72,15 +73,15 @@ function shutdown(signal) {
 
   const done = () => {
     stopMachineLogWatchers();
-    if (signal) {
-      console.log(`\nЗупинка (${signal})…`);
-    }
-    process.exit(0);
+    shutdownDb().finally(() => {
+      if (signal) {
+        console.log(`\nЗупинка (${signal})…`);
+      }
+      process.exit(0);
+    });
   };
 
-  const closeVite = viteDevServer
-    ? viteDevServer.close().catch(() => {})
-    : Promise.resolve();
+  const closeVite = viteDevServer ? viteDevServer.close().catch(() => {}) : Promise.resolve();
 
   closeVite.finally(() => {
     if (httpServer) {
@@ -96,6 +97,13 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 async function start() {
+  if (!process.env.DATABASE_URL) {
+    console.error("DATABASE_URL не задано. Сервер не може стартувати без БД.");
+    process.exit(1);
+  }
+  // Перевірка з'єднання з БД — швидкий fail, якщо DATABASE_URL невалідний.
+  await pool.query("SELECT 1");
+
   const app = createApiApp();
   const server = http.createServer(app);
   httpServer = server;
@@ -108,13 +116,8 @@ async function start() {
         appType: "spa",
         server: {
           middlewareMode: true,
-          hmr: {
-            server,
-            port: PORT
-          },
-          watch: {
-            usePolling: false
-          }
+          hmr: { server, port: PORT },
+          watch: { usePolling: false }
         }
       });
       app.use(viteDevServer.middlewares);
@@ -161,8 +164,6 @@ async function start() {
 }
 
 start().catch((err) => {
-  if (err?.code !== "EADDRINUSE") {
-    console.error(err);
-  }
+  console.error(err);
   process.exit(1);
 });

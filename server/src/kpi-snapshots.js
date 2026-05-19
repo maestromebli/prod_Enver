@@ -1,13 +1,11 @@
-import { db } from "./db.js";
+import { all, run } from "./db.js";
 
-export function computeKpiSnapshot() {
-  const orders = db.prepare("SELECT status FROM orders").all();
-  const positions = db
-    .prepare(
-      `SELECT position_status, progress, overdue_days, install_date, constructor_name, assembly_responsible
-       FROM positions`
-    )
-    .all();
+export async function computeKpiSnapshot() {
+  const orders = await all("SELECT status FROM orders");
+  const positions = await all(
+    `SELECT position_status, progress, overdue_days, install_date, constructor_name, assembly_responsible
+     FROM positions`
+  );
 
   return {
     activeOrders: orders.filter((o) => o.status !== "Завершено").length,
@@ -21,42 +19,33 @@ export function computeKpiSnapshot() {
   };
 }
 
-export function recordTodaySnapshot() {
+export async function recordTodaySnapshot() {
   const today = new Date().toISOString().slice(0, 10);
-  const k = computeKpiSnapshot();
-  db.prepare(
+  const k = await computeKpiSnapshot();
+  await run(
     `INSERT INTO kpi_snapshots (
       snapshot_date, active_orders, in_production, in_work, overdue_count, ready_install, installs
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(snapshot_date) DO UPDATE SET
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (snapshot_date) DO UPDATE SET
       active_orders = excluded.active_orders,
       in_production = excluded.in_production,
       in_work = excluded.in_work,
       overdue_count = excluded.overdue_count,
       ready_install = excluded.ready_install,
-      installs = excluded.installs`
-  ).run(
-    today,
-    k.activeOrders,
-    k.inProduction,
-    k.inWork,
-    k.overdueCount,
-    k.readyInstall,
-    k.installs
+      installs = excluded.installs`,
+    [today, k.activeOrders, k.inProduction, k.inWork, k.overdueCount, k.readyInstall, k.installs]
   );
 }
 
-export function getKpiTrends(days = 14) {
+export async function getKpiTrends(days = 14) {
   const limit = Math.min(90, Math.max(7, days));
-  const rows = db
-    .prepare(
-      `SELECT snapshot_date, active_orders, in_production, in_work, overdue_count, ready_install, installs
-       FROM kpi_snapshots ORDER BY snapshot_date DESC LIMIT ?`
-    )
-    .all(limit)
-    .reverse();
+  const rows = await all(
+    `SELECT snapshot_date, active_orders, in_production, in_work, overdue_count, ready_install, installs
+     FROM kpi_snapshots ORDER BY snapshot_date DESC LIMIT $1`,
+    [limit]
+  );
 
-  return rows.map((r) => ({
+  return rows.reverse().map((r) => ({
     date: r.snapshot_date,
     activeOrders: r.active_orders,
     inProduction: r.in_production,

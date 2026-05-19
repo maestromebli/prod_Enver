@@ -1,54 +1,62 @@
 # ENVER — Виробничий контроль замовлень
 
-Веб-додаток для управління замовленнями та виробництвом меблів: дашборд, вкладки за етапами, SQLite, панель оператора, **парсер логів станка** та **AI-зіставлення** з задачами з програми.
+Веб-додаток для управління замовленнями та виробництвом меблів: дашборд, вкладки за етапами, панель оператора, **парсер логів станка** та **AI-зіставлення** з задачами з програми.
 
-## Структура проєкту
+## Стек
+
+- Сервер: Node.js 22, Express, `pg` → **Supabase Postgres**
+- Клієнт: Ванільний JS + Vite (адмінка `index.html` і PWA-оператор `operator.html`)
+- Деплой: Docker → GHCR → SSH на Hetzner, Caddy для TLS
+
+## Структура
 
 ```
-client/          — фронтенд (Vite, ES modules)
-server/          — API (Express + SQLite)
-server/data/     — база enver.db (створюється автоматично)
-server/samples/  — приклад логу станка для тесту
+client/               — фронтенд (Vite, ES modules)
+server/               — API (Express + pg)
+server/migrations/    — SQL міграції Postgres
+server/scripts/       — migrate.mjs (runner) + seed.mjs
+docker-compose.yml    — продакшен-стек (enver + caddy) на Hetzner
+deploy/Caddyfile      — reverse-proxy конфіг для Caddy
+scripts/deploy.sh     — викликається з CI по SSH для оновлення стеку
+.github/workflows/    — CI/CD
 ```
 
-## Запуск
+## Локальний dev
+
+Потрібен Supabase проект (або локальний Postgres 16) — задайте `DATABASE_URL` і `DATABASE_URL_MIGRATIONS` в `.env`.
 
 ```bash
+cp .env.example .env
+# відредагуйте DATABASE_URL і DATABASE_URL_MIGRATIONS
 npm run install:all
-npm run dev
+npm run migrate           # застосує SQL міграції + seed (admin/admin, права ролей, конфіги станків)
+npm run dev               # сервер + Vite на :3000
 ```
 
-Відкрийте **http://localhost:3000**
+Відкрийте **http://localhost:3000**. Перший вхід: `admin` / `admin` (пароль із `ADMIN_DEFAULT_PASSWORD`).
 
-Продакшен:
+## CI/CD
 
-```bash
-npm start
-```
+Один workflow `.github/workflows/ci-cd.yml`:
 
-Docker:
+| Тригер | Кроки |
+|---|---|
+| Pull request → main | `validate` (format check + lint + tests), `build` (Docker без push) |
+| Push до main | `validate`, `build` (push до GHCR із тегом `latest` і `${{ sha }}`), `migrate` (Supabase), `deploy` (SSH → Hetzner) |
 
-```bash
-docker compose up --build
-```
+Потрібні GitHub Secrets:
+- `DATABASE_URL_MIGRATIONS` — direct connection (port 5432) для застосування міграцій
+- `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою
 
-## Логи станка (замість API)
+`GITHUB_TOKEN` (автоматичний) — для push в GHCR.
 
-API станка **не обов'язковий**. Для **KDT Saw** підключено парсер з `kdt_log_parser_enver`.
+## Hetzner setup (одноразово)
 
-1. **Налаштування → Станки** — для **кожного етапу** свій шлях на сервері ENVER.
-2. **Порізка (KDT):** парсер **KDT Saw (папка .txt)** + шлях до папки, напр. `C:\Users\Administrator\Desktop\KDTSaw1`.
-3. **Інші етапи:** парсер `generic` / `biesse` / `homag` / `scm` + шлях до **одного** файлу логу.
-4. Увімкніть **Стежити** — опитування кожні 3 с.
-4. Оператор натискає **Почав** у програмі — активна сесія підвищує точність зіставлення.
-5. Парсер витягує прогрес (`Progress: 45%`, завершення `M30` тощо).
-6. **Зіставлення з позицією**:
-   - евристика за номером замовлення, виробом, токенами з логу;
-   - **OpenAI** (опційно) — ключ у `.env` або в налаштуваннях.
-
-Тест KDT: `server/samples/kdt-saw-sample.log` або папка з .txt — вкажіть абсолютний шлях для етапу **Порізка**.
-
-Завантаження фрагмента логу вручну: **Станки → Імпортувати** (вставка тексту).
+1. Встановити Docker + plugin `docker compose` v2, додати deploy-юзера в групу docker.
+2. `docker login ghcr.io` (PAT із `read:packages`).
+3. DNS A-запис домену → IP сервера; відкрити 22/80/443.
+4. Створити `/opt/enver/` і `/opt/enver/.env` за прикладом `.env.example` (`DATABASE_URL` pooler:6543, `DOMAIN`, `IMAGE_REPO`).
+5. Перший деплой з main запушить `docker-compose.yml`, `Caddyfile`, `deploy.sh` через scp і виконає `docker compose up -d` — мережа та volumes створяться автоматично.
 
 ## API
 
@@ -67,20 +75,14 @@ API станка **не обов'язковий**. Для **KDT Saw** підкл
 | POST | `/api/auth/login` | Вхід |
 | … | `/api/operator/*` | Черга оператора (пріоритет: проблема, прострочення) |
 
-## Користувачі
+## Безпека
 
-- **Шестерня** → Користувачі, Доступи, **Станки**
-- Демо (лише dev): `admin`/`admin`; оператори `porizka`, `krayka`, `prisadka`, `zbirka` — `1234`
+- Bearer-токен в усіх API (крім login). Сесії — таблиця `sessions`, TTL 7 днів.
+- Rate limit на вхід (12 спроб / хв на IP).
+- Адмін-юзер створюється тільки якщо немає жодного через `ADMIN_DEFAULT_PASSWORD` (одноразово).
 
 ## Тести
 
 ```bash
 npm test
 ```
-
-## Безпека
-
-- Токен на всіх API (крім login)
-- Rate limit на вхід
-- У production демо-підказки приховані
-- Резервна копія: `./scripts/backup-db.sh`

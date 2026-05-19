@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { db } from "./db.js";
+import { all, one, run } from "./db.js";
 import { parseLogLine } from "./machine-log-parser.js";
 import {
   determineKdtStatus,
@@ -27,7 +27,7 @@ export function mapMachineConfig(row) {
     watchEnabled: Boolean(row.watch_enabled),
     lastLogOffset: row.last_log_offset ?? 0,
     lastLogEventTime: row.last_log_event_time || "",
-    aiMatchingEnabled: row.ai_matching_enabled !== 0,
+    aiMatchingEnabled: row.ai_matching_enabled !== false,
     lastProgress: row.last_progress ?? 0,
     lastMatchPositionId: row.last_match_position_id,
     lastMatchConfidence: row.last_match_confidence ?? 0,
@@ -36,18 +36,17 @@ export function mapMachineConfig(row) {
   };
 }
 
-function getConfig(stageKey) {
-  return db.prepare("SELECT * FROM machine_config WHERE stage_key = ?").get(stageKey);
+async function getConfig(stageKey) {
+  return one("SELECT * FROM machine_config WHERE stage_key = $1", [stageKey]);
 }
 
-function insertEvent(stageKey, line, parsed, offset) {
-  const result = db
-    .prepare(
-      `INSERT INTO machine_log_events (
-        stage_key, raw_line, parsed_json, event_type, progress, job_ref, program_name, logged_at, file_offset
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+async function insertEvent(stageKey, line, parsed, offset) {
+  const result = await run(
+    `INSERT INTO machine_log_events (
+      stage_key, raw_line, parsed_json, event_type, progress, job_ref, program_name, logged_at, file_offset
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id`,
+    [
       stageKey,
       line,
       JSON.stringify(parsed),
@@ -57,20 +56,23 @@ function insertEvent(stageKey, line, parsed, offset) {
       parsed.programName || "",
       parsed.loggedAt,
       offset
-    );
+    ]
+  );
 
-  return { id: result.lastInsertRowid, parsed };
+  return { id: result.rows[0].id, parsed };
 }
 
-function applyProgress(stageKey, progress, statusText) {
+async function applyProgress(stageKey, progress, statusText) {
   if (progress === null || progress === undefined) return;
-  db.prepare(
-    `UPDATE machine_config SET last_progress = ?, updated_at = datetime('now') WHERE stage_key = ?`
-  ).run(progress, stageKey);
+  await run(
+    `UPDATE machine_config SET last_progress = $1, updated_at = now() WHERE stage_key = $2`,
+    [progress, stageKey]
+  );
   if (statusText) {
-    db.prepare(
-      `UPDATE machine_config SET last_match_summary = ? WHERE stage_key = ?`
-    ).run(String(statusText).slice(0, 200), stageKey);
+    await run(`UPDATE machine_config SET last_match_summary = $1 WHERE stage_key = $2`, [
+      String(statusText).slice(0, 200),
+      stageKey
+    ]);
   }
 }
 
@@ -116,11 +118,11 @@ async function ingestKdtLogs(stageKey, config, { fullScan = false } = {}) {
 
   for (const event of newEvents) {
     const parsed = kdtEventToEnverParsed(event, kdtStatus);
-    const { id, parsed: p } = insertEvent(stageKey, event.raw, parsed, 0);
+    const { id, parsed: p } = await insertEvent(stageKey, event.raw, parsed, 0);
     ingested += 1;
     if (event.time) lastEventTime = event.time;
 
-    if (config.ai_matching_enabled !== 0) {
+    if (config.ai_matching_enabled !== false) {
       await matchLogToTask(stageKey, { ...p, tokens: parsed.tokens }, id);
     }
   }
@@ -130,12 +132,13 @@ async function ingestKdtLogs(stageKey, config, { fullScan = false } = {}) {
     if (last.time) lastEventTime = last.time;
   }
 
-  applyProgress(stageKey, kdtStatus.progress, kdtStatus.statusText);
+  await applyProgress(stageKey, kdtStatus.progress, kdtStatus.statusText);
 
-  db.prepare(
-    `UPDATE machine_config SET last_log_event_time = ?, last_log_offset = 0, updated_at = datetime('now')
-     WHERE stage_key = ?`
-  ).run(lastEventTime, stageKey);
+  await run(
+    `UPDATE machine_config SET last_log_event_time = $1, last_log_offset = 0, updated_at = now()
+     WHERE stage_key = $2`,
+    [lastEventTime, stageKey]
+  );
 
   return {
     ingested,
@@ -166,7 +169,7 @@ async function ingestPlainLogFile(stageKey, config, { fullScan = false } = {}) {
   }
 
   const inode = `${stat.ino}-${stat.dev}`;
-  let offset = fullScan ? 0 : config.last_log_offset ?? 0;
+  let offset = fullScan ? 0 : (config.last_log_offset ?? 0);
 
   if (config.last_log_inode && config.last_log_inode !== inode) {
     offset = 0;
@@ -199,24 +202,25 @@ async function ingestPlainLogFile(stageKey, config, { fullScan = false } = {}) {
     const parsed = parseLogLine(line, profile);
     if (!parsed) continue;
 
-    const { id, parsed: p } = insertEvent(stageKey, line, parsed, newOffset);
+    const { id, parsed: p } = await insertEvent(stageKey, line, parsed, newOffset);
     ingested += 1;
 
     if (p.progress !== null && p.progress !== undefined) {
       lastProgress = p.progress;
     }
 
-    if (config.ai_matching_enabled !== 0) {
+    if (config.ai_matching_enabled !== false) {
       await matchLogToTask(stageKey, { ...p, tokens: parsed.tokens }, id);
     }
   }
 
-  applyProgress(stageKey, lastProgress);
+  await applyProgress(stageKey, lastProgress);
 
-  db.prepare(
-    `UPDATE machine_config SET last_log_offset = ?, last_log_inode = ?, updated_at = datetime('now')
-     WHERE stage_key = ?`
-  ).run(newOffset, inode, stageKey);
+  await run(
+    `UPDATE machine_config SET last_log_offset = $1, last_log_inode = $2, updated_at = now()
+     WHERE stage_key = $3`,
+    [newOffset, inode, stageKey]
+  );
 
   return {
     ingested,
@@ -227,7 +231,7 @@ async function ingestPlainLogFile(stageKey, config, { fullScan = false } = {}) {
 }
 
 export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
-  const config = getConfig(stageKey);
+  const config = await getConfig(stageKey);
   if (!config?.log_path?.trim()) {
     return { ingested: 0, message: "Шлях до логу не налаштовано" };
   }
@@ -248,7 +252,7 @@ export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
 }
 
 export async function ingestLogText(stageKey, text) {
-  const config = getConfig(stageKey);
+  const config = await getConfig(stageKey);
   if (!config) return { ingested: 0, message: "Етап не знайдено" };
 
   if (isKdtProfile(config.parser_profile)) {
@@ -274,14 +278,18 @@ export async function ingestLogText(stageKey, text) {
     const kdtStatus = determineKdtStatus(fakeEvents);
     for (const event of fakeEvents) {
       const parsed = kdtEventToEnverParsed(event, kdtStatus);
-      const { id, parsed: p } = insertEvent(stageKey, event.raw, parsed, 0);
+      const { id, parsed: p } = await insertEvent(stageKey, event.raw, parsed, 0);
       ingested += 1;
-      if (config.ai_matching_enabled !== 0) {
+      if (config.ai_matching_enabled !== false) {
         await matchLogToTask(stageKey, { ...p, tokens: parsed.tokens }, id);
       }
     }
-    applyProgress(stageKey, kdtStatus.progress, kdtStatus.statusText);
-    return { ingested, lastProgress: kdtStatus.progress, message: `KDT: імпортовано ${ingested} подій` };
+    await applyProgress(stageKey, kdtStatus.progress, kdtStatus.statusText);
+    return {
+      ingested,
+      lastProgress: kdtStatus.progress,
+      message: `KDT: імпортовано ${ingested} подій`
+    };
   }
 
   const profile = config.parser_profile || "generic";
@@ -291,34 +299,33 @@ export async function ingestLogText(stageKey, text) {
   for (const line of String(text || "").split(/\r?\n/)) {
     const parsed = parseLogLine(line, profile);
     if (!parsed) continue;
-    const { id, parsed: p } = insertEvent(stageKey, line, parsed, 0);
+    const { id, parsed: p } = await insertEvent(stageKey, line, parsed, 0);
     ingested += 1;
     if (p.progress !== null && p.progress !== undefined) lastProgress = p.progress;
-    if (config.ai_matching_enabled !== 0) {
+    if (config.ai_matching_enabled !== false) {
       await matchLogToTask(stageKey, { ...p, tokens: parsed.tokens }, id);
     }
   }
 
-  applyProgress(stageKey, lastProgress);
+  await applyProgress(stageKey, lastProgress);
   return { ingested, lastProgress, message: `Імпортовано ${ingested} подій` };
 }
 
-export function getRecentLogEvents(stageKey, limit = 30) {
-  return db
-    .prepare(
-      `SELECT id, raw_line, event_type, progress, job_ref, program_name, logged_at, ingested_at
-       FROM machine_log_events WHERE stage_key = ?
-       ORDER BY id DESC LIMIT ?`
-    )
-    .all(stageKey, limit)
-    .map((r) => ({
-      id: r.id,
-      rawLine: r.raw_line,
-      eventType: r.event_type,
-      progress: r.progress,
-      jobRef: r.job_ref,
-      programName: r.program_name,
-      loggedAt: r.logged_at,
-      ingestedAt: r.ingested_at
-    }));
+export async function getRecentLogEvents(stageKey, limit = 30) {
+  const rows = await all(
+    `SELECT id, raw_line, event_type, progress, job_ref, program_name, logged_at, ingested_at
+     FROM machine_log_events WHERE stage_key = $1
+     ORDER BY id DESC LIMIT $2`,
+    [stageKey, limit]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    rawLine: r.raw_line,
+    eventType: r.event_type,
+    progress: r.progress,
+    jobRef: r.job_ref,
+    programName: r.program_name,
+    loggedAt: r.logged_at,
+    ingestedAt: r.ingested_at
+  }));
 }

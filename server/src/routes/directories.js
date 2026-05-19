@@ -6,17 +6,17 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get("/", (_req, res) => {
-  res.json(getDirectories());
+router.get("/", async (_req, res) => {
+  res.json(await getDirectories());
 });
 
-router.put("/", requireAdmin, (req, res) => {
+router.put("/", requireAdmin, async (req, res) => {
   const body = req.body;
   if (!body || typeof body !== "object") {
     res.status(400).json({ error: "Некоректні дані довідників" });
     return;
   }
-  res.json(saveDirectories(body));
+  res.json(await saveDirectories(body));
 });
 
 export default router;

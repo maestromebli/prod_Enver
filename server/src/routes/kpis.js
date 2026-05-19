@@ -5,9 +5,9 @@ import { computeKpiSnapshot, getKpiTrends, recordTodaySnapshot } from "../kpi-sn
 const router = Router();
 router.use(requireAuth);
 
-router.get("/", (_req, res) => {
-  recordTodaySnapshot();
-  const k = computeKpiSnapshot();
+router.get("/", async (_req, res) => {
+  await recordTodaySnapshot();
+  const k = await computeKpiSnapshot();
   res.json({
     activeOrders: k.activeOrders,
     inProduction: k.inProduction,
@@ -20,10 +20,10 @@ router.get("/", (_req, res) => {
   });
 });
 
-router.get("/trends", (req, res) => {
-  recordTodaySnapshot();
+router.get("/trends", async (req, res) => {
+  await recordTodaySnapshot();
   const days = Number(req.query.days) || 14;
-  res.json({ trends: getKpiTrends(days) });
+  res.json({ trends: await getKpiTrends(days) });
 });
 
 export default router;

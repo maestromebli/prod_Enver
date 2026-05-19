@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+import { all } from "./db.js";
 import { ingestLogFile } from "./machine-log-ingest.js";
 
 const POLL_MS = 3000;
@@ -17,12 +17,10 @@ export function stopMachineLogWatchers() {
 }
 
 async function tickAll() {
-  const rows = db
-    .prepare(
-      `SELECT stage_key FROM machine_config
-       WHERE watch_enabled = 1 AND log_path != ''`
-    )
-    .all();
+  const rows = await all(
+    `SELECT stage_key FROM machine_config
+     WHERE watch_enabled = TRUE AND log_path <> ''`
+  );
 
   for (const row of rows) {
     try {
