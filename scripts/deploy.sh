@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-export IMAGE_REPO="${1:?Перший аргумент IMAGE_REPO обов'язковий (напр. ghcr.io/owner/enver)}"
+export IMAGE_REPO="${1:?Перший аргумент IMAGE_REPO необхідний (напр. ghcr.io/owner/enver)}"
 export IMAGE_TAG="${2:-latest}"
 
 cd /opt/enver
