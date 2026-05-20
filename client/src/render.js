@@ -474,16 +474,6 @@ function dashboard() {
       ${overdueTable()}
       ${positionsTable(readyData, "Готові до встановлення")}
     </div>
-    <div class="card">
-      <div class="block-title">Як працювати</div>
-      <div class="process-flow">
-        <div class="flow-step"><div class="flow-icon">☑</div><div>1. Створюємо замовлення</div></div>
-        <div class="flow-step"><div class="flow-icon">▣</div><div>2. Додаємо вироби</div></div>
-        <div class="flow-step"><div class="flow-icon">⚙</div><div>3. Передаємо за етапами</div></div>
-        <div class="flow-step"><div class="flow-icon">📅</div><div>4. Плануємо встановлення</div></div>
-        <div class="flow-step"><div class="flow-icon">▥</div><div>5. Контролюємо дашборд</div></div>
-      </div>
-    </div>
   `;
 }
 
