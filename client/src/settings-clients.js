@@ -9,10 +9,7 @@ export async function loadClientsInfo() {
 
 export function clientsSectionHtml() {
   const origin =
-    typeof window !== "undefined" && window.location?.origin
-      ? window.location.origin
-      : "";
-  const operatorUrl = clientsInfo?.operatorUrl || `${origin}/operator.html`;
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
   const ipadUrl =
     clientsInfo?.ipadDownloadUrl || `${origin}/downloads/enver-operator-ipad.mobileconfig`;
   const ipadReady = clientsInfo?.ipadDownloadAvailable !== false;
