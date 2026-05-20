@@ -19,6 +19,7 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import { state } from "./state.js";
+import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
 import { $ } from "./utils.js";
 
@@ -52,6 +53,10 @@ function renderOperatorClient() {
   const user = state.currentUser;
   const chip = $("#userChip");
   if (chip && user) chip.textContent = user.name;
+  const stageChip = $("#operatorStageChip");
+  if (stageChip) {
+    stageChip.textContent = state.operatorStage ? stageLabel(state.operatorStage) : "";
+  }
   document.body.classList.add("view-operator");
   const content = $("#content");
   if (content) content.innerHTML = renderOperatorView();

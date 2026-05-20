@@ -9,8 +9,13 @@ export async function loadClientsInfo() {
 
 export function clientsSectionHtml() {
   const origin =
-    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "";
   const operatorUrl = clientsInfo?.operatorUrl || `${origin}/operator.html`;
+  const ipadUrl =
+    clientsInfo?.ipadDownloadUrl || `${origin}/downloads/enver-operator-ipad.mobileconfig`;
+  const ipadReady = clientsInfo?.ipadDownloadAvailable !== false;
   const windowsUrl =
     clientsInfo?.windowsDownloadUrl || `${origin}/downloads/enver-operator-windows.zip`;
   const windowsReady = Boolean(clientsInfo?.windowsDownloadAvailable);
@@ -19,25 +24,29 @@ export function clientsSectionHtml() {
     <div class="settings-section">
       <h2>Клієнти для цеху</h2>
       <p class="settings-hint">
-        Окремі клієнти для операторів станків: планшет Apple (PWA) та повноекранний клієнт Windows біля станка.
+        Окремі клієнти для операторів станків: установка на планшет Apple та повноекранний клієнт Windows біля станка.
       </p>
 
       <article class="clients-card">
         <h3>iPad / iPhone (Apple)</h3>
         <p class="settings-hint">
+          Профіль установки (.mobileconfig) додає іконку «ENVER Оператор» на головний екран.
           Повноекранний режим як на Windows: після входу — на весь екран; вихід лише кнопкою
-          «Вийти з повноекранного» і паролем <code>1111</code>. Встановіть через Safari → «На екран «Додому»».
+          «Вийти з повноекранного» і паролем <code>1111</code>.
         </p>
-        <div class="clients-link-row">
-          <input type="text" class="clients-url-input" readonly value="${escapeHtml(operatorUrl)}" id="ipadClientUrl" />
-          <button type="button" class="btn btn-sm" data-copy-client-url="ipadClientUrl">Копіювати</button>
-          <a class="btn btn-primary btn-sm" href="${escapeHtml(operatorUrl)}" target="_blank" rel="noopener">Відкрити</a>
-        </div>
+        ${
+          ipadReady
+            ? `<a class="btn btn-primary" href="${escapeHtml(ipadUrl)}" download="enver-operator-ipad.mobileconfig">
+                Завантажити програму установки для iPad
+              </a>`
+            : `<p class="form-error">Профіль установки тимчасово недоступний.</p>`
+        }
         <ol class="clients-steps">
           <li>Переконайтесь, що планшет у тій самій мережі, що сервер ENVER.</li>
-          <li>Відкрийте посилання вище в Safari.</li>
+          <li>На iPad завантажте профіль (кнопка вище в Safari) або передайте файл з ПК (AirDrop, пошта).</li>
+          <li>Відкрийте файл → «Налаштування» → «Профіль завантажено» → «Встановити» → підтвердіть.</li>
+          <li>На головному екрані з’явиться «ENVER Оператор» — запускайте лише з іконки, не з Safari.</li>
           <li>Увійдіть (наприклад <code>porizka</code> / <code>1234</code>).</li>
-          <li>Додайте на головний екран — іконка «ENVER Оператор» (запускайте лише з іконки, не з Safari).</li>
           <li>Після входу панель займе весь екран; для виходу — «Вийти з повноекранного» + пароль <code>1111</code>.</li>
         </ol>
       </article>
