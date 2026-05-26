@@ -9,6 +9,7 @@
     "build": "npm run build --prefix client",
     "build:windows-client": "npm run build --prefix client && npm install --prefix desktop/windows && npm run build --prefix desktop/windows && npm run pack:zip --prefix desktop/windows",
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",
+    "pack:production-module": "node scripts/pack-production-module.mjs",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server",
     "migrate": "node server/scripts/migrate.mjs",

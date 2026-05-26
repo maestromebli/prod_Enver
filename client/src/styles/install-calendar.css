@@ -125,7 +125,8 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  min-width: 180px;
+  min-width: 0;
+  flex: 1 1 120px;
 }
 
 .ical-nav {
@@ -192,8 +193,9 @@
 
 .ical-body {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
   min-height: 620px;
+  min-width: 0;
 }
 
 .ical-sidebar {
@@ -350,6 +352,7 @@
   overflow: auto;
   padding: 12px;
   background: var(--white);
+  min-width: 0;
 }
 
 .ical-month-head,
@@ -478,12 +481,23 @@
 .ical-main--week,
 .ical-main--day {
   overflow: auto;
+  min-width: 0;
+}
+
+.ical-time-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
 }
 
 .ical-time-grid {
   display: grid;
   grid-template-columns: 56px 1fr;
-  min-width: 720px;
+}
+
+.ical-time-scroll .ical-time-grid {
+  min-width: 640px;
 }
 
 .ical-time-gutter-head,
@@ -1011,7 +1025,19 @@
 .ical-week-board {
   display: flex;
   flex-direction: column;
-  min-width: 700px;
+  min-width: 0;
+  width: 100%;
+}
+
+.ical-week-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
+}
+
+.ical-week-scroll .ical-week-grid {
+  min-width: 640px;
 }
 
 .ical-week-grid {
@@ -1167,9 +1193,8 @@
     justify-content: center;
   }
 
-  .ical-week-grid {
-    grid-template-columns: repeat(7, minmax(90px, 1fr));
-    overflow-x: auto;
+  .ical-week-scroll .ical-week-grid {
+    min-width: 560px;
   }
 }
 

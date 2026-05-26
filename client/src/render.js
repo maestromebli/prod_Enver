@@ -57,18 +57,21 @@ function positionsTable(data, title = "Позиції замовлення", sho
             <col class="col-w-order" />
             <col class="col-w-object" />
             <col class="col-w-item" />
-            <col class="col-w-type" />
-            <col class="col-w-person" />
-            <col class="col-w-person" />
-            <col class="col-w-stage" span="4" />
-            <col class="col-w-date" />
-            <col class="col-w-date" />
+            <col class="col-w-type col-opt-type" />
+            <col class="col-w-person col-opt-manager" />
+            <col class="col-w-person col-opt-constructor" />
+            <col class="col-w-stage" />
+            <col class="col-w-stage col-opt-edging" />
+            <col class="col-w-stage col-opt-drilling" />
+            <col class="col-w-stage" />
+            <col class="col-w-date col-opt-ready" />
+            <col class="col-w-date col-opt-install-date" />
             <col class="col-w-person" />
             <col class="col-w-status" />
             <col class="col-w-progress" />
-            <col class="col-w-overdue" />
-            <col class="col-w-text" />
-            <col class="col-w-text" />
+            <col class="col-w-overdue col-opt-overdue" />
+            <col class="col-w-text col-opt-problem" />
+            <col class="col-w-text col-opt-note" />
             ${allowActions ? '<col class="col-w-actions" />' : ""}
           </colgroup>
           <thead>
@@ -77,21 +80,21 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th>Номер замовлення</th>
               <th>Об'єкт / Адреса</th>
               <th class="left col-item">Виріб / Зона</th>
-              <th>Тип виробу</th>
-              <th>Менеджер</th>
-              <th>Конструктор</th>
+              <th class="col-opt-type">Тип виробу</th>
+              <th class="col-opt-manager">Менеджер</th>
+              <th class="col-opt-constructor">Конструктор</th>
               <th>Порізка</th>
-              <th>Крайкування</th>
-              <th>Присадка</th>
+              <th class="col-opt-edging">Крайкування</th>
+              <th class="col-opt-drilling">Присадка</th>
               <th>Збірка</th>
-              <th>Дата готовності</th>
-              <th>Дата встановлення</th>
+              <th class="col-opt-ready">Дата готовності</th>
+              <th class="col-opt-install-date">Дата встановлення</th>
               <th>Монтажник</th>
               <th>Статус позиції</th>
               <th>Готово, %</th>
-              <th>Прострочка, днів</th>
-              <th class="left">Проблема</th>
-              <th class="left">Примітка</th>
+              <th class="col-opt-overdue">Прострочка, днів</th>
+              <th class="left col-opt-problem">Проблема</th>
+              <th class="left col-opt-note">Примітка</th>
               ${actionHeader}
             </tr>
           </thead>

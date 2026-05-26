@@ -34,21 +34,21 @@ function positionRowCells(p, row, showActions) {
     <td>${isSub ? "—" : escapeHtml(p.orderNumber)}</td>
     <td>${isSub ? "—" : escapeHtml(p.object)}</td>
     <td class="left col-item" title="${escapeHtml(p.item)}">${treeControls(row)}${itemCell}</td>
-    <td>${escapeHtml(p.itemType || "—")}</td>
-    <td>${escapeHtml(p.manager || "—")}</td>
-    <td>${escapeHtml(p.constructor || "—")}</td>
+    <td class="col-opt-type">${escapeHtml(p.itemType || "—")}</td>
+    <td class="col-opt-manager">${escapeHtml(p.manager || "—")}</td>
+    <td class="col-opt-constructor">${escapeHtml(p.constructor || "—")}</td>
     <td>${badge(p.cuttingStatus)}</td>
-    <td>${badge(p.edgingStatus)}</td>
-    <td>${badge(p.drillingStatus)}</td>
+    <td class="col-opt-edging">${badge(p.edgingStatus)}</td>
+    <td class="col-opt-drilling">${badge(p.drillingStatus)}</td>
     <td>${badge(p.assemblyStatus)}</td>
-    <td>${escapeHtml(p.readyDate || "—")}</td>
-    <td>${escapeHtml(p.installDate || "—")}</td>
+    <td class="col-opt-ready">${escapeHtml(p.readyDate || "—")}</td>
+    <td class="col-opt-install-date">${escapeHtml(p.installDate || "—")}</td>
     <td>${escapeHtml(p.installResponsible || "—")}</td>
     <td>${badge(p.positionStatus)}</td>
     <td>${progress(p.progress)}</td>
-    <td>${overdue(p.overdueDays)}</td>
-    <td class="left">${escapeHtml(p.problem || "—")}</td>
-    <td class="left">${escapeHtml(p.note || "—")}</td>
+    <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>
+    <td class="left col-opt-problem">${escapeHtml(p.problem || "—")}</td>
+    <td class="left col-opt-note">${escapeHtml(p.note || "—")}</td>
     ${showActions ? `<td>${positionActionButtons(p.id, isSub)}</td>` : ""}
   `;
 }

@@ -69,17 +69,22 @@
 
 .settings-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
 }
 
 .settings-nav-btn {
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 10px 18px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--white);
   cursor: pointer;
   font-weight: 600;
+  white-space: normal;
+  text-align: center;
 }
 
 .settings-nav-btn.active {
@@ -529,22 +534,17 @@
   }
 
   .settings-nav {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    margin-left: -4px;
-    margin-right: -4px;
-    padding: 0 4px 6px;
-  }
-
-  .settings-nav::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0 0 6px;
   }
 
   .settings-nav-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    white-space: normal;
     min-height: 44px;
   }
 }

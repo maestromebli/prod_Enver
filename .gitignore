@@ -2,7 +2,9 @@ node_modules/
 dist/
 releases/windows-build/
 releases/_windows-staging/
+releases/_production-module-staging/
 releases/enver-operator-windows.zip
+releases/enver-production-module.zip
 desktop/windows/node_modules/
 server/data/*.db
 server/data/*.db-*

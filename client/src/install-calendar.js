@@ -215,7 +215,7 @@ function weekViewHtml(anchor, scheduled, loadMap) {
     })
     .join("");
 
-  return `<div class="ical-week-board"><div class="ical-week-grid">${cols}</div></div>`;
+  return `<div class="ical-week-board"><div class="ical-week-scroll"><div class="ical-week-grid">${cols}</div></div></div>`;
 }
 
 function dayViewHtml(anchor, scheduled, loadMap) {
