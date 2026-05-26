@@ -14,6 +14,7 @@ import { renderOperatorView } from "./operator-panel.js";
 import { renderPositionTableBody } from "./render-positions.js";
 import { positionActionButtons, stageQuickActions } from "./positions.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
+import { renderDashboard } from "./dashboard.js";
 import { filteredPositions } from "./filters.js";
 import { renderInstallTab } from "./install-calendar.js";
 import {
@@ -329,60 +330,6 @@ function productionTable() {
   `;
 }
 
-function installTable() {
-  const data = filteredPositions(
-    state.positions.filter((p) => p.positionStatus === "Готово до встановлення" || p.installDate)
-  );
-
-  return `
-    <div class="card">
-      <div class="block-title">Встановлення</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ID позиції</th>
-              <th>Номер замовлення</th>
-              <th>Об'єкт</th>
-              <th class="left">Виріб</th>
-              <th>Дата готовності</th>
-              <th>Планова дата встановлення</th>
-              <th>Монтажник</th>
-              <th>Статус встановлення</th>
-              <th>Що не готово</th>
-              <th>Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              data.length
-                ? data
-                    .map(
-                      (p) => `
-                        <tr class="row-clickable" data-edit-position="${p.id}">
-                          <td>${p.id}</td>
-                          <td>${escapeHtml(p.orderNumber)}</td>
-                          <td>${escapeHtml(p.object)}</td>
-                          <td class="left">${escapeHtml(p.item)}</td>
-                          <td>${escapeHtml(p.readyDate || "—")}</td>
-                          <td>${escapeHtml(p.installDate || "—")}</td>
-                          <td>${escapeHtml(p.installResponsible || "—")}</td>
-                          <td>${badge(p.positionStatus === "Готово до встановлення" ? "Готово до встановлення" : "В роботі")}</td>
-                          <td>${p.progress < 100 ? "Не всі етапи закриті" : "—"}</td>
-                          <td>${positionActionButtons(p.id, true)}</td>
-                        </tr>
-                      `
-                    )
-                    .join("")
-                : emptyRow(11)
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
 function overdueTable() {
   const data = filteredPositions(state.positions.filter((p) => p.overdueDays > 0));
 
@@ -433,48 +380,8 @@ function overdueTable() {
   `;
 }
 
-function dashboardCommandCenter() {
-  const data = state.positions;
-  const problems = data.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
-  const overdue = data.filter((p) => (p.overdueDays ?? 0) > 0);
-  const ready = data.filter((p) => p.positionStatus === "Готово до встановлення");
-  const inWork = data.filter((p) => p.positionStatus === "У виробництві");
-
-  const card = (title, count, cls, hint) => `
-    <div class="dash-widget ${cls}">
-      <div class="dash-widget-value">${count}</div>
-      <div class="dash-widget-label">${escapeHtml(title)}</div>
-      <div class="dash-widget-hint">${escapeHtml(hint)}</div>
-    </div>`;
-
-  return `
-    <div class="dash-command">
-      ${card("Проблеми", problems.length, "dash-red", "потребують уваги")}
-      ${card("Прострочені", overdue.length, "dash-orange", "днів понад план")}
-      ${card("У виробництві", inWork.length, "dash-blue", "активні позиції")}
-      ${card("До монтажу", ready.length, "dash-green", "готові до встановлення")}
-    </div>`;
-}
-
 function dashboard() {
-  const data = filteredPositions();
-  const readyData = data.filter((p) => p.positionStatus === "Готово до встановлення");
-
-  return `
-    <div class="card">
-      <div class="block-title">Штаб виробництва ENVER</div>
-      ${dashboardCommandCenter()}
-    </div>
-    ${positionsTable(data, "Позиції замовлення", canEditPositions())}
-    <div class="grid-2">
-      ${ordersTable(false)}
-      ${installTable()}
-    </div>
-    <div class="grid-2">
-      ${overdueTable()}
-      ${positionsTable(readyData, "Готові до встановлення")}
-    </div>
-  `;
+  return renderDashboard();
 }
 
 function visibleTabs() {
@@ -644,6 +551,10 @@ export function renderHeaderChrome() {
   }
 
   document.body.classList.toggle("view-operator", state.view === "operator");
+  document.body.classList.toggle(
+    "view-dashboard",
+    state.view === "main" && state.activeTab === "Дашборд"
+  );
 }
 
 export function renderApp(options = {}) {

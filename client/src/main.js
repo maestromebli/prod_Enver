@@ -149,6 +149,14 @@ function bindContentActions() {
     });
   });
 
+  document.querySelectorAll("[data-dash-nav]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const tab = el.dataset.dashNav;
+      if (tab) setTab(tab);
+    });
+  });
+
   document.querySelectorAll("[data-edit-position]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target.closest("[data-quick-stage]")) return;

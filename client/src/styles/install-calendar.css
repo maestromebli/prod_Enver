@@ -615,6 +615,33 @@
 
 .install-schedule-modal {
   max-width: 520px;
+  overflow: visible;
+}
+
+.install-schedule-modal .modal-body {
+  overflow: visible;
+}
+
+#installSchedulePosition {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+  -webkit-appearance: menulist;
+  appearance: menulist;
+  touch-action: manipulation;
+}
+
+#installScheduleModal .form-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  display: none;
+}
+
+#installScheduleModal .form-hint.visible {
+  display: block;
 }
 
 .install-presets {

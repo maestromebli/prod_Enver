@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { canEditPositions } from "./auth.js";
 import { parseUaDate, toIsoDate, fromIsoDate, addDays } from "./install-calendar-dates.js";
 import { dayPresetOptions, getInstallDayRange, inputDateToUa } from "./install-calendar-days.js";
-import { isInstallRelevant } from "./install-utils.js";
+import { getInstallScheduleCandidates, positionInstallLabel } from "./install-utils.js";
 import { state } from "./state.js";
 import { $, escapeHtml } from "./utils.js";
 import { runSave } from "./save-flow.js";
@@ -16,7 +16,13 @@ function backdrop() {
 }
 
 function ensureModal() {
-  if (document.getElementById("installScheduleModal")) return;
+  let existing = document.getElementById("installScheduleModal");
+  if (existing && !existing.querySelector("#installSchedulePositionId")) {
+    existing.remove();
+    existing = null;
+  }
+  if (existing) return;
+
   const el = document.createElement("div");
   el.id = "installScheduleModal";
   el.className = "modal-backdrop";
@@ -30,9 +36,19 @@ function ensureModal() {
       <form id="installScheduleForm">
         <div class="modal-body">
           <p class="form-error" id="installScheduleFormError"></p>
-          <div class="form-field">
-            <label for="installSchedulePosition">Позиція</label>
-            <select id="installSchedulePosition" required></select>
+          <div class="form-field install-position-picker">
+            <label for="installSchedulePositionSearch">Позиція</label>
+            <input type="hidden" id="installSchedulePositionId" />
+            <input
+              type="search"
+              id="installSchedulePositionSearch"
+              class="install-position-search"
+              placeholder="Пошук за номером, виробом або об'єктом…"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+            <div class="install-position-picker-list" id="installSchedulePositionList" role="listbox" aria-label="Позиції"></div>
+            <p class="form-hint" id="installSchedulePositionHint"></p>
           </div>
           <div class="form-grid">
             <div class="form-field">
@@ -68,8 +84,11 @@ function ensureModal() {
     if (e.target === el) closeInstallScheduleModal();
   });
 
-  $("#installScheduleForm")?.addEventListener("input", () => {
-    document.dispatchEvent(new CustomEvent("enver-ui-changed"));
+  const notifyUiChanged = () => document.dispatchEvent(new CustomEvent("enver-ui-changed"));
+  $("#installScheduleForm")?.addEventListener("input", notifyUiChanged);
+  $("#installScheduleForm")?.addEventListener("change", notifyUiChanged);
+  $("#installSchedulePosition")?.addEventListener("change", () => {
+    syncInstallScheduleFieldsFromPosition(Number($("#installSchedulePosition").value));
   });
   $("#installScheduleForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -115,15 +134,53 @@ function isoFromUa(ua) {
 
 function fillPositionOptions(selectedId) {
   const select = $("#installSchedulePosition");
-  const candidates = state.positions.filter(
-    (p) => isInstallRelevant(p) || p.positionStatus === "Готово до встановлення" || p.progress >= 80
-  );
-  select.innerHTML = candidates
+  if (!select) return;
+
+  const selectedNum = selectedId != null && selectedId !== "" ? Number(selectedId) : null;
+  const candidates = getInstallScheduleCandidates(state.positions, selectedNum);
+  const hasSelected = selectedNum != null && candidates.some((p) => p.id === selectedNum);
+
+  const placeholder = `<option value="" ${hasSelected ? "" : "selected"} disabled hidden>— Оберіть позицію —</option>`;
+  const options = candidates
     .map((p) => {
-      const label = `${escapeHtml(p.orderNumber)} — ${escapeHtml(p.item)} (${escapeHtml(p.object || "")})`;
-      return `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${label}</option>`;
+      const label = escapeHtml(positionInstallLabel(p));
+      const selected = selectedNum != null && p.id === selectedNum ? "selected" : "";
+      return `<option value="${p.id}" ${selected}>${label}</option>`;
     })
     .join("");
+
+  select.innerHTML = candidates.length ? placeholder + options : placeholder;
+  select.disabled = candidates.length === 0;
+
+  const hint = $("#installSchedulePositionHint");
+  if (hint) {
+    hint.textContent = candidates.length
+      ? ""
+      : "Немає позицій для планування. Змініть статус замовлення, щоб створити позицію.";
+    hint.classList.toggle("visible", candidates.length === 0);
+  }
+}
+
+function syncInstallScheduleFieldsFromPosition(positionId) {
+  if (!positionId) return;
+  const position = state.positions.find((p) => p.id === positionId);
+  if (!position) return;
+
+  draft = { positionId };
+
+  const isoStart = position.installDate
+    ? isoFromUa(position.installDate)
+    : $("#installScheduleDateStart").value || toIsoDate(new Date());
+  const range = getInstallDayRange(position);
+  const isoEnd = range ? toIsoDate(range.end) : isoStart;
+
+  $("#installScheduleDateStart").value = isoStart;
+  $("#installScheduleDateEnd").value = isoEnd;
+  $("#installScheduleInstaller").value = position.installResponsible || "";
+  $("#installScheduleTitle").textContent = position.installDate
+    ? "Редагувати монтаж"
+    : "Запланувати монтаж";
+  $("#clearInstallScheduleBtn").style.display = position.installDate ? "" : "none";
 }
 
 function fillInstallersList() {
