@@ -87,8 +87,24 @@ function ensureModal() {
   const notifyUiChanged = () => document.dispatchEvent(new CustomEvent("enver-ui-changed"));
   $("#installScheduleForm")?.addEventListener("input", notifyUiChanged);
   $("#installScheduleForm")?.addEventListener("change", notifyUiChanged);
-  $("#installSchedulePosition")?.addEventListener("change", () => {
-    syncInstallScheduleFieldsFromPosition(Number($("#installSchedulePosition").value));
+  $("#installSchedulePositionSearch")?.addEventListener("input", () => {
+    const search = $("#installSchedulePositionSearch");
+    const id = getSelectedPositionId();
+    if (id && search) {
+      const position = state.positions.find((p) => p.id === id);
+      const label = position ? positionInstallLabel(position) : "";
+      if (search.value !== label) setSelectedPositionId(null);
+    }
+    renderPositionPicker(getSelectedPositionId());
+  });
+  $("#installSchedulePositionSearch")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.preventDefault();
+  });
+  $("#installSchedulePositionList")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-position-id]");
+    if (!btn) return;
+    e.preventDefault();
+    selectInstallSchedulePosition(Number(btn.dataset.positionId));
   });
   $("#installScheduleForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -96,7 +112,7 @@ function ensureModal() {
   });
 
   $("#clearInstallScheduleBtn")?.addEventListener("click", async () => {
-    const positionId = Number($("#installSchedulePosition").value) || draft?.positionId;
+    const positionId = getSelectedPositionId() || draft?.positionId;
     if (!positionId) return;
     await runSave("Монтаж", {
       saveFn: () => api.patchPositionInstall(positionId, { clear: true }),
@@ -132,33 +148,105 @@ function isoFromUa(ua) {
   return d ? toIsoDate(d) : "";
 }
 
-function fillPositionOptions(selectedId) {
-  const select = $("#installSchedulePosition");
-  if (!select) return;
+function getSelectedPositionId() {
+  const raw = $("#installSchedulePositionId")?.value;
+  const id = Number(raw);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function setSelectedPositionId(positionId) {
+  const hidden = $("#installSchedulePositionId");
+  if (!hidden) return;
+  hidden.value = positionId ? String(positionId) : "";
+}
+
+function positionPickerFilterText() {
+  return ($("#installSchedulePositionSearch")?.value || "").trim().toLowerCase();
+}
+
+function positionMatchesFilter(position, filter) {
+  if (!filter) return true;
+  const text = [
+    position.id,
+    position.orderNumber,
+    position.item,
+    position.object,
+    positionInstallLabel(position)
+  ]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(filter);
+}
+
+function renderPositionPicker(selectedId) {
+  const listEl = $("#installSchedulePositionList");
+  if (!listEl) return;
 
   const selectedNum = selectedId != null && selectedId !== "" ? Number(selectedId) : null;
   const candidates = getInstallScheduleCandidates(state.positions, selectedNum);
-  const hasSelected = selectedNum != null && candidates.some((p) => p.id === selectedNum);
+  const filter = positionPickerFilterText();
+  const filtered = filter ? candidates.filter((p) => positionMatchesFilter(p, filter)) : candidates;
 
-  const placeholder = `<option value="" ${hasSelected ? "" : "selected"} disabled hidden>— Оберіть позицію —</option>`;
-  const options = candidates
-    .map((p) => {
-      const label = escapeHtml(positionInstallLabel(p));
-      const selected = selectedNum != null && p.id === selectedNum ? "selected" : "";
-      return `<option value="${p.id}" ${selected}>${label}</option>`;
-    })
-    .join("");
+  setSelectedPositionId(selectedNum);
 
-  select.innerHTML = candidates.length ? placeholder + options : placeholder;
-  select.disabled = candidates.length === 0;
+  if (!filtered.length) {
+    listEl.innerHTML = `<p class="install-position-empty">${escapeHtml(
+      candidates.length
+        ? "Нічого не знайдено — змініть пошук"
+        : "Немає позицій. Змініть статус замовлення, щоб створити позицію."
+    )}</p>`;
+  } else {
+    listEl.innerHTML = filtered
+      .map((p) => {
+        const selected = selectedNum != null && p.id === selectedNum;
+        return `<button type="button" class="install-position-option${selected ? " is-selected" : ""}" data-position-id="${p.id}" role="option" aria-selected="${selected}">
+          <span class="install-position-option-title">${escapeHtml(positionInstallLabel(p))}</span>
+        </button>`;
+      })
+      .join("");
+  }
 
   const hint = $("#installSchedulePositionHint");
   if (hint) {
     hint.textContent = candidates.length
-      ? ""
-      : "Немає позицій для планування. Змініть статус замовлення, щоб створити позицію.";
-    hint.classList.toggle("visible", candidates.length === 0);
+      ? `${candidates.length} поз. — натисніть рядок, щоб обрати`
+      : "";
+    hint.classList.toggle("visible", Boolean(candidates.length));
   }
+}
+
+function selectInstallSchedulePosition(positionId) {
+  if (!positionId) return;
+  const position = state.positions.find((p) => p.id === positionId);
+  const search = $("#installSchedulePositionSearch");
+  if (search && position) search.value = positionInstallLabel(position);
+  setSelectedPositionId(positionId);
+  renderPositionPicker(positionId);
+  syncInstallScheduleFieldsFromPosition(positionId);
+  notifyUiChanged();
+  requestAnimationFrame(() => {
+    document
+      .querySelector(".install-position-option.is-selected")
+      ?.scrollIntoView({ block: "nearest" });
+  });
+}
+
+function notifyUiChanged() {
+  document.dispatchEvent(new CustomEvent("enver-ui-changed"));
+}
+
+function fillPositionOptions(selectedId) {
+  const search = $("#installSchedulePositionSearch");
+  const selectedNum = selectedId != null && selectedId !== "" ? Number(selectedId) : null;
+  if (search) {
+    if (selectedNum) {
+      const position = state.positions.find((p) => p.id === selectedNum);
+      search.value = position ? positionInstallLabel(position) : "";
+    } else {
+      search.value = "";
+    }
+  }
+  renderPositionPicker(selectedId);
 }
 
 function syncInstallScheduleFieldsFromPosition(positionId) {
@@ -253,7 +341,7 @@ export function captureInstallScheduleOverlay() {
   const el = backdrop();
   if (!el?.classList.contains("open")) return null;
   return {
-    positionId: Number($("#installSchedulePosition").value) || draft?.positionId || null,
+    positionId: getSelectedPositionId() || draft?.positionId || null,
     isoStart: $("#installScheduleDateStart").value,
     isoEnd: $("#installScheduleDateEnd").value,
     installer: $("#installScheduleInstaller").value
@@ -275,7 +363,7 @@ export function restoreInstallScheduleOverlay(saved) {
 
 async function saveInstallSchedule() {
   showError("");
-  const positionId = Number($("#installSchedulePosition").value);
+  const positionId = getSelectedPositionId();
   const isoStart = $("#installScheduleDateStart").value;
   const isoEnd = $("#installScheduleDateEnd").value;
   const installer = $("#installScheduleInstaller").value.trim();

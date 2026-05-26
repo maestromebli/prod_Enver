@@ -615,22 +615,77 @@
 
 .install-schedule-modal {
   max-width: 520px;
-  overflow: visible;
 }
 
-.install-schedule-modal .modal-body {
-  overflow: visible;
+.install-position-picker {
+  gap: 8px;
 }
 
-#installSchedulePosition {
-  position: relative;
-  z-index: 2;
+.install-position-search {
   width: 100%;
   min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
   font-size: 16px;
-  -webkit-appearance: menulist;
-  appearance: menulist;
+  font-weight: 600;
+  background: var(--surface);
   touch-action: manipulation;
+}
+
+.install-position-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(240px, 40vh);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--bg);
+}
+
+.install-position-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.install-position-option:hover,
+.install-position-option:focus-visible {
+  border-color: var(--blue);
+  outline: none;
+  background: var(--accent-soft, #eff6ff);
+}
+
+.install-position-option.is-selected {
+  border-color: var(--blue);
+  background: var(--accent-soft, #eff6ff);
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.install-position-option-title {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.install-position-empty {
+  margin: 0;
+  padding: 12px;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 #installScheduleModal .form-hint {

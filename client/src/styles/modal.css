@@ -186,17 +186,6 @@
   display: block;
 }
 
-.modal-backdrop.open:has(.install-schedule-modal) {
-  align-items: flex-start;
-  padding-top: max(16px, env(safe-area-inset-top, 16px));
-}
-
-@media (max-width: 520px) {
-  .modal-backdrop.open:has(.install-schedule-modal) {
-    align-items: flex-start;
-  }
-}
-
 .loading-overlay {
   position: fixed;
   inset: 0;
