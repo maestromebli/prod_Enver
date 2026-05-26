@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 
-function getFilters() {
+export function currentFilters() {
   const searchEl = document.querySelector("#searchInput");
   const statusEl = document.querySelector("#statusFilter");
   const responsibleEl = document.querySelector("#responsibleFilter");
@@ -12,7 +12,7 @@ function getFilters() {
 }
 
 export function filteredPositions(source = state.positions) {
-  const { search, status, responsible } = getFilters();
+  const { search, status, responsible } = currentFilters();
   const parentItems = new Map(source.filter((p) => !p.parentId).map((p) => [p.id, p.item]));
 
   return source.filter((p) => {

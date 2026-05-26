@@ -1,4 +1,5 @@
-import { filteredPositions } from "./filters.js";
+import { currentFilters, filteredPositions } from "./filters.js";
+import { parseUaDate } from "./install-calendar-dates.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
 
@@ -29,7 +30,12 @@ function todayLabel() {
 
 function statTile({ tone, icon, value, label, hint, nav }) {
   return `
-    <button type="button" class="dash-tile dash-tile--stat dash-tile--${tone}" data-dash-nav="${escapeHtml(nav)}">
+    <button
+      type="button"
+      class="dash-tile dash-tile--stat dash-tile--${tone}"
+      data-dash-nav="${escapeHtml(nav)}"
+      aria-label="${escapeHtml(`${label}: ${value}. ${hint}`)}"
+    >
       <span class="dash-tile-icon">${icon}</span>
       <span class="dash-tile-value">${value}</span>
       <span class="dash-tile-label">${escapeHtml(label)}</span>
@@ -43,8 +49,13 @@ function listRow({ id, orderId, title, subtitle, meta, metaClass = "" }) {
     : orderId
       ? ` data-edit-order="${orderId}"`
       : "";
+  const navLabel = id
+    ? `Відкрити позицію: ${title}`
+    : orderId
+      ? `Відкрити замовлення: ${title}`
+      : title;
   return `
-    <button type="button" class="dash-list-row"${attrs}>
+    <button type="button" class="dash-list-row"${attrs} aria-label="${escapeHtml(navLabel)}">
       <span class="dash-list-body">
         <span class="dash-list-title">${escapeHtml(title)}</span>
         ${subtitle ? `<span class="dash-list-sub">${escapeHtml(subtitle)}</span>` : ""}
@@ -59,7 +70,7 @@ function listWidget({ title, nav, rows, empty, span = "md" }) {
     ? rows.join("")
     : `<p class="dash-empty">${escapeHtml(empty)}</p>`;
   return `
-    <section class="dash-tile dash-tile--list dash-tile--${span}">
+    <section class="dash-tile dash-tile--list dash-tile--${span}" role="region" aria-label="${escapeHtml(title)}">
       <header class="dash-tile-head">
         <h3 class="dash-tile-title">${escapeHtml(title)}</h3>
         <button type="button" class="dash-tile-link" data-dash-nav="${escapeHtml(nav)}">Усі ${ICONS.chevron}</button>
@@ -73,23 +84,59 @@ function miniProgress(pct) {
   return `<div class="dash-mini-bar" role="presentation"><span style="width:${v}%"></span></div>`;
 }
 
+function hasActiveFilters(filters) {
+  return Boolean(filters.search || filters.status || filters.responsible);
+}
+
+function dashboardFilterLabel(filters) {
+  const labels = [];
+  if (filters.search) labels.push(`пошук: "${filters.search}"`);
+  if (filters.status) labels.push(`статус: ${filters.status}`);
+  if (filters.responsible) labels.push(`відповідальний: ${filters.responsible}`);
+  return labels.join(" · ");
+}
+
+function installDateRank(position) {
+  const parsed = parseUaDate(position.installDate || "");
+  if (!parsed) return Number.MAX_SAFE_INTEGER;
+  return parsed.getTime();
+}
+
+export function pickInstallSoon(positions, limit = 4) {
+  return positions
+    .filter((p) => p.installDate || p.positionStatus === "Готово до встановлення")
+    .sort((a, b) => {
+      const rankDiff = installDateRank(a) - installDateRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      const byOrder = String(a.orderNumber || "").localeCompare(String(b.orderNumber || ""), "uk");
+      if (byOrder !== 0) return byOrder;
+      return Number(a.id || 0) - Number(b.id || 0);
+    })
+    .slice(0, limit);
+}
+
 export function renderDashboard() {
-  const data = filteredPositions();
+  const filters = currentFilters();
+  const filteredData = filteredPositions();
+  const allData = state.positions;
+  const filtersActive = hasActiveFilters(filters);
+  const viewData = filtersActive ? filteredData : allData;
   const k = state.kpis;
   const userName = state.currentUser?.name?.split(" ")[0] || "";
 
-  const problems = data.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
-  const overdueItems = data.filter((p) => (p.overdueDays ?? 0) > 0);
-  const ready = data.filter((p) => p.positionStatus === "Готово до встановлення");
-  const inWork = data.filter((p) => p.positionStatus === "У виробництві");
+  const problems = allData.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
+  const overdueItems = allData.filter((p) => (p.overdueDays ?? 0) > 0);
+  const ready = allData.filter((p) => p.positionStatus === "Готово до встановлення");
+  const inWork = allData.filter((p) => p.positionStatus === "У виробництві");
 
   const activeOrders = k?.activeOrders ?? state.orders.length;
   const installsCount = k?.installs ?? ready.length;
 
-  const problemIds = new Set(problems.map((p) => p.id));
+  const viewProblems = viewData.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
+  const problemIds = new Set(viewProblems.map((p) => p.id));
   const focusPool = [
-    ...problems,
-    ...overdueItems.filter((p) => !problemIds.has(p.id))
+    ...viewProblems,
+    ...viewData.filter((p) => (p.overdueDays ?? 0) > 0 && !problemIds.has(p.id))
   ].slice(0, 5);
   const focusRows = focusPool.map((p) =>
     listRow({
@@ -101,29 +148,43 @@ export function renderDashboard() {
     })
   );
 
-  const overdueRows = overdueItems.slice(0, 4).map((p) =>
-    listRow({
-      id: p.id,
-      title: p.item || p.object,
-      subtitle: p.orderNumber,
-      meta: overdue(p.overdueDays),
-      metaClass: "dash-meta-warn"
-    })
-  );
+  const overdueRows = viewData
+    .filter((p) => (p.overdueDays ?? 0) > 0)
+    .slice(0, 4)
+    .map((p) =>
+      listRow({
+        id: p.id,
+        title: p.item || p.object,
+        subtitle: p.orderNumber,
+        meta: overdue(p.overdueDays),
+        metaClass: "dash-meta-warn"
+      })
+    );
 
-  const readyRows = ready.slice(0, 4).map((p) =>
-    listRow({
-      id: p.id,
-      title: p.item || p.object,
-      subtitle: p.installDate ? `Монтаж ${p.installDate}` : p.object,
-      meta: p.installResponsible || "—"
-    })
-  );
+  const readyRows = viewData
+    .filter((p) => p.positionStatus === "Готово до встановлення")
+    .slice(0, 4)
+    .map((p) =>
+      listRow({
+        id: p.id,
+        title: p.item || p.object,
+        subtitle: p.installDate ? `Монтаж ${p.installDate}` : p.object,
+        meta: p.installResponsible || "—"
+      })
+    );
 
-  const activeRows = inWork.slice(0, 5).map((p) => {
-    const pct = p.progress ?? 0;
-    return `
-      <button type="button" class="dash-list-row dash-list-row--progress" data-edit-position="${p.id}">
+  const activeRows = viewData
+    .filter((p) => p.positionStatus === "У виробництві")
+    .slice(0, 5)
+    .map((p) => {
+      const pct = p.progress ?? 0;
+      return `
+      <button
+        type="button"
+        class="dash-list-row dash-list-row--progress"
+        data-edit-position="${p.id}"
+        aria-label="${escapeHtml(`Відкрити позицію ${p.orderNumber} · ${p.item || "—"}`)}"
+      >
         <span class="dash-list-body">
           <span class="dash-list-title">${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</span>
           <span class="dash-list-sub">${escapeHtml(p.object)}</span>
@@ -132,10 +193,14 @@ export function renderDashboard() {
         <span class="dash-list-meta">${pct}%</span>
         ${ICONS.chevron}
       </button>`;
-  });
+    });
 
+  const positionsByOrderId = allData.reduce((map, p) => {
+    map.set(p.orderId, (map.get(p.orderId) || 0) + 1);
+    return map;
+  }, new Map());
   const orderRows = state.orders.slice(0, 4).map((o) => {
-    const posCount = state.positions.filter((p) => p.orderId === o.id).length;
+    const posCount = positionsByOrderId.get(o.id) || 0;
     return listRow({
       orderId: o.id,
       title: o.orderNumber,
@@ -144,10 +209,7 @@ export function renderDashboard() {
     });
   });
 
-  const installSoon = data
-    .filter((p) => p.installDate || p.positionStatus === "Готово до встановлення")
-    .sort((a, b) => String(a.installDate || "").localeCompare(String(b.installDate || "")))
-    .slice(0, 4);
+  const installSoon = pickInstallSoon(viewData, 4);
 
   const installRows = installSoon.map((p) =>
     listRow({
@@ -165,11 +227,18 @@ export function renderDashboard() {
           <p class="dash-hero-greet">${escapeHtml(greeting())}${userName ? `, ${escapeHtml(userName)}` : ""}</p>
           <h2 class="dash-hero-title">Штаб виробництва</h2>
           <p class="dash-hero-date">${escapeHtml(todayLabel())}</p>
+          ${
+            filtersActive
+              ? `<p class="dash-hero-filter-note" role="status" aria-live="polite">
+                  Показано списки за фільтрами (${escapeHtml(dashboardFilterLabel(filters))}). KPI-картки рахуються по всіх позиціях.
+                 </p>`
+              : ""
+          }
         </div>
         <div class="dash-hero-badge" aria-hidden="true">ENVER</div>
       </header>
 
-      <div class="dash-bento">
+      <div class="dash-bento" aria-label="Огляд показників дашборду">
         ${statTile({
           tone: "red",
           icon: ICONS.alert,
@@ -225,7 +294,7 @@ export function renderDashboard() {
           empty: "Немає позицій, готових до встановлення"
         })}
 
-        <section class="dash-tile dash-tile--list dash-tile--wide">
+        <section class="dash-tile dash-tile--list dash-tile--wide" role="region" aria-label="У виробництві">
           <header class="dash-tile-head">
             <h3 class="dash-tile-title">У виробництві</h3>
             <button type="button" class="dash-tile-link" data-dash-nav="Позиції замовлення">Усі ${ICONS.chevron}</button>
@@ -239,7 +308,7 @@ export function renderDashboard() {
           </div>
         </section>
 
-        <section class="dash-tile dash-tile--list dash-tile--compact">
+        <section class="dash-tile dash-tile--list dash-tile--compact" role="region" aria-label="Замовлення">
           <header class="dash-tile-head">
             <h3 class="dash-tile-title">${ICONS.box} Замовлення</h3>
             <span class="dash-tile-count">${activeOrders}</span>
@@ -256,7 +325,7 @@ export function renderDashboard() {
           </footer>
         </section>
 
-        <section class="dash-tile dash-tile--list dash-tile--compact">
+        <section class="dash-tile dash-tile--list dash-tile--compact" role="region" aria-label="Встановлення">
           <header class="dash-tile-head">
             <h3 class="dash-tile-title">${ICONS.truck} Встановлення</h3>
             <span class="dash-tile-count">${installsCount}</span>
