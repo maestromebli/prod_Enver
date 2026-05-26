@@ -2,6 +2,14 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pf-problems-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .pf-hero {

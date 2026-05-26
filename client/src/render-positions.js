@@ -30,9 +30,9 @@ function positionRowCells(p, row, showActions) {
     : `<strong>${escapeHtml(p.item)}</strong>`;
 
   return `
-    <td>${p.id}</td>
+    <td class="col-opt-id">${p.id}</td>
     <td>${isSub ? "—" : escapeHtml(p.orderNumber)}</td>
-    <td>${isSub ? "—" : escapeHtml(p.object)}</td>
+    <td class="col-opt-object">${isSub ? "—" : escapeHtml(p.object)}</td>
     <td class="left col-item" title="${escapeHtml(p.item)}">${treeControls(row)}${itemCell}</td>
     <td class="col-opt-type">${escapeHtml(p.itemType || "—")}</td>
     <td class="col-opt-manager">${escapeHtml(p.manager || "—")}</td>

@@ -39,10 +39,9 @@ body {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-/* Горизонтальна прокрутка лише всередині таблиць */
 .table-wrap {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
+  overflow-x: hidden;
   max-width: 100%;
 }
 
@@ -98,7 +97,7 @@ body {
 
   .tab-btn {
     flex: 1 1 calc(33.333% - 6px);
-    min-width: 88px;
+    min-width: 0;
     white-space: normal;
   }
 
@@ -112,7 +111,7 @@ body {
 
   .toolbar-actions .btn {
     flex: 1 1 auto;
-    min-width: 140px;
+    min-width: 0;
   }
 
   .kpi-grid {
@@ -331,31 +330,6 @@ body {
     width: 40px;
     height: 40px;
     font-size: 18px;
-  }
-
-  /* Sticky перша колонка в широких таблицях */
-  .table-wrap table th:first-child,
-  .table-wrap table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 3;
-    background: #fff;
-    box-shadow: 2px 0 6px rgba(15, 42, 68, 0.06);
-  }
-
-  .table-wrap table thead th:first-child {
-    z-index: 4;
-    background: #f8fafc;
-  }
-
-  tbody tr.row-sub-position td:first-child,
-  tbody tr.row-order-new td:first-child,
-  tbody tr.row-order-no-assignment td:first-child {
-    background: inherit;
-  }
-
-  tbody tr:hover td:first-child {
-    background: #f8fbff;
   }
 
   .actions-cell {

@@ -76,9 +76,9 @@ function positionsTable(data, title = "Позиції замовлення", sho
           </colgroup>
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="col-opt-id">ID</th>
               <th>Номер замовлення</th>
-              <th>Об'єкт / Адреса</th>
+              <th class="col-opt-object">Об'єкт / Адреса</th>
               <th class="left col-item">Виріб / Зона</th>
               <th class="col-opt-type">Тип виробу</th>
               <th class="col-opt-manager">Менеджер</th>
@@ -128,16 +128,16 @@ function ordersTable(showActions = false) {
 
       return `
         <tr class="${rowClass}">
-          <td>${o.id}</td>
+          <td class="col-opt-id">${o.id}</td>
           <td>${escapeHtml(o.orderNumber)}</td>
-          <td>${escapeHtml(o.object)}</td>
-          <td>${escapeHtml(o.client)}</td>
-          <td>${escapeHtml(o.manager)}</td>
-          <td>${escapeHtml(o.startDate)}</td>
-          <td>${escapeHtml(o.planDate)}</td>
+          <td class="col-opt-object">${escapeHtml(o.object)}</td>
+          <td class="col-opt-client">${escapeHtml(o.client)}</td>
+          <td class="col-opt-manager">${escapeHtml(o.manager)}</td>
+          <td class="col-opt-start-date">${escapeHtml(o.startDate)}</td>
+          <td class="col-opt-plan-date">${escapeHtml(o.planDate)}</td>
           <td>${badge(o.status)}</td>
-          <td>${escapeHtml(o.priority)}</td>
-          <td class="left">${escapeHtml(o.comment || "—")}</td>
+          <td class="col-opt-priority">${escapeHtml(o.priority)}</td>
+          <td class="left col-opt-comment">${escapeHtml(o.comment || "—")}</td>
           ${actions}
         </tr>
       `;
@@ -159,16 +159,16 @@ function ordersTable(showActions = false) {
         <table>
           <thead>
             <tr>
-              <th>ID замовлення</th>
+              <th class="col-opt-id">ID замовлення</th>
               <th>Номер замовлення</th>
-              <th>Об'єкт / Адреса</th>
-              <th>Клієнт</th>
-              <th>Менеджер</th>
-              <th>Дата запуску</th>
-              <th>Планова дата завершення</th>
+              <th class="col-opt-object">Об'єкт / Адреса</th>
+              <th class="col-opt-client">Клієнт</th>
+              <th class="col-opt-manager">Менеджер</th>
+              <th class="col-opt-start-date">Дата запуску</th>
+              <th class="col-opt-plan-date">Планова дата завершення</th>
               <th>Статус замовлення</th>
-              <th>Пріоритет</th>
-              <th class="left">Коментар</th>
+              <th class="col-opt-priority">Пріоритет</th>
+              <th class="left col-opt-comment">Коментар</th>
               ${actionHeader}
             </tr>
           </thead>
@@ -207,17 +207,17 @@ function stageRows(stageName) {
 
       return `
         <tr class="${p.parentId ? "row-sub-position" : ""}">
-          <td>${p.id}</td>
+          <td class="col-opt-id">${p.id}</td>
           <td>${escapeHtml(p.orderNumber)}</td>
-          <td>${escapeHtml(p.object)}</td>
+          <td class="col-opt-object">${escapeHtml(p.object)}</td>
           <td class="left">${escapeHtml(itemLabel)}</td>
-          <td>${escapeHtml(responsible || "—")}</td>
+          <td class="col-opt-manager">${escapeHtml(responsible || "—")}</td>
           <td>${badge(status)}</td>
-          <td>${escapeHtml(p.readyDate || "—")}</td>
-          <td>${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
-          <td>${overdue(p.overdueDays)}</td>
+          <td class="col-opt-plan-date">${escapeHtml(p.readyDate || "—")}</td>
+          <td class="col-opt-fact-date">${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
+          <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>
           <td>${stageQuickActions(p.id, stageKey)}</td>
-          <td class="left">${escapeHtml(p.problem || p.note || "—")}</td>
+          <td class="left col-opt-comment">${escapeHtml(p.problem || p.note || "—")}</td>
         </tr>
       `;
     })
@@ -237,17 +237,17 @@ function stageTable(stageName) {
         <table>
           <thead>
             <tr>
-              <th>ID позиції</th>
+              <th class="col-opt-id">ID позиції</th>
               <th>Замовлення</th>
-              <th>Об'єкт</th>
+              <th class="col-opt-object">Об'єкт</th>
               <th class="left">Виріб</th>
-              <th>Відповідальний</th>
+              <th class="col-opt-manager">Відповідальний</th>
               <th>Статус</th>
-              <th>Планова дата</th>
-              <th>Фактична дата</th>
-              <th>Прострочка</th>
+              <th class="col-opt-plan-date">Планова дата</th>
+              <th class="col-opt-fact-date">Фактична дата</th>
+              <th class="col-opt-overdue">Прострочка</th>
               <th>Перехід</th>
-              <th class="left">Коментар</th>
+              <th class="left col-opt-comment">Коментар</th>
             </tr>
           </thead>
           <tbody>${rows || emptyRow(11)}</tbody>
@@ -290,17 +290,17 @@ function productionTable() {
 
       rows.push(`
         <tr>
-          <td>${p.id}</td>
+          <td class="col-opt-id">${p.id}</td>
           <td>${escapeHtml(p.orderNumber)}</td>
-          <td>${escapeHtml(p.object)}</td>
+          <td class="col-opt-object">${escapeHtml(p.object)}</td>
           <td class="left">${escapeHtml(p.item)}</td>
           <td>${escapeHtml(stage)}</td>
           <td>${badge(status)}</td>
-          <td>${escapeHtml(responsible)}</td>
-          <td>${escapeHtml(p.readyDate || "—")}</td>
-          <td>${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
-          <td>${overdue(p.overdueDays)}</td>
-          <td class="left">${escapeHtml(p.problem || "—")}</td>
+          <td class="col-opt-manager">${escapeHtml(responsible)}</td>
+          <td class="col-opt-plan-date">${escapeHtml(p.readyDate || "—")}</td>
+          <td class="col-opt-fact-date">${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
+          <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>
+          <td class="left col-opt-comment">${escapeHtml(p.problem || "—")}</td>
         </tr>
       `);
     });
@@ -313,17 +313,17 @@ function productionTable() {
         <table>
           <thead>
             <tr>
-              <th>ID позиції</th>
+              <th class="col-opt-id">ID позиції</th>
               <th>Замовлення</th>
-              <th>Об'єкт</th>
+              <th class="col-opt-object">Об'єкт</th>
               <th class="left">Виріб</th>
               <th>Етап</th>
               <th>Статус етапу</th>
-              <th>Відповідальний</th>
-              <th>Планова дата</th>
-              <th>Фактична дата</th>
-              <th>Прострочка</th>
-              <th class="left">Коментар</th>
+              <th class="col-opt-manager">Відповідальний</th>
+              <th class="col-opt-plan-date">Планова дата</th>
+              <th class="col-opt-fact-date">Фактична дата</th>
+              <th class="col-opt-overdue">Прострочка</th>
+              <th class="left col-opt-comment">Коментар</th>
             </tr>
           </thead>
           <tbody>${rows.length ? rows.join("") : emptyRow(11)}</tbody>
@@ -343,14 +343,14 @@ function overdueTable() {
         <table>
           <thead>
             <tr>
-              <th>ID позиції</th>
+              <th class="col-opt-id">ID позиції</th>
               <th>Замовлення</th>
-              <th>Об'єкт</th>
+              <th class="col-opt-object">Об'єкт</th>
               <th class="left">Виріб</th>
               <th>Етап</th>
-              <th>Відповідальний</th>
+              <th class="col-opt-manager">Відповідальний</th>
               <th>Прострочка, днів</th>
-              <th class="left">Причина</th>
+              <th class="left col-opt-comment">Причина</th>
               <th>Дії</th>
             </tr>
           </thead>
@@ -361,14 +361,14 @@ function overdueTable() {
                     .map(
                       (p) => `
                         <tr class="row-clickable" data-edit-position="${p.id}">
-                          <td>${p.id}</td>
+                          <td class="col-opt-id">${p.id}</td>
                           <td>${escapeHtml(p.orderNumber)}</td>
-                          <td>${escapeHtml(p.object)}</td>
+                          <td class="col-opt-object">${escapeHtml(p.object)}</td>
                           <td class="left">${escapeHtml(p.item)}</td>
                           <td>${p.assemblyStatus !== "Готово" ? "Збірка / Виробництво" : "Встановлення"}</td>
-                          <td>${escapeHtml(p.assemblyResponsible || p.constructor || "—")}</td>
+                          <td class="col-opt-manager">${escapeHtml(p.assemblyResponsible || p.constructor || "—")}</td>
                           <td>${overdue(p.overdueDays)}</td>
-                          <td class="left">${escapeHtml(p.problem || "Не вказано")}</td>
+                          <td class="left col-opt-comment">${escapeHtml(p.problem || "Не вказано")}</td>
                           <td>${positionActionButtons(p.id, true)}</td>
                         </tr>
                       `

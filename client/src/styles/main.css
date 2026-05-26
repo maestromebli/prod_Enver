@@ -348,13 +348,13 @@ select {
 .table-wrap {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   max-height: 650px;
   max-width: 100%;
   width: 100%;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  contain: inline-size;
+  overscroll-behavior-y: auto;
 }
 
 table {
@@ -366,57 +366,45 @@ table {
 
 .table-wrap > table {
   table-layout: fixed;
+  width: 100%;
+  min-width: 0;
 }
 
-.table-wrap > table.positions-table {
-  min-width: 960px;
-}
-
+/* Другорядні колонки — ховаємо на вузьких екранах (без горизонтального скролу) */
 @media (max-width: 1280px) {
-  .table-wrap > table.positions-table {
-    min-width: 820px;
-  }
-}
-
-@media (max-width: 1024px) {
-  .table-wrap > table.positions-table {
-    min-width: 640px;
-  }
-}
-
-@media (max-width: 767px) {
-  .table-wrap > table.positions-table {
-    min-width: 480px;
-  }
-}
-
-/* Другорядні колонки позицій — ховаємо на вузьких екранах */
-@media (max-width: 1280px) {
-  .positions-table .col-opt-note,
-  .positions-table .col-opt-problem {
+  .table-wrap .col-opt-note,
+  .table-wrap .col-opt-problem,
+  .table-wrap .col-opt-comment {
     display: none;
   }
 }
 
 @media (max-width: 1100px) {
-  .positions-table .col-opt-type,
-  .positions-table .col-opt-edging,
-  .positions-table .col-opt-drilling,
-  .positions-table .col-opt-overdue {
+  .table-wrap .col-opt-type,
+  .table-wrap .col-opt-edging,
+  .table-wrap .col-opt-drilling,
+  .table-wrap .col-opt-overdue,
+  .table-wrap .col-opt-client,
+  .table-wrap .col-opt-fact-date {
     display: none;
   }
 }
 
 @media (max-width: 900px) {
-  .positions-table .col-opt-manager,
-  .positions-table .col-opt-constructor,
-  .positions-table .col-opt-ready {
+  .table-wrap .col-opt-manager,
+  .table-wrap .col-opt-constructor,
+  .table-wrap .col-opt-ready,
+  .table-wrap .col-opt-plan-date,
+  .table-wrap .col-opt-start-date,
+  .table-wrap .col-opt-priority {
     display: none;
   }
 }
 
 @media (max-width: 767px) {
-  .positions-table .col-opt-install-date {
+  .table-wrap .col-opt-install-date,
+  .table-wrap .col-opt-id,
+  .table-wrap .col-opt-object {
     display: none;
   }
 }
