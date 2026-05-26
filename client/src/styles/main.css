@@ -818,8 +818,9 @@ th.left {
     width: 100%;
   }
 
-  .toolbar {
-    grid-template-columns: 1fr 1fr;
+  .filter-field--search,
+  .filter-field--select {
+    flex: 1 1 100%;
   }
 
   .directory-grid {

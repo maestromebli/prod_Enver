@@ -510,10 +510,10 @@ export function renderKpis() {
 
   document.querySelector("#kpiGrid").innerHTML = kpis
     .map(
-      ([label, value, color]) => `
-        <div class="kpi">
+      ([label, value, tone]) => `
+        <div class="kpi kpi-tone-${tone}" title="${escapeHtml(label)}">
           <div class="kpi-label">${escapeHtml(label)}</div>
-          <div class="kpi-value ${color}">${value}</div>
+          <div class="kpi-value ${tone}">${value}</div>
         </div>
       `
     )
@@ -566,7 +566,9 @@ export function renderStageFilter() {
   if (!select) return;
 
   const show = state.activeTab === "Виробництво за етапами";
+  const field = select.closest(".filter-field");
   select.hidden = !show;
+  if (field) field.hidden = !show;
   if (show) {
     select.value = state.productionStageFilter || "";
   }

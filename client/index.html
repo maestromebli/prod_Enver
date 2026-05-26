@@ -29,13 +29,12 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="stylesheet" href="/src/styles/design-system.css" />
     <link rel="stylesheet" href="/src/styles/theme-dark.css" />
     <link rel="stylesheet" href="/src/styles/theme-toggle.css" />
     <link rel="stylesheet" href="/src/styles/modal.css" />
@@ -223,30 +222,45 @@
         <div class="tabs" id="tabs"></div>
       </div>
 
-      <div class="toolbar" id="mainToolbar">
-        <input id="searchInput" placeholder="Пошук: замовлення, об'єкт, виріб..." />
-        <select id="statusFilter">
-          <option value="">Усі статуси</option>
-          <option value="Передано">Передано</option>
-          <option value="В роботі">В роботі</option>
-          <option value="Готово">Готово</option>
-          <option value="Готово до встановлення">Готово до встановлення</option>
-          <option value="На паузі">На паузі</option>
-          <option value="Проблема">Проблема</option>
-          <option value="Не розпочато">Не розпочато</option>
-        </select>
-        <select id="responsibleFilter">
-          <option value="">Усі відповідальні</option>
-        </select>
-        <select id="stageFilter" hidden aria-label="Етап">
-          <option value="">Усі етапи</option>
-          <option value="Конструктив">Конструктив</option>
-          <option value="Порізка">Порізка</option>
-          <option value="Крайкування">Крайкування</option>
-          <option value="Присадка">Присадка</option>
-          <option value="Збірка">Збірка</option>
-        </select>
-        <button id="resetBtn" type="button">Скинути</button>
+      <div class="filter-bar toolbar" id="mainToolbar">
+        <div class="filter-field filter-field--search">
+          <label class="filter-label" for="searchInput">Пошук</label>
+          <input id="searchInput" placeholder="Замовлення, об'єкт, виріб…" autocomplete="off" />
+        </div>
+        <div class="filter-field filter-field--select">
+          <label class="filter-label" for="statusFilter">Статус</label>
+          <select id="statusFilter">
+            <option value="">Усі статуси</option>
+            <option value="Передано">Передано</option>
+            <option value="В роботі">В роботі</option>
+            <option value="Готово">Готово</option>
+            <option value="Готово до встановлення">Готово до встановлення</option>
+            <option value="На паузі">На паузі</option>
+            <option value="Проблема">Проблема</option>
+            <option value="Не розпочато">Не розпочато</option>
+          </select>
+        </div>
+        <div class="filter-field filter-field--select">
+          <label class="filter-label" for="responsibleFilter">Відповідальний</label>
+          <select id="responsibleFilter">
+            <option value="">Усі</option>
+          </select>
+        </div>
+        <div class="filter-field filter-field--select">
+          <label class="filter-label" for="stageFilter">Етап</label>
+          <select id="stageFilter" hidden aria-label="Етап">
+            <option value="">Усі етапи</option>
+            <option value="Конструктив">Конструктив</option>
+            <option value="Порізка">Порізка</option>
+            <option value="Крайкування">Крайкування</option>
+            <option value="Присадка">Присадка</option>
+            <option value="Збірка">Збірка</option>
+          </select>
+        </div>
+        <div class="filter-field filter-field--action">
+          <span class="filter-label" aria-hidden="true">&nbsp;</span>
+          <button id="resetBtn" type="button" class="btn">Скинути</button>
+        </div>
         <div class="toolbar-actions" id="toolbarActions"></div>
       </div>
 

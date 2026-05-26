@@ -94,17 +94,11 @@ body {
     white-space: nowrap;
   }
 
-  .toolbar {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .toolbar #searchInput {
-    grid-column: 1 / -1;
+  .filter-field--search {
+    flex: 1 1 100%;
   }
 
   .toolbar-actions {
-    grid-column: 1 / -1;
     flex-wrap: wrap;
   }
 

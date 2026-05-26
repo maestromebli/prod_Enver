@@ -205,13 +205,3 @@
   display: flex;
   gap: 8px;
 }
-
-.toolbar {
-  grid-template-columns: 1fr 220px 220px auto auto;
-}
-
-@media (max-width: 1300px) {
-  .toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
-}
