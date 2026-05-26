@@ -2,7 +2,7 @@ import { Router } from "express";
 import { all, one, run } from "../db.js";
 import { STAGE_STATUS_FIELD } from "../roles.js";
 import { mapPosition } from "../mappers.js";
-import { enrichPositionRow } from "../position-logic.js";
+import { enrichPositionRow, applyStageHandoff } from "../position-logic.js";
 import { logStageChange } from "../audit.js";
 import {
   auditActor,
@@ -194,10 +194,11 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
 
   const before = { ...row };
   row[field] = "Готово";
+  const handedOff = applyStageHandoff(row, stageKey, { status: "Готово" });
 
   await run(`UPDATE operator_sessions SET finished_at = now() WHERE id = $1`, [session.id]);
 
-  await savePosition(positionId, row);
+  await savePosition(positionId, handedOff);
   await logStageChange(
     before,
     await getPosition(positionId),

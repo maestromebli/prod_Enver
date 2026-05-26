@@ -8,7 +8,7 @@ import {
   logStageChange
 } from "../audit.js";
 import { auditActor, requireAuth, requirePositionWrite } from "../middleware/auth.js";
-import { STAGE_PATCH_MAP, enrichPositionRow } from "../position-logic.js";
+import { STAGE_PATCH_MAP, applyStageHandoff, enrichPositionRow } from "../position-logic.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -251,7 +251,12 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
 
   const planMap = await planDateByOrderNumber();
   const planDate = planMap.get(existing.order_number);
-  await saveRow(id, existing, planDate);
+  const handedOff = applyStageHandoff(existing, stageKey, {
+    status,
+    constructor,
+    assemblyResponsible
+  });
+  await saveRow(id, handedOff, planDate);
   const afterRow = await loadRow(id);
   await logStageChange(beforeRow, afterRow, stageKey, { status, constructor }, auditActor(req));
   res.json(mapEnrichedRow(afterRow, planMap));

@@ -96,3 +96,38 @@ export const STAGE_PATCH_MAP = {
   drilling: { field: "drilling_status" },
   assembly: { field: "assembly_status" }
 };
+
+const NEXT_STAGE_FIELD = {
+  cutting: "edging_status",
+  edging: "drilling_status",
+  drilling: "assembly_status"
+};
+
+function isStageIdle(status) {
+  return !status || status === "Не розпочато";
+}
+
+/** Після завершення етапу — передати наступному «path якщо він ще не розпочатий. */
+export function applyStageHandoff(row, stageKey, patch = {}) {
+  const copy = { ...row };
+
+  if (stageKey === "constructor") {
+    const hasConstructor = Boolean(String(copy.constructor_name || patch.constructor || "").trim());
+    const forwarded = patch.status ? patch.status !== "Не розпочато" : hasConstructor;
+    if (hasConstructor && forwarded && isStageIdle(copy.cutting_status)) {
+      copy.cutting_status = "Передано";
+    }
+    return copy;
+  }
+
+  const config = STAGE_PATCH_MAP[stageKey];
+  if (!config?.field) return copy;
+
+  const stageStatus = patch.status ?? copy[config.field];
+  const nextField = NEXT_STAGE_FIELD[stageKey];
+  if (stageStatus === "Готово" && nextField && isStageIdle(copy[nextField])) {
+    copy[nextField] = "Передано";
+  }
+
+  return copy;
+}
