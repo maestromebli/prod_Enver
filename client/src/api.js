@@ -82,7 +82,6 @@ export const api = {
   deletePosition: (id) => request(`/api/positions/${id}`, { method: "DELETE" }),
 
   getKpis: () => request("/api/kpis"),
-  getKpiTrends: (days = 14) => request(`/api/kpis/trends?days=${days}`),
   getDirectories: () => request("/api/directories"),
   updateDirectories: (body) =>
     request("/api/directories", { method: "PUT", body: JSON.stringify(body) }),

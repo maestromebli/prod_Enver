@@ -518,28 +518,6 @@ export function renderKpis() {
       `
     )
     .join("");
-
-  renderKpiTrends();
-}
-
-function renderKpiTrends() {
-  const el = document.querySelector("#kpiTrends");
-  if (!el) return;
-  const trends = state.kpiTrends || [];
-  if (trends.length < 2) {
-    el.hidden = true;
-    return;
-  }
-  el.hidden = false;
-  const maxOverdue = Math.max(1, ...trends.map((t) => t.overdueCount));
-  const bars = trends
-    .map((t) => {
-      const h = Math.round((t.overdueCount / maxOverdue) * 100);
-      const label = t.date.slice(5);
-      return `<div class="kpi-trend-bar" title="${escapeHtml(t.date)}: ${t.overdueCount} простроч."><span style="height:${h}%"></span><small>${escapeHtml(label)}</small></div>`;
-    })
-    .join("");
-  el.innerHTML = `<span class="kpi-trends-label">Прострочення (14 д)</span><div class="kpi-trends-chart">${bars}</div>`;
 }
 
 export function renderResponsibleOptions() {

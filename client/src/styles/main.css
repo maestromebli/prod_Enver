@@ -829,58 +829,6 @@ th.left {
 
 /* Мобільні та планшети — див. responsive.css */
 
-.kpi-trends {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  flex: 1 1 200px;
-  min-width: 140px;
-  max-width: 320px;
-}
-
-.kpi-trends-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-}
-
-.kpi-trends-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 36px;
-  flex: 1;
-}
-
-.kpi-trend-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  min-width: 12px;
-  height: 100%;
-  justify-content: flex-end;
-}
-
-.kpi-trend-bar span {
-  display: block;
-  width: 100%;
-  max-width: 14px;
-  background: linear-gradient(180deg, #f87171, #dc2626);
-  border-radius: 3px 3px 0 0;
-  min-height: 2px;
-}
-
-.kpi-trend-bar small {
-  font-size: 8px;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
 @media print {
   .topbar,
   .toolbar {

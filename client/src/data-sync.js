@@ -25,19 +25,13 @@ export function removeOrder(id) {
 
 /** Оновлення списків без повноекранного оверлею */
 export async function refreshAppData({ includeDirectories = false } = {}) {
-  const tasks = [
-    api.getOrders(),
-    api.getPositions(),
-    api.getKpis(),
-    api.getKpiTrends(14).catch(() => ({ trends: [] }))
-  ];
+  const tasks = [api.getOrders(), api.getPositions(), api.getKpis()];
   if (includeDirectories) tasks.push(api.getDirectories());
 
   const results = await Promise.all(tasks);
   state.orders = results[0];
   state.positions = results[1];
   state.kpis = results[2];
-  state.kpiTrends = results[3].trends || [];
-  if (includeDirectories) state.directories = results[4];
+  if (includeDirectories) state.directories = results[3];
   return state;
 }

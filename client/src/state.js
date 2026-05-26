@@ -22,7 +22,6 @@ export const state = {
   machineProgress: 0,
   machineProgressMessage: "",
   machineMatch: null,
-  kpiTrends: [],
   operatorSelectedPositionId: null,
   installCalendar: {
     /** calendar | list */
