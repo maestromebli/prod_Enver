@@ -3,8 +3,10 @@ import { all, run } from "./db.js";
 export async function computeKpiSnapshot() {
   const orders = await all("SELECT status FROM orders");
   const positions = await all(
-    `SELECT position_status, progress, overdue_days, install_date, constructor_name, assembly_responsible
-     FROM positions`
+    `SELECT p.position_status, p.progress, p.overdue_days, p.install_date, p.constructor_name, p.assembly_responsible
+     FROM positions p
+     LEFT JOIN orders o ON o.id = p.order_id
+     WHERE COALESCE(o.status, '') <> 'Завершено'`
   );
 
   return {

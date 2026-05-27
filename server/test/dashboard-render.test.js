@@ -86,4 +86,30 @@ describe("dashboard render", () => {
       assert.match(html, /aria-label="Проблеми: 0\. потребують уваги"/);
     });
   });
+
+  it("екранує текстові метадані у рядках віджетів", () => {
+    withStateSnapshot(() => {
+      state.currentUser = { name: "Тест" };
+      state.orders = [];
+      state.positions = [
+        {
+          id: 7,
+          orderId: 1,
+          orderNumber: "E-777",
+          object: "Об'єкт",
+          item: "Стіл",
+          positionStatus: "Готово до встановлення",
+          overdueDays: 0,
+          progress: 100,
+          installResponsible: "<img src=x onerror=alert(1)>"
+        }
+      ];
+      state.kpis = null;
+      global.document = mockDocument();
+
+      const html = renderDashboard();
+      assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+      assert.doesNotMatch(html, /<img src=x onerror=alert\(1\)>/);
+    });
+  });
 });

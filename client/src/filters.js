@@ -1,4 +1,5 @@
 import { state } from "./state.js";
+import { activePositions } from "./archive.js";
 
 export function currentFilters() {
   const searchEl = document.querySelector("#searchInput");
@@ -11,7 +12,7 @@ export function currentFilters() {
   };
 }
 
-export function filteredPositions(source = state.positions) {
+export function filteredPositions(source = activePositions(state.positions, state.orders)) {
   const { search, status, responsible } = currentFilters();
   const parentItems = new Map(source.filter((p) => !p.parentId).map((p) => [p.id, p.item]));
 

@@ -9,6 +9,22 @@ const router = Router();
 router.use(requireAuth);
 
 const PG_UNIQUE_VIOLATION = "23505";
+const ORDER_DONE_STATUS = "Завершено";
+
+async function archiveOrderPositions(orderId) {
+  await run(
+    `UPDATE positions SET
+      cutting_status = 'Готово',
+      edging_status = 'Готово',
+      drilling_status = 'Готово',
+      assembly_status = 'Готово',
+      position_status = 'Завершено',
+      progress = 100,
+      overdue_days = 0
+     WHERE order_id = $1`,
+    [orderId]
+  );
+}
 
 router.get("/", async (_req, res) => {
   const rows = await all("SELECT * FROM orders ORDER BY id");
@@ -100,6 +116,9 @@ router.put("/:id", requireOrderWrite, async (req, res) => {
         old_order_number: existing.order_number
       }
     );
+    if (updated.status === ORDER_DONE_STATUS) {
+      await archiveOrderPositions(id);
+    }
     await logOrderUpdate(existing, updated, auditActor(req));
     await syncOrderStatusWorkflow(updated, { actor: auditActor(req) });
     res.json(mapOrder(updated));

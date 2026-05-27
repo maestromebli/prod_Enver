@@ -2,6 +2,7 @@ import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
+import { activeOrders, activePositions } from "./archive.js";
 
 const ICONS = {
   alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>`,
@@ -43,7 +44,7 @@ function statTile({ tone, icon, value, label, hint, nav }) {
     </button>`;
 }
 
-function listRow({ id, orderId, title, subtitle, meta, metaClass = "" }) {
+function listRow({ id, orderId, title, subtitle, meta, metaClass = "", metaIsHtml = false }) {
   const attrs = id
     ? ` data-edit-position="${id}"`
     : orderId
@@ -60,7 +61,11 @@ function listRow({ id, orderId, title, subtitle, meta, metaClass = "" }) {
         <span class="dash-list-title">${escapeHtml(title)}</span>
         ${subtitle ? `<span class="dash-list-sub">${escapeHtml(subtitle)}</span>` : ""}
       </span>
-      ${meta ? `<span class="dash-list-meta ${metaClass}">${meta}</span>` : ""}
+      ${
+        meta
+          ? `<span class="dash-list-meta ${metaClass}">${metaIsHtml ? meta : escapeHtml(meta)}</span>`
+          : ""
+      }
       ${ICONS.chevron}
     </button>`;
 }
@@ -118,7 +123,7 @@ export function pickInstallSoon(positions, limit = 4) {
 export function renderDashboard() {
   const filters = currentFilters();
   const filteredData = filteredPositions();
-  const allData = state.positions;
+  const allData = activePositions(state.positions, state.orders);
   const filtersActive = hasActiveFilters(filters);
   const viewData = filtersActive ? filteredData : allData;
   const k = state.kpis;
@@ -129,7 +134,7 @@ export function renderDashboard() {
   const ready = allData.filter((p) => p.positionStatus === "Готово до встановлення");
   const inWork = allData.filter((p) => p.positionStatus === "У виробництві");
 
-  const activeOrders = k?.activeOrders ?? state.orders.length;
+  const activeOrdersCount = k?.activeOrders ?? activeOrders(state.orders).length;
   const installsCount = k?.installs ?? ready.length;
 
   const viewProblems = viewData.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
@@ -144,7 +149,8 @@ export function renderDashboard() {
       title: `${p.orderNumber} · ${p.item || p.object}`,
       subtitle: p.problem?.trim() || p.positionStatus,
       meta: p.overdueDays > 0 ? overdue(p.overdueDays) : `${p.progress ?? 0}%`,
-      metaClass: p.overdueDays > 0 ? "dash-meta-warn" : ""
+      metaClass: p.overdueDays > 0 ? "dash-meta-warn" : "",
+      metaIsHtml: p.overdueDays > 0
     })
   );
 
@@ -157,7 +163,8 @@ export function renderDashboard() {
         title: p.item || p.object,
         subtitle: p.orderNumber,
         meta: overdue(p.overdueDays),
-        metaClass: "dash-meta-warn"
+        metaClass: "dash-meta-warn",
+        metaIsHtml: true
       })
     );
 
@@ -311,7 +318,7 @@ export function renderDashboard() {
         <section class="dash-tile dash-tile--list dash-tile--compact" role="region" aria-label="Замовлення">
           <header class="dash-tile-head">
             <h3 class="dash-tile-title">${ICONS.box} Замовлення</h3>
-            <span class="dash-tile-count">${activeOrders}</span>
+            <span class="dash-tile-count">${activeOrdersCount}</span>
           </header>
           <div class="dash-list">
             ${

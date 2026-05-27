@@ -15,6 +15,7 @@ import { renderPositionTableBody } from "./render-positions.js";
 import { positionActionButtons, stageQuickActions } from "./positions.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { renderDashboard } from "./dashboard.js";
+import { activeOrders, archivedOrders, archivedPositions } from "./archive.js";
 import { filteredPositions } from "./filters.js";
 import { renderInstallTab } from "./install-calendar.js";
 import {
@@ -114,10 +115,10 @@ function ordersLegendHtml() {
   `;
 }
 
-function ordersTable(showActions = false) {
+function ordersTable(showActions = false, ordersData = activeOrders(state.orders)) {
   const allowEdit = showActions && canEditOrders();
   const actionHeader = allowEdit ? "<th>Дії</th>" : "";
-  const rows = state.orders
+  const rows = ordersData
     .map((o) => {
       const rowClass = orderRowHighlightClasses(o, state.positions);
       const actions = allowEdit
@@ -176,6 +177,22 @@ function ordersTable(showActions = false) {
         </table>
       </div>
     </div>
+  `;
+}
+
+function archiveTab() {
+  const ordersData = archivedOrders(state.orders);
+  const orderNumberSet = new Set(ordersData.map((o) => o.orderNumber));
+  const positionsData = archivedPositions(state.positions, state.orders).filter((p) =>
+    orderNumberSet.has(p.orderNumber)
+  );
+
+  return `
+    <div class="note">
+      У архів автоматично потрапляють завершені проєкти. Вони зникають з активних вкладок і лишаються лише тут.
+    </div>
+    ${ordersTable(false, ordersData)}
+    ${positionsTable(positionsData, "Архівні позиції")}
   `;
 }
 
@@ -496,6 +513,7 @@ function renderContent() {
   if (STAGE_TABS.includes(tab)) return stageTable(tab);
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Прострочки") return overdueTable();
+  if (tab === "Архів") return archiveTab();
   if (tab === "Історія змін") return historyTab();
   return dashboard();
 }
