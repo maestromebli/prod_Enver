@@ -1,5 +1,10 @@
 import { api } from "./api.js";
 import { enterOperatorView } from "./operator-panel.js";
+import {
+  markProductionTasksSeenForCurrentRole,
+  newProductionTaskIdsForCurrentRole
+} from "./role-notifications.js";
+import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
 
@@ -16,14 +21,40 @@ function stageStatusLabel(status) {
   return status || "—";
 }
 
-function renderStageCards(stages) {
+function stageStatusField(stageKey) {
+  const map = {
+    cutting: "cuttingStatus",
+    edging: "edgingStatus",
+    drilling: "drillingStatus",
+    assembly: "assemblyStatus"
+  };
+  return map[stageKey] || "cuttingStatus";
+}
+
+function countNewTasksByStage(stages = []) {
+  const freshIds = newProductionTaskIdsForCurrentRole(state.positions);
+  const counters = Object.fromEntries((stages || []).map((stage) => [stage.key, 0]));
+  for (const position of state.positions) {
+    if (!freshIds.has(Number(position.id))) continue;
+    for (const stage of stages) {
+      const field = stageStatusField(stage.key);
+      if (["Передано", "В роботі", "На паузі"].includes(position[field])) {
+        counters[stage.key] = (counters[stage.key] || 0) + 1;
+      }
+    }
+  }
+  return counters;
+}
+
+function renderStageCards(stages, freshByStage = {}) {
   return (stages || [])
     .map((s) => {
       const total = (s.handed || 0) + (s.inWork || 0) + (s.paused || 0);
+      const fresh = freshByStage[s.key] || 0;
       return `
-        <article class="pf-stage-card" data-pf-stage="${escapeHtml(s.key)}">
+        <article class="pf-stage-card ${fresh > 0 ? "is-fresh" : ""}" data-pf-stage="${escapeHtml(s.key)}">
           <header class="pf-stage-head">
-            <h3>${escapeHtml(s.label)}</h3>
+            <h3>${escapeHtml(s.label)} ${fresh > 0 ? `<span class="pf-fresh-pill">+${fresh} нов.</span>` : ""}</h3>
             <button type="button" class="btn btn-sm" data-open-operator-stage="${escapeHtml(s.key)}">Панель етапу</button>
           </header>
           <div class="pf-stage-stats">
@@ -103,17 +134,25 @@ function renderProblems(list) {
 
 export function renderProductionFloorTab(data = floorCache) {
   const d = data || { stages: [], activeSessions: [], problemPositions: [] };
+  const freshByStage = countNewTasksByStage(d.stages);
+  const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
   return `
     <div class="production-floor">
       <div class="card pf-hero">
         <div class="block-title">Цех зараз</div>
         <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів, проблеми та прогрес станків. «Панель етапу» — огляд без кнопок оператора.</p>
+        ${
+          freshTotal > 0
+            ? `<div class="pf-fresh-reminder">Нові задачі у цеху: <strong>${freshTotal}</strong></div>
+               <button type="button" class="btn btn-sm btn-ghost" id="pfMarkSeenBtn">Позначити переглянутими</button>`
+            : ""
+        }
         <button type="button" class="btn btn-sm" id="pfRefreshBtn">Оновити</button>
       </div>
 
       <section class="pf-section">
         <h2 class="pf-section-title">Етапи</h2>
-        <div class="pf-stage-grid">${renderStageCards(d.stages)}</div>
+        <div class="pf-stage-grid">${renderStageCards(d.stages, freshByStage)}</div>
       </section>
 
       <section class="pf-section">
@@ -131,6 +170,10 @@ export function renderProductionFloorTab(data = floorCache) {
 
 export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
   document.querySelector("#pfRefreshBtn")?.addEventListener("click", () => onRefresh?.());
+  document.querySelector("#pfMarkSeenBtn")?.addEventListener("click", () => {
+    markProductionTasksSeenForCurrentRole(state.positions);
+    onRefresh?.();
+  });
 
   document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {
     btn.addEventListener("click", () => {

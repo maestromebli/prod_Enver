@@ -313,8 +313,31 @@ tr.row-order-new {
   background: #fefce8;
 }
 
+tr.row-order-fresh {
+  box-shadow: inset 4px 0 0 #ca8a04;
+}
+
 tr.row-order-no-assignment {
   box-shadow: inset 3px 0 0 #dc2626;
+}
+
+tr.row-position-fresh {
+  background: #fffbea;
+}
+
+.cell-fresh-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #facc15;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
 }
 
 @media (max-width: 760px) {

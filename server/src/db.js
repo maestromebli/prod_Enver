@@ -16,9 +16,18 @@ if (pool) {
   });
 }
 
+function dbUnavailableError(message, cause) {
+  const err = new Error(message);
+  err.status = 503;
+  err.expose = true;
+  err.code = "DB_UNAVAILABLE";
+  if (cause) err.cause = cause;
+  return err;
+}
+
 function ensurePool() {
   if (!pool) {
-    throw new Error("DATABASE_URL не задано — звернення до БД недоступне");
+    throw dbUnavailableError("База даних не налаштована. Перевірте DATABASE_URL у .env.");
   }
   return pool;
 }
@@ -42,7 +51,18 @@ function bindNamed(sql, params) {
 
 export async function query(sql, params) {
   const { text, values } = bindNamed(sql, params);
-  return ensurePool().query(text, values);
+  try {
+    return await ensurePool().query(text, values);
+  } catch (err) {
+    if (err?.code === "DB_UNAVAILABLE") throw err;
+    if (err?.code === "ERR_INVALID_URL") {
+      throw dbUnavailableError("Некоректний DATABASE_URL у .env.", err);
+    }
+    if (err?.code && /^E/.test(String(err.code))) {
+      throw dbUnavailableError("База даних недоступна. Перевірте з'єднання і DATABASE_URL.", err);
+    }
+    throw err;
+  }
 }
 
 export async function one(sql, params) {

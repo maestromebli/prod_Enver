@@ -225,6 +225,12 @@ body.operator-kiosk-locked {
   font-size: 0.8rem;
 }
 
+.enver-operator-client .op-fresh-reminder {
+  margin: 6px 6px 0;
+  padding: 6px 8px;
+  font-size: 0.7rem;
+}
+
 .enver-operator-client .op-count-badge {
   min-width: 22px;
   height: 22px;

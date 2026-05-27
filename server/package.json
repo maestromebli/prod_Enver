@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development node --watch src/index.js",
-    "start": "NODE_ENV=production node src/index.js",
-    "migrate": "node scripts/migrate.mjs",
+    "dev": "DOTENV_CONFIG_PATH=../.env NODE_ENV=development node -r dotenv/config src/index.js",
+    "start": "DOTENV_CONFIG_PATH=../.env NODE_ENV=production node -r dotenv/config src/index.js",
+    "migrate": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/migrate.mjs",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "express-async-errors": "^3.1.1",
     "pg": "^8.13.1",

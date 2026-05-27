@@ -16,7 +16,14 @@ import { positionActionButtons, stageQuickActions } from "./positions.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { renderDashboard } from "./dashboard.js";
 import { activeOrders, archivedOrders, archivedPositions } from "./archive.js";
+import { getTourStep, renderTourCoach } from "./tour.js";
 import { filteredPositions } from "./filters.js";
+import {
+  countNewOrdersForCurrentRole,
+  countNewProductionTasksForCurrentRole,
+  newOrderIdsForCurrentRole,
+  newProductionTaskIdsForCurrentRole
+} from "./role-notifications.js";
 import { renderInstallTab } from "./install-calendar.js";
 import {
   bindProductionFloorActions,
@@ -37,8 +44,9 @@ function positionsTable(data, title = "Позиції замовлення", sho
   const allowActions = showActions && canEditPositions();
   const actionHeader = allowActions ? "<th>Дії</th>" : "";
   const colspan = allowActions ? 20 : 19;
+  const newTaskIds = newProductionTaskIdsForCurrentRole();
   const body =
-    renderPositionTableBody(data, state.positions, state.expandedPositionIds, allowActions) ||
+    renderPositionTableBody(data, state.positions, state.expandedPositionIds, allowActions, newTaskIds) ||
     emptyRow(colspan);
   const headerRow = allowActions
     ? `<div class="card-header-row">
@@ -106,9 +114,10 @@ function positionsTable(data, title = "Позиції замовлення", sho
   `;
 }
 
-function ordersLegendHtml() {
+function ordersLegendHtml(newOrdersCount = 0) {
   return `
     <div class="orders-legend">
+      ${newOrdersCount > 0 ? `<span class="legend-item legend-fresh">Нових з минулого перегляду: ${newOrdersCount}</span>` : ""}
       <span class="legend-item legend-new">Нове замовлення</span>
       <span class="legend-item legend-no-assignment">Без наступного призначення</span>
     </div>
@@ -118,9 +127,13 @@ function ordersLegendHtml() {
 function ordersTable(showActions = false, ordersData = activeOrders(state.orders)) {
   const allowEdit = showActions && canEditOrders();
   const actionHeader = allowEdit ? "<th>Дії</th>" : "";
+  const freshOrderIds = newOrderIdsForCurrentRole(ordersData);
   const rows = ordersData
     .map((o) => {
-      const rowClass = orderRowHighlightClasses(o, state.positions);
+      const isFresh = freshOrderIds.has(Number(o.id));
+      const rowClass = [orderRowHighlightClasses(o, state.positions), isFresh ? "row-order-fresh" : ""]
+        .filter(Boolean)
+        .join(" ");
       const actions = allowEdit
         ? `<td class="actions-cell">
             <button type="button" class="btn btn-sm" data-edit-order="${o.id}">Змінити</button>
@@ -130,7 +143,7 @@ function ordersTable(showActions = false, ordersData = activeOrders(state.orders
       return `
         <tr class="${rowClass}">
           <td class="col-opt-id">${o.id}</td>
-          <td>${escapeHtml(o.orderNumber)}</td>
+          <td>${escapeHtml(o.orderNumber)} ${isFresh ? '<span class="cell-fresh-pill">NEW</span>' : ""}</td>
           <td class="col-opt-object">${escapeHtml(o.object)}</td>
           <td class="col-opt-client">${escapeHtml(o.client)}</td>
           <td class="col-opt-manager">${escapeHtml(o.manager)}</td>
@@ -155,7 +168,7 @@ function ordersTable(showActions = false, ordersData = activeOrders(state.orders
   return `
     <div class="card">
       ${headerActions}
-      ${ordersLegendHtml()}
+      ${ordersLegendHtml(freshOrderIds.size)}
       <div class="table-wrap">
         <table>
           <thead>
@@ -409,11 +422,21 @@ function visibleTabs() {
 }
 
 export function renderTabs() {
+  const tour = getTourStep();
+  const newOrders = countNewOrdersForCurrentRole();
+  const newTasks = countNewProductionTasksForCurrentRole();
+  const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
   document.querySelector("#tabs").innerHTML = visibleTabs()
     .map(
       (tab) => `
-      <button type="button" class="tab-btn ${tab === state.activeTab ? "active" : ""}" data-tab="${escapeHtml(tab)}">
-        ${escapeHtml(tab)}
+      <button
+        type="button"
+        class="tab-btn ${tab === state.activeTab ? "active" : ""} ${tour?.tab === tab ? "tour-target" : ""}"
+        data-tab="${escapeHtml(tab)}"
+      >
+        <span class="tab-btn-label">${escapeHtml(tab)}</span>
+        ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
+        ${tab === PRODUCTION_FLOOR_TAB || tab === "Виробництво за етапами" ? tabBadge(newTasks) : ""}
       </button>
     `
     )
@@ -485,6 +508,7 @@ export function renderToolbarActions() {
   if (["Дашборд", "Позиції замовлення", "Прострочки"].includes(state.activeTab)) {
     parts.push(`<button type="button" class="btn btn-sm" id="exportCsvBtn">Експорт CSV</button>`);
   }
+  parts.push(renderTourCoach());
   el.innerHTML = parts.join("");
 }
 

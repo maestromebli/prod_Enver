@@ -53,7 +53,13 @@ function positionRowCells(p, row, showActions) {
   `;
 }
 
-export function renderPositionTableBody(data, allPositions, expandedIds, showActions = false) {
+export function renderPositionTableBody(
+  data,
+  allPositions,
+  expandedIds,
+  showActions = false,
+  newTaskIds = new Set()
+) {
   const rows = buildVisiblePositionRows(allPositions, data, expandedIds).map((row) => {
     const expanded = expandedIds.has(row.position.id);
     return {
@@ -69,7 +75,11 @@ export function renderPositionTableBody(data, allPositions, expandedIds, showAct
   return rows
     .map((row) => {
       const { position: p, isSub, childCount, expanded } = row;
-      const rowClass = ["row-clickable", isSub ? "row-sub-position" : "row-position-parent"]
+      const rowClass = [
+        "row-clickable",
+        isSub ? "row-sub-position" : "row-position-parent",
+        newTaskIds.has(Number(p.id)) ? "row-position-fresh" : ""
+      ]
         .filter(Boolean)
         .join(" ");
       return `

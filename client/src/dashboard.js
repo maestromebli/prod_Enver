@@ -1,8 +1,14 @@
 import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
+import {
+  countNewOrdersForCurrentRole,
+  countNewProductionTasksForCurrentRole
+} from "./role-notifications.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
 import { activeOrders, activePositions } from "./archive.js";
+
+const ONBOARDING_DISMISSED_KEY = "enver_dashboard_onboarding_dismissed";
 
 const ICONS = {
   alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>`,
@@ -107,6 +113,15 @@ function installDateRank(position) {
   return parsed.getTime();
 }
 
+function isOnboardingDismissed() {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function pickInstallSoon(positions, limit = 4) {
   return positions
     .filter((p) => p.installDate || p.positionStatus === "Готово до встановлення")
@@ -136,6 +151,8 @@ export function renderDashboard() {
 
   const activeOrdersCount = k?.activeOrders ?? activeOrders(state.orders).length;
   const installsCount = k?.installs ?? ready.length;
+  const newOrdersCount = countNewOrdersForCurrentRole();
+  const newTasksCount = countNewProductionTasksForCurrentRole();
 
   const viewProblems = viewData.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
   const problemIds = new Set(viewProblems.map((p) => p.id));
@@ -226,6 +243,7 @@ export function renderDashboard() {
       meta: p.installResponsible?.slice(0, 12) || "—"
     })
   );
+  const showOnboarding = !isOnboardingDismissed();
 
   return `
     <div class="dash-board">
@@ -245,6 +263,66 @@ export function renderDashboard() {
         <div class="dash-hero-badge" aria-hidden="true">ENVER</div>
       </header>
 
+      ${
+        newOrdersCount > 0 || newTasksCount > 0
+          ? `<section class="dash-reminder" role="status" aria-live="polite">
+              <strong>Нові елементи для вашої ролі</strong>
+              <div class="dash-reminder-actions">
+                ${
+                  newOrdersCount > 0
+                    ? `<button type="button" class="btn btn-sm" data-dash-nav="Замовлення">Замовлення: ${newOrdersCount}</button>`
+                    : ""
+                }
+                ${
+                  newTasksCount > 0
+                    ? `<button type="button" class="btn btn-sm" data-dash-nav="Виробництво за етапами">Завдання: ${newTasksCount}</button>`
+                    : ""
+                }
+              </div>
+            </section>`
+          : ""
+      }
+
+      ${
+        showOnboarding
+          ? `<section class="dash-onboarding" role="region" aria-label="Швидкий старт">
+              <div class="dash-onboarding-top">
+                <h3 class="dash-onboarding-title">Швидкий старт: 3 кроки</h3>
+                <div class="dash-onboarding-actions">
+                  <button type="button" class="btn btn-primary btn-sm" data-dash-tour-start="1">
+                    Почати міні-тур
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    data-dash-dismiss-onboarding="1"
+                    aria-label="Не показувати підказку швидкого старту"
+                  >
+                    Не показувати
+                  </button>
+                </div>
+              </div>
+              <div class="dash-onboarding-steps">
+                <button type="button" class="dash-onboarding-step" data-dash-nav="Замовлення">
+                  <span class="dash-step-index">1</span>
+                  <span class="dash-step-text">Створи або відкрий замовлення</span>
+                  ${ICONS.chevron}
+                </button>
+                <button type="button" class="dash-onboarding-step" data-dash-nav="Позиції замовлення">
+                  <span class="dash-step-index">2</span>
+                  <span class="dash-step-text">Додай позиції й відповідальних</span>
+                  ${ICONS.chevron}
+                </button>
+                <button type="button" class="dash-onboarding-step" data-dash-nav="Виробництво за етапами">
+                  <span class="dash-step-index">3</span>
+                  <span class="dash-step-text">Веди етапи до монтажу й архіву</span>
+                  ${ICONS.chevron}
+                </button>
+              </div>
+            </section>`
+          : ""
+      }
+
       <div class="dash-bento" aria-label="Огляд показників дашборду">
         ${statTile({
           tone: "red",
@@ -252,7 +330,7 @@ export function renderDashboard() {
           value: problems.length,
           label: "Проблеми",
           hint: "потребують уваги",
-          nav: "Позиції замовлення"
+          nav: "Проблеми"
         })}
         ${statTile({
           tone: "orange",
@@ -268,7 +346,7 @@ export function renderDashboard() {
           value: inWork.length,
           label: "У виробництві",
           hint: "активні позиції",
-          nav: "Позиції замовлення"
+          nav: "У виробництві"
         })}
         ${statTile({
           tone: "green",
@@ -276,12 +354,12 @@ export function renderDashboard() {
           value: ready.length,
           label: "До монтажу",
           hint: "готові",
-          nav: "Встановлення"
+          nav: "До монтажу"
         })}
 
         ${listWidget({
           title: "У фокусі",
-          nav: "Позиції замовлення",
+          nav: "У фокусі",
           rows: focusRows,
           empty: "Немає проблем і прострочок — все під контролем",
           span: "wide"
@@ -296,7 +374,7 @@ export function renderDashboard() {
 
         ${listWidget({
           title: "Готові до монтажу",
-          nav: "Встановлення",
+          nav: "До монтажу",
           rows: readyRows,
           empty: "Немає позицій, готових до встановлення"
         })}
@@ -304,7 +382,7 @@ export function renderDashboard() {
         <section class="dash-tile dash-tile--list dash-tile--wide" role="region" aria-label="У виробництві">
           <header class="dash-tile-head">
             <h3 class="dash-tile-title">У виробництві</h3>
-            <button type="button" class="dash-tile-link" data-dash-nav="Позиції замовлення">Усі ${ICONS.chevron}</button>
+            <button type="button" class="dash-tile-link" data-dash-nav="У виробництві">Усі ${ICONS.chevron}</button>
           </header>
           <div class="dash-list">
             ${

@@ -36,6 +36,11 @@ import {
 import { renderApp as paint, renderResponsibleOptions } from "./render.js";
 import { bindSettingsActions, initSettingsUi, loadSettingsData, openSettings } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
+import {
+  initializeRoleNotificationBaselines,
+  markOrdersSeenForCurrentRole,
+  markProductionTasksSeenForCurrentRole
+} from "./role-notifications.js";
 import { state } from "./state.js";
 import {
   applyUiState,
@@ -47,6 +52,7 @@ import {
   restoreScrollPosition,
   schedulePersistUiState
 } from "./ui-persistence.js";
+import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.js";
 import { initTheme } from "./theme.js";
 import { $ } from "./utils.js";
 
@@ -150,10 +156,48 @@ function bindContentActions() {
   });
 
   document.querySelectorAll("[data-dash-nav]").forEach((el) => {
-    el.addEventListener("click", (e) => {
+    el.addEventListener("click", async (e) => {
       e.stopPropagation();
       const tab = el.dataset.dashNav;
-      if (tab) setTab(tab);
+      if (tab) await handleDashboardNav(tab);
+    });
+  });
+
+  document.querySelectorAll("[data-dash-dismiss-onboarding]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      try {
+        localStorage.setItem("enver_dashboard_onboarding_dismissed", "1");
+      } catch {
+        /* ignore */
+      }
+      renderApp({ contentOnly: true });
+    });
+  });
+
+  document.querySelectorAll("[data-dash-tour-start]").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const step = startTour();
+      if (step?.tab) await setTab(step.tab);
+      else renderApp();
+    });
+  });
+
+  document.querySelectorAll("[data-tour-next]").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const step = nextTourStep();
+      if (step?.tab) await setTab(step.tab);
+      else renderApp();
+    });
+  });
+
+  document.querySelectorAll("[data-tour-stop]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      stopTour();
+      renderApp();
     });
   });
 
@@ -233,8 +277,20 @@ function bindContentActions() {
 }
 
 function renderApp(options) {
+  if (state.view === "main" && state.activeTab === "Замовлення") {
+    markOrdersSeenForCurrentRole(state.orders);
+  }
+  if (
+    state.view === "main" &&
+    (state.activeTab === PRODUCTION_FLOOR_TAB || state.activeTab === "Виробництво за етапами")
+  ) {
+    markProductionTasksSeenForCurrentRole(state.positions);
+  }
   paint(options);
-  if (state.view === "main") bindContentActions();
+  if (state.view === "main") {
+    bindContentActions();
+    applyTourHighlights();
+  }
   schedulePersistUiState();
 }
 
@@ -249,6 +305,7 @@ async function loadData({ silent = false } = {}) {
   if (!silent) setLoading(true);
   try {
     await refreshAppData({ includeDirectories: true });
+    initializeRoleNotificationBaselines();
     renderResponsibleOptions();
     renderApp(silent ? { contentOnly: true } : undefined);
   } catch (err) {
@@ -289,6 +346,12 @@ async function prepareViewData() {
 
 async function setTab(tab) {
   state.activeTab = tab;
+  if (tab === "Замовлення") {
+    markOrdersSeenForCurrentRole(state.orders);
+  }
+  if (tab === PRODUCTION_FLOOR_TAB || tab === "Виробництво за етапами") {
+    markProductionTasksSeenForCurrentRole(state.positions);
+  }
   if (tab === PRODUCTION_FLOOR_TAB) {
     setLoading(true);
     try {
@@ -312,6 +375,37 @@ async function setTab(tab) {
   }
   renderApp();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) {
+  const searchInput = $("#searchInput");
+  const statusFilter = $("#statusFilter");
+  const responsibleFilter = $("#responsibleFilter");
+  const stageFilter = $("#stageFilter");
+
+  if (searchInput) searchInput.value = search;
+  if (statusFilter) statusFilter.value = status;
+  if (responsibleFilter) responsibleFilter.value = responsible;
+  state.productionStageFilter = "";
+  if (stageFilter) stageFilter.value = "";
+}
+
+async function handleDashboardNav(destination) {
+  const quickRoutes = {
+    "У фокусі": { tab: "Прострочки" },
+    Проблеми: { tab: "Позиції замовлення", status: "Проблема" },
+    "У виробництві": { tab: "Позиції замовлення", status: "У виробництві" },
+    "До монтажу": { tab: "Позиції замовлення", status: "Готово до встановлення" }
+  };
+
+  const route = quickRoutes[destination];
+  if (route) {
+    applyQuickFilters({ status: route.status });
+    await setTab(route.tab);
+    return;
+  }
+
+  await setTab(destination);
 }
 
 async function openSettingsView() {

@@ -30,7 +30,7 @@ let httpServer = null;
 let viteDevServer = null;
 let shuttingDown = false;
 
-function createApiApp() {
+function createApiApp({ dbConfigured, dbConnected }) {
   const app = express();
 
   app.use(cors());
@@ -40,7 +40,8 @@ function createApiApp() {
     res.json({
       ok: true,
       production: process.env.NODE_ENV === "production",
-      features: { machineLogs: true, aiMatching: true }
+      database: { configured: dbConfigured, connected: dbConnected },
+      features: { machineLogs: dbConnected, aiMatching: dbConnected }
     });
   });
 
@@ -61,7 +62,10 @@ function createApiApp() {
 
   app.use((err, _req, res, _next) => {
     console.error(err);
-    res.status(500).json({ error: "Внутрішня помилка сервера" });
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    const safeMessage =
+      status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message;
+    res.status(status).json({ error: safeMessage || "Внутрішня помилка сервера" });
   });
 
   return app;
@@ -97,14 +101,28 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 async function start() {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL не задано. Сервер не може стартувати без БД.");
-    process.exit(1);
-  }
-  // Перевірка з'єднання з БД — швидкий fail, якщо DATABASE_URL невалідний.
-  await pool.query("SELECT 1");
+  let dbConfigured = Boolean(process.env.DATABASE_URL);
+  let dbConnected = false;
 
-  const app = createApiApp();
+  if (!dbConfigured) {
+    if (!isDev) {
+      console.error("DATABASE_URL не задано. Сервер не може стартувати без БД.");
+      process.exit(1);
+    }
+    console.warn("DATABASE_URL не задано. Dev-сервер запущено без доступу до БД.");
+  } else {
+    try {
+      // Перевірка з'єднання з БД — швидкий fail, якщо DATABASE_URL невалідний.
+      await pool.query("SELECT 1");
+      dbConnected = true;
+    } catch (err) {
+      if (!isDev) throw err;
+      console.warn(`Підключення до БД недоступне: ${err.message}`);
+      console.warn("Dev-сервер запущено без доступу до БД. Перевірте DATABASE_URL у .env.");
+    }
+  }
+
+  const app = createApiApp({ dbConfigured, dbConnected });
   const server = http.createServer(app);
   httpServer = server;
 
@@ -157,7 +175,11 @@ async function start() {
       if (isDev) {
         console.log("Режим розробки — відкривайте саме цю адресу (не :5173)");
       }
-      startMachineLogWatchers();
+      if (dbConnected) {
+        startMachineLogWatchers();
+      } else {
+        console.warn("Machine log watcher вимкнено: немає підключення до БД.");
+      }
       resolve();
     });
   });

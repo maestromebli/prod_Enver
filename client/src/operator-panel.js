@@ -10,6 +10,11 @@ import {
 } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
+import {
+  initializeOperatorStageBaseline,
+  markOperatorStageSeen,
+  newOperatorQueueIdsForStage
+} from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml } from "./utils.js";
 
@@ -75,6 +80,7 @@ export async function loadOperatorData() {
 
   const data = await api.getOperatorQueue(stageKey);
   state.operatorQueue = data.queue || [];
+  initializeOperatorStageBaseline(stageKey, state.operatorQueue);
   state.operatorActiveSession = data.activeSession;
 
   if (data.activeSession?.position_id) {
@@ -285,16 +291,17 @@ function renderMachineMatchBlock() {
   `;
 }
 
-function renderQueueItem(p, field) {
+function renderQueueItem(p, field, freshIds) {
   const status = p[field];
   const active = p.id === state.operatorSelectedPositionId;
   const working = p.id === activeSessionPositionId();
   const overdue = (p.overdueDays || 0) > 0;
   const locked = activeSessionPositionId() && p.id !== activeSessionPositionId();
+  const isFresh = freshIds.has(Number(p.id));
 
   return `
     <button type="button"
-      class="op-queue-card ${active ? "is-active" : ""} ${working ? "is-working" : ""} ${locked ? "is-locked" : ""}"
+      class="op-queue-card ${active ? "is-active" : ""} ${working ? "is-working" : ""} ${locked ? "is-locked" : ""} ${isFresh ? "is-fresh" : ""}"
       data-select-position="${p.id}"
       ${locked ? "disabled" : ""}
       aria-pressed="${active}">
@@ -307,6 +314,7 @@ function renderQueueItem(p, field) {
       <span class="op-queue-order">${escapeHtml(p.orderNumber)}</span>
       <span class="op-queue-item">${escapeHtml(p.item)}</span>
       <span class="op-queue-object">${escapeHtml(p.object)}</span>
+      ${isFresh ? '<span class="op-queue-fresh-pill">NEW</span>' : ""}
       <div class="op-queue-footer">${badge(status)}</div>
     </button>
   `;
@@ -323,6 +331,8 @@ export function renderOperatorView() {
   const blockingStage = OPERATOR_STAGES.find((s) => s.key === activeSessionStageKey());
   const stats = queueStats();
   const field = statusField();
+  const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
+  const freshQueueCount = freshQueueIds.size;
   const elapsed = formatElapsed(state.operatorActiveSession?.started_at);
   const ringOffset = RING_C * (1 - (state.machineProgress || 0) / 100);
 
@@ -342,7 +352,9 @@ export function renderOperatorView() {
     })
     .join("");
 
-  const queueItems = state.operatorQueue.map((p) => renderQueueItem(p, field)).join("");
+  const queueItems = state.operatorQueue
+    .map((p) => renderQueueItem(p, field, freshQueueIds))
+    .join("");
 
   const initials = userInitials(state.currentUser?.name);
 
@@ -430,6 +442,14 @@ export function renderOperatorView() {
             <h2>Черга</h2>
             <span class="op-count-badge">${stats.total}</span>
           </div>
+          ${
+            freshQueueCount > 0
+              ? `<div class="op-fresh-reminder">
+                  <span>Нові задачі: <strong>${freshQueueCount}</strong></span>
+                  <button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими</button>
+                </div>`
+              : ""
+          }
           <div class="op-queue-list" role="list">
             ${
               queueItems ||
@@ -643,6 +663,12 @@ export function bindOperatorActions(onChange) {
           return;
         }
         state.operatorSelectedPositionId = Number(posBtn.dataset.selectPosition);
+        operatorOnChange();
+        return;
+      }
+
+      if (e.target.closest("#operatorMarkSeenBtn")) {
+        markOperatorStageSeen(state.operatorStage, state.operatorQueue);
         operatorOnChange();
         return;
       }

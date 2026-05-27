@@ -10,7 +10,9 @@ export function mapOrder(row) {
     planDate: row.plan_date ?? "",
     status: row.status ?? "",
     priority: row.priority ?? "",
-    comment: row.comment ?? ""
+    comment: row.comment ?? "",
+    createdAt: row.created_at ?? null,
+    updatedAt: row.updated_at ?? null
   };
 }
 
@@ -41,7 +43,8 @@ export function mapPosition(row) {
     progress: row.progress ?? 0,
     overdueDays: row.overdue_days ?? 0,
     problem: row.problem ?? "",
-    note: row.note ?? ""
+    note: row.note ?? "",
+    createdAt: row.created_at ?? null
   };
 }
 
