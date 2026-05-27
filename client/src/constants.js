@@ -5,6 +5,7 @@ export { STAGE_TABS, PRODUCTION_FLOOR_TAB };
 
 export const TABS = [
   "Дашборд",
+  "Архів",
   PRODUCTION_FLOOR_TAB,
   "Замовлення",
   "Позиції замовлення",
@@ -12,6 +13,5 @@ export const TABS = [
   ...STAGE_TABS,
   "Встановлення",
   "Прострочки",
-  "Архів",
   "Історія змін"
 ];
