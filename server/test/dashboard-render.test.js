@@ -66,7 +66,7 @@ describe("dashboard render", () => {
       global.document = mockDocument({ search: "шафа" });
 
       const html = renderDashboard();
-      assert.match(html, /Показано списки за фільтрами/);
+      assert.match(html, /Списки відфільтровано/);
       assert.match(html, />1<\/span>\s*<span class="dash-tile-label">Проблеми<\/span>/);
       assert.match(html, />1<\/span>\s*<span class="dash-tile-label">До монтажу<\/span>/);
     });
@@ -81,7 +81,7 @@ describe("dashboard render", () => {
       global.document = mockDocument();
 
       const html = renderDashboard();
-      assert.match(html, /role="region" aria-label="У фокусі"/);
+      assert.match(html, /role="region" aria-label="Потребує уваги"/);
       assert.match(html, /class="dash-tile dash-tile--stat/);
       assert.match(html, /aria-label="Проблеми: 0\. потребують уваги"/);
     });

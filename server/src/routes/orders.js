@@ -3,7 +3,7 @@ import { all, one, run, withTransaction } from "../db.js";
 import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
-import { syncOrderStatusWorkflow } from "../order-status-sync.js";
+import { ensureOrderRootPosition, syncOrderStatusWorkflow } from "../order-status-sync.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -60,6 +60,7 @@ router.post("/", requireOrderWrite, async (req, res) => {
       { order_id: inserted.id, order_number: data.order_number, object: data.object }
     );
     await logOrderCreate(inserted, auditActor(req));
+    await ensureOrderRootPosition(inserted, { actor: auditActor(req) });
     await syncOrderStatusWorkflow(inserted, { actor: auditActor(req) });
     res.status(201).json(mapOrder(inserted));
   } catch (err) {

@@ -37,15 +37,30 @@ export function buildVisiblePositionRows(
     }
   }
 
-  for (const parent of byParent.get(null) || []) {
+  const roots = [...(byParent.get(null) || [])].sort((a, b) => {
+    const byOrder = String(a.orderNumber || "").localeCompare(String(b.orderNumber || ""), "uk");
+    if (byOrder !== 0) return byOrder;
+    return Number(a.id) - Number(b.id);
+  });
+
+  for (const parent of roots) {
     const childCount = (byParent.get(parent.id) || []).length;
     rows.push({ position: parent, depth: 0, isSub: false, childCount });
-    if (expandedIds.has(parent.id)) {
+    if (childCount === 0 || expandedIds.has(parent.id)) {
       appendChildren(parent.id, 1);
     }
   }
 
   return rows;
+}
+
+/** Розгорнути основні позиції, у яких є підпозиції (за замовчуванням видно дерево). */
+export function expandParentsWithChildren(positions = state.positions) {
+  for (const p of positions) {
+    if (!p.parentId && getChildCount(p.id, positions) > 0) {
+      state.expandedPositionIds.add(p.id);
+    }
+  }
 }
 
 export function getChildCount(parentId, positions = state.positions) {

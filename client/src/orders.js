@@ -30,14 +30,50 @@ function fillDatalists() {
   $("#managersList").innerHTML = managers.map((m) => `<option value="${m}"></option>`).join("");
 }
 
+function syncOrderModalChrome(order = null) {
+  const title = $("#orderModalTitle");
+  const subtitle = $("#orderModalSubtitle");
+  if (!title) return;
+
+  if (!order) {
+    title.textContent = "Нове замовлення";
+    if (subtitle) {
+      subtitle.textContent = "";
+      subtitle.hidden = true;
+    }
+    return;
+  }
+
+  title.textContent = order.orderNumber || `Замовлення #${order.id}`;
+  if (subtitle) {
+    const parts = [order.object, order.client].filter(Boolean);
+    subtitle.textContent = parts.join(" · ");
+    subtitle.hidden = !parts.length;
+  }
+}
+
+function syncOrderFormMoreOpen(order = null) {
+  const details = $("#orderFormMore");
+  if (!details) return;
+  if (!order) {
+    details.open = false;
+    return;
+  }
+  const hasExtra = Boolean(
+    order.startDate?.trim() ||
+    order.planDate?.trim() ||
+    order.comment?.trim() ||
+    (order.priority && order.priority !== "Звичайний")
+  );
+  details.open = hasExtra;
+}
+
 export function openOrderModal(order = null) {
   fillDatalists();
   const statuses = state.directories["Статуси замовлення"] || [];
   const priorities = state.directories["Пріоритети"] || ["Високий", "Звичайний", "Низький"];
 
-  $("#orderModalTitle").textContent = order
-    ? `Редагування замовлення #${order.id}`
-    : "Нове замовлення";
+  syncOrderModalChrome(order);
   $("#orderId").value = order?.id ?? "";
   $("#orderNumber").value = order?.orderNumber ?? "";
   $("#orderObject").value = order?.object ?? "";
@@ -49,6 +85,7 @@ export function openOrderModal(order = null) {
 
   fillSelect("#orderStatus", statuses, order?.status || statuses[0] || "");
   fillSelect("#orderPriority", priorities, order?.priority || "Звичайний");
+  syncOrderFormMoreOpen(order);
 
   $("#deleteOrderBtn").style.display = order ? "inline-flex" : "none";
   showError("");
@@ -104,6 +141,8 @@ export function restoreOrderModalState(saved) {
   if (saved.priority) $("#orderPriority").value = saved.priority;
   $("#orderComment").value = saved.comment ?? "";
   if (!saved.id) $("#orderId").value = "";
+  syncOrderModalChrome(order);
+  syncOrderFormMoreOpen(order || saved);
 }
 
 async function saveOrder(event) {

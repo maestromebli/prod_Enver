@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { expandParentsWithChildren } from "./position-tree.js";
 import { state } from "./state.js";
 
 export function upsertPosition(position) {
@@ -33,5 +34,6 @@ export async function refreshAppData({ includeDirectories = false } = {}) {
   state.positions = results[1];
   state.kpis = results[2];
   if (includeDirectories) state.directories = results[3];
+  expandParentsWithChildren(state.positions);
   return state;
 }

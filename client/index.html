@@ -269,54 +269,79 @@
     </div>
 
     <div class="modal-backdrop" id="orderModal" aria-hidden="true">
-      <div class="modal" role="dialog" aria-labelledby="orderModalTitle">
+      <div class="modal modal--order" role="dialog" aria-labelledby="orderModalTitle">
         <div class="modal-header">
-          <h2 id="orderModalTitle">Замовлення</h2>
+          <div class="modal-header-text">
+            <h2 id="orderModalTitle">Замовлення</h2>
+            <p class="modal-subtitle" id="orderModalSubtitle" hidden></p>
+          </div>
           <button type="button" class="modal-close" id="closeOrderModal" aria-label="Закрити">
             ×
           </button>
         </div>
         <form id="orderForm">
-          <div class="modal-body">
+          <div class="modal-body modal-body--order">
             <p class="form-error" id="orderFormError"></p>
             <input type="hidden" id="orderId" name="id" />
-            <div class="form-field">
-              <label for="orderNumber">Номер замовлення</label>
-              <input id="orderNumber" name="orderNumber" required />
+            <div class="form-grid order-form-grid">
+              <div class="form-field">
+                <label for="orderNumber">Номер</label>
+                <input id="orderNumber" name="orderNumber" required placeholder="Напр. 2026-014" />
+              </div>
+              <div class="form-field">
+                <label for="orderStatus">Статус</label>
+                <select id="orderStatus" name="status"></select>
+              </div>
+              <div class="form-field span-2">
+                <label for="orderObject">Об'єкт / адреса</label>
+                <input
+                  id="orderObject"
+                  name="object"
+                  required
+                  placeholder="Адреса або назва об'єкта"
+                />
+              </div>
+              <div class="form-field">
+                <label for="orderClient">Клієнт</label>
+                <input id="orderClient" name="client" placeholder="Ім'я або компанія" />
+              </div>
+              <div class="form-field">
+                <label for="orderManager">Менеджер</label>
+                <input
+                  id="orderManager"
+                  name="manager"
+                  list="managersList"
+                  placeholder="Хто веде"
+                />
+                <datalist id="managersList"></datalist>
+              </div>
             </div>
-            <div class="form-field">
-              <label for="orderObject">Об'єкт / Адреса</label>
-              <input id="orderObject" name="object" required />
-            </div>
-            <div class="form-field">
-              <label for="orderClient">Клієнт</label>
-              <input id="orderClient" name="client" />
-            </div>
-            <div class="form-field">
-              <label for="orderManager">Менеджер</label>
-              <input id="orderManager" name="manager" list="managersList" />
-              <datalist id="managersList"></datalist>
-            </div>
-            <div class="form-field">
-              <label for="orderStartDate">Дата запуску</label>
-              <input id="orderStartDate" name="startDate" placeholder="дд.мм.рррр" />
-            </div>
-            <div class="form-field">
-              <label for="orderPlanDate">Планова дата завершення</label>
-              <input id="orderPlanDate" name="planDate" placeholder="дд.мм.рррр" />
-            </div>
-            <div class="form-field">
-              <label for="orderStatus">Статус замовлення</label>
-              <select id="orderStatus" name="status"></select>
-            </div>
-            <div class="form-field">
-              <label for="orderPriority">Пріоритет</label>
-              <select id="orderPriority" name="priority"></select>
-            </div>
-            <div class="form-field">
-              <label for="orderComment">Коментар</label>
-              <textarea id="orderComment" name="comment"></textarea>
-            </div>
+            <details class="order-form-more" id="orderFormMore">
+              <summary>Додатково</summary>
+              <div class="form-grid order-form-grid">
+                <div class="form-field">
+                  <label for="orderStartDate">Запуск</label>
+                  <input id="orderStartDate" name="startDate" placeholder="дд.мм.рррр" />
+                </div>
+                <div class="form-field">
+                  <label for="orderPlanDate">План завершення</label>
+                  <input id="orderPlanDate" name="planDate" placeholder="дд.мм.рррр" />
+                </div>
+                <div class="form-field">
+                  <label for="orderPriority">Пріоритет</label>
+                  <select id="orderPriority" name="priority"></select>
+                </div>
+                <div class="form-field span-2">
+                  <label for="orderComment">Коментар</label>
+                  <textarea
+                    id="orderComment"
+                    name="comment"
+                    rows="2"
+                    placeholder="За потреби"
+                  ></textarea>
+                </div>
+              </div>
+            </details>
           </div>
           <div class="modal-footer">
             <button

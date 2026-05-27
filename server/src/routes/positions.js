@@ -148,6 +148,23 @@ router.post("/", requirePositionWrite, async (req, res) => {
     return;
   }
 
+  if (!raw.parent_id) {
+    const existingRoot = await one(
+      `SELECT id FROM positions
+       WHERE parent_id IS NULL
+         AND (order_id = $1 OR order_number = $2)
+       LIMIT 1`,
+      [raw.order_id, raw.order_number]
+    );
+    if (existingRoot) {
+      res.status(400).json({
+        error:
+          "У замовленні вже є основна позиція. Додайте виріб або зону як підпозицію через + біля неї."
+      });
+      return;
+    }
+  }
+
   const id = await nextPositionId();
   const planMap = await planDateByOrderNumber();
   const planDate = planMap.get(raw.order_number);

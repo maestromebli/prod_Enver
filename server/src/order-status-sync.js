@@ -58,13 +58,8 @@ async function updatePositionRow(row, planDate) {
   );
 }
 
-/** Після зміни статусу замовлення: створити позицію (якщо немає) і передати на відповідні етапи. */
-export async function syncOrderStatusWorkflow(orderRow, { actor = null } = {}) {
-  const status = String(orderRow.status || "").trim();
-  if (!ORDER_STATUSES_NEED_POSITION.has(status)) {
-    return { created: 0, updated: 0 };
-  }
-
+/** Гарантує одну основну позицію на замовлення (контейнер для підпозицій). */
+export async function ensureOrderRootPosition(orderRow, { actor = null } = {}) {
   const planDate = orderRow.plan_date || "";
   const positions = await all(
     `SELECT * FROM positions
@@ -73,16 +68,27 @@ export async function syncOrderStatusWorkflow(orderRow, { actor = null } = {}) {
     [orderRow.id, orderRow.order_number]
   );
 
-  let roots = positions.filter((p) => !p.parent_id);
-  let created = 0;
-
-  if (!roots.length) {
-    const id = await nextPositionId();
-    const inserted = await insertPositionRow(defaultPositionRow(orderRow, id), planDate);
-    await logPositionCreate(inserted, actor);
-    roots = [inserted];
-    created = 1;
+  const roots = positions.filter((p) => !p.parent_id);
+  if (roots.length) {
+    return { created: 0, root: roots[0] };
   }
+
+  const id = await nextPositionId();
+  const inserted = await insertPositionRow(defaultPositionRow(orderRow, id), planDate);
+  await logPositionCreate(inserted, actor);
+  return { created: 1, root: inserted };
+}
+
+/** Після зміни статусу замовлення: створити позицію (якщо немає) і передати на відповідні етапи. */
+export async function syncOrderStatusWorkflow(orderRow, { actor = null } = {}) {
+  const status = String(orderRow.status || "").trim();
+  if (!ORDER_STATUSES_NEED_POSITION.has(status)) {
+    return { created: 0, updated: 0 };
+  }
+
+  const planDate = orderRow.plan_date || "";
+  const { created, root } = await ensureOrderRootPosition(orderRow, { actor });
+  let roots = root ? [root] : [];
 
   const preset = orderStatusStagePreset(status);
   let updated = 0;

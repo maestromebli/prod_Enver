@@ -107,10 +107,67 @@
   border-bottom: 1px solid var(--border);
 }
 
+.modal-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
 .modal-header h2 {
   margin: 0;
   font-size: 18px;
   color: var(--navy);
+}
+
+.modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal--order {
+  width: min(480px, 100%);
+}
+
+.modal-body--order {
+  gap: 14px;
+}
+
+.order-form-grid .form-field label {
+  text-transform: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.order-form-more {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px 12px;
+  background: color-mix(in srgb, var(--bg) 60%, var(--surface));
+}
+
+.order-form-more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--navy);
+  padding: 10px 0;
+  list-style: none;
+}
+
+.order-form-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.order-form-more[open] summary {
+  margin-bottom: 8px;
+}
+
+.order-form-more .order-form-grid {
+  padding-top: 4px;
 }
 
 .modal-close {

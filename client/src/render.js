@@ -63,7 +63,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
   return `
     <div class="card">
       ${headerRow}
-      <p class="positions-hint">Основна позиція може мати підпозиції (окремі вироби/зони). Натисніть <strong>+</strong> біля позиції, щоб додати підпозицію з власним конструктором, збирачем і монтажником.</p>
+      <p class="positions-hint">У кожному замовленні є одна основна позиція; вироби та зони завжди додаються як <strong>підпозиції</strong> через <strong>+</strong> біля неї (окремий конструктор, збирач і монтажник).</p>
       <div class="table-wrap">
         <table class="positions-table">
           <colgroup>
@@ -148,18 +148,21 @@ function ordersTable(showActions = false, ordersData = activeOrders(state.orders
            </td>`
         : "";
 
+      const dates = [o.startDate, o.planDate].filter(Boolean).join(" → ");
       return `
         <tr class="${rowClass}">
-          <td class="col-opt-id">${o.id}</td>
-          <td>${escapeHtml(o.orderNumber)} ${isFresh ? '<span class="cell-fresh-pill">NEW</span>' : ""}</td>
-          <td class="col-opt-object">${escapeHtml(o.object)}</td>
-          <td class="col-opt-client">${escapeHtml(o.client)}</td>
-          <td class="col-opt-manager">${escapeHtml(o.manager)}</td>
-          <td class="col-opt-start-date">${escapeHtml(o.startDate)}</td>
-          <td class="col-opt-plan-date">${escapeHtml(o.planDate)}</td>
+          <td class="order-cell-number">
+            <strong>${escapeHtml(o.orderNumber)}</strong>
+            ${isFresh ? '<span class="cell-fresh-pill">NEW</span>' : ""}
+          </td>
+          <td class="col-opt-object">
+            <div class="order-cell-object">${escapeHtml(o.object)}</div>
+            ${o.comment ? `<div class="order-cell-note">${escapeHtml(o.comment)}</div>` : ""}
+          </td>
+          <td class="col-opt-client">${escapeHtml(o.client || "—")}</td>
+          <td class="col-opt-manager">${escapeHtml(o.manager || "—")}</td>
           <td>${badge(o.status)}</td>
-          <td class="col-opt-priority">${escapeHtml(o.priority)}</td>
-          <td class="left col-opt-comment">${escapeHtml(o.comment || "—")}</td>
+          <td class="col-opt-dates muted">${escapeHtml(dates || "—")}</td>
           ${actions}
         </tr>
       `;
@@ -181,20 +184,16 @@ function ordersTable(showActions = false, ordersData = activeOrders(state.orders
         <table>
           <thead>
             <tr>
-              <th class="col-opt-id">ID замовлення</th>
-              <th>Номер замовлення</th>
-              <th class="col-opt-object">Об'єкт / Адреса</th>
+              <th>Номер</th>
+              <th class="col-opt-object">Об'єкт</th>
               <th class="col-opt-client">Клієнт</th>
               <th class="col-opt-manager">Менеджер</th>
-              <th class="col-opt-start-date">Дата запуску</th>
-              <th class="col-opt-plan-date">Планова дата завершення</th>
-              <th>Статус замовлення</th>
-              <th class="col-opt-priority">Пріоритет</th>
-              <th class="left col-opt-comment">Коментар</th>
+              <th>Статус</th>
+              <th class="col-opt-dates">Терміни</th>
               ${actionHeader}
             </tr>
           </thead>
-          <tbody>${rows || emptyRow(showActions ? 11 : 10)}</tbody>
+          <tbody>${rows || emptyRow(showActions ? 7 : 6)}</tbody>
         </table>
       </div>
     </div>
