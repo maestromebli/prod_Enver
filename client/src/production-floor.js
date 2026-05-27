@@ -1,8 +1,11 @@
 import { api } from "./api.js";
 import { enterOperatorView } from "./operator-panel.js";
 import {
+  ensureDesktopPermissionIfEnabled,
+  getNotificationConfigForCurrentRole,
   markProductionTasksSeenForCurrentRole,
-  newProductionTaskIdsForCurrentRole
+  newProductionTaskIdsForCurrentRole,
+  updateNotificationConfigForCurrentRole
 } from "./role-notifications.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
@@ -136,17 +139,30 @@ export function renderProductionFloorTab(data = floorCache) {
   const d = data || { stages: [], activeSessions: [], problemPositions: [] };
   const freshByStage = countNewTasksByStage(d.stages);
   const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
+  const notifyCfg = getNotificationConfigForCurrentRole();
   return `
     <div class="production-floor">
       <div class="card pf-hero">
         <div class="block-title">Цех зараз</div>
         <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів, проблеми та прогрес станків. «Панель етапу» — огляд без кнопок оператора.</p>
-        ${
-          freshTotal > 0
-            ? `<div class="pf-fresh-reminder">Нові задачі у цеху: <strong>${freshTotal}</strong></div>
-               <button type="button" class="btn btn-sm btn-ghost" id="pfMarkSeenBtn">Позначити переглянутими</button>`
-            : ""
-        }
+        <div class="pf-fresh-reminder">
+          Нові задачі у цеху: <strong>${freshTotal}</strong>
+          <span class="pf-fresh-empty">${freshTotal > 0 ? "" : "нових поки немає"}</span>
+        </div>
+        <div class="pf-notify-controls">
+          <label>Вікно
+            <select data-notify-window>
+              <option value="12" ${notifyCfg.windowHours === 12 ? "selected" : ""}>12г</option>
+              <option value="24" ${notifyCfg.windowHours === 24 ? "selected" : ""}>24г</option>
+              <option value="48" ${notifyCfg.windowHours === 48 ? "selected" : ""}>48г</option>
+              <option value="72" ${notifyCfg.windowHours === 72 ? "selected" : ""}>72г</option>
+              <option value="168" ${notifyCfg.windowHours === 168 ? "selected" : ""}>7д</option>
+            </select>
+          </label>
+          <label><input type="checkbox" data-notify-sound ${notifyCfg.soundEnabled ? "checked" : ""} /> Звук</label>
+          <label><input type="checkbox" data-notify-desktop ${notifyCfg.desktopEnabled ? "checked" : ""} /> Desktop</label>
+          ${freshTotal > 0 ? '<button type="button" class="btn btn-sm btn-ghost" id="pfMarkSeenBtn">Позначити переглянутими</button>' : ""}
+        </div>
         <button type="button" class="btn btn-sm" id="pfRefreshBtn">Оновити</button>
       </div>
 
@@ -173,6 +189,23 @@ export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
   document.querySelector("#pfMarkSeenBtn")?.addEventListener("click", () => {
     markProductionTasksSeenForCurrentRole(state.positions);
     onRefresh?.();
+  });
+  document.querySelector("[data-notify-window]")?.addEventListener("change", (e) => {
+    updateNotificationConfigForCurrentRole({ windowHours: Number(e.target.value) });
+    onRefresh?.();
+  });
+  document.querySelector("[data-notify-sound]")?.addEventListener("change", (e) => {
+    updateNotificationConfigForCurrentRole({ soundEnabled: e.target.checked });
+  });
+  document.querySelector("[data-notify-desktop]")?.addEventListener("change", async (e) => {
+    updateNotificationConfigForCurrentRole({ desktopEnabled: e.target.checked });
+    if (e.target.checked) {
+      const perm = await ensureDesktopPermissionIfEnabled();
+      if (perm !== "granted") {
+        updateNotificationConfigForCurrentRole({ desktopEnabled: false });
+        e.target.checked = false;
+      }
+    }
   });
 
   document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {

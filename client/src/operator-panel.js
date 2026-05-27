@@ -11,9 +11,14 @@ import {
 import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
 import {
+  emitRoleNotifications,
+  ensureDesktopPermissionIfEnabled,
+  getNotificationConfigForCurrentRole,
   initializeOperatorStageBaseline,
   markOperatorStageSeen,
-  newOperatorQueueIdsForStage
+  newOperatorQueueIdsForStage,
+  reminderSnapshot,
+  updateNotificationConfigForCurrentRole
 } from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml } from "./utils.js";
@@ -81,6 +86,7 @@ export async function loadOperatorData() {
   const data = await api.getOperatorQueue(stageKey);
   state.operatorQueue = data.queue || [];
   initializeOperatorStageBaseline(stageKey, state.operatorQueue);
+  await emitRoleNotifications(reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue }));
   state.operatorActiveSession = data.activeSession;
 
   if (data.activeSession?.position_id) {
@@ -333,6 +339,7 @@ export function renderOperatorView() {
   const field = statusField();
   const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
   const freshQueueCount = freshQueueIds.size;
+  const notifyCfg = getNotificationConfigForCurrentRole();
   const elapsed = formatElapsed(state.operatorActiveSession?.started_at);
   const ringOffset = RING_C * (1 - (state.machineProgress || 0) / 100);
 
@@ -446,7 +453,20 @@ export function renderOperatorView() {
             freshQueueCount > 0
               ? `<div class="op-fresh-reminder">
                   <span>Нові задачі: <strong>${freshQueueCount}</strong></span>
-                  <button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими</button>
+                  <div class="op-fresh-actions">
+                    <label>Вікно
+                      <select data-notify-window>
+                        <option value="12" ${notifyCfg.windowHours === 12 ? "selected" : ""}>12г</option>
+                        <option value="24" ${notifyCfg.windowHours === 24 ? "selected" : ""}>24г</option>
+                        <option value="48" ${notifyCfg.windowHours === 48 ? "selected" : ""}>48г</option>
+                        <option value="72" ${notifyCfg.windowHours === 72 ? "selected" : ""}>72г</option>
+                        <option value="168" ${notifyCfg.windowHours === 168 ? "selected" : ""}>7д</option>
+                      </select>
+                    </label>
+                    <label><input type="checkbox" data-notify-sound ${notifyCfg.soundEnabled ? "checked" : ""} /> Звук</label>
+                    <label><input type="checkbox" data-notify-desktop ${notifyCfg.desktopEnabled ? "checked" : ""} /> Desktop</label>
+                    <button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Переглянуто</button>
+                  </div>
                 </div>`
               : ""
           }
@@ -670,6 +690,32 @@ export function bindOperatorActions(onChange) {
       if (e.target.closest("#operatorMarkSeenBtn")) {
         markOperatorStageSeen(state.operatorStage, state.operatorQueue);
         operatorOnChange();
+        return;
+      }
+
+      const windowControl = e.target.closest("[data-notify-window]");
+      if (windowControl) {
+        updateNotificationConfigForCurrentRole({ windowHours: Number(windowControl.value) });
+        operatorOnChange();
+        return;
+      }
+
+      const soundControl = e.target.closest("[data-notify-sound]");
+      if (soundControl) {
+        updateNotificationConfigForCurrentRole({ soundEnabled: soundControl.checked });
+        return;
+      }
+
+      const desktopControl = e.target.closest("[data-notify-desktop]");
+      if (desktopControl) {
+        updateNotificationConfigForCurrentRole({ desktopEnabled: desktopControl.checked });
+        if (desktopControl.checked) {
+          const perm = await ensureDesktopPermissionIfEnabled();
+          if (perm !== "granted") {
+            updateNotificationConfigForCurrentRole({ desktopEnabled: false });
+            desktopControl.checked = false;
+          }
+        }
         return;
       }
 

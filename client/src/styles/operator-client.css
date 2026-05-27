@@ -231,6 +231,14 @@ body.operator-kiosk-locked {
   font-size: 0.7rem;
 }
 
+.enver-operator-client .op-fresh-actions {
+  gap: 6px;
+}
+
+.enver-operator-client .op-fresh-actions label {
+  font-size: 0.62rem;
+}
+
 .enver-operator-client .op-count-badge {
   min-width: 22px;
   height: 22px;

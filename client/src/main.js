@@ -37,9 +37,13 @@ import { renderApp as paint, renderResponsibleOptions } from "./render.js";
 import { bindSettingsActions, initSettingsUi, loadSettingsData, openSettings } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
 import {
+  emitRoleNotifications,
+  ensureDesktopPermissionIfEnabled,
   initializeRoleNotificationBaselines,
+  reminderSnapshot,
   markOrdersSeenForCurrentRole,
-  markProductionTasksSeenForCurrentRole
+  markProductionTasksSeenForCurrentRole,
+  updateNotificationConfigForCurrentRole
 } from "./role-notifications.js";
 import { state } from "./state.js";
 import {
@@ -160,6 +164,35 @@ function bindContentActions() {
       e.stopPropagation();
       const tab = el.dataset.dashNav;
       if (tab) await handleDashboardNav(tab);
+    });
+  });
+
+  document.querySelectorAll("[data-notify-window]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      updateNotificationConfigForCurrentRole({ windowHours: Number(el.value) });
+      renderApp({ contentOnly: true });
+      await emitRoleNotifications(reminderSnapshot());
+    });
+  });
+
+  document.querySelectorAll("[data-notify-sound]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      updateNotificationConfigForCurrentRole({ soundEnabled: el.checked });
+      await emitRoleNotifications(reminderSnapshot());
+    });
+  });
+
+  document.querySelectorAll("[data-notify-desktop]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      updateNotificationConfigForCurrentRole({ desktopEnabled: el.checked });
+      if (el.checked) {
+        const perm = await ensureDesktopPermissionIfEnabled();
+        if (perm !== "granted") {
+          updateNotificationConfigForCurrentRole({ desktopEnabled: false });
+          el.checked = false;
+        }
+      }
+      await emitRoleNotifications(reminderSnapshot());
     });
   });
 
@@ -306,6 +339,7 @@ async function loadData({ silent = false } = {}) {
   try {
     await refreshAppData({ includeDirectories: true });
     initializeRoleNotificationBaselines();
+    await emitRoleNotifications(reminderSnapshot());
     renderResponsibleOptions();
     renderApp(silent ? { contentOnly: true } : undefined);
   } catch (err) {

@@ -39,6 +39,37 @@
   font-weight: 600;
 }
 
+.pf-fresh-empty {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: #92400e;
+}
+
+.pf-notify-controls {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.pf-notify-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #78350f;
+  font-weight: 600;
+}
+
+.pf-notify-controls select {
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  background: #fff;
+  color: #78350f;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+}
+
 .pf-section-title {
   margin: 0 0 12px;
   font-size: 1.05rem;

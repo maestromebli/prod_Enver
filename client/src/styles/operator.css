@@ -409,6 +409,30 @@ body.view-operator .app {
   gap: 8px;
 }
 
+.op-fresh-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.op-fresh-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #78350f;
+}
+
+.op-fresh-actions select {
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  background: #fff;
+  color: #78350f;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
 .op-queue-list {
   display: flex;
   flex-direction: column;

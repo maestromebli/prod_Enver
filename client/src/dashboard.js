@@ -2,11 +2,13 @@ import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
 import {
   countNewOrdersForCurrentRole,
-  countNewProductionTasksForCurrentRole
+  countNewProductionTasksForCurrentRole,
+  getNotificationConfigForCurrentRole,
+  notificationWindowOptions
 } from "./role-notifications.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
-import { activeOrders, activePositions } from "./archive.js";
+import { activeOrders, activePositions, archivedOrders, archivedPositions } from "./archive.js";
 
 const ONBOARDING_DISMISSED_KEY = "enver_dashboard_onboarding_dismissed";
 
@@ -150,9 +152,13 @@ export function renderDashboard() {
   const inWork = allData.filter((p) => p.positionStatus === "У виробництві");
 
   const activeOrdersCount = k?.activeOrders ?? activeOrders(state.orders).length;
+  const archivedOrdersCount = archivedOrders(state.orders).length;
+  const archivedPositionsCount = archivedPositions(state.positions, state.orders).length;
   const installsCount = k?.installs ?? ready.length;
   const newOrdersCount = countNewOrdersForCurrentRole();
   const newTasksCount = countNewProductionTasksForCurrentRole();
+  const notifyCfg = getNotificationConfigForCurrentRole();
+  const windowOptions = notificationWindowOptions();
 
   const viewProblems = viewData.filter((p) => p.problem?.trim() || p.positionStatus === "Проблема");
   const problemIds = new Set(viewProblems.map((p) => p.id));
@@ -263,25 +269,38 @@ export function renderDashboard() {
         <div class="dash-hero-badge" aria-hidden="true">ENVER</div>
       </header>
 
-      ${
-        newOrdersCount > 0 || newTasksCount > 0
-          ? `<section class="dash-reminder" role="status" aria-live="polite">
-              <strong>Нові елементи для вашої ролі</strong>
-              <div class="dash-reminder-actions">
-                ${
-                  newOrdersCount > 0
-                    ? `<button type="button" class="btn btn-sm" data-dash-nav="Замовлення">Замовлення: ${newOrdersCount}</button>`
-                    : ""
-                }
-                ${
-                  newTasksCount > 0
-                    ? `<button type="button" class="btn btn-sm" data-dash-nav="Виробництво за етапами">Завдання: ${newTasksCount}</button>`
-                    : ""
-                }
+      <section class="dash-reminder" role="status" aria-live="polite">
+              <div class="dash-reminder-main">
+                <strong>Нові елементи для вашої ролі</strong>
+                <div class="dash-reminder-actions">
+                  ${
+                    newOrdersCount > 0
+                      ? `<button type="button" class="btn btn-sm" data-dash-nav="Замовлення">Замовлення: ${newOrdersCount}</button>`
+                      : ""
+                  }
+                  ${
+                    newTasksCount > 0
+                      ? `<button type="button" class="btn btn-sm" data-dash-nav="Виробництво за етапами">Завдання: ${newTasksCount}</button>`
+                      : `<span class="dash-reminder-empty">Наразі нових немає</span>`
+                  }
+                </div>
               </div>
-            </section>`
-          : ""
-      }
+              <div class="dash-reminder-controls">
+                <label>
+                  Вікно
+                  <select data-notify-window>
+                    ${windowOptions
+                      .map(
+                        (h) =>
+                          `<option value="${h}" ${notifyCfg.windowHours === h ? "selected" : ""}>${h}г</option>`
+                      )
+                      .join("")}
+                  </select>
+                </label>
+                <label><input type="checkbox" data-notify-sound ${notifyCfg.soundEnabled ? "checked" : ""} /> Звук</label>
+                <label><input type="checkbox" data-notify-desktop ${notifyCfg.desktopEnabled ? "checked" : ""} /> Desktop</label>
+              </div>
+            </section>
 
       ${
         showOnboarding
@@ -407,6 +426,9 @@ export function renderDashboard() {
           </div>
           <footer class="dash-tile-foot">
             <button type="button" class="dash-tile-link" data-dash-nav="Замовлення">Відкрити реєстр ${ICONS.chevron}</button>
+            <button type="button" class="dash-tile-link" data-dash-nav="Архів">
+              Архів (${archivedOrdersCount} / ${archivedPositionsCount}) ${ICONS.chevron}
+            </button>
           </footer>
         </section>
 
