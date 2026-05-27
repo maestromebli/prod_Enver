@@ -86,7 +86,9 @@ export async function loadOperatorData() {
   const data = await api.getOperatorQueue(stageKey);
   state.operatorQueue = data.queue || [];
   initializeOperatorStageBaseline(stageKey, state.operatorQueue);
-  await emitRoleNotifications(reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue }));
+  await emitRoleNotifications(
+    reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue })
+  );
   state.operatorActiveSession = data.activeSession;
 
   if (data.activeSession?.position_id) {

@@ -20,7 +20,12 @@ describe("dashboard utils", () => {
   it("pickInstallSoon ставить позиції без валідної дати в кінець", () => {
     const positions = [
       { id: 10, orderNumber: "E-1", installDate: "", positionStatus: "Готово до встановлення" },
-      { id: 11, orderNumber: "E-2", installDate: "26.05.2026", positionStatus: "Готово до встановлення" }
+      {
+        id: 11,
+        orderNumber: "E-2",
+        installDate: "26.05.2026",
+        positionStatus: "Готово до встановлення"
+      }
     ];
 
     const result = pickInstallSoon(positions, 2);

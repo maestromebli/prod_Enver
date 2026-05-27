@@ -161,8 +161,7 @@ function buildManifest(copiedFiles) {
     builtAt: new Date().toISOString(),
     gitSha: sha,
     target: "ENVER OS",
-    description:
-      "Цех, панель оператора, інтеграція зі станками (логи + AI), клієнти Windows/iPad",
+    description: "Цех, панель оператора, інтеграція зі станками (логи + AI), клієнти Windows/iPad",
     api: {
       production: ["/api/production/floor"],
       operator: [
@@ -180,11 +179,7 @@ function buildManifest(copiedFiles) {
         "/api/machine/logs/match/:id/confirm"
       ]
     },
-    permissions: [
-      "canUseOperatorPanel",
-      "canViewProductionFloor",
-      "canViewMachineLogs"
-    ],
+    permissions: ["canUseOperatorPanel", "canViewProductionFloor", "canViewMachineLogs"],
     operatorStages: ["cutting", "edging", "drilling", "assembly"],
     files: copiedFiles.sort(),
     docs: {
@@ -216,8 +211,7 @@ function main() {
 
   for (const rel of DOC_FILES) {
     const base = path.basename(rel);
-    const dest =
-      rel.includes("templates/") ? path.join("templates", base) : base;
+    const dest = rel.includes("templates/") ? path.join("templates", base) : base;
     if (copyFile(rel, dest)) copied.push(dest);
   }
 

@@ -553,7 +553,11 @@ body.view-dashboard #content {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue), color-mix(in srgb, var(--green) 70%, var(--blue)));
+  background: linear-gradient(
+    90deg,
+    var(--blue),
+    color-mix(in srgb, var(--green) 70%, var(--blue))
+  );
   transition: width 0.3s ease;
 }
 

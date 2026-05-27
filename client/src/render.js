@@ -46,8 +46,13 @@ function positionsTable(data, title = "Позиції замовлення", sho
   const colspan = allowActions ? 20 : 19;
   const newTaskIds = newProductionTaskIdsForCurrentRole();
   const body =
-    renderPositionTableBody(data, state.positions, state.expandedPositionIds, allowActions, newTaskIds) ||
-    emptyRow(colspan);
+    renderPositionTableBody(
+      data,
+      state.positions,
+      state.expandedPositionIds,
+      allowActions,
+      newTaskIds
+    ) || emptyRow(colspan);
   const headerRow = allowActions
     ? `<div class="card-header-row">
         <div class="block-title">${escapeHtml(title)}</div>
@@ -131,7 +136,10 @@ function ordersTable(showActions = false, ordersData = activeOrders(state.orders
   const rows = ordersData
     .map((o) => {
       const isFresh = freshOrderIds.has(Number(o.id));
-      const rowClass = [orderRowHighlightClasses(o, state.positions), isFresh ? "row-order-fresh" : ""]
+      const rowClass = [
+        orderRowHighlightClasses(o, state.positions),
+        isFresh ? "row-order-fresh" : ""
+      ]
         .filter(Boolean)
         .join(" ");
       const actions = allowEdit

@@ -63,8 +63,7 @@ function createApiApp({ dbConfigured, dbConnected }) {
   app.use((err, _req, res, _next) => {
     console.error(err);
     const status = Number.isInteger(err?.status) ? err.status : 500;
-    const safeMessage =
-      status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message;
+    const safeMessage = status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message;
     res.status(status).json({ error: safeMessage || "Внутрішня помилка сервера" });
   });
 

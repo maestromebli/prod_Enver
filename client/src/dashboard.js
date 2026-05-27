@@ -53,11 +53,7 @@ function statTile({ tone, icon, value, label, hint, nav }) {
 }
 
 function listRow({ id, orderId, title, subtitle, meta, metaClass = "", metaIsHtml = false }) {
-  const attrs = id
-    ? ` data-edit-position="${id}"`
-    : orderId
-      ? ` data-edit-order="${orderId}"`
-      : "";
+  const attrs = id ? ` data-edit-position="${id}"` : orderId ? ` data-edit-order="${orderId}"` : "";
   const navLabel = id
     ? `Відкрити позицію: ${title}`
     : orderId
@@ -79,9 +75,7 @@ function listRow({ id, orderId, title, subtitle, meta, metaClass = "", metaIsHtm
 }
 
 function listWidget({ title, nav, rows, empty, span = "md" }) {
-  const body = rows.length
-    ? rows.join("")
-    : `<p class="dash-empty">${escapeHtml(empty)}</p>`;
+  const body = rows.length ? rows.join("") : `<p class="dash-empty">${escapeHtml(empty)}</p>`;
   return `
     <section class="dash-tile dash-tile--list dash-tile--${span}" role="region" aria-label="${escapeHtml(title)}">
       <header class="dash-tile-head">
@@ -418,11 +412,7 @@ export function renderDashboard() {
             <span class="dash-tile-count">${activeOrdersCount}</span>
           </header>
           <div class="dash-list">
-            ${
-              orderRows.length
-                ? orderRows.join("")
-                : `<p class="dash-empty">Немає замовлень</p>`
-            }
+            ${orderRows.length ? orderRows.join("") : `<p class="dash-empty">Немає замовлень</p>`}
           </div>
           <footer class="dash-tile-foot">
             <button type="button" class="dash-tile-link" data-dash-nav="Замовлення">Відкрити реєстр ${ICONS.chevron}</button>
