@@ -563,7 +563,9 @@ export function renderHeaderChrome() {
     chip.hidden = !user;
     if (user) chip.textContent = user.name;
   }
+  const notifyBtn = document.querySelector("#notifySettingsBtn");
   if (gear) gear.hidden = !canViewSettings();
+  if (notifyBtn) notifyBtn.hidden = !user || canViewSettings();
   if (logout) logout.hidden = !user;
 
   let opBtn = document.querySelector("#productionOperatorBtn");

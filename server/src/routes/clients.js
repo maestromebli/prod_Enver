@@ -24,6 +24,7 @@ router.get("/info", requireAuth, requireAdmin, (req, res) => {
 
   res.json({
     operatorUrl: `${base}/operator.html`,
+    androidHint: "Chrome → Меню → «Додати на головний екран» (PWA для Android)",
     ipadDownloadUrl: `${base}/downloads/${IPAD_PROFILE}`,
     ipadDownloadAvailable: true,
     ipadFileName: IPAD_PROFILE,

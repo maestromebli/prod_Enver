@@ -11,6 +11,7 @@ export async function runSeed(client) {
   await seedRolePermissions(client);
   await seedMachineConfig(client);
   await seedDirectories(client);
+  await seedFolderAgent(client);
   await seedAdminUser(client);
 }
 
@@ -42,6 +43,22 @@ async function seedDirectories(client) {
      VALUES ('directories', $1)
      ON CONFLICT (key) DO NOTHING`,
     [JSON.stringify(DEFAULT_DIRECTORIES)]
+  );
+}
+
+async function seedFolderAgent(client) {
+  const token = process.env.AGENT_TOKEN || "enver-agent-dev-token";
+  await client.query(
+    `INSERT INTO app_settings (key, value_json)
+     VALUES ('folder_agent', $1)
+     ON CONFLICT (key) DO UPDATE SET value_json = excluded.value_json`,
+    [
+      JSON.stringify({
+        token,
+        rootPath: "\\\\NAS\\ENVER",
+        enabled: true
+      })
+    ]
   );
 }
 

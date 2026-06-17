@@ -13,6 +13,8 @@ export const state = {
   expandedPositionIds: new Set(),
   /** main | settings | operator */
   view: "main",
+  /** Куди повернутись після закриття обмежених налаштувань (напр. сповіщення з панелі оператора). */
+  settingsReturnView: null,
   settingsSection: "users",
   currentUser: null,
   authToken: null,
@@ -23,6 +25,9 @@ export const state = {
   machineProgressMessage: "",
   machineMatch: null,
   operatorSelectedPositionId: null,
+  operatorJobDetail: null,
+  operatorCuttingEstimate: null,
+  machinePositionProgress: null,
   installCalendar: {
     /** calendar | list */
     displayMode: "calendar",

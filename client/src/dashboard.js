@@ -2,9 +2,7 @@ import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
 import {
   countNewOrdersForCurrentRole,
-  countNewProductionTasksForCurrentRole,
-  getNotificationConfigForCurrentRole,
-  notificationWindowOptions
+  countNewProductionTasksForCurrentRole
 } from "./role-notifications.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
@@ -173,28 +171,6 @@ export function pickInstallSoon(positions, limit = 4) {
     .slice(0, limit);
 }
 
-function notifySettingsHtml(notifyCfg, windowOptions) {
-  return `
-    <details class="dash-notify">
-      <summary class="dash-notify-toggle">Сповіщення</summary>
-      <div class="dash-notify-body">
-        <label>
-          Вікно
-          <select data-notify-window>
-            ${windowOptions
-              .map(
-                (h) =>
-                  `<option value="${h}" ${notifyCfg.windowHours === h ? "selected" : ""}>${h}г</option>`
-              )
-              .join("")}
-          </select>
-        </label>
-        <label><input type="checkbox" data-notify-sound ${notifyCfg.soundEnabled ? "checked" : ""} /> Звук</label>
-        <label><input type="checkbox" data-notify-desktop ${notifyCfg.desktopEnabled ? "checked" : ""} /> Desktop</label>
-      </div>
-    </details>`;
-}
-
 export function renderDashboard() {
   const filters = currentFilters();
   const filteredData = filteredPositions();
@@ -215,8 +191,6 @@ export function renderDashboard() {
   const installsCount = k?.installs ?? ready.length;
   const newOrdersCount = countNewOrdersForCurrentRole();
   const newTasksCount = countNewProductionTasksForCurrentRole();
-  const notifyCfg = getNotificationConfigForCurrentRole();
-  const windowOptions = notificationWindowOptions();
   const status = operationalStatus(problems.length, overdueItems.length, inWork.length);
   const hasAlerts = newOrdersCount > 0 || newTasksCount > 0;
 
@@ -303,7 +277,6 @@ export function renderDashboard() {
           </div>
         </div>
         <div class="dash-hero-actions">
-          ${notifySettingsHtml(notifyCfg, windowOptions)}
           <nav class="dash-quick-nav" aria-label="Швидкі переходи">
             <button type="button" class="dash-quick-btn" data-dash-nav="Замовлення">Замовлення</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="Встановлення">Монтажі</button>

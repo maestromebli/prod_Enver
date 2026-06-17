@@ -11,6 +11,7 @@
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",
     "pack:production-module": "node scripts/pack-production-module.mjs",
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
+    "agent:dev": "node agent/src/index.js",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server",
     "migrate": "node server/scripts/migrate.mjs",

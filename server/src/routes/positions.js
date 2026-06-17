@@ -9,6 +9,11 @@ import {
 } from "../audit.js";
 import { auditActor, requireAuth, requirePositionWrite } from "../middleware/auth.js";
 import { STAGE_PATCH_MAP, applyStageHandoff, enrichPositionRow } from "../position-logic.js";
+import {
+  closeOperatorSessionsForStage,
+  closeSessionsAfterStageStatusChanges,
+  OPERATOR_ACTIVE_STATUSES
+} from "../operator-sessions.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -219,6 +224,7 @@ router.put("/:id", requirePositionWrite, async (req, res) => {
   const planMap = await planDateByOrderNumber();
   const planDate = planMap.get(raw.order_number);
   const saved = await saveRow(id, raw, planDate);
+  await closeSessionsAfterStageStatusChanges(existing, raw, id);
   await logPositionUpdate(existing, await loadRow(id), auditActor(req));
   res.json(saved);
 });
@@ -275,6 +281,9 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
   });
   await saveRow(id, handedOff, planDate);
   const afterRow = await loadRow(id);
+  if (config.type !== "constructor" && status && !OPERATOR_ACTIVE_STATUSES.has(status)) {
+    await closeOperatorSessionsForStage(id, stageKey);
+  }
   await logStageChange(beforeRow, afterRow, stageKey, { status, constructor }, auditActor(req));
   res.json(mapEnrichedRow(afterRow, planMap));
 });

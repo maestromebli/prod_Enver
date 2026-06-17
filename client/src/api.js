@@ -136,6 +136,9 @@ export const api = {
     request("/api/operator/resume", { method: "POST", body: JSON.stringify(body) }),
   operatorFinish: (body) =>
     request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
+  getOperatorJob: (positionId) => request(`/api/operator/job/${positionId}`),
+  estimateCutting: (body) =>
+    request("/api/ai/estimate-cutting", { method: "POST", body: JSON.stringify(body) }),
 
   getHistory: (params = {}) => {
     const q = new URLSearchParams();

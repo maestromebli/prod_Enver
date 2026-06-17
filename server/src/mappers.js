@@ -44,8 +44,37 @@ export function mapPosition(row) {
     overdueDays: row.overdue_days ?? 0,
     problem: row.problem ?? "",
     note: row.note ?? "",
+    folderKey: row.folder_key ?? "",
+    folderPath: row.folder_path ?? "",
+    folderState: row.folder_state ?? "",
+    material: row.material ?? "",
+    machineProgressDetail: parseMachineProgressJson(row.machine_progress_json),
+    giblabSummary: parseJsonField(row.giblab_summary_json),
     createdAt: row.created_at ?? null
   };
+}
+
+function parseJsonField(str) {
+  try {
+    return JSON.parse(str || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function parseMachineProgressJson(str) {
+  try {
+    const data = JSON.parse(str || "{}");
+    return {
+      percent: Number(data.percent) || 0,
+      piecesDone: Number(data.piecesDone) || 0,
+      piecesTotal: Number(data.piecesTotal) || 0,
+      cutLengthMm: Number(data.cutLengthMm) || 0,
+      jobRef: data.jobRef || ""
+    };
+  } catch {
+    return { percent: 0, piecesDone: 0, piecesTotal: 0, cutLengthMm: 0, jobRef: "" };
+  }
 }
 
 export function orderToDb(body) {

@@ -4,6 +4,10 @@ import { state } from "./state.js";
 import { OPERATOR_STAGES, ROLES, stageLabel } from "./users-constants.js";
 import { directoriesSectionHtml, handleDirectoriesClick } from "./settings-directories.js";
 import { bindClientsActions, clientsSectionHtml, loadClientsInfo } from "./settings-clients.js";
+import {
+  bindNotificationSettingsActions,
+  notificationsSectionHtml
+} from "./settings-notifications.js";
 import { runSave } from "./save-flow.js";
 import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
@@ -74,12 +78,24 @@ export async function refreshAiSettingsFromServer() {
 
 export function openSettings(section = "users") {
   if (!canViewSettings()) return;
+  state.settingsReturnView = null;
   state.view = "settings";
   state.settingsSection = section;
 }
 
+/** Сповіщення — доступні всім авторизованим (навіть без повних налаштувань). */
+export function openNotificationSettings() {
+  if (!state.currentUser) return;
+  if (state.view !== "settings") {
+    state.settingsReturnView = state.view;
+  }
+  state.view = "settings";
+  state.settingsSection = "notifications";
+}
+
 export function closeSettings() {
-  state.view = "main";
+  state.view = state.settingsReturnView || "main";
+  state.settingsReturnView = null;
 }
 
 function usersSectionHtml() {
@@ -387,28 +403,37 @@ function aiSectionHtml() {
 }
 
 export function renderSettingsView() {
-  const section = state.settingsSection === "ai" && !isAdmin() ? "users" : state.settingsSection;
-  const nav = [
-    ["users", "Користувачі"],
-    ["access", "Доступи"],
-    ["directories", "Довідники"],
-    ["machines", "Станки"],
-    ["clients", "Клієнти"],
-    ...(isAdmin() ? [["ai", "ШІ"]] : [])
-  ];
+  const limited = !canViewSettings();
+  let section = state.settingsSection;
+  if (limited) section = "notifications";
+  if (section === "ai" && !isAdmin()) section = limited ? "notifications" : "users";
+
+  const nav = limited
+    ? [["notifications", "Сповіщення"]]
+    : [
+        ["users", "Користувачі"],
+        ["access", "Доступи"],
+        ["directories", "Довідники"],
+        ["machines", "Станки"],
+        ["clients", "Клієнти"],
+        ["notifications", "Сповіщення"],
+        ...(isAdmin() ? [["ai", "ШІ"]] : [])
+      ];
 
   const sectionHtml =
-    section === "users"
-      ? usersSectionHtml()
-      : section === "access"
-        ? accessSectionHtml()
-        : section === "clients"
-          ? clientsSectionHtml()
-          : section === "directories"
-            ? directoriesSectionHtml()
-            : section === "ai"
-              ? aiSectionHtml()
-              : machinesSectionHtml();
+    section === "notifications"
+      ? notificationsSectionHtml()
+      : section === "users"
+        ? usersSectionHtml()
+        : section === "access"
+          ? accessSectionHtml()
+          : section === "clients"
+            ? clientsSectionHtml()
+            : section === "directories"
+              ? directoriesSectionHtml()
+              : section === "ai"
+                ? aiSectionHtml()
+                : machinesSectionHtml();
 
   return `
     <div class="settings-page">
@@ -599,6 +624,7 @@ let settingsOnChange = () => {};
 export function bindSettingsActions(onChange) {
   settingsOnChange = onChange;
   bindClientsActions();
+  bindNotificationSettingsActions(onChange);
   if (settingsActionsBound) return;
   settingsActionsBound = true;
 

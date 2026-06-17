@@ -1,6 +1,7 @@
 import { one, run } from "./db.js";
 import { getLatestMatch } from "./machine-ai-matcher.js";
 import { ingestLogFile } from "./machine-log-ingest.js";
+import { mapMachineProgress } from "./folder-sync.js";
 
 function parseProgressPayload(data) {
   if (typeof data === "number" && Number.isFinite(data)) {
@@ -44,14 +45,33 @@ async function progressFromLogs(stageKey) {
   const refreshed = await getConfig(stageKey);
   const match = await getLatestMatch(stageKey);
 
+  let positionProgress = null;
+  if (match?.positionId) {
+    const pos = await one("SELECT machine_progress_json FROM positions WHERE id = $1", [
+      match.positionId
+    ]);
+    if (pos) positionProgress = mapMachineProgress(pos.machine_progress_json);
+  }
+
+  const progress = positionProgress?.percent ?? refreshed?.last_progress ?? 0;
+  let message = match
+    ? `Задача: ${match.orderNumber} — ${match.item} (${Math.round(match.confidence * 100)}%, ${match.method})`
+    : "Лог читається — очікується зіставлення з задачею";
+
+  if (positionProgress?.piecesTotal > 0) {
+    message += ` · ${positionProgress.piecesDone}/${positionProgress.piecesTotal} дет.`;
+  }
+  if (positionProgress?.cutLengthM > 0) {
+    message += ` · ${positionProgress.cutLengthM} м`;
+  }
+
   return {
     stageKey,
-    progress: refreshed?.last_progress ?? 0,
+    progress,
     source: "logs",
-    message: match
-      ? `Задача: ${match.orderNumber} — ${match.item} (${Math.round(match.confidence * 100)}%, ${match.method})`
-      : "Лог читається — очікується зіставлення з задачею",
-    match
+    message,
+    match,
+    positionProgress
   };
 }
 

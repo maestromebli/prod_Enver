@@ -12,13 +12,10 @@ import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
 import {
   emitRoleNotifications,
-  ensureDesktopPermissionIfEnabled,
-  getNotificationConfigForCurrentRole,
   initializeOperatorStageBaseline,
   markOperatorStageSeen,
   newOperatorQueueIdsForStage,
-  reminderSnapshot,
-  updateNotificationConfigForCurrentRole
+  reminderSnapshot
 } from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml } from "./utils.js";
@@ -93,6 +90,10 @@ export async function loadOperatorData() {
 
   if (data.activeSession?.position_id) {
     state.operatorSelectedPositionId = data.activeSession.position_id;
+    await loadOperatorJobDetail(data.activeSession.position_id);
+  } else {
+    state.operatorJobDetail = null;
+    state.operatorCuttingEstimate = null;
   }
 
   await refreshMachineProgress();
@@ -100,7 +101,7 @@ export async function loadOperatorData() {
 }
 
 export function syncOperatorPolling() {
-  if (activeSessionPositionId() && !isSessionPaused()) {
+  if (hasBlockingSession() && isOnActiveSessionStage() && !isSessionPaused()) {
     startMachinePolling(refreshMachineProgress);
   } else {
     stopMachinePolling();
@@ -115,9 +116,29 @@ export async function refreshMachineProgress() {
     state.machineProgress = data.progress ?? 0;
     state.machineProgressMessage = data.message || "";
     state.machineMatch = data.match || null;
+    state.machinePositionProgress = data.positionProgress || null;
     updateProgressDom();
   } catch {
     /* ignore poll errors */
+  }
+}
+
+export async function loadOperatorJobDetail(positionId) {
+  if (!positionId) {
+    state.operatorJobDetail = null;
+    state.operatorCuttingEstimate = null;
+    return;
+  }
+  try {
+    state.operatorJobDetail = await api.getOperatorJob(positionId);
+    if (state.operatorStage === "cutting") {
+      state.operatorCuttingEstimate = await api.estimateCutting({ positionId });
+    } else {
+      state.operatorCuttingEstimate = null;
+    }
+  } catch {
+    state.operatorJobDetail = null;
+    state.operatorCuttingEstimate = null;
   }
 }
 
@@ -149,6 +170,32 @@ function activeSessionStageKey() {
   return state.operatorActiveSession?.stage_key ?? null;
 }
 
+function statusFieldForStage(stageKey) {
+  const map = {
+    cutting: "cuttingStatus",
+    edging: "edgingStatus",
+    drilling: "drillingStatus",
+    assembly: "assemblyStatus"
+  };
+  return map[stageKey] || "cuttingStatus";
+}
+
+function activeSessionStageStatus() {
+  const sess = state.operatorActiveSession;
+  if (!sess?.position_id) return null;
+  if (sess.stage_status) return sess.stage_status;
+  const stageKey = sess.stage_key || state.operatorStage;
+  const fromQueue = state.operatorQueue.find((p) => p.id === sess.position_id);
+  if (fromQueue) return fromQueue[statusFieldForStage(stageKey)];
+  const snakeField = {
+    cutting: "cutting_status",
+    edging: "edging_status",
+    drilling: "drilling_status",
+    assembly: "assembly_status"
+  }[stageKey];
+  return snakeField ? sess[snakeField] : null;
+}
+
 /** Чи відкрита незавершена сесія на поточному етапі */
 function isOnActiveSessionStage() {
   const sk = activeSessionStageKey();
@@ -178,7 +225,8 @@ function workPosition() {
 }
 
 function hasBlockingSession() {
-  return Boolean(activeSessionPositionId());
+  if (!activeSessionPositionId()) return false;
+  return ["В роботі", "На паузі"].includes(activeSessionStageStatus());
 }
 
 function canStart() {
@@ -218,9 +266,14 @@ function canResume() {
   return pos[statusField()] === "На паузі";
 }
 
+function sessionStatusField() {
+  return statusFieldForStage(activeSessionStageKey() || state.operatorStage);
+}
+
 function isSessionPaused() {
   const pos = workPosition();
-  return pos?.[statusField()] === "На паузі";
+  if (!pos || !hasBlockingSession()) return false;
+  return pos[sessionStatusField()] === "На паузі";
 }
 
 function statusField() {
@@ -283,6 +336,71 @@ function userInitials(name) {
   return (parts[0]?.[0] || "О").toUpperCase();
 }
 
+function folderStateLabel(state) {
+  const map = {
+    inbox: "Очікує в цеху",
+    active: "Папка: в роботі",
+    done: "Папка: порізано",
+    archive: "Архів"
+  };
+  return map[state] || state || "";
+}
+
+function renderFolderJobBlock() {
+  const job = state.operatorJobDetail;
+  if (!job) return "";
+
+  const files = (job.files || []).slice(0, 12);
+  const estimate = state.operatorCuttingEstimate;
+  const mp = job.machineProgress || state.machinePositionProgress || {};
+
+  return `
+    <section class="op-folder-card" aria-label="Дані з папки проєкту">
+      <div class="op-folder-head">
+        <h3>Проєкт з папки</h3>
+        ${job.folderState ? `<span class="op-folder-state">${escapeHtml(folderStateLabel(job.folderState))}</span>` : ""}
+      </div>
+      <div class="op-task-grid">
+        ${
+          job.material
+            ? `<div class="op-task-field"><span class="op-task-field-label">Матеріал</span><span class="op-task-field-value">${escapeHtml(job.material)}</span></div>`
+            : ""
+        }
+        ${
+          job.client
+            ? `<div class="op-task-field"><span class="op-task-field-label">Клієнт</span><span class="op-task-field-value">${escapeHtml(job.client)}</span></div>`
+            : ""
+        }
+        ${
+          job.giblabSummary?.piecesTotal
+            ? `<div class="op-task-field"><span class="op-task-field-label">Деталей (GibLab)</span><span class="op-task-field-value">${job.giblabSummary.piecesTotal}</span></div>`
+            : ""
+        }
+        ${
+          estimate?.label
+            ? `<div class="op-task-field op-task-field--accent"><span class="op-task-field-label">Оцінка порізки</span><span class="op-task-field-value">${escapeHtml(estimate.label)}</span></div>`
+            : ""
+        }
+        ${
+          mp.piecesTotal > 0
+            ? `<div class="op-task-field op-task-field--live"><span class="op-task-field-label">Станок</span><span class="op-task-field-value">${mp.piecesDone || 0}/${mp.piecesTotal} дет.${mp.cutLengthM ? ` · ${mp.cutLengthM} м` : ""}</span></div>`
+            : ""
+        }
+      </div>
+      ${
+        files.length
+          ? `<ul class="op-folder-files">${files
+              .map(
+                (f) =>
+                  `<li><span class="op-file-type">${escapeHtml(f.type || "file")}</span> ${escapeHtml(f.path || f.name)}</li>`
+              )
+              .join("")}</ul>`
+          : '<p class="op-folder-empty">Файли з папки з’являться після синхронізації агентом</p>'
+      }
+    </section>
+  `;
+}
+
 function renderMachineMatchBlock() {
   const m = state.machineMatch;
   if (!m) return "";
@@ -302,9 +420,10 @@ function renderMachineMatchBlock() {
 function renderQueueItem(p, field, freshIds) {
   const status = p[field];
   const active = p.id === state.operatorSelectedPositionId;
-  const working = p.id === activeSessionPositionId();
+  const blocking = hasBlockingSession();
+  const working = blocking && p.id === activeSessionPositionId();
   const overdue = (p.overdueDays || 0) > 0;
-  const locked = activeSessionPositionId() && p.id !== activeSessionPositionId();
+  const locked = blocking && p.id !== activeSessionPositionId();
   const isFresh = freshIds.has(Number(p.id));
 
   return `
@@ -341,8 +460,10 @@ export function renderOperatorView() {
   const field = statusField();
   const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
   const freshQueueCount = freshQueueIds.size;
-  const notifyCfg = getNotificationConfigForCurrentRole();
-  const elapsed = formatElapsed(state.operatorActiveSession?.started_at);
+  const elapsed =
+    inWork && isOnActiveSessionStage()
+      ? formatElapsed(state.operatorActiveSession?.started_at)
+      : null;
   const ringOffset = RING_C * (1 - (state.machineProgress || 0) / 100);
 
   const stageTabs = stages
@@ -456,21 +577,13 @@ export function renderOperatorView() {
               ? `<div class="op-fresh-reminder">
                   <span>Нові задачі: <strong>${freshQueueCount}</strong></span>
                   <div class="op-fresh-actions">
-                    <label>Вікно
-                      <select data-notify-window>
-                        <option value="12" ${notifyCfg.windowHours === 12 ? "selected" : ""}>12г</option>
-                        <option value="24" ${notifyCfg.windowHours === 24 ? "selected" : ""}>24г</option>
-                        <option value="48" ${notifyCfg.windowHours === 48 ? "selected" : ""}>48г</option>
-                        <option value="72" ${notifyCfg.windowHours === 72 ? "selected" : ""}>72г</option>
-                        <option value="168" ${notifyCfg.windowHours === 168 ? "selected" : ""}>7д</option>
-                      </select>
-                    </label>
-                    <label><input type="checkbox" data-notify-sound ${notifyCfg.soundEnabled ? "checked" : ""} /> Звук</label>
-                    <label><input type="checkbox" data-notify-desktop ${notifyCfg.desktopEnabled ? "checked" : ""} /> Desktop</label>
                     <button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Переглянуто</button>
+                    <button type="button" class="op-btn-ghost" data-open-notify-settings>Сповіщення</button>
                   </div>
                 </div>`
-              : ""
+              : `<div class="op-fresh-reminder op-fresh-reminder--quiet">
+                  <button type="button" class="op-btn-ghost" data-open-notify-settings>Сповіщення</button>
+                </div>`
           }
           <div class="op-queue-list" role="list">
             ${
@@ -488,7 +601,7 @@ export function renderOperatorView() {
           ${
             pos
               ? `
-            <div class="op-task-hero ${inWork && activeSessionPositionId() === pos.id ? "op-task-hero--live" : ""}">
+            <div class="op-task-hero ${inWork && isOnActiveSessionStage() && activeSessionPositionId() === pos.id ? "op-task-hero--live" : ""}">
               <div class="op-task-hero-top">
                 <span class="op-task-id">Позиція #${pos.id}</span>
                 ${badge(pos[field])}
@@ -538,6 +651,7 @@ export function renderOperatorView() {
                 }
               </div>
             </div>
+            ${renderFolderJobBlock()}
           `
               : `
             <div class="op-task-empty">
@@ -685,6 +799,7 @@ export function bindOperatorActions(onChange) {
           return;
         }
         state.operatorSelectedPositionId = Number(posBtn.dataset.selectPosition);
+        await loadOperatorJobDetail(state.operatorSelectedPositionId);
         operatorOnChange();
         return;
       }
@@ -692,32 +807,6 @@ export function bindOperatorActions(onChange) {
       if (e.target.closest("#operatorMarkSeenBtn")) {
         markOperatorStageSeen(state.operatorStage, state.operatorQueue);
         operatorOnChange();
-        return;
-      }
-
-      const windowControl = e.target.closest("[data-notify-window]");
-      if (windowControl) {
-        updateNotificationConfigForCurrentRole({ windowHours: Number(windowControl.value) });
-        operatorOnChange();
-        return;
-      }
-
-      const soundControl = e.target.closest("[data-notify-sound]");
-      if (soundControl) {
-        updateNotificationConfigForCurrentRole({ soundEnabled: soundControl.checked });
-        return;
-      }
-
-      const desktopControl = e.target.closest("[data-notify-desktop]");
-      if (desktopControl) {
-        updateNotificationConfigForCurrentRole({ desktopEnabled: desktopControl.checked });
-        if (desktopControl.checked) {
-          const perm = await ensureDesktopPermissionIfEnabled();
-          if (perm !== "granted") {
-            updateNotificationConfigForCurrentRole({ desktopEnabled: false });
-            desktopControl.checked = false;
-          }
-        }
         return;
       }
 

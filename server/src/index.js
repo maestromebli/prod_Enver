@@ -18,6 +18,8 @@ import settingsRouter from "./routes/settings.js";
 import operatorRouter from "./routes/operator.js";
 import productionRouter from "./routes/production.js";
 import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
+import folderAgentRouter from "./routes/folder-agent.js";
+import aiEstimateRouter from "./routes/ai-estimate.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -41,7 +43,12 @@ function createApiApp({ dbConfigured, dbConnected }) {
       ok: true,
       production: process.env.NODE_ENV === "production",
       database: { configured: dbConfigured, connected: dbConnected },
-      features: { machineLogs: dbConnected, aiMatching: dbConnected }
+      features: {
+        machineLogs: dbConnected,
+        aiMatching: dbConnected,
+        folderAgent: dbConnected,
+        cuttingEstimate: dbConnected
+      }
     });
   });
 
@@ -58,6 +65,8 @@ function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/operator", operatorRouter);
   app.use("/api/production", productionRouter);
   app.use("/api/clients", clientsRouter);
+  app.use("/api/folder-agent", folderAgentRouter);
+  app.use("/api/ai", aiEstimateRouter);
   registerDownloadRoutes(app);
 
   app.use((err, _req, res, _next) => {

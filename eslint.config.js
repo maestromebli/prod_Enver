@@ -16,7 +16,7 @@ export default [
     }
   },
   {
-    files: ["server/**/*.js", "server/**/*.mjs", "scripts/**/*.mjs"],
+    files: ["server/**/*.js", "server/**/*.mjs", "scripts/**/*.mjs", "agent/**/*.js"],
     languageOptions: {
       globals: { ...globals.node }
     }

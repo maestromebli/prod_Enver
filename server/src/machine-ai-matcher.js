@@ -2,6 +2,7 @@ import { all, one, run } from "./db.js";
 import { STAGE_STATUS_FIELD } from "./roles.js";
 import { enrichPositionRow } from "./position-logic.js";
 import { getAiSettings } from "./app-settings.js";
+import { updatePositionMachineProgress } from "./folder-sync.js";
 
 function normalize(str) {
   return String(str || "")
@@ -39,9 +40,13 @@ function heuristicScore(parsed, row) {
   if (prog && blob.includes(prog)) score += 0.3;
 
   const orderNum = normalize(row.order_number);
+  const folderKey = normalize(row.folder_key || "");
   for (const t of logTokens) {
     if (orderNum && (orderNum.includes(t) || t.includes(orderNum))) score += 0.2;
+    if (folderKey && (folderKey.includes(t) || t.includes(folderKey))) score += 0.35;
   }
+
+  if (folderKey && job && normalize(folderKey) === normalize(job)) score += 0.4;
 
   return Math.min(1, score);
 }
@@ -257,6 +262,24 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
       stageKey
     ]
   );
+
+  const kdt = parsed.kdt || {};
+  const counters = kdt.counters || parsed.counters || {};
+  const piecesDone = counters.doneCurrent ?? counters.quantityCurrent ?? null;
+  const piecesTotal = counters.doneTotal ?? counters.quantityTotal ?? null;
+  const progressPatch = {
+    percent: parsed.progress ?? null,
+    piecesDone,
+    piecesTotal,
+    jobRef: parsed.jobRef || "",
+    lastLogAt: parsed.loggedAt || new Date().toISOString()
+  };
+  if (progressPatch.percent != null) {
+    await updatePositionMachineProgress(best.positionId, progressPatch);
+  } else if (piecesTotal > 0) {
+    progressPatch.percent = Math.round((piecesDone / piecesTotal) * 100);
+    await updatePositionMachineProgress(best.positionId, progressPatch);
+  }
 
   return {
     matchId: result.rows[0].id,

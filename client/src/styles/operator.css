@@ -1092,6 +1092,81 @@ body.view-operator .app {
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
 }
 
+.op-folder-card {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: var(--op-radius-sm);
+  background: var(--op-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--op-accent) 25%, transparent);
+}
+
+.op-folder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.op-folder-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.op-folder-state {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--op-accent);
+}
+
+.op-folder-files {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.op-folder-files li {
+  font-size: 13px;
+  color: var(--op-text-muted, #475569);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.op-file-type {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  min-width: 36px;
+}
+
+.op-folder-empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.op-task-field--accent .op-task-field-value {
+  color: var(--op-accent);
+  font-weight: 700;
+}
+
+.op-task-field--live .op-task-field-value {
+  color: #059669;
+  font-weight: 700;
+}
+
 /* Legacy class aliases (admin embed) */
 .operator-page {
   max-width: none;

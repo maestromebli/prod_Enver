@@ -5,6 +5,18 @@ import { mapPosition } from "../mappers.js";
 import { enrichPositionRow, applyStageHandoff } from "../position-logic.js";
 import { logStageChange } from "../audit.js";
 import {
+  reconcileOperatorSessionsForUser,
+  reconcileStaleStageStatuses,
+  isOperatorSessionActive,
+  stageStatusFromRow
+} from "../operator-sessions.js";
+import {
+  getOperatorJobDetails,
+  onOperatorStartFolder,
+  onOperatorFinishCutting,
+  recordCuttingStat
+} from "../folder-sync.js";
+import {
   auditActor,
   requireAuth,
   requireOperatorPanelView,
@@ -51,11 +63,21 @@ async function savePosition(id, row) {
 }
 
 router.get("/queue/:stageKey", async (req, res) => {
-  const field = STAGE_STATUS_FIELD[req.params.stageKey];
+  const stageKey = req.params.stageKey;
+  const field = STAGE_STATUS_FIELD[stageKey];
   if (!field) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: "Увійдіть у систему" });
+    return;
+  }
+
+  await reconcileOperatorSessionsForUser(userId);
+  await reconcileStaleStageStatuses(stageKey);
 
   const rows = await all(
     `SELECT p.*, o.priority AS order_priority, o.plan_date
@@ -72,14 +94,9 @@ router.get("/queue/:stageKey", async (req, res) => {
   );
   const queue = rows.map((r) => mapPosition(enrichPositionRow(r, { planDate: r.plan_date })));
 
-  const userId = req.user?.id;
-  if (!userId) {
-    res.status(401).json({ error: "Увійдіть у систему" });
-    return;
-  }
-
-  const activeSession = await one(
-    `SELECT os.*, p.order_number, p.item, p.object
+  let activeSession = await one(
+    `SELECT os.*, p.order_number, p.item, p.object,
+            p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status
      FROM operator_sessions os
      JOIN positions p ON p.id = os.position_id
      WHERE os.user_id = $1 AND os.finished_at IS NULL
@@ -87,10 +104,27 @@ router.get("/queue/:stageKey", async (req, res) => {
        CASE WHEN os.stage_key = $2 THEN 0 ELSE 1 END,
        os.started_at DESC
      LIMIT 1`,
-    [userId, req.params.stageKey]
+    [userId, stageKey]
   );
 
+  if (activeSession && !isOperatorSessionActive(activeSession, activeSession.stage_key)) {
+    await run(`UPDATE operator_sessions SET finished_at = now() WHERE id = $1`, [activeSession.id]);
+    activeSession = null;
+  } else if (activeSession) {
+    activeSession.stage_status = stageStatusFromRow(activeSession, activeSession.stage_key);
+  }
+
   res.json({ queue, activeSession: activeSession || null });
+});
+
+router.get("/job/:positionId", async (req, res) => {
+  const positionId = Number(req.params.positionId);
+  const job = await getOperatorJobDetails(positionId);
+  if (!job) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+  res.json(job);
 });
 
 async function getOpenSession(userId, positionId, stageKey) {
@@ -109,6 +143,9 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
     res.status(400).json({ error: "userId, positionId та stageKey обов'язкові" });
     return;
   }
+
+  await reconcileOperatorSessionsForUser(userId);
+  await reconcileStaleStageStatuses(stageKey);
 
   const row = await getPosition(positionId);
   if (!row) {
@@ -150,6 +187,7 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
   );
 
   await savePosition(positionId, row);
+  await onOperatorStartFolder(positionId);
   await logStageChange(
     before,
     await getPosition(positionId),
@@ -197,6 +235,38 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
   const handedOff = applyStageHandoff(row, stageKey, { status: "Готово" });
 
   await run(`UPDATE operator_sessions SET finished_at = now() WHERE id = $1`, [session.id]);
+
+  if (stageKey === "cutting") {
+    await onOperatorFinishCutting(positionId);
+    const giblab = (() => {
+      try {
+        return JSON.parse(row.giblab_summary_json || "{}");
+      } catch {
+        return {};
+      }
+    })();
+    const machine = (() => {
+      try {
+        return JSON.parse(row.machine_progress_json || "{}");
+      } catch {
+        return {};
+      }
+    })();
+    const durationSec = session.started_at
+      ? Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000)
+      : 0;
+    await recordCuttingStat({
+      positionId,
+      orderNumber: row.order_number,
+      material: row.material || giblab.material || "",
+      piecesTotal: machine.piecesTotal || giblab.piecesTotal || 0,
+      cutLengthMm: machine.cutLengthMm || giblab.cutLengthMm || 0,
+      giblabHash: giblab.giblabHash || "",
+      startedAt: session.started_at,
+      finishedAt: new Date(),
+      durationSec
+    });
+  }
 
   await savePosition(positionId, handedOff);
   await logStageChange(
