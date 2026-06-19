@@ -42,6 +42,7 @@ import {
   openSettings
 } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
+import { watchAppBuildUpdates } from "./operator-ui.js";
 import {
   emitRoleNotifications,
   initializeRoleNotificationBaselines,
@@ -565,7 +566,7 @@ initUiPersistence();
 async function applyProductionUi() {
   try {
     const health = await fetch(`${window.location.origin}/api/health`).then((r) => r.json());
-    if (health.production) {
+    if (health?.data?.production) {
       document.querySelector("#loginDemoHint")?.setAttribute("hidden", "");
       document.querySelectorAll(".settings-demo-hint").forEach((el) => {
         el.hidden = true;
@@ -603,3 +604,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+watchAppBuildUpdates();

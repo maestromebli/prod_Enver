@@ -20,7 +20,7 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import { initOperatorMachineSettingsModal } from "./operator-machine-settings.js";
-import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
+import { reloadIfAppBuildChanged, setOperatorUiActive, syncOperatorBuildChip, watchAppBuildUpdates } from "./operator-ui.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
@@ -91,24 +91,7 @@ function registerServiceWorker() {
 }
 
 async function syncOperatorBuildLabel() {
-  const build = await import("./operator-ui.js").then((m) => m.fetchAppBuildLabel());
-  const chip = $("#operatorBuildChip");
-  if (!build) {
-    if (chip) chip.hidden = true;
-    return;
-  }
-
-  const stored = localStorage.getItem("enver_operator_build");
-  if (stored && stored !== build) {
-    localStorage.setItem("enver_operator_build", build);
-    if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-    location.reload();
-    return;
-  }
-  localStorage.setItem("enver_operator_build", build);
+  if (await reloadIfAppBuildChanged()) return;
   await syncOperatorBuildChip("operatorBuildChip");
   await syncOperatorBuildChip("operatorBuildChipInline");
 }
@@ -174,6 +157,7 @@ initAuthFromStorage();
 markNativeOperatorShell();
 initOperatorKioskEarly();
 registerServiceWorker();
+watchAppBuildUpdates();
 
 async function bootstrap() {
   const hasToken = Boolean(localStorage.getItem("enver_token"));

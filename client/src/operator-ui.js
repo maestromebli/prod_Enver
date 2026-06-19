@@ -1,5 +1,7 @@
 /** Єдиний режим UI оператора: index.html, operator.html, PWA, APK. */
 
+const BUILD_STORAGE_KEY = "enver_app_build";
+
 export function isOperatorUiMode() {
   const body = document.body;
   if (!body) return false;
@@ -37,4 +39,34 @@ export async function syncOperatorBuildChip(elementId = "operatorBuildChip") {
   chip.hidden = false;
   chip.textContent = build.slice(0, 7);
   chip.title = `Версія сервера: ${build}`;
+}
+
+/** Після деплою — перезавантажити вкладку, якщо збірка на сервері змінилась. */
+export async function reloadIfAppBuildChanged() {
+  const build = await fetchAppBuildLabel();
+  if (!build) return false;
+
+  const stored = localStorage.getItem(BUILD_STORAGE_KEY);
+  if (stored && stored !== build) {
+    localStorage.setItem(BUILD_STORAGE_KEY, build);
+    if ("serviceWorker" in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch {
+        /* ignore */
+      }
+    }
+    location.reload();
+    return true;
+  }
+
+  localStorage.setItem(BUILD_STORAGE_KEY, build);
+  return false;
+}
+
+export function watchAppBuildUpdates() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") reloadIfAppBuildChanged();
+  });
 }
