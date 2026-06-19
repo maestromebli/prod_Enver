@@ -17,7 +17,6 @@ import {
   bindOperatorActions,
   enterOperatorView,
   loadOperatorData,
-  refreshMachineProgress,
   renderOperatorView
 } from "./operator-panel.js";
 import { initOperatorMachineSettingsModal } from "./operator-machine-settings.js";
