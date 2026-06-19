@@ -81,10 +81,27 @@ export function requireOrderWrite(req, res, next) {
   return requirePermission("canEditOrders")(req, res, next);
 }
 
-function canOperatorStage(user, stageKey) {
+export function canOperatorStage(user, stageKey) {
   if (user?.role !== "operator") return false;
   const stages = [...(user.stages || []), ...(user.permissions?.stages || [])];
   return stages.includes(stageKey) && Boolean(STAGE_STATUS_FIELD[stageKey]);
+}
+
+/** Налаштування логів/ШІ для етапу: адмін, начальник виробництва або оператор цього етапу. */
+export function canManageStageMachineConfig(user, stageKey) {
+  if (!user || !STAGE_STATUS_FIELD[stageKey]) return false;
+  if (user.role === "admin") return true;
+  if (user.role === "production" && user.permissions?.canUseOperatorPanel) return true;
+  return canOperatorStage(user, stageKey);
+}
+
+export function requireStageMachineConfig(req, res, next) {
+  const stageKey = req.params.stageKey;
+  if (!canManageStageMachineConfig(req.user, stageKey)) {
+    res.status(403).json({ error: "Немає доступу до налаштувань цього етапу" });
+    return;
+  }
+  next();
 }
 
 export function requireOperatorSelf(req, res, next) {

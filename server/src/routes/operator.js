@@ -16,11 +16,15 @@ import {
   onOperatorFinishCutting,
   recordCuttingStat
 } from "../folder-sync.js";
+import { ingestLogFile } from "../machine-log-ingest.js";
+import { getMachineConfig, updateMachineConfig } from "../machine-config.js";
+import { getParserProfiles } from "../machine-log-parser.js";
 import {
   auditActor,
   requireAuth,
   requireOperatorPanelView,
-  requireOperatorSelf
+  requireOperatorSelf,
+  requireStageMachineConfig
 } from "../middleware/auth.js";
 
 const router = Router();
@@ -360,6 +364,39 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
   );
 
   res.json({ position: mapPosition(await getPosition(positionId)) });
+});
+
+router.get("/machine-config/profiles", (_req, res) => {
+  res.json({ profiles: getParserProfiles() });
+});
+
+router.get("/machine-config/:stageKey", requireStageMachineConfig, async (req, res) => {
+  const config = await getMachineConfig(req.params.stageKey);
+  if (!config) {
+    res.status(404).json({ error: "Етап не знайдено" });
+    return;
+  }
+  res.json(config);
+});
+
+router.put("/machine-config/:stageKey", requireStageMachineConfig, async (req, res) => {
+  try {
+    const config = await updateMachineConfig(req.params.stageKey, req.body || {});
+    res.json(config);
+  } catch (err) {
+    if (err.status === 404) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.post("/machine-config/:stageKey/scan", requireStageMachineConfig, async (req, res) => {
+  const result = await ingestLogFile(req.params.stageKey, {
+    fullScan: Boolean(req.body?.fullScan)
+  });
+  res.json(result);
 });
 
 export default router;

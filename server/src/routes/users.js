@@ -2,6 +2,7 @@ import { Router } from "express";
 import { all, one, run } from "../db.js";
 import { hashPassword } from "../auth-utils.js";
 import { requireAdmin, requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
+import { mapMachineConfigRow, updateMachineConfig } from "../machine-config.js";
 import { DEFAULT_PERMISSIONS, ROLES } from "../roles.js";
 
 const router = Router();
@@ -74,81 +75,17 @@ router.put("/permissions", async (req, res) => {
   res.json(result);
 });
 
-function mapMachineConfigRow(r) {
-  return {
-    stageKey: r.stage_key,
-    apiUrl: r.api_url || "",
-    apiToken: r.api_token ? "••••••••" : "",
-    hasToken: Boolean(r.api_token),
-    logPath: r.log_path || "",
-    logEncoding: r.log_encoding || "utf-8",
-    parserProfile: r.parser_profile || "generic",
-    watchEnabled: Boolean(r.watch_enabled),
-    aiMatchingEnabled: r.ai_matching_enabled !== false,
-    lastProgress: r.last_progress ?? 0,
-    lastMatchSummary: r.last_match_summary || "",
-    lastMatchConfidence: r.last_match_confidence ?? 0,
-    updatedAt: r.updated_at
-  };
-}
-
 router.put("/machine-config/:stageKey", async (req, res) => {
-  const stageKey = req.params.stageKey;
-  const {
-    apiUrl,
-    apiToken,
-    clearToken,
-    logPath,
-    logEncoding,
-    parserProfile,
-    watchEnabled,
-    aiMatchingEnabled,
-    resetLogOffset
-  } = req.body || {};
-  const existing = await one("SELECT * FROM machine_config WHERE stage_key = $1", [stageKey]);
-  if (!existing) {
-    res.status(404).json({ error: "Етап не знайдено" });
-    return;
-  }
-
-  let token = existing.api_token;
-  if (clearToken) token = "";
-  else if (apiToken && apiToken !== "••••••••") token = apiToken;
-
-  const logPathNext = logPath !== undefined ? logPath : existing.log_path;
-  const logPathChanged = logPath !== undefined && logPath !== existing.log_path;
-  const parserChanged = parserProfile !== undefined && parserProfile !== existing.parser_profile;
-  const shouldResetSync = resetLogOffset || logPathChanged || parserChanged;
-
-  await run(
-    `UPDATE machine_config SET
-      api_url = @api_url,
-      api_token = @api_token,
-      log_path = @log_path,
-      log_encoding = @log_encoding,
-      parser_profile = @parser_profile,
-      watch_enabled = @watch_enabled,
-      ai_matching_enabled = @ai_matching_enabled,
-      last_log_offset = CASE WHEN @reset_offset THEN 0 ELSE last_log_offset END,
-      last_log_event_time = CASE WHEN @reset_offset THEN '' ELSE last_log_event_time END,
-      updated_at = now()
-     WHERE stage_key = @stage_key`,
-    {
-      stage_key: stageKey,
-      api_url: apiUrl ?? existing.api_url ?? "",
-      api_token: token ?? "",
-      log_path: logPathNext ?? "",
-      log_encoding: logEncoding ?? existing.log_encoding ?? "utf-8",
-      parser_profile: parserProfile ?? existing.parser_profile ?? "generic",
-      watch_enabled: watchEnabled !== undefined ? Boolean(watchEnabled) : existing.watch_enabled,
-      ai_matching_enabled:
-        aiMatchingEnabled !== undefined ? Boolean(aiMatchingEnabled) : existing.ai_matching_enabled,
-      reset_offset: Boolean(shouldResetSync)
+  try {
+    const config = await updateMachineConfig(req.params.stageKey, req.body || {});
+    res.json(config);
+  } catch (err) {
+    if (err.status === 404) {
+      res.status(404).json({ error: err.message });
+      return;
     }
-  );
-
-  const row = await one("SELECT * FROM machine_config WHERE stage_key = $1", [stageKey]);
-  res.json(mapMachineConfigRow(row));
+    throw err;
+  }
 });
 
 router.get("/", async (_req, res) => {

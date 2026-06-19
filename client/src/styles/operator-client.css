@@ -316,33 +316,75 @@ body.operator-kiosk-locked {
 
 .enver-operator-client .op-action-bar {
   flex-shrink: 0;
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .enver-operator-client .op-action-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   min-height: 48px;
-  padding: 8px 10px;
-  gap: 6px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(15, 42, 68, 0.1);
+}
+
+.enver-operator-client .op-action-btn:not(:disabled):hover {
+  transform: none;
+  filter: brightness(1.04);
+}
+
+.enver-operator-client .op-action-btn:not(:disabled):active {
+  transform: scale(0.98);
+  filter: none;
+}
+
+.enver-operator-client .op-action-btn:disabled {
+  opacity: 1;
+  color: #94a3b8 !important;
+  background: #e8edf3 !important;
+  box-shadow: none !important;
+  border-color: #d8e0ea;
+}
+
+.enver-operator-client .op-action-btn:disabled .op-action-icon {
+  background: rgba(148, 163, 184, 0.18);
+  color: #94a3b8;
 }
 
 .enver-operator-client .op-action-icon {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
 }
 
 .enver-operator-client .op-action-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
+}
+
+.enver-operator-client .op-action-text {
+  min-width: 0;
 }
 
 .enver-operator-client .op-action-text strong {
-  font-size: 0.8rem;
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .enver-operator-client .op-action-text small {
-  font-size: 0.62rem;
+  display: none;
 }
 
 .enver-operator-client.view-operator,
@@ -746,36 +788,55 @@ body.enver-operator-client.view-operator {
 }
 
 .enver-operator-client .operator-shell.op-one-screen .op-action-bar {
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .enver-operator-client .operator-shell.op-one-screen .op-action-btn {
-  min-height: 42px;
-  padding: 4px 6px;
-  gap: 4px;
+  min-height: 44px;
+  padding: 0 6px;
+  gap: 5px;
+  border-radius: 10px;
+  flex-direction: row;
   justify-content: center;
-  flex-direction: column;
-  text-align: center;
+  box-shadow: 0 1px 4px rgba(15, 42, 68, 0.08);
 }
 
 .enver-operator-client .operator-shell.op-one-screen .op-action-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 7px;
 }
 
 .enver-operator-client .operator-shell.op-one-screen .op-action-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .enver-operator-client .operator-shell.op-one-screen .op-action-text strong {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-text small {
-  display: none;
+.enver-operator-client .operator-shell.op-one-screen .op-action-btn--start:not(:disabled) {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28);
+}
+
+.enver-operator-client .operator-shell.op-one-screen .op-action-btn--pause:not(:disabled) {
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+}
+
+.enver-operator-client .operator-shell.op-one-screen .op-action-btn--resume:not(:disabled) {
+  background: linear-gradient(180deg, #2dd4bf 0%, #0d9488 100%);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+}
+
+.enver-operator-client .operator-shell.op-one-screen .op-action-btn--finish:not(:disabled) {
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
 }
 
 /* Портрет на планшеті — лишаємо дві колонки для порізки */

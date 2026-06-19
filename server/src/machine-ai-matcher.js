@@ -3,6 +3,57 @@ import { STAGE_STATUS_FIELD } from "./roles.js";
 import { enrichPositionRow } from "./position-logic.js";
 import { getAiSettings } from "./app-settings.js";
 import { updatePositionMachineProgress } from "./folder-sync.js";
+import { parseAiSourceSubfolders } from "./machine-config.js";
+
+function parseJsonField(str, fallback) {
+  try {
+    return JSON.parse(str || "");
+  } catch {
+    return fallback;
+  }
+}
+
+/** Текст з meta.json і файлів підпапок проєкту для зіставлення з логом. */
+export function buildPositionFolderContext(row, subfolders) {
+  const parts = [];
+  const meta = parseJsonField(row.folder_meta_json, {});
+  const files = parseJsonField(row.folder_files_json, []);
+  const normalizedSubs = (subfolders || []).map((s) =>
+    String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\/$/, "")
+  );
+
+  const wantsMeta = normalizedSubs.some((s) => s === "meta.json" || s === "meta");
+  if (wantsMeta) {
+    parts.push(meta.orderNumber, meta.object, meta.client, meta.material, meta.comment);
+    for (const item of meta.items || []) {
+      parts.push(item.id, item.name, item.kdtFolder);
+    }
+  }
+
+  for (const file of files) {
+    const filePath = String(file.path || file.name || "")
+      .replace(/\\/g, "/")
+      .toLowerCase();
+    if (!filePath) continue;
+    const matched = normalizedSubs.some((sub) => {
+      if (sub === "meta.json" || sub === "meta") return false;
+      return (
+        filePath === sub ||
+        filePath.startsWith(`${sub}/`) ||
+        filePath.includes(`/${sub}/`) ||
+        filePath.endsWith(`/${sub}`)
+      );
+    });
+    if (matched) {
+      parts.push(file.path, file.name);
+    }
+  }
+
+  return parts.filter(Boolean).join(" ");
+}
 
 function normalize(str) {
   return String(str || "")
@@ -21,15 +72,23 @@ function tokenOverlap(a, b) {
   return hit / Math.max(a.length, b.length);
 }
 
-function positionSearchText(row) {
+function positionSearchText(row, folderContext = "") {
   return normalize(
-    [row.order_number, row.object, row.item, row.item_type, row.note, row.problem].join(" ")
+    [
+      row.order_number,
+      row.object,
+      row.item,
+      row.item_type,
+      row.note,
+      row.problem,
+      folderContext
+    ].join(" ")
   );
 }
 
-function heuristicScore(parsed, row) {
+function heuristicScore(parsed, row, folderContext = "") {
   const logTokens = parsed.tokens || [];
-  const posTokens = normalize(positionSearchText(row)).split(/\s+/).filter(Boolean);
+  const posTokens = positionSearchText(row, folderContext).split(/\s+/).filter(Boolean);
   let score = tokenOverlap(logTokens, posTokens);
 
   const job = normalize(parsed.jobRef);
@@ -77,41 +136,51 @@ export async function getMatchCandidates(stageKey, { activeSessionPositionId } =
   return { active, queue };
 }
 
-export function rankCandidates(parsed, candidates) {
-  const scored = candidates.map((row) => ({
-    row,
-    score: heuristicScore(parsed, row),
-    reason: buildHeuristicReason(parsed, row)
-  }));
+export function rankCandidates(parsed, candidates, folderContexts = new Map()) {
+  const scored = candidates.map((row) => {
+    const folderContext = folderContexts.get(row.id) || "";
+    return {
+      row,
+      score: heuristicScore(parsed, row, folderContext),
+      reason: buildHeuristicReason(parsed, row, folderContext)
+    };
+  });
   scored.sort((a, b) => b.score - a.score);
   return scored;
 }
 
-function buildHeuristicReason(parsed, row) {
+function buildHeuristicReason(parsed, row, folderContext = "") {
+  const blob = positionSearchText(row, folderContext);
   const bits = [];
-  if (parsed.jobRef && positionSearchText(row).includes(normalize(parsed.jobRef))) {
+  if (parsed.jobRef && blob.includes(normalize(parsed.jobRef))) {
     bits.push(`збіг job: ${parsed.jobRef}`);
   }
-  if (parsed.programName && positionSearchText(row).includes(normalize(parsed.programName))) {
+  if (parsed.programName && blob.includes(normalize(parsed.programName))) {
     bits.push(`збіг програми: ${parsed.programName}`);
   }
   if (row.order_number) bits.push(`замовлення ${row.order_number}`);
+  if (folderContext) bits.push("дані з папки проєкту");
   return bits.join("; ") || "токени в логу та позиції";
 }
 
-async function matchWithOpenAI(parsed, candidates) {
+async function matchWithOpenAI(parsed, candidates, folderContexts = new Map()) {
   const ai = await getAiSettings();
   if (!ai.enabled || !ai.openaiApiKey?.trim()) return null;
 
   const statusField = STAGE_STATUS_FIELD[parsed.stageKey];
-  const list = candidates.slice(0, 12).map((c, i) => ({
-    index: i,
-    id: c.id,
-    order_number: c.order_number,
-    object: c.object,
-    item: c.item,
-    stage_status: statusField ? c[statusField] : ""
-  }));
+  const list = candidates.slice(0, 12).map((c, i) => {
+    const folderContext = folderContexts.get(c.id) || "";
+    return {
+      index: i,
+      id: c.id,
+      order_number: c.order_number,
+      object: c.object,
+      item: c.item,
+      stage_status: statusField ? c[statusField] : "",
+      folder_key: c.folder_key || "",
+      folder_context: folderContext.slice(0, 500)
+    };
+  });
 
   const prompt = `Ти асистент виробництва меблів. Зістав рядок логу станка з однією позицією замовлення.
 Лог: ${JSON.stringify({
@@ -196,22 +265,27 @@ export async function matchLogToTask(stageKey, parsed, logEventId, { operatorSes
 
   if (!candidates.length) return null;
 
-  const config = await one("SELECT ai_matching_enabled FROM machine_config WHERE stage_key = $1", [
-    stageKey
-  ]);
+  const config = await one(
+    "SELECT ai_matching_enabled, ai_source_subfolders_json FROM machine_config WHERE stage_key = $1",
+    [stageKey]
+  );
   const aiAllowed = config?.ai_matching_enabled !== false;
+  const aiSubfolders = parseAiSourceSubfolders(config?.ai_source_subfolders_json);
+  const folderContexts = new Map(
+    candidates.map((row) => [row.id, buildPositionFolderContext(row, aiSubfolders)])
+  );
 
   let best = null;
 
   if (aiAllowed) {
-    const aiResult = await matchWithOpenAI(parsed, candidates);
+    const aiResult = await matchWithOpenAI(parsed, candidates, folderContexts);
     if (aiResult) {
       best = { ...aiResult, row: candidates.find((c) => c.id === aiResult.positionId) };
     }
   }
 
   if (!best) {
-    const ranked = rankCandidates(parsed, candidates);
+    const ranked = rankCandidates(parsed, candidates, folderContexts);
     const top = ranked[0];
     if (!top || top.score < 0.12) return null;
     best = {

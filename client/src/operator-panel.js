@@ -768,15 +768,12 @@ export function renderOperatorView() {
             </div>
           </section>
 
-          <div class="op-action-bar">
+          <div class="op-action-bar${oneScreen ? " op-action-bar--compact" : ""}">
             <button type="button" class="op-action-btn op-action-btn--start" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>
               <span class="op-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
               </span>
-              <span class="op-action-text">
-                <strong>Почав</strong>
-                <small>Розпочати обробку</small>
-              </span>
+              <span class="op-action-text"><strong>Почав</strong>${oneScreen ? "" : "<small>Розпочати обробку</small>"}</span>
             </button>
             <button type="button" class="op-action-btn ${canResume() ? "op-action-btn--resume" : "op-action-btn--pause"}" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>
               <span class="op-action-icon" aria-hidden="true">
@@ -786,19 +783,13 @@ export function renderOperatorView() {
                     : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg>'
                 }
               </span>
-              <span class="op-action-text">
-                <strong>${canResume() ? "Продовжити" : "Пауза"}</strong>
-                <small>${canResume() ? "Відновити обробку" : "Тимчасово зупинити"}</small>
-              </span>
+              <span class="op-action-text"><strong>${canResume() ? "Продовжити" : "Пауза"}</strong>${oneScreen ? "" : `<small>${canResume() ? "Відновити обробку" : "Тимчасово зупинити"}</small>`}</span>
             </button>
             <button type="button" class="op-action-btn op-action-btn--finish" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>
               <span class="op-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
               </span>
-              <span class="op-action-text">
-                <strong>Закінчив</strong>
-                <small>Завершити етап</small>
-              </span>
+              <span class="op-action-text"><strong>Закінчив</strong>${oneScreen ? "" : "<small>Завершити етап</small>"}</span>
             </button>
           </div>
 
