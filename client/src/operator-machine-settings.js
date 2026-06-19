@@ -1,5 +1,13 @@
 import { api } from "./api.js";
-import { bindFolderPickButton, folderPickerCapabilities } from "./folder-picker.js";
+import {
+  applyBrowserPathDisplay,
+  bindFolderPickButton,
+  fetchFolderPickerCapabilities,
+  folderPickerCapabilities,
+  ingestBrowserPickedFolder,
+  isBrowserPickedPath,
+  resolvePathInputValue
+} from "./folder-picker.js";
 import { runSave } from "./save-flow.js";
 import { escapeHtml } from "./utils.js";
 import { toastError } from "./toast.js";
@@ -36,15 +44,18 @@ function parserHint(profile) {
 function pathPickerHint() {
   const caps = folderPickerCapabilities();
   if (caps.android && caps.windowsDialog) {
-    return "Оберіть папку: на Android — провідник пристрою, на Windows — мережевий діалог (\\\\NAS\\...).";
+    return "Оберіть папку: на Android — провідник пристрою; на Windows-сервері — мережевий діалог.";
   }
   if (caps.android) {
-    return "Натисніть «Обрати папку» — відкриється провідник Android (пам'ять пристрою або мережеве сховище).";
+    return "Натисніть «Обрати папку» — відкриється провідник Android.";
   }
   if (caps.windowsDialog) {
-    return "Натисніть «Обрати папку» — діалог Windows (диск C:, мережа \\\\NAS\\...). Шлях має бути доступний серверу ENVER у вашій мережі.";
+    return "«Обрати папку» — діалог Windows на ПК з ENVER-сервером (диск або \\\\NAS\\...).";
   }
-  return "Вкажіть шлях вручну або відкрийте ENVER на Windows-ПК / у додатку Android для вибору папки.";
+  if (caps.browserDialog) {
+    return "«Обрати папку» — папка на цьому комп'ютері (Chrome/Edge). Потім «Сканувати логи» для імпорту .txt.";
+  }
+  return "Введіть мережевий шлях вручну або відкрийте сайт у Chrome/Edge на ПК з логами.";
 }
 
 function pathPickerRow({ inputId, pickId, label, hint }) {
@@ -86,12 +97,20 @@ function collectSubfolders() {
   return [...new Set([...picked, ...extra])];
 }
 
-function fillForm(config) {
+async function fillForm(config) {
   const profile = config.parserProfile || "kdt";
   $("opMsParser").value = profile;
   $("opMsLogPath").value = config.logPath || "";
+  delete $("opMsLogPath").dataset.browserKey;
+  if (isBrowserPickedPath(config.logPath)) {
+    await applyBrowserPathDisplay($("opMsLogPath"), config.logPath);
+  }
   $("opMsPathHint").textContent = parserHint(profile);
   $("opMsProjectsRoot").value = config.projectsRootPath || "";
+  delete $("opMsProjectsRoot").dataset.browserKey;
+  if (isBrowserPickedPath(config.projectsRootPath)) {
+    await applyBrowserPathDisplay($("opMsProjectsRoot"), config.projectsRootPath);
+  }
   $("opMsWatch").checked = Boolean(config.watchEnabled);
   $("opMsAi").checked = config.aiMatchingEnabled !== false;
   $("opMsStatus").textContent = config.lastMatchSummary
@@ -120,8 +139,8 @@ export function initOperatorMachineSettingsModal() {
         </div>
         <form id="opMachineSettingsForm" class="op-ms-body">
           <p class="op-ms-intro">
-            Оберіть папки через системний діалог (Android або Windows). ШІ зіставляє рядки логу з позиціями,
-            використовуючи дані з обраних підпапок проєкту.
+            Оберіть папку через «Обрати папку»: на цьому ПК (Chrome/Edge), Android або Windows-сервер у мережі.
+            Для папки з браузера натисніть «Сканувати логи» після збереження.
           </p>
 
           <section class="op-ms-section">
@@ -185,12 +204,14 @@ export function initOperatorMachineSettingsModal() {
   bindFolderPickButton({
     button: $("opMsPickLogPath"),
     input: $("opMsLogPath"),
-    title: "Папка або файл логів станка"
+    title: "Папка або файл логів станка",
+    storageKey: "opMsLogPath"
   });
   bindFolderPickButton({
     button: $("opMsPickProjectsRoot"),
     input: $("opMsProjectsRoot"),
-    title: "Корінь папок замовлень"
+    title: "Корінь папок замовлень",
+    storageKey: "opMsProjectsRoot"
   });
 
   document.getElementById("opMachineSettingsForm")?.addEventListener("click", (e) => {
@@ -218,9 +239,15 @@ export function initOperatorMachineSettingsModal() {
 
   $("opMsScan")?.addEventListener("click", async () => {
     const btn = $("opMsScan");
+    const logPath = resolvePathInputValue($("opMsLogPath"));
     await runSave("Сканування", {
       submitEl: btn,
-      saveFn: () => api.scanOperatorMachineLogs(currentStageKey, { fullScan: false }),
+      saveFn: async () => {
+        if (isBrowserPickedPath(logPath)) {
+          return ingestBrowserPickedFolder(currentStageKey, logPath);
+        }
+        return api.scanOperatorMachineLogs(currentStageKey, { fullScan: false });
+      },
       successMessage: "Сканування завершено",
       onSuccess: async (result) => {
         $("opMsStatus").textContent = result?.message || "Готово";
@@ -236,11 +263,11 @@ export function initOperatorMachineSettingsModal() {
     err.classList.remove("visible");
 
     const body = {
-      logPath: $("opMsLogPath").value.trim(),
+      logPath: resolvePathInputValue($("opMsLogPath")),
       parserProfile: $("opMsParser").value,
       watchEnabled: $("opMsWatch").checked,
       aiMatchingEnabled: $("opMsAi").checked,
-      projectsRootPath: $("opMsProjectsRoot").value.trim(),
+      projectsRootPath: resolvePathInputValue($("opMsProjectsRoot")),
       aiSourceSubfolders: collectSubfolders()
     };
 
@@ -273,8 +300,13 @@ export async function openOperatorMachineSettings(stageKey = "cutting", onSaved 
   onSavedCallback = onSaved;
 
   try {
+    await fetchFolderPickerCapabilities({ refresh: true });
+    document.querySelectorAll(".op-ms-picker-hint").forEach((el) => {
+      el.textContent = pathPickerHint();
+    });
+
     const config = await api.getOperatorMachineConfig(stageKey);
-    fillForm(config);
+    await fillForm(config);
     const modal = $("opMachineSettingsModal");
     modal?.classList.add("open");
     modal?.setAttribute("aria-hidden", "false");

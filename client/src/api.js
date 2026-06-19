@@ -187,6 +187,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body)
     }),
+  getOperatorFolderPickerCapabilities: () =>
+    request("/api/operator/machine-config/pick-folder/capabilities"),
+  ingestOperatorBrowserLogs: (stageKey, body) =>
+    request(`/api/operator/machine-config/${stageKey}/ingest-browser`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
   estimateCutting: (body) =>
     request("/api/ai/estimate-cutting", { method: "POST", body: JSON.stringify(body) }),
 

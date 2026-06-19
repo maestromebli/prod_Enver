@@ -18,7 +18,7 @@ import {
   onOperatorFinishCutting,
   recordCuttingStat
 } from "../folder-sync.js";
-import { ingestLogFile } from "../machine-log-ingest.js";
+import { ingestLogFile, ingestLogText } from "../machine-log-ingest.js";
 import { getMachineConfig, updateMachineConfig } from "../machine-config.js";
 import { getParserProfiles } from "../machine-log-parser.js";
 import { pickWindowsFolder, windowsFolderPickerAvailable } from "../folder-picker-win.js";
@@ -424,5 +424,23 @@ router.post("/machine-config/:stageKey/scan", requireStageMachineConfig, async (
   });
   res.json(result);
 });
+
+router.post(
+  "/machine-config/:stageKey/ingest-browser",
+  requireStageMachineConfig,
+  async (req, res) => {
+    const text = String(req.body?.text ?? "");
+    if (!text.trim()) {
+      res.status(400).json({ error: "Передайте поле text з вмістом логів" });
+      return;
+    }
+    if (text.length > 5_000_000) {
+      res.status(413).json({ error: "Лог занадто великий (макс. 5 МБ)" });
+      return;
+    }
+    const result = await ingestLogText(req.params.stageKey, text);
+    res.json(result);
+  }
+);
 
 export default router;

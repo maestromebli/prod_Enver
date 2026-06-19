@@ -236,6 +236,14 @@ export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
     return { ingested: 0, message: "Шлях до логу не налаштовано" };
   }
 
+  if (config.log_path.trim().startsWith("browser://")) {
+    return {
+      ingested: 0,
+      message:
+        "Папка обрана в браузері — натисніть «Сканувати логи» у цьому вікні на ПК, де обрано папку"
+    };
+  }
+
   if (isKdtProfile(config.parser_profile)) {
     return ingestKdtLogs(stageKey, config, { fullScan });
   }

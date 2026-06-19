@@ -19,7 +19,7 @@ export function stopMachineLogWatchers() {
 async function tickAll() {
   const rows = await all(
     `SELECT stage_key FROM machine_config
-     WHERE watch_enabled = TRUE AND log_path <> ''`
+     WHERE watch_enabled = TRUE AND log_path <> '' AND log_path NOT LIKE 'browser://%'`
   );
 
   for (const row of rows) {
