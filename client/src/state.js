@@ -25,6 +25,7 @@ export const state = {
   machineProgressMessage: "",
   machineMatch: null,
   operatorSelectedPositionId: null,
+  operatorBrowserLogPath: "",
   operatorJobDetail: null,
   operatorCuttingEstimate: null,
   machinePositionProgress: null,

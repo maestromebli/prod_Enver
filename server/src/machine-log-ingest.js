@@ -1,18 +1,18 @@
 import fs from "fs";
-import path from "path";
 import { all, one, run } from "./db.js";
 import { parseLogLine } from "./machine-log-parser.js";
 import {
+  isBrowserLogPath,
+  machinePathAccessHint,
+  machinePathExists,
+  resolveMachineLogPath
+} from "./machine-paths.js";
+import {
   determineKdtStatus,
-  detectKdtEvent,
-  extractJobFromXmlPath,
-  extractKdtCounters,
-  extractKdtPlcRegisters,
-  extractKdtStep,
-  extractKdtXmlPath,
   kdtEventToEnverParsed,
   parseKdtAllLogs,
-  parseKdtTimestamp
+  parseKdtAllLogsFromFiles,
+  readKdtTxtFilesRecursive
 } from "./kdt-log-parser.js";
 import { matchLogToTask } from "./machine-ai-matcher.js";
 
@@ -80,25 +80,20 @@ function isKdtProfile(profile) {
   return profile === "kdt";
 }
 
-/**
- * KDT: log_path — папка з .txt логами (рекурсивно) або один .txt файл.
- */
-async function ingestKdtLogs(stageKey, config, { fullScan = false } = {}) {
-  const rawPath = config.log_path?.trim();
-  if (!rawPath) {
-    return { ingested: 0, message: "Шлях до логів KDT не налаштовано" };
-  }
-
-  const logPath = path.resolve(rawPath);
-  if (!fs.existsSync(logPath)) {
-    return { ingested: 0, message: `Шлях не знайдено: ${logPath}` };
-  }
-
-  let allEvents;
-  try {
-    allEvents = parseKdtAllLogs(logPath);
-  } catch (err) {
-    return { ingested: 0, message: err.message };
+async function ingestKdtEvents(
+  stageKey,
+  config,
+  allEvents,
+  { fullScan = false, fileCount = 0 } = {}
+) {
+  if (!allEvents.length) {
+    return {
+      ingested: 0,
+      lastProgress: config.last_progress ?? 0,
+      message: fileCount
+        ? `У ${fileCount} файлах .txt не знайдено рядків KDT з датою`
+        : "У логах KDT не знайдено рядків з датою"
+    };
   }
 
   const kdtStatus = determineKdtStatus(allEvents);
@@ -140,23 +135,64 @@ async function ingestKdtLogs(stageKey, config, { fullScan = false } = {}) {
     [lastEventTime, stageKey]
   );
 
+  const filesHint = fileCount ? `, ${fileCount} файлів` : "";
   return {
     ingested,
     lastProgress: kdtStatus.progress,
     kdtStatus: kdtStatus.status,
+    fileCount,
     message:
       ingested > 0
-        ? `KDT: ${kdtStatus.statusText} (+${ingested} подій)`
-        : kdtStatus.statusText || "Нових подій KDT немає"
+        ? `KDT: ${kdtStatus.statusText} (+${ingested} подій${filesHint})`
+        : kdtStatus.statusText || `Нових подій KDT немає${filesHint}`
   };
+}
+
+/**
+ * KDT: log_path — папка з .txt логами (рекурсивно) або один .txt файл.
+ */
+async function ingestKdtLogs(stageKey, config, { fullScan = false } = {}) {
+  const rawPath = config.log_path?.trim();
+  if (!rawPath) {
+    return { ingested: 0, message: "Шлях до логів KDT не налаштовано" };
+  }
+
+  const accessHint = machinePathAccessHint(rawPath);
+  if (accessHint) {
+    return { ingested: 0, message: accessHint };
+  }
+
+  const logPath = resolveMachineLogPath(rawPath);
+  if (!machinePathExists(logPath)) {
+    return {
+      ingested: 0,
+      message: `Шлях не знайдено: ${logPath}. Перевірте доступ до \\\\192.168.1.203\\KDTsaw або KDT_LOG_MOUNT на сервері.`
+    };
+  }
+
+  let allEvents;
+  try {
+    allEvents = parseKdtAllLogs(logPath);
+  } catch (err) {
+    return { ingested: 0, message: err.message };
+  }
+
+  const files = readKdtTxtFilesRecursive(logPath);
+  return ingestKdtEvents(stageKey, config, allEvents, { fullScan, fileCount: files.length });
 }
 
 /**
  * Звичайний режим: один текстовий файл, читання з offset.
  */
 async function ingestPlainLogFile(stageKey, config, { fullScan = false } = {}) {
-  const logPath = path.resolve(config.log_path.trim());
-  if (!fs.existsSync(logPath)) {
+  const rawPath = config.log_path?.trim();
+  const accessHint = machinePathAccessHint(rawPath);
+  if (accessHint) {
+    return { ingested: 0, message: accessHint };
+  }
+
+  const logPath = resolveMachineLogPath(rawPath);
+  if (!machinePathExists(logPath)) {
     return { ingested: 0, message: `Файл не знайдено: ${logPath}` };
   }
 
@@ -236,7 +272,7 @@ export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
     return { ingested: 0, message: "Шлях до логу не налаштовано" };
   }
 
-  if (config.log_path.trim().startsWith("browser://")) {
+  if (isBrowserLogPath(config.log_path)) {
     return {
       ingested: 0,
       message:
@@ -248,8 +284,8 @@ export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
     return ingestKdtLogs(stageKey, config, { fullScan });
   }
 
-  const resolved = path.resolve(config.log_path.trim());
-  if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+  const resolved = resolveMachineLogPath(config.log_path.trim());
+  if (machinePathExists(resolved) && fs.statSync(resolved).isDirectory()) {
     return {
       ingested: 0,
       message: "Для папки логів оберіть профіль парсера «kdt» (KDT Saw)"
@@ -259,45 +295,20 @@ export async function ingestLogFile(stageKey, { fullScan = false } = {}) {
   return ingestPlainLogFile(stageKey, config, { fullScan });
 }
 
-export async function ingestLogText(stageKey, text) {
+export async function ingestLogText(stageKey, text, { files, fullScan = false } = {}) {
   const config = await getConfig(stageKey);
   if (!config) return { ingested: 0, message: "Етап не знайдено" };
 
   if (isKdtProfile(config.parser_profile)) {
-    let ingested = 0;
-    const fakeEvents = [];
-    for (const line of String(text || "").split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      const timestamp = parseKdtTimestamp(line);
-      if (!timestamp) continue;
-      const xmlPath = extractKdtXmlPath(line);
-      fakeEvents.push({
-        time: timestamp.raw,
-        date: timestamp.date,
-        raw: line,
-        eventType: detectKdtEvent(line),
-        step: extractKdtStep(line),
-        job: extractJobFromXmlPath(xmlPath),
-        counters: extractKdtCounters(line),
-        plcRegisters: extractKdtPlcRegisters(line),
-        sourceFile: "upload"
-      });
-    }
-    const kdtStatus = determineKdtStatus(fakeEvents);
-    for (const event of fakeEvents) {
-      const parsed = kdtEventToEnverParsed(event, kdtStatus);
-      const { id, parsed: p } = await insertEvent(stageKey, event.raw, parsed, 0);
-      ingested += 1;
-      if (config.ai_matching_enabled !== false) {
-        await matchLogToTask(stageKey, { ...p, tokens: parsed.tokens }, id);
-      }
-    }
-    await applyProgress(stageKey, kdtStatus.progress, kdtStatus.statusText);
-    return {
-      ingested,
-      lastProgress: kdtStatus.progress,
-      message: `KDT: імпортовано ${ingested} подій`
-    };
+    const fileEntries =
+      Array.isArray(files) && files.length
+        ? files
+        : [{ name: "upload.txt", text: String(text || "") }];
+    const allEvents = parseKdtAllLogsFromFiles(fileEntries);
+    return ingestKdtEvents(stageKey, config, allEvents, {
+      fullScan,
+      fileCount: fileEntries.length
+    });
   }
 
   const profile = config.parser_profile || "generic";
@@ -317,6 +328,49 @@ export async function ingestLogText(stageKey, text) {
 
   await applyProgress(stageKey, lastProgress);
   return { ingested, lastProgress, message: `Імпортовано ${ingested} подій` };
+}
+
+export function normalizeIngestPayload(body = {}) {
+  const files = Array.isArray(body.files) ? body.files : null;
+  const text = String(body.text ?? "");
+  const fullScan = Boolean(body.fullScan);
+
+  if (files?.length) {
+    let total = 0;
+    const normalized = [];
+    for (const raw of files) {
+      const name = String(raw?.name || "log.txt").slice(0, 500);
+      const fileText = String(raw?.text ?? raw?.content ?? "");
+      total += fileText.length;
+      if (total > 5_000_000) {
+        return { error: "Логи занадто великі (макс. 5 МБ)", status: 413 };
+      }
+      if (!fileText.trim()) continue;
+      normalized.push({ name, text: fileText });
+    }
+    if (!normalized.length) {
+      return { error: "Передайте файли .txt з вмістом логів", status: 400 };
+    }
+    return { files: normalized, text: "", fullScan };
+  }
+
+  if (!text.trim()) {
+    return { error: "Передайте поле text або files з логами", status: 400 };
+  }
+  if (text.length > 5_000_000) {
+    return { error: "Лог занадто великий (макс. 5 МБ)", status: 413 };
+  }
+  return { files: null, text, fullScan };
+}
+
+export async function ingestLogPayload(stageKey, body = {}) {
+  const payload = normalizeIngestPayload(body);
+  if (payload.error) return payload;
+  const result = await ingestLogText(stageKey, payload.text, {
+    files: payload.files,
+    fullScan: payload.fullScan
+  });
+  return { result };
 }
 
 export async function getRecentLogEvents(stageKey, limit = 30) {

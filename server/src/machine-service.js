@@ -40,7 +40,10 @@ async function progressFromLogs(stageKey) {
   const config = await getConfig(stageKey);
   if (!config?.log_path?.trim()) return null;
 
-  await ingestLogFile(stageKey).catch(() => {});
+  const isBrowserPath = config.log_path.trim().startsWith("browser://");
+  if (!isBrowserPath) {
+    await ingestLogFile(stageKey).catch(() => {});
+  }
 
   const refreshed = await getConfig(stageKey);
   const match = await getLatestMatch(stageKey);
@@ -56,7 +59,9 @@ async function progressFromLogs(stageKey) {
   const progress = positionProgress?.percent ?? refreshed?.last_progress ?? 0;
   let message = match
     ? `Задача: ${match.orderNumber} — ${match.item} (${Math.round(match.confidence * 100)}%, ${match.method})`
-    : "Лог читається — очікується зіставлення з задачею";
+    : isBrowserPath
+      ? "Очікування сканування папки з цього ПК…"
+      : "Лог читається — очікується зіставлення з задачею";
 
   if (positionProgress?.piecesTotal > 0) {
     message += ` · ${positionProgress.piecesDone}/${positionProgress.piecesTotal} дет.`;

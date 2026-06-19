@@ -6,7 +6,8 @@ import {
   folderPickerCapabilities,
   ingestBrowserPickedFolder,
   isBrowserPickedPath,
-  resolvePathInputValue
+  resolvePathInputValue,
+  validateMachineLogPathForServer
 } from "./folder-picker.js";
 import { runSave } from "./save-flow.js";
 import { escapeHtml } from "./utils.js";
@@ -43,19 +44,16 @@ function parserHint(profile) {
 
 function pathPickerHint() {
   const caps = folderPickerCapabilities();
-  if (caps.android && caps.windowsDialog) {
-    return "Оберіть папку: на Android — провідник пристрою; на Windows-сервері — мережевий діалог.";
-  }
   if (caps.android) {
-    return "Натисніть «Обрати папку» — відкриється провідник Android.";
+    return "Натисніть «Обрати папку» — провідник Android.";
   }
   if (caps.windowsDialog) {
-    return "«Обрати папку» — діалог Windows на ПК з ENVER-сервером (диск або \\\\NAS\\...).";
+    return "«Обрати папку» — діалог Windows (\\\\192.168.1.203\\KDTsaw). Або введіть UNC вручну.";
   }
   if (caps.browserDialog) {
-    return "«Обрати папку» — папка на цьому комп'ютері (Chrome/Edge). Потім «Сканувати логи» для імпорту .txt.";
+    return "На цьому Windows-ПК у Chrome натисніть «Обрати папку» і виберіть \\\\192.168.1.203\\KDTsaw. Не вводьте шлях вручну.";
   }
-  return "Введіть мережевий шлях вручну або відкрийте сайт у Chrome/Edge на ПК з логами.";
+  return "Введіть мережевий шлях \\\\192.168.1.203\\KDTsaw вручну.";
 }
 
 function pathPickerRow({ inputId, pickId, label, hint }) {
@@ -244,7 +242,7 @@ export function initOperatorMachineSettingsModal() {
       submitEl: btn,
       saveFn: async () => {
         if (isBrowserPickedPath(logPath)) {
-          return ingestBrowserPickedFolder(currentStageKey, logPath);
+          return ingestBrowserPickedFolder(currentStageKey, logPath, { fullScan: true });
         }
         return api.scanOperatorMachineLogs(currentStageKey, { fullScan: false });
       },
@@ -271,12 +269,26 @@ export function initOperatorMachineSettingsModal() {
       aiSourceSubfolders: collectSubfolders()
     };
 
+    const pathErr = validateMachineLogPathForServer(body.logPath);
+    if (pathErr) {
+      err.textContent = pathErr;
+      err.classList.add("visible");
+      return;
+    }
+
     await runSave("Налаштування", {
       submitEl: $("opMsSave"),
       saveFn: () => api.updateOperatorMachineConfig(currentStageKey, body),
       successMessage: "Налаштування збережено",
       onSuccess: async (config) => {
-        fillForm(config);
+        await fillForm(config);
+        if (isBrowserPickedPath(config.logPath)) {
+          try {
+            await ingestBrowserPickedFolder(currentStageKey, config.logPath, { fullScan: true });
+          } catch {
+            /* перше сканування можна повторити кнопкою */
+          }
+        }
         closeOperatorMachineSettings();
         onSavedCallback();
       },

@@ -144,10 +144,10 @@ export const api = {
     request(`/api/machine/logs/events/${stageKey}?limit=${limit}`),
   ingestMachineLog: (stageKey, body = {}) =>
     request(`/api/machine/logs/ingest/${stageKey}`, { method: "POST", body: JSON.stringify(body) }),
-  uploadMachineLog: (stageKey, text) =>
+  uploadMachineLog: (stageKey, body) =>
     request(`/api/machine/logs/upload/${stageKey}`, {
       method: "POST",
-      body: JSON.stringify({ text })
+      body: JSON.stringify(typeof body === "string" ? { text: body } : body)
     }),
   confirmMachineMatch: (matchId) =>
     request(`/api/machine/logs/match/${matchId}/confirm`, { method: "PUT" }),

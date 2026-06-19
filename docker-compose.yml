@@ -6,6 +6,12 @@ services:
     env_file: .env
     environment:
       APP_BUILD_SHA: ${IMAGE_TAG:-latest}
+      SMB_HOST: ${SMB_HOST:-192.168.1.203}
+      KDT_LOG_MOUNT: ${KDT_LOG_MOUNT:-/mnt/kdtsaw}
+      ENVER_LOG_MOUNT: ${ENVER_LOG_MOUNT:-/mnt/enver-log}
+    volumes:
+      - ${KDT_LOG_MOUNT:-/mnt/kdtsaw}:${KDT_LOG_MOUNT:-/mnt/kdtsaw}:ro
+      - ${ENVER_LOG_MOUNT:-/mnt/enver-log}:${ENVER_LOG_MOUNT:-/mnt/enver-log}:ro
     networks:
       - enver-net
 

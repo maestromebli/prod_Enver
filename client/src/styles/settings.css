@@ -180,6 +180,19 @@
   min-width: 180px;
 }
 
+.machine-path-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.machine-path-row .machine-log-path,
+.machine-path-row .machine-projects-root {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
 .machine-config-table table {
   font-size: 13px;
 }

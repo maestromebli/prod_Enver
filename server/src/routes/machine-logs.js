@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAdmin, requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
 import { OPERATOR_STAGE_KEY_SET } from "../roles.js";
-import { getRecentLogEvents, ingestLogFile, ingestLogText } from "../machine-log-ingest.js";
+import { getRecentLogEvents, ingestLogFile, ingestLogPayload } from "../machine-log-ingest.js";
 import { getLatestMatch } from "../machine-ai-matcher.js";
 import { getParserProfiles } from "../machine-log-parser.js";
 import { one, run } from "../db.js";
@@ -52,17 +52,12 @@ router.post("/upload/:stageKey", requireAdmin, async (req, res) => {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
-  const text = req.body?.text ?? "";
-  if (!String(text).trim()) {
-    res.status(400).json({ error: "Передайте поле text з вмістом логу" });
+  const outcome = await ingestLogPayload(req.params.stageKey, req.body || {});
+  if (outcome.error) {
+    res.status(outcome.status || 400).json({ error: outcome.error });
     return;
   }
-  if (text.length > 5_000_000) {
-    res.status(413).json({ error: "Лог занадто великий (макс. 5 МБ)" });
-    return;
-  }
-  const result = await ingestLogText(req.params.stageKey, text);
-  res.json(result);
+  res.json(outcome.result);
 });
 
 router.put("/match/:matchId/confirm", requireAdmin, async (req, res) => {

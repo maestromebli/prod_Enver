@@ -1,3 +1,12 @@
+import {
+  applyBrowserPathDisplay,
+  bindFolderPickButton,
+  fetchFolderPickerCapabilities,
+  ingestBrowserPickedFolder,
+  isBrowserPickedPath,
+  resolvePathInputValue,
+  validateMachineLogPathForServer
+} from "./folder-picker.js";
 import { api } from "./api.js";
 import { canViewSettings, isAdmin } from "./auth.js";
 import { state } from "./state.js";
@@ -219,9 +228,7 @@ function machinesSectionHtml() {
       const pathHint = isKdt
         ? "Папка з логами KDT на сервері ENVER (усі .txt рекурсивно)"
         : "Один текстовий файл логу на сервері ENVER";
-      const pathPlaceholder = isKdt
-        ? "C:\\Users\\Administrator\\Desktop\\KDTSaw1"
-        : "/var/log/stanok.log";
+      const pathPlaceholder = isKdt ? "\\\\192.168.1.203\\KDTsaw" : "/var/log/stanok.log";
 
       return `
         <article class="machine-stage-card" data-stage-card="${escapeHtml(m.stageKey)}">
@@ -230,17 +237,25 @@ function machinesSectionHtml() {
             <span class="machine-stage-progress">${m.lastProgress ?? 0}%</span>
           </header>
           <p class="field-hint machine-path-hint">${pathHint}</p>
+          <p class="field-hint machine-browser-mode-hint">
+            <strong>Windows-ПК у мережі:</strong> відкрийте ENVER у Chrome на комп'ютері з доступом до NAS.
+            Натисніть «Обрати папку» → <code>\\\\192.168.1.203\\KDTsaw</code> (не вводьте шлях вручну).
+            Після збереження натисніть «Сканувати» — далі логи читаються з цього ПК автоматично.
+          </p>
           <div class="form-field">
             <label>Шлях до логів</label>
-            <input
-              class="machine-log-path"
-              type="text"
-              data-machine-log-path="${escapeHtml(m.stageKey)}"
-              value="${escapeHtml(m.logPath || "")}"
-              placeholder="${escapeHtml(pathPlaceholder)}"
-              autocomplete="off"
-              spellcheck="false"
-            />
+            <div class="machine-path-row">
+              <input
+                class="machine-log-path"
+                type="text"
+                data-machine-log-path="${escapeHtml(m.stageKey)}"
+                value="${escapeHtml(m.logPath || "")}"
+                placeholder="${escapeHtml(pathPlaceholder)}"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="btn btn-sm" data-pick-log-path="${escapeHtml(m.stageKey)}">Обрати папку</button>
+            </div>
           </div>
           <div class="machine-stage-grid">
             <div class="form-field">
@@ -266,15 +281,18 @@ function machinesSectionHtml() {
               ? `
           <div class="form-field">
             <label>Корінь папок проєктів</label>
-            <input
-              class="machine-projects-root"
-              type="text"
-              data-machine-projects-root="${escapeHtml(m.stageKey)}"
-              value="${escapeHtml(m.projectsRootPath || "")}"
-              placeholder="C:\\ENVER"
-              autocomplete="off"
-              spellcheck="false"
-            />
+            <div class="machine-path-row">
+              <input
+                class="machine-projects-root"
+                type="text"
+                data-machine-projects-root="${escapeHtml(m.stageKey)}"
+                value="${escapeHtml(m.projectsRootPath || "")}"
+                placeholder="C:\\ENVER"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="btn btn-sm" data-pick-projects-root="${escapeHtml(m.stageKey)}">Обрати папку</button>
+            </div>
           </div>
           <div class="form-field">
             <label>Підпапки для ШІ (через кому)</label>
@@ -492,16 +510,50 @@ function collectMachineConfigFromDom(key) {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const logInput = document.querySelector(`[data-machine-log-path="${key}"]`);
+  const projectsInput = document.querySelector(`[data-machine-projects-root="${key}"]`);
+
   return {
-    logPath: document.querySelector(`[data-machine-log-path="${key}"]`)?.value ?? "",
+    logPath: resolvePathInputValue(logInput),
     parserProfile: document.querySelector(`[data-machine-parser="${key}"]`)?.value ?? "generic",
     watchEnabled: document.querySelector(`[data-machine-watch="${key}"]`)?.checked ?? false,
     aiMatchingEnabled: document.querySelector(`[data-machine-ai="${key}"]`)?.checked ?? true,
-    projectsRootPath:
-      document.querySelector(`[data-machine-projects-root="${key}"]`)?.value?.trim() ?? "",
+    projectsRootPath: resolvePathInputValue(projectsInput),
     aiSourceSubfolders,
     resetLogOffset: false
   };
+}
+
+export async function bindMachinesFolderPickers() {
+  if (state.settingsSection !== "machines") return;
+
+  await fetchFolderPickerCapabilities({ refresh: true });
+
+  for (const m of machineConfig) {
+    const logInput = document.querySelector(`[data-machine-log-path="${m.stageKey}"]`);
+    if (logInput && isBrowserPickedPath(m.logPath)) {
+      await applyBrowserPathDisplay(logInput, m.logPath);
+    }
+    bindFolderPickButton({
+      button: document.querySelector(`[data-pick-log-path="${m.stageKey}"]`),
+      input: logInput,
+      title: `Папка логів: ${stageLabel(m.stageKey)}`,
+      storageKey: `settings_log_${m.stageKey}`
+    });
+
+    if (m.stageKey !== "cutting") continue;
+
+    const rootInput = document.querySelector(`[data-machine-projects-root="${m.stageKey}"]`);
+    if (rootInput && isBrowserPickedPath(m.projectsRootPath)) {
+      await applyBrowserPathDisplay(rootInput, m.projectsRootPath);
+    }
+    bindFolderPickButton({
+      button: document.querySelector(`[data-pick-projects-root="${m.stageKey}"]`),
+      input: rootInput,
+      title: "Корінь папок замовлень",
+      storageKey: `settings_projects_${m.stageKey}`
+    });
+  }
 }
 
 function collectPermissionsFromDom() {
@@ -727,11 +779,29 @@ export function bindSettingsActions(onChange) {
     const saveMachine = e.target.closest("[data-save-machine]");
     if (saveMachine) {
       const key = saveMachine.dataset.saveMachine;
+      const body = collectMachineConfigFromDom(key);
+      const pathErr = validateMachineLogPathForServer(body.logPath);
+      if (pathErr) {
+        import("./toast.js").then(({ toastError }) => toastError(pathErr));
+        return;
+      }
       const label = `Станок: ${stageLabel(key)}`;
       runSettingsSave(label, {
         onReload: () => settingsOnChange(),
-        saveFn: () => api.updateMachineConfig(key, collectMachineConfigFromDom(key)),
-        onSuccess: () => loadSettingsData()
+        saveFn: () => api.updateMachineConfig(key, body),
+        onSuccess: async (config) => {
+          await loadSettingsData();
+          if (isBrowserPickedPath(config?.logPath)) {
+            try {
+              await ingestBrowserPickedFolder(key, config.logPath, {
+                upload: (stage, ingestBody) => api.uploadMachineLog(stage, ingestBody),
+                fullScan: true
+              });
+            } catch {
+              /* можна повторити «Сканувати» */
+            }
+          }
+        }
       }).catch(() => {});
       return;
     }
@@ -755,9 +825,19 @@ export function bindSettingsActions(onChange) {
     const ingestMachine = e.target.closest("[data-ingest-machine]");
     if (ingestMachine) {
       const key = ingestMachine.dataset.ingestMachine;
+      const logPath = resolvePathInputValue(
+        document.querySelector(`[data-machine-log-path="${key}"]`)
+      );
       runSettingsSave(`Сканування: ${stageLabel(key)}`, {
         onReload: () => settingsOnChange(),
-        saveFn: () => api.ingestMachineLog(key),
+        saveFn: async () => {
+          if (isBrowserPickedPath(logPath)) {
+            return ingestBrowserPickedFolder(key, logPath, {
+              upload: (stage, body) => api.uploadMachineLog(stage, body)
+            });
+          }
+          return api.ingestMachineLog(key);
+        },
         onSuccess: () => loadSettingsData()
       }).catch(() => {});
       return;
@@ -766,10 +846,21 @@ export function bindSettingsActions(onChange) {
     const fullScanMachine = e.target.closest("[data-full-scan-machine]");
     if (fullScanMachine) {
       const key = fullScanMachine.dataset.fullScanMachine;
+      const logPath = resolvePathInputValue(
+        document.querySelector(`[data-machine-log-path="${key}"]`)
+      );
       if (!confirm("Повторно прочитати всі логи з початку для цього етапу?")) return;
       runSettingsSave(`Повне сканування: ${stageLabel(key)}`, {
         onReload: () => settingsOnChange(),
-        saveFn: () => api.ingestMachineLog(key, { fullScan: true }),
+        saveFn: async () => {
+          if (isBrowserPickedPath(logPath)) {
+            return ingestBrowserPickedFolder(key, logPath, {
+              upload: (stage, body) => api.uploadMachineLog(stage, body),
+              fullScan: true
+            });
+          }
+          return api.ingestMachineLog(key, { fullScan: true });
+        },
         onSuccess: () => loadSettingsData()
       }).catch(() => {});
       return;

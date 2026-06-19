@@ -122,11 +122,10 @@ export function readKdtTxtFilesRecursive(dir) {
   return result;
 }
 
-export function parseKdtLogFile(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
+export function parseKdtLogContent(content, { sourceFile = "upload", sourcePath = "" } = {}) {
   const events = [];
 
-  for (const line of content.split(/\r?\n/)) {
+  for (const line of String(content || "").split(/\r?\n/)) {
     if (!line.trim()) continue;
     const timestamp = parseKdtTimestamp(line);
     if (!timestamp) continue;
@@ -135,8 +134,8 @@ export function parseKdtLogFile(filePath) {
     events.push({
       time: timestamp.raw,
       date: timestamp.date,
-      sourceFile: path.basename(filePath),
-      sourcePath: filePath,
+      sourceFile,
+      sourcePath: sourcePath || sourceFile,
       eventType: detectKdtEvent(line),
       step: extractKdtStep(line),
       job: extractJobFromXmlPath(xmlPath),
@@ -147,6 +146,41 @@ export function parseKdtLogFile(filePath) {
   }
 
   return events;
+}
+
+export function parseKdtLogFile(filePath) {
+  const content = fs.readFileSync(filePath, "utf8");
+  return parseKdtLogContent(content, {
+    sourceFile: path.basename(filePath),
+    sourcePath: filePath
+  });
+}
+
+/** Парсить масив файлів (з браузера або API) так само, як parseKdtAllLogs з диска. */
+export function parseKdtAllLogsFromFiles(fileEntries) {
+  let allEvents = [];
+
+  for (const entry of fileEntries || []) {
+    const name = String(entry?.name || entry?.sourceFile || "upload.txt");
+    const text = entry?.text ?? entry?.content ?? "";
+    try {
+      allEvents = allEvents.concat(
+        parseKdtLogContent(text, { sourceFile: path.basename(name), sourcePath: name })
+      );
+    } catch (error) {
+      allEvents.push({
+        time: null,
+        date: new Date(0),
+        sourceFile: path.basename(name),
+        sourcePath: name,
+        eventType: "file_read_error",
+        error: error.message,
+        raw: ""
+      });
+    }
+  }
+
+  return allEvents.filter((e) => e.time).sort((a, b) => a.date - b.date);
 }
 
 export function parseKdtAllLogs(dirOrFile) {

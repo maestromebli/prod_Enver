@@ -4,6 +4,7 @@ import { hashPassword } from "../src/auth-utils.js";
 import { INSECURE_DEFAULTS } from "../src/config.js";
 import { DEFAULT_PERMISSIONS, OPERATOR_STAGES } from "../src/roles.js";
 import { DEFAULT_DIRECTORIES } from "../src/directories-store.js";
+import { SMB_KDT_UNC, SMB_LOG_UNC } from "../src/smb-shares.js";
 
 const ADMIN_LOGIN = "admin";
 const ADMIN_DEFAULT_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || "admin";
@@ -29,11 +30,18 @@ async function seedRolePermissions(client) {
 
 async function seedMachineConfig(client) {
   for (const stage of OPERATOR_STAGES) {
+    const isCutting = stage.key === "cutting";
     await client.query(
-      `INSERT INTO machine_config (stage_key)
-       VALUES ($1)
+      `INSERT INTO machine_config (stage_key, log_path, parser_profile, projects_root_path, watch_enabled)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (stage_key) DO NOTHING`,
-      [stage.key]
+      [
+        stage.key,
+        isCutting ? SMB_KDT_UNC : "",
+        isCutting ? "kdt" : "generic",
+        isCutting ? SMB_LOG_UNC : "",
+        isCutting
+      ]
     );
   }
 }
@@ -56,7 +64,7 @@ async function seedFolderAgent(client) {
     [
       JSON.stringify({
         token,
-        rootPath: "\\\\NAS\\ENVER",
+        rootPath: SMB_LOG_UNC,
         enabled: true
       })
     ]

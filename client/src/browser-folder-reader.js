@@ -1,22 +1,28 @@
-import { getBrowserFolderHandle } from "./browser-folder-store.js";
+import { getBrowserFolderFiles, getBrowserFolderHandle } from "./browser-folder-store.js";
 
 const MAX_FILE_BYTES = 3_000_000;
 
-async function readTextFilesRecursive(dirHandle, chunks) {
+async function readTextFilesRecursiveEntries(dirHandle, basePath, out) {
   for await (const [name, entry] of dirHandle.entries()) {
+    const rel = basePath ? `${basePath}/${name}` : name;
     if (entry.kind === "directory") {
-      await readTextFilesRecursive(entry, chunks);
+      await readTextFilesRecursiveEntries(entry, rel, out);
       continue;
     }
     if (entry.kind !== "file" || !name.toLowerCase().endsWith(".txt")) continue;
     const file = await entry.getFile();
     if (file.size > MAX_FILE_BYTES) continue;
-    chunks.push(await file.text());
+    out.push({ name: rel, text: await file.text() });
   }
 }
 
-/** Зчитує всі .txt з папки, обраної через браузер (збережений handle у IndexedDB). */
-export async function readBrowserFolderLogText(storageKey) {
+/** Рекурсивно зчитує всі .txt з папки, обраної в браузері. */
+export async function readBrowserFolderLogFiles(storageKey) {
+  const cachedFiles = await getBrowserFolderFiles(storageKey);
+  if (cachedFiles?.length) {
+    return cachedFiles.map((f) => ({ name: f.name, text: f.text }));
+  }
+
   const handle = await getBrowserFolderHandle(storageKey);
   if (!handle) {
     throw new Error("Папку не знайдено. Оберіть її знову кнопкою «Обрати папку» у цьому браузері.");
@@ -30,10 +36,16 @@ export async function readBrowserFolderLogText(storageKey) {
     }
   }
 
-  const chunks = [];
-  await readTextFilesRecursive(handle, chunks);
-  if (!chunks.length) {
-    throw new Error("У папці немає файлів .txt");
+  const files = [];
+  await readTextFilesRecursiveEntries(handle, "", files);
+  if (!files.length) {
+    throw new Error("У папці та підпапках немає файлів .txt");
   }
-  return chunks.join("\n");
+  return files;
+}
+
+/** Зворотна сумісність: один текстовий blob. */
+export async function readBrowserFolderLogText(storageKey) {
+  const files = await readBrowserFolderLogFiles(storageKey);
+  return files.map((f) => f.text).join("\n");
 }

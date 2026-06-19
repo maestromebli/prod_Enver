@@ -6,6 +6,7 @@ import { pool, shutdownDb } from "./db.js";
 import { createApiApp } from "./app.js";
 import { assertProductionSafety, config } from "./config.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
+import { logSmbMountStatus } from "./smb-shares.js";
 
 const PORT = config.port;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,7 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 async function start() {
   assertProductionSafety();
+  logSmbMountStatus();
 
   let dbConfigured = Boolean(process.env.DATABASE_URL);
   let dbConnected = false;

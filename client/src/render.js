@@ -15,7 +15,7 @@ import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody } from "./render-positions.js";
 import { positionActionButtons, stageQuickActions } from "./positions.js";
-import { bindSettingsActions, renderSettingsView } from "./settings.js";
+import { bindSettingsActions, bindMachinesFolderPickers, renderSettingsView } from "./settings.js";
 import { renderDashboard } from "./dashboard.js";
 import { activeOrders, archivedOrders, archivedPositions } from "./archive.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
@@ -615,6 +615,7 @@ export function renderApp(options = {}) {
     try {
       content.innerHTML = renderSettingsView();
       bindSettingsActions(() => window.__enverRender?.());
+      void bindMachinesFolderPickers();
     } catch (err) {
       content.innerHTML = `
         <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">

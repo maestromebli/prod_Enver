@@ -19,6 +19,7 @@ import {
   reminderSnapshot
 } from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
+import { ingestBrowserPickedFolder, isBrowserPickedPath } from "./folder-picker.js";
 import { badge, escapeHtml } from "./utils.js";
 import {
   canShowOperatorMachineSettings,
@@ -104,13 +105,38 @@ export async function loadOperatorData() {
     state.operatorCuttingEstimate = null;
   }
 
+  try {
+    const cfg = await api.getOperatorMachineConfig(stageKey);
+    state.operatorBrowserLogPath = cfg?.logPath || "";
+  } catch {
+    state.operatorBrowserLogPath = "";
+  }
+
   await refreshMachineProgress();
   syncOperatorPolling();
 }
 
+async function operatorMachineTick() {
+  const stageKey = state.operatorStage;
+  if (!stageKey) return;
+
+  if (isBrowserPickedPath(state.operatorBrowserLogPath)) {
+    try {
+      await ingestBrowserPickedFolder(stageKey, state.operatorBrowserLogPath);
+    } catch {
+      /* наступний цикл */
+    }
+  }
+
+  await refreshMachineProgress();
+}
+
 export function syncOperatorPolling() {
-  if (hasBlockingSession() && isOnActiveSessionStage() && !isSessionPaused()) {
-    startMachinePolling(refreshMachineProgress);
+  const hasLogPath = Boolean(state.operatorBrowserLogPath?.trim());
+  const sessionPoll = hasBlockingSession() && isOnActiveSessionStage() && !isSessionPaused();
+
+  if (hasLogPath || sessionPoll) {
+    startMachinePolling(operatorMachineTick);
   } else {
     stopMachinePolling();
   }
@@ -803,6 +829,13 @@ export function bindOperatorActions(onChange) {
       if (e.target.closest("#operatorMachineSettingsBtn")) {
         initOperatorMachineSettingsModal();
         await openOperatorMachineSettings(state.operatorStage, async () => {
+          try {
+            const cfg = await api.getOperatorMachineConfig(state.operatorStage);
+            state.operatorBrowserLogPath = cfg?.logPath || "";
+          } catch {
+            state.operatorBrowserLogPath = "";
+          }
+          syncOperatorPolling();
           await refreshMachineProgress();
           operatorOnChange();
         });

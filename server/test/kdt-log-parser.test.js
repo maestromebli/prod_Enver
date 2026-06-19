@@ -7,6 +7,7 @@ import {
   determineKdtStatus,
   extractJobFromXmlPath,
   kdtEventToEnverParsed,
+  parseKdtAllLogsFromFiles,
   parseKdtTimestamp
 } from "../src/kdt-log-parser.js";
 
@@ -48,6 +49,22 @@ describe("kdt-log-parser", () => {
     }
     const status = determineKdtStatus(events);
     assert.ok(status.progress >= 0);
+  });
+
+  it("parseKdtAllLogsFromFiles об'єднує кілька файлів і сортує за датою", () => {
+    const events = parseKdtAllLogsFromFiles([
+      {
+        name: "sub/a.txt",
+        text: "2025-05-19 08:12:02.000 later line"
+      },
+      {
+        name: "b.txt",
+        text: "2025-05-19 08:12:01.000 earlier line"
+      }
+    ]);
+    assert.equal(events.length, 2);
+    assert.equal(events[0].sourcePath, "b.txt");
+    assert.equal(events[1].sourcePath, "sub/a.txt");
   });
 
   it("kdtEventToEnverParsed формує jobRef", () => {
