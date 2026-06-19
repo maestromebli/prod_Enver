@@ -1,6 +1,7 @@
 import { all, one, run } from "./db.js";
 import { logPositionCreate } from "./audit.js";
 import { enrichPositionRow } from "./position-logic.js";
+import { nextPositionId } from "./db/position-id.js";
 import {
   ORDER_STATUSES_NEED_POSITION,
   applyOrderStatusPreset,
@@ -8,11 +9,6 @@ import {
   orderStatusStagePreset,
   positionStagesChanged
 } from "./order-status-workflow.js";
-
-async function nextPositionId() {
-  const row = await one("SELECT MAX(id) AS maxid FROM positions");
-  return (row.maxid ?? 1000) + 1;
-}
 
 async function insertPositionRow(row, planDate) {
   const enriched = enrichPositionRow(row, { planDate });

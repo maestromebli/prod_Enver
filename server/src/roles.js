@@ -1,3 +1,9 @@
+import {
+  ALL_STAGE_KEYS,
+  OPERATOR_STAGES,
+  STAGE_STATUS_FIELD
+} from "../../shared/production/stages.js";
+
 export const ROLES = {
   admin: "admin",
   manager: "manager",
@@ -5,21 +11,7 @@ export const ROLES = {
   operator: "operator"
 };
 
-export const OPERATOR_STAGES = [
-  { key: "cutting", label: "Порізка" },
-  { key: "edging", label: "Крайкування" },
-  { key: "drilling", label: "Присадка" },
-  { key: "assembly", label: "Збірка" }
-];
-
-export const ALL_STAGE_KEYS = OPERATOR_STAGES.map((s) => s.key);
-
-export const STAGE_STATUS_FIELD = {
-  cutting: "cutting_status",
-  edging: "edging_status",
-  drilling: "drilling_status",
-  assembly: "assembly_status"
-};
+export { OPERATOR_STAGES, ALL_STAGE_KEYS, STAGE_STATUS_FIELD };
 
 export const DEFAULT_PERMISSIONS = {
   admin: {

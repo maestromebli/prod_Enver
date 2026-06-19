@@ -53,7 +53,8 @@ async function savePosition(id, row) {
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
       position_status = @position_status,
-      progress = @progress
+      progress = @progress,
+      current_stage = @current_stage
     WHERE id = @id`,
     {
       id,
@@ -62,7 +63,8 @@ async function savePosition(id, row) {
       drilling_status: enriched.drilling_status,
       assembly_status: enriched.assembly_status,
       position_status: enriched.position_status,
-      progress: enriched.progress
+      progress: enriched.progress,
+      current_stage: enriched.current_stage
     }
   );
   return mapPosition(await getPosition(id));
@@ -186,8 +188,8 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
   row[field] = "В роботі";
 
   const session = await one(
-    `INSERT INTO operator_sessions (user_id, position_id, stage_key, started_at)
-     VALUES ($1, $2, $3, now())
+    `INSERT INTO operator_sessions (user_id, position_id, stage_key, status, started_at, updated_at)
+     VALUES ($1, $2, $3, 'active', now(), now())
      RETURNING id`,
     [userId, positionId, stageKey]
   );
@@ -240,7 +242,10 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
   row[field] = "Готово";
   const handedOff = applyStageHandoff(row, stageKey, { status: "Готово" });
 
-  await run(`UPDATE operator_sessions SET finished_at = now() WHERE id = $1`, [session.id]);
+  await run(
+    `UPDATE operator_sessions SET status = 'finished', finished_at = now(), updated_at = now() WHERE id = $1`,
+    [session.id]
+  );
 
   if (stageKey === "cutting") {
     await onOperatorFinishCutting(positionId);
@@ -316,6 +321,11 @@ router.post("/pause", requireOperatorSelf, async (req, res) => {
   const before = { ...row };
   row[field] = "На паузі";
 
+  await run(
+    `UPDATE operator_sessions SET status = 'paused', paused_at = now(), updated_at = now() WHERE id = $1`,
+    [session.id]
+  );
+
   await savePosition(positionId, row);
   await logStageChange(
     before,
@@ -355,6 +365,11 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
 
   const before = { ...row };
   row[field] = "В роботі";
+
+  await run(
+    `UPDATE operator_sessions SET status = 'active', paused_at = NULL, updated_at = now() WHERE id = $1`,
+    [session.id]
+  );
 
   await savePosition(positionId, row);
   await logStageChange(

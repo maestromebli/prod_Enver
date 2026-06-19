@@ -20,9 +20,12 @@ import productionRouter from "./routes/production.js";
 import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
 import folderAgentRouter from "./routes/folder-agent.js";
 import aiEstimateRouter from "./routes/ai-estimate.js";
+import { config } from "./config.js";
+import { apiError } from "./http/api-response.js";
+import { apiFormatMiddleware } from "./http/api-format-middleware.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = config.port;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.join(__dirname, "..", "..", "client");
 const clientDist = path.join(clientRoot, "dist");
@@ -37,18 +40,21 @@ function createApiApp({ dbConfigured, dbConnected }) {
 
   app.use(cors());
   app.use(express.json());
+  app.use("/api", apiFormatMiddleware);
 
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
-      build: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
-      production: process.env.NODE_ENV === "production",
-      database: { configured: dbConfigured, connected: dbConnected },
-      features: {
-        machineLogs: dbConnected,
-        aiMatching: dbConnected,
-        folderAgent: dbConnected,
-        cuttingEstimate: dbConnected
+      data: {
+        build: config.buildSha,
+        production: config.isProduction,
+        database: { configured: dbConfigured, connected: dbConnected },
+        features: {
+          machineLogs: dbConnected,
+          aiMatching: dbConnected,
+          folderAgent: dbConnected,
+          cuttingEstimate: dbConnected
+        }
       }
     });
   });
@@ -74,8 +80,10 @@ function createApiApp({ dbConfigured, dbConnected }) {
   app.use((err, _req, res, _next) => {
     console.error(err);
     const status = Number.isInteger(err?.status) ? err.status : 500;
-    const safeMessage = status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message;
-    res.status(status).json({ error: safeMessage || "Внутрішня помилка сервера" });
+    const code = err?.code || (status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR");
+    const message =
+      status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message || "Помилка";
+    res.status(status).json(apiError(code, message));
   });
 
   return app;
@@ -142,6 +150,11 @@ async function start() {
       viteDevServer = await createServer({
         root: clientRoot,
         appType: "spa",
+        resolve: {
+          alias: {
+            "@enver/shared": path.join(clientRoot, "..", "shared")
+          }
+        },
         server: {
           middlewareMode: true,
           hmr: { server, port: PORT },

@@ -12,7 +12,10 @@ export async function requireAuth(req, res, next) {
     const token = extractToken(req);
     const user = await getUserByToken(token);
     if (!user) {
-      res.status(401).json({ error: "Увійдіть у систему" });
+      res.status(401).json({
+        ok: false,
+        error: { code: "UNAUTHORIZED", message: "Увійдіть у систему" }
+      });
       return;
     }
     req.user = user;
@@ -29,7 +32,10 @@ export function requirePermission(key) {
       next();
       return;
     }
-    res.status(403).json({ error: "Недостатньо прав доступу" });
+    res.status(403).json({
+      ok: false,
+      error: { code: "FORBIDDEN", message: "Недостатньо прав доступу" }
+    });
   };
 }
 
@@ -47,7 +53,10 @@ export function requirePermissionOrAdmin(key) {
       next();
       return;
     }
-    res.status(403).json({ error: "Недостатньо прав доступу" });
+    res.status(403).json({
+      ok: false,
+      error: { code: "FORBIDDEN", message: "Недостатньо прав доступу" }
+    });
   };
 }
 

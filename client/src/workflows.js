@@ -1,75 +1,16 @@
-export const STAGE_STATUSES = [
-  "Не розпочато",
-  "Передано",
-  "В роботі",
-  "Готово",
-  "На паузі",
-  "Проблема",
-  "Не потрібно"
-];
+import {
+  PRODUCTION_PROGRESS_WEIGHTS,
+  STAGE_STATUSES,
+  POSITION_STATUSES,
+  STAGES,
+  STAGE_STATUS_DONE,
+  getNextStatus,
+  stageStatusClass
+} from "@enver/shared/production/stages.js";
 
-export const POSITION_STATUSES = [
-  "Не розпочато",
-  "Передано",
-  "У виробництві",
-  "Готово до встановлення",
-  "На паузі",
-  "Проблема"
-];
+export { STAGE_STATUSES, POSITION_STATUSES, PRODUCTION_PROGRESS_WEIGHTS, STAGES, getNextStatus, stageStatusClass };
 
-/** Ваги етапів виробництва для % готовності позиції (сума 100). Конструктив і монтаж не входять. */
-export const PRODUCTION_PROGRESS_WEIGHTS = {
-  cutting: 20,
-  edging: 25,
-  drilling: 25,
-  assembly: 30
-};
-
-export const STAGES = [
-  {
-    key: "constructor",
-    label: "Конструктив",
-    icon: "📐",
-    type: "constructor"
-  },
-  {
-    key: "cutting",
-    label: "Порізка",
-    icon: "🪚",
-    field: "cuttingStatus",
-    defaultResponsible: "Віяр"
-  },
-  {
-    key: "edging",
-    label: "Крайкування",
-    icon: "📏",
-    field: "edgingStatus",
-    defaultResponsible: "Віяр"
-  },
-  {
-    key: "drilling",
-    label: "Присадка",
-    icon: "🕳",
-    field: "drillingStatus"
-  },
-  {
-    key: "assembly",
-    label: "Збірка",
-    icon: "🔧",
-    field: "assemblyStatus",
-    usesAssembler: true
-  }
-];
-
-const NEXT_STATUS = {
-  "Не розпочато": "Передано",
-  Передано: "В роботі",
-  "В роботі": "Готово",
-  Готово: "Готово",
-  "На паузі": "В роботі",
-  Проблема: "В роботі",
-  "Не потрібно": "Не потрібно"
-};
+const STAGE_DONE = STAGE_STATUS_DONE;
 
 export function getStageStatus(position, stage) {
   if (stage.type === "constructor") {
@@ -78,31 +19,12 @@ export function getStageStatus(position, stage) {
   return position[stage.field] || "Не розпочато";
 }
 
-export function getNextStatus(current) {
-  return NEXT_STATUS[current] || "Передано";
-}
-
 export function getStageResponsible(position, stage) {
   if (stage.type === "constructor") return position.constructor || "—";
   if (stage.defaultResponsible) return stage.defaultResponsible;
   if (stage.usesAssembler) return position.assemblyResponsible || "—";
   return position.assemblyResponsible || "—";
 }
-
-export function stageStatusClass(status) {
-  const map = {
-    "Не розпочато": "stage-idle",
-    Передано: "stage-handoff",
-    "В роботі": "stage-active",
-    Готово: "stage-done",
-    "На паузі": "stage-pause",
-    Проблема: "stage-problem",
-    "Не потрібно": "stage-skip"
-  };
-  return map[status] || "stage-idle";
-}
-
-const STAGE_DONE = new Set(["Готово", "Не потрібно"]);
 
 export function stageRequiresAssignment(stage) {
   return stage.type === "constructor" || stage.usesAssembler || stage.key === "drilling";
@@ -113,7 +35,6 @@ function hasStageAssignment(position, stage) {
   return Boolean(position.assemblyResponsible?.trim());
 }
 
-/** Позиція без відповідального на поточному (наступному) етапі, де він обов'язковий. */
 export function positionMissingNextAssignment(position) {
   for (const stage of STAGES) {
     const status = getStageStatus(position, stage);
@@ -134,7 +55,6 @@ export function isNewOrder(order) {
   return order.status === "Новий";
 }
 
-/** Позиції, для яких перевіряємо призначення: підпозиції або основні без дітей. */
 export function assignablePositions(order, positions) {
   const related = positionsForOrder(order, positions);
   return related.filter((p) => {

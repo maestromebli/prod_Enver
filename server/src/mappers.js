@@ -41,6 +41,7 @@ export function mapPosition(row) {
     installResponsible: row.install_responsible ?? "",
     positionStatus: row.position_status ?? "",
     progress: row.progress ?? 0,
+    currentStage: row.current_stage ?? "",
     overdueDays: row.overdue_days ?? 0,
     problem: row.problem ?? "",
     note: row.note ?? "",

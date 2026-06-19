@@ -1,6 +1,7 @@
 import { all, one, run } from "./db.js";
 import { mapPosition } from "./mappers.js";
 import { enrichPositionRow } from "./position-logic.js";
+import { nextPositionId } from "./db/position-id.js";
 import { mergeGiblabSummary } from "./giblab-parser.js";
 import { orderStatusStagePreset, applyOrderStatusPreset } from "./order-status-workflow.js";
 
@@ -13,10 +14,6 @@ export function normalizeFolderKey(key) {
     .replace(/\s+/g, "-");
 }
 
-async function nextPositionId() {
-  const row = await one("SELECT MAX(id) AS maxid FROM positions");
-  return (row.maxid ?? 1000) + 1;
-}
 
 function parseJson(str, fallback) {
   try {

@@ -63,7 +63,8 @@ export async function reconcileStaleStageStatuses(stageKey) {
         drilling_status = @drilling_status,
         assembly_status = @assembly_status,
         position_status = @position_status,
-        progress = @progress
+        progress = @progress,
+        current_stage = @current_stage
       WHERE id = @id`,
       {
         id: row.id,
@@ -72,7 +73,8 @@ export async function reconcileStaleStageStatuses(stageKey) {
         drilling_status: enriched.drilling_status,
         assembly_status: enriched.assembly_status,
         position_status: enriched.position_status,
-        progress: enriched.progress
+        progress: enriched.progress,
+        current_stage: enriched.current_stage
       }
     );
     reset += 1;

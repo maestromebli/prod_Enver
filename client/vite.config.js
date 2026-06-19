@@ -3,10 +3,16 @@ import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
 
-/** Лише якщо запускають окремо: npm run dev --prefix client → проксі на :3001 */
+/** Лише якщо запускають окремо: npm run dev --prefix client → проксі на :3000 */
 export default defineConfig({
   publicDir: "public",
+  resolve: {
+    alias: {
+      "@enver/shared": path.join(repoRoot, "shared")
+    }
+  },
   build: {
     rollupOptions: {
       input: {
@@ -21,7 +27,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:3001",
+        target: "http://127.0.0.1:3000",
         changeOrigin: true
       }
     }

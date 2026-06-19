@@ -15,6 +15,7 @@
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server",
     "migrate": "node server/scripts/migrate.mjs",
+    "seed": "node server/scripts/migrate.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

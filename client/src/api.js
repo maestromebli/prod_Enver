@@ -11,11 +11,29 @@ function apiUrl(path) {
 }
 
 function networkErrorHelp() {
-  const port = typeof window !== "undefined" ? window.location.port : "3001";
+  const port = typeof window !== "undefined" ? window.location.port : "3000";
   if (port === "5173") {
-    return "Сервер не відповідає. Запустіть npm run dev у корені проєкту (http://localhost:3001).";
+    return "Сервер не відповідає. Запустіть npm run dev у корені проєкту (http://localhost:3000).";
   }
-  return `Сервер недоступний. У корені проєкту: npm run dev, потім http://localhost:3001.`;
+  return `Сервер недоступний. У корені проєкту: npm run dev, потім http://localhost:3000.`;
+}
+
+/** Розпаковує v2 { ok, data } або legacy-відповідь. */
+export function unwrapApiPayload(data) {
+  if (data && typeof data.ok === "boolean") {
+    if (!data.ok) {
+      const msg = data.error?.message || data.error || "Помилка запиту";
+      const err = new Error(msg);
+      err.code = data.error?.code;
+      throw err;
+    }
+    return data.data !== undefined ? data.data : null;
+  }
+  if (data?.error && typeof data.error === "string") {
+    const err = new Error(data.error);
+    throw err;
+  }
+  return data;
 }
 
 export function getStoredToken() {
@@ -43,18 +61,27 @@ async function request(path, options = {}) {
 
   if (response.status === 204) return null;
 
-  const data = await response.json().catch(() => ({}));
+  const raw = await response.json().catch(() => ({}));
+
   if (response.status === 401) {
     setStoredToken(null);
-    throw new Error(data.error || "Сесія закінчилась — увійдіть знову");
+    const msg =
+      raw?.error?.message || (typeof raw?.error === "string" ? raw.error : null) || "Сесія закінчилась — увійдіть знову";
+    throw new Error(msg);
   }
+
   if (!response.ok) {
-    const err = new Error(data.error || `Помилка ${response.status}`);
+    const msg =
+      raw?.error?.message ||
+      (typeof raw?.error === "string" ? raw.error : null) ||
+      `Помилка ${response.status}`;
+    const err = new Error(msg);
     err.status = response.status;
+    err.code = raw?.error?.code;
     throw err;
   }
 
-  return data;
+  return unwrapApiPayload(raw);
 }
 
 export const api = {
@@ -88,7 +115,10 @@ export const api = {
   updateDirectories: (body) =>
     request("/api/directories", { method: "PUT", body: JSON.stringify(body) }),
 
-  login: (body) => request("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  login: async (body) => {
+    const data = await request("/api/auth/login", { method: "POST", body: JSON.stringify(body) });
+    return data;
+  },
   logout: () => request("/api/auth/logout", { method: "POST" }),
   getAuthMe: () => request("/api/auth/me"),
 
@@ -167,5 +197,7 @@ export const api = {
     });
     const qs = q.toString();
     return request(`/api/history${qs ? `?${qs}` : ""}`);
-  }
+  },
+
+  getHealth: () => request("/api/health")
 };

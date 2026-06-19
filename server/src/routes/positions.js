@@ -14,6 +14,7 @@ import {
   closeSessionsAfterStageStatusChanges,
   OPERATOR_ACTIVE_STATUSES
 } from "../operator-sessions.js";
+import { nextPositionId } from "../db/position-id.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -30,11 +31,6 @@ async function planDateByOrderNumber() {
 function mapEnrichedRow(row, planMap) {
   const planDate = planMap.get(row.order_number);
   return mapPosition(enrichPositionRow(row, { planDate }));
-}
-
-async function nextPositionId() {
-  const row = await one("SELECT MAX(id) AS maxid FROM positions");
-  return (row.maxid ?? 1000) + 1;
 }
 
 async function loadRow(id) {
@@ -66,6 +62,7 @@ async function saveRow(id, data, planDate) {
       install_responsible = @install_responsible,
       position_status = @position_status,
       progress = @progress,
+      current_stage = @current_stage,
       overdue_days = @overdue_days,
       problem = @problem,
       note = @note

@@ -2,8 +2,15 @@ import crypto from "crypto";
 import { one, run } from "./db.js";
 import { verifyPassword } from "./auth-utils.js";
 import { DEFAULT_PERMISSIONS } from "./roles.js";
+import { config } from "./config.js";
 
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+function hashToken(token) {
+  return crypto.createHmac("sha256", config.sessionSecret).update(token).digest("hex");
+}
+
+function createRawToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
 
 export async function mapUser(row) {
   if (!row) return null;
@@ -21,10 +28,9 @@ export async function mapUser(row) {
     try {
       permissions = { ...permissions, ...JSON.parse(rolePerms.permissions_json) };
     } catch {
-      /* keep defaults */
+      /* defaults */
     }
   }
-  // Адміністратор — суперадмін: усі права незалежно від запису в role_permissions
   if (row.role === "admin") {
     permissions = { ...permissions, ...DEFAULT_PERMISSIONS.admin };
   }
@@ -46,24 +52,25 @@ export async function mapUser(row) {
   };
 }
 
-function createToken() {
-  return crypto.randomBytes(32).toString("hex");
-}
-
 export async function createSession(userId) {
-  const token = createToken();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  await run(`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`, [
-    token,
-    userId,
-    expiresAt
-  ]);
-  return { token, expiresAt };
+  const rawToken = createRawToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + config.sessionTtlMs).toISOString();
+  await run(
+    `INSERT INTO sessions (token, user_id, expires_at, token_hash, last_seen_at)
+     VALUES ($1, $2, $3, $4, now())`,
+    [tokenHash, userId, expiresAt, tokenHash]
+  );
+  return { token: rawToken, expiresAt };
 }
 
 export async function deleteSession(token) {
   if (!token) return;
-  await run("DELETE FROM sessions WHERE token = $1", [token]);
+  const hashed = hashToken(token);
+  await run("DELETE FROM sessions WHERE token = $1 OR token_hash = $1 OR token = $2", [
+    hashed,
+    token
+  ]);
 }
 
 export async function purgeExpiredSessions() {
@@ -73,12 +80,21 @@ export async function purgeExpiredSessions() {
 export async function getUserByToken(token) {
   if (!token) return null;
   await purgeExpiredSessions();
+  const hashed = hashToken(token);
   const row = await one(
     `SELECT u.* FROM sessions s
      JOIN users u ON u.id = s.user_id
-     WHERE s.token = $1 AND u.active = TRUE AND s.expires_at >= now()`,
-    [token]
+     WHERE (s.token = $1 OR s.token = $2 OR s.token_hash = $2)
+       AND u.active = TRUE AND s.expires_at >= now()`,
+    [token, hashed]
   );
+  if (row) {
+    await run(
+      `UPDATE sessions SET last_seen_at = now()
+       WHERE (token = $1 OR token = $2 OR token_hash = $2) AND expires_at >= now()`,
+      [token, hashed]
+    );
+  }
   return mapUser(row);
 }
 
