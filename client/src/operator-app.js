@@ -24,7 +24,12 @@ import {
   initOperatorMachineSettingsModal,
   openOperatorMachineSettings
 } from "./operator-machine-settings.js";
-import { reloadIfAppBuildChanged, setOperatorUiActive, syncOperatorBuildChip, watchAppBuildUpdates } from "./operator-ui.js";
+import {
+  reloadIfAppBuildChanged,
+  setOperatorUiActive,
+  syncOperatorBuildChip,
+  watchAppBuildUpdates
+} from "./operator-ui.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
