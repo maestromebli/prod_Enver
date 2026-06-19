@@ -36,9 +36,18 @@ export function resolveUncToMount(rawPath) {
   if (!normalized.startsWith("\\\\")) return null;
 
   const host = smbHost().toLowerCase();
-  if (normalized === `\\\\${host}\\kdtsaw`) return kdtLogMount();
-  if (normalized === `\\\\${host}\\log`) return enverLogMount();
+  let mount = null;
+  if (normalized === `\\\\${host}\\kdtsaw`) mount = kdtLogMount();
+  else if (normalized === `\\\\${host}\\log`) mount = enverLogMount();
+  else return null;
 
+  try {
+    if (fs.existsSync(mount)) return mount;
+  } catch {
+    return null;
+  }
+
+  if (process.env.SMB_PASSWORD || process.env.SMB_HOST) return mount;
   return null;
 }
 

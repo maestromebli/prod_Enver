@@ -1,4 +1,12 @@
 import { one, run } from "./db.js";
+import { isUncPath, normalizeUncPath } from "./machine-paths.js";
+
+function normalizeStoredPath(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.startsWith("browser://")) return raw;
+  if (isUncPath(raw)) return normalizeUncPath(raw);
+  return raw;
+}
 
 export const DEFAULT_AI_SOURCE_SUBFOLDERS = ["meta.json", "giblab", "kdt"];
 
@@ -69,7 +77,7 @@ export async function updateMachineConfig(stageKey, body = {}) {
   if (clearToken) token = "";
   else if (apiToken && apiToken !== "••••••••") token = apiToken;
 
-  const logPathNext = logPath !== undefined ? logPath : existing.log_path;
+  const logPathNext = logPath !== undefined ? normalizeStoredPath(logPath) : existing.log_path;
   const logPathChanged = logPath !== undefined && logPath !== existing.log_path;
   const parserChanged = parserProfile !== undefined && parserProfile !== existing.parser_profile;
   const shouldResetSync = resetLogOffset || logPathChanged || parserChanged;
@@ -105,7 +113,9 @@ export async function updateMachineConfig(stageKey, body = {}) {
       ai_matching_enabled:
         aiMatchingEnabled !== undefined ? Boolean(aiMatchingEnabled) : existing.ai_matching_enabled,
       projects_root_path:
-        projectsRootPath !== undefined ? projectsRootPath : (existing.projects_root_path ?? ""),
+        projectsRootPath !== undefined
+          ? normalizeStoredPath(projectsRootPath)
+          : (existing.projects_root_path ?? ""),
       ai_source_subfolders_json: subfoldersJson,
       reset_offset: Boolean(shouldResetSync)
     }
