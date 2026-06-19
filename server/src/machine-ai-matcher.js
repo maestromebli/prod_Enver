@@ -93,7 +93,7 @@ function heuristicScore(parsed, row, folderContext = "") {
 
   const job = normalize(parsed.jobRef);
   const prog = normalize(parsed.programName);
-  const blob = positionSearchText(row);
+  const blob = positionSearchText(row, folderContext);
 
   if (job && blob.includes(job)) score += 0.35;
   if (prog && blob.includes(prog)) score += 0.3;
