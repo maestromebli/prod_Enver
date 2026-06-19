@@ -1,11 +1,11 @@
-/* Клієнт оператора (планшет / PWA) — суворо в межах екрана */
+/* Клієнт оператора (планшет / PWA / офіс) — суворо в межах екрана */
 
-html:has(body.enver-operator-client) {
+html:has(body.enver-operator-ui) {
   height: 100%;
   overflow: hidden;
 }
 
-.enver-operator-client {
+body.enver-operator-ui {
   height: 100dvh;
   height: 100svh;
   min-height: 0;
@@ -17,8 +17,8 @@ html:has(body.enver-operator-client) {
 
 html.operator-pwa-capable,
 html.enver-native-shell,
-html.operator-pwa-capable body.enver-operator-client,
-html.enver-native-shell body.enver-operator-client {
+html.operator-pwa-capable body.enver-operator-ui,
+html.enver-native-shell body.enver-operator-ui {
   height: 100%;
   overflow: hidden;
 }
@@ -35,7 +35,7 @@ body.operator-kiosk-locked {
   user-select: none;
 }
 
-.enver-operator-client .loading-overlay.visible {
+.enver-operator-ui .loading-overlay.visible {
   display: flex;
 }
 
@@ -146,7 +146,7 @@ body.operator-kiosk-locked {
 
 /* ——— Панель всередині viewport ——— */
 
-.enver-operator-client .operator-shell {
+.enver-operator-ui .operator-shell {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -158,66 +158,42 @@ body.operator-kiosk-locked {
   animation: none;
 }
 
-.enver-operator-client .op-header {
+.enver-operator-ui .op-header {
   display: none;
 }
 
-.enver-operator-client .op-stage-nav {
+.enver-operator-ui .op-stage-nav {
   flex-shrink: 0;
   margin-bottom: 4px;
   padding: 3px;
   gap: 4px;
 }
 
-.enver-operator-client .op-stage-tab {
+.enver-operator-ui .op-stage-tab {
   padding: 6px 10px;
   font-size: 0.72rem;
 }
 
-.enver-operator-client .op-stage-tab-icon {
+.enver-operator-ui .op-stage-tab-icon {
   width: 16px;
   height: 16px;
 }
 
-.enver-operator-client .op-supervisor-banner,
-.enver-operator-client .op-lock-banner {
+.enver-operator-ui .op-supervisor-banner,
+.enver-operator-ui .op-lock-banner {
   flex-shrink: 0;
   margin-bottom: 4px;
   padding: 8px 10px;
   font-size: 0.75rem;
 }
 
-.enver-operator-client .op-supervisor-banner p,
-.enver-operator-client .op-lock-banner p {
+.enver-operator-ui .op-supervisor-banner p,
+.enver-operator-ui .op-lock-banner p {
   margin: 0.25rem 0 0;
   font-size: 0.7rem;
 }
 
-.enver-operator-client .op-stats {
-  flex-shrink: 0;
-  margin-bottom: 4px;
-  gap: 4px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.enver-operator-client .op-stat-card {
-  padding: 6px 8px;
-}
-
-.enver-operator-client .op-stat-value {
-  font-size: 1rem;
-}
-
-.enver-operator-client .op-stat-value--time {
-  font-size: 0.85rem;
-}
-
-.enver-operator-client .op-stat-label {
-  margin-top: 2px;
-  font-size: 0.62rem;
-}
-
-.enver-operator-client .op-layout {
+.enver-operator-ui .op-layout {
   flex: 1;
   min-height: 0;
   gap: 6px;
@@ -226,8 +202,8 @@ body.operator-kiosk-locked {
   grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
 }
 
-.enver-operator-client .op-queue-panel,
-.enver-operator-client .op-work-panel {
+.enver-operator-ui .op-queue-panel,
+.enver-operator-ui .op-work-panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -235,36 +211,36 @@ body.operator-kiosk-locked {
   border-radius: 10px;
 }
 
-.enver-operator-client .op-panel-head {
+.enver-operator-ui .op-panel-head {
   flex-shrink: 0;
   padding: 8px 10px;
 }
 
-.enver-operator-client .op-panel-head h2 {
+.enver-operator-ui .op-panel-head h2 {
   font-size: 0.8rem;
 }
 
-.enver-operator-client .op-fresh-reminder {
+.enver-operator-ui .op-fresh-reminder {
   margin: 6px 6px 0;
   padding: 6px 8px;
   font-size: 0.7rem;
 }
 
-.enver-operator-client .op-fresh-actions {
+.enver-operator-ui .op-fresh-actions {
   gap: 6px;
 }
 
-.enver-operator-client .op-fresh-actions label {
+.enver-operator-ui .op-fresh-actions label {
   font-size: 0.62rem;
 }
 
-.enver-operator-client .op-count-badge {
+.enver-operator-ui .op-count-badge {
   min-width: 22px;
   height: 22px;
   font-size: 0.72rem;
 }
 
-.enver-operator-client .op-queue-list {
+.enver-operator-ui .op-queue-list {
   flex: 1;
   min-height: 0;
   max-height: none;
@@ -274,23 +250,23 @@ body.operator-kiosk-locked {
   -webkit-overflow-scrolling: touch;
 }
 
-.enver-operator-client .op-queue-card {
+.enver-operator-ui .op-queue-card {
   padding: 8px 10px;
 }
 
-.enver-operator-client .op-queue-order {
+.enver-operator-ui .op-queue-order {
   font-size: 0.72rem;
 }
 
-.enver-operator-client .op-queue-item {
+.enver-operator-ui .op-queue-item {
   font-size: 0.78rem;
 }
 
-.enver-operator-client .op-queue-object {
+.enver-operator-ui .op-queue-object {
   font-size: 0.68rem;
 }
 
-.enver-operator-client .op-work-panel {
+.enver-operator-ui .op-work-panel {
   min-height: 0;
   padding: 10px;
   gap: 10px;
@@ -298,49 +274,49 @@ body.operator-kiosk-locked {
   -webkit-overflow-scrolling: touch;
 }
 
-.enver-operator-client .op-task-hero {
+.enver-operator-ui .op-task-hero {
   padding: 12px;
 }
 
-.enver-operator-client .op-task-title {
+.enver-operator-ui .op-task-title {
   font-size: 1.05rem;
   margin-bottom: 4px;
 }
 
-.enver-operator-client .op-task-subtitle {
+.enver-operator-ui .op-task-subtitle {
   margin-bottom: 10px;
   font-size: 0.75rem;
 }
 
-.enver-operator-client .op-task-grid {
+.enver-operator-ui .op-task-grid {
   gap: 6px;
 }
 
-.enver-operator-client .op-task-field {
+.enver-operator-ui .op-task-field {
   padding: 8px 10px;
 }
 
-.enver-operator-client .op-task-field-label {
+.enver-operator-ui .op-task-field-label {
   font-size: 0.62rem;
   margin-bottom: 2px;
 }
 
-.enver-operator-client .op-task-field-value {
+.enver-operator-ui .op-task-field-value {
   font-size: 0.78rem;
 }
 
-.enver-operator-client .op-machine-section {
+.enver-operator-ui .op-machine-section {
   padding: 10px;
 }
 
-.enver-operator-client .op-action-bar {
+.enver-operator-ui .op-action-bar {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
-.enver-operator-client .op-action-btn {
+.enver-operator-ui .op-action-btn {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -354,17 +330,17 @@ body.operator-kiosk-locked {
   box-shadow: 0 2px 6px rgba(15, 42, 68, 0.1);
 }
 
-.enver-operator-client .op-action-btn:not(:disabled):hover {
+.enver-operator-ui .op-action-btn:not(:disabled):hover {
   transform: none;
   filter: brightness(1.04);
 }
 
-.enver-operator-client .op-action-btn:not(:disabled):active {
+.enver-operator-ui .op-action-btn:not(:disabled):active {
   transform: scale(0.98);
   filter: none;
 }
 
-.enver-operator-client .op-action-btn:disabled {
+.enver-operator-ui .op-action-btn:disabled {
   opacity: 1;
   color: #94a3b8 !important;
   background: #e8edf3 !important;
@@ -372,27 +348,27 @@ body.operator-kiosk-locked {
   border-color: #d8e0ea;
 }
 
-.enver-operator-client .op-action-btn:disabled .op-action-icon {
+.enver-operator-ui .op-action-btn:disabled .op-action-icon {
   background: rgba(148, 163, 184, 0.18);
   color: #94a3b8;
 }
 
-.enver-operator-client .op-action-icon {
+.enver-operator-ui .op-action-icon {
   width: 30px;
   height: 30px;
   border-radius: 8px;
 }
 
-.enver-operator-client .op-action-icon svg {
+.enver-operator-ui .op-action-icon svg {
   width: 17px;
   height: 17px;
 }
 
-.enver-operator-client .op-action-text {
+.enver-operator-ui .op-action-text {
   min-width: 0;
 }
 
-.enver-operator-client .op-action-text strong {
+.enver-operator-ui .op-action-text strong {
   display: block;
   font-size: 0.82rem;
   font-weight: 700;
@@ -402,35 +378,24 @@ body.operator-kiosk-locked {
   text-overflow: ellipsis;
 }
 
-.enver-operator-client .op-action-text small {
+.enver-operator-ui .op-action-text small {
   display: none;
 }
 
-.enver-operator-client.view-operator,
-body.enver-operator-client.view-operator {
+.enver-operator-ui.view-operator,
+body.enver-operator-ui.view-operator {
   background: #eef2f7;
 }
 
-.enver-operator-client.view-operator .app {
+.enver-operator-ui.view-operator .app {
   padding-top: 0;
 }
 
 /* Портрет: черга зверху, робота знизу */
 @media (orientation: portrait), (max-width: 820px) {
-  .enver-operator-client .op-layout {
+  .enver-operator-ui .op-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
-  }
-
-  .enver-operator-client .op-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-/* Дуже вузький екран — 2 колонки статистики */
-@media (max-width: 420px) {
-  .enver-operator-client .op-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -456,137 +421,115 @@ body.enver-operator-client.view-operator {
 
 /* ——— Порізка на планшеті: один екран без прокрутки ——— */
 
-.enver-operator-client .operator-shell.op-one-screen[data-stage="cutting"] {
+.enver-operator-ui .operator-shell.op-one-screen[data-stage="cutting"] {
   gap: 0;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-stage-nav {
+.enver-operator-ui .operator-shell.op-one-screen .op-stage-nav {
   margin-bottom: 3px;
   padding: 2px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-supervisor-banner,
-.enver-operator-client .operator-shell.op-one-screen .op-lock-banner {
+.enver-operator-ui .operator-shell.op-one-screen .op-supervisor-banner,
+.enver-operator-ui .operator-shell.op-one-screen .op-lock-banner {
   margin-bottom: 3px;
   padding: 5px 8px;
   font-size: 0.68rem;
   line-height: 1.25;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-supervisor-banner p,
-.enver-operator-client .operator-shell.op-one-screen .op-lock-banner p {
+.enver-operator-ui .operator-shell.op-one-screen .op-supervisor-banner p,
+.enver-operator-ui .operator-shell.op-one-screen .op-lock-banner p {
   display: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-lock-banner .op-btn-ghost {
+.enver-operator-ui .operator-shell.op-one-screen .op-lock-banner .op-btn-ghost {
   margin-top: 4px;
   padding: 2px 6px;
   font-size: 0.65rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-stats {
-  margin-bottom: 3px;
-  gap: 3px;
-}
-
-.enver-operator-client .operator-shell.op-one-screen .op-stat-card {
-  padding: 4px 6px;
-}
-
-.enver-operator-client .operator-shell.op-one-screen .op-stat-value {
-  font-size: 0.9rem;
-}
-
-.enver-operator-client .operator-shell.op-one-screen .op-stat-value--time {
-  font-size: 0.78rem;
-}
-
-.enver-operator-client .operator-shell.op-one-screen .op-stat-label {
-  font-size: 0.58rem;
-  margin-top: 1px;
-}
-
 /* Завжди дві колонки: черга | робота */
-.enver-operator-client .operator-shell.op-one-screen .op-layout {
+.enver-operator-ui .operator-shell.op-one-screen .op-layout {
   grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
   grid-template-rows: 1fr;
   gap: 4px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-panel-head {
+.enver-operator-ui .operator-shell.op-one-screen .op-panel-head {
   padding: 5px 8px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-panel-head h2 {
+.enver-operator-ui .operator-shell.op-one-screen .op-panel-head h2 {
   font-size: 0.72rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-fresh-reminder {
+.enver-operator-ui .operator-shell.op-one-screen .op-fresh-reminder {
   margin: 3px 4px 0;
   padding: 3px 6px;
   font-size: 0.62rem;
   gap: 4px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-fresh-reminder--quiet {
+.enver-operator-ui .operator-shell.op-one-screen .op-fresh-reminder--quiet {
   padding: 2px 4px;
   border: none;
   background: transparent;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-fresh-actions .op-btn-ghost {
+.enver-operator-ui .operator-shell.op-one-screen .op-fresh-actions .op-btn-ghost {
   padding: 1px 4px;
   font-size: 0.6rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-list {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-list {
   overflow: hidden;
   padding: 4px;
   gap: 3px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-card {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-card {
   padding: 4px 6px;
   gap: 1px;
   border-radius: 8px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-order {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-order {
   font-size: 0.65rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-item {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-item {
   font-size: 0.72rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-object {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-object {
   display: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-footer {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-footer {
   margin-top: 1px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-queue-footer .badge {
+.enver-operator-ui .operator-shell.op-one-screen .op-queue-footer .badge {
   font-size: 0.58rem;
   padding: 1px 5px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-empty-queue {
+.enver-operator-ui .operator-shell.op-one-screen .op-empty-queue {
   padding: 8px 4px;
   font-size: 0.7rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-empty-queue .op-empty-icon {
+.enver-operator-ui .operator-shell.op-one-screen .op-empty-queue .op-empty-icon {
   width: 28px;
   height: 28px;
   margin-bottom: 4px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-work-panel {
+.enver-operator-ui .operator-shell.op-one-screen .op-work-panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 4px;
@@ -595,21 +538,21 @@ body.enver-operator-client.view-operator {
   overflow: hidden;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-hero--compact {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-hero--compact {
   padding: 6px 8px;
   margin: 0;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-hero-top {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-hero-top {
   margin-bottom: 4px;
   gap: 6px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-id {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-id {
   font-size: 0.62rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-title {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-title {
   font-size: 0.88rem;
   margin-bottom: 2px;
   line-height: 1.2;
@@ -619,7 +562,7 @@ body.enver-operator-client.view-operator {
   overflow: hidden;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-subtitle {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-subtitle {
   margin-bottom: 0;
   font-size: 0.68rem;
   white-space: nowrap;
@@ -627,7 +570,7 @@ body.enver-operator-client.view-operator {
   text-overflow: ellipsis;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-inline {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-inline {
   margin: 3px 0 0;
   padding: 3px 6px;
   border-radius: 6px;
@@ -636,25 +579,25 @@ body.enver-operator-client.view-operator {
   line-height: 1.25;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-inline--warn {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-inline--warn {
   color: #b91c1c;
   background: #fff1f2;
   border: 1px solid #fecaca;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-inline--problem {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-inline--problem {
   color: #9a3412;
   background: #fffbeb;
   border: 1px solid #fed7aa;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-inline--note {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-inline--note {
   color: var(--op-muted, #64748b);
   background: var(--op-surface, #fff);
   border: 1px solid var(--op-border, #e2e8f0);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-card--compact {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-card--compact {
   margin: 0;
   padding: 4px 6px;
   display: flex;
@@ -663,12 +606,12 @@ body.enver-operator-client.view-operator {
   gap: 4px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-state {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-state {
   font-size: 0.58rem;
   padding: 2px 6px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-chips {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
@@ -676,7 +619,7 @@ body.enver-operator-client.view-operator {
   flex: 1;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-chip {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-chip {
   font-size: 0.62rem;
   font-weight: 600;
   padding: 2px 6px;
@@ -689,39 +632,39 @@ body.enver-operator-client.view-operator {
   max-width: 100%;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-chip--accent {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-chip--accent {
   color: var(--op-accent);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-chip--live {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-chip--live {
   color: #059669;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-folder-empty {
+.enver-operator-ui .operator-shell.op-one-screen .op-folder-empty {
   margin: 0;
   font-size: 0.62rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-empty {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-empty {
   padding: 8px;
   flex: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-empty-illustration {
+.enver-operator-ui .operator-shell.op-one-screen .op-empty-illustration {
   display: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-empty h2 {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-empty h2 {
   font-size: 0.85rem;
   margin-bottom: 4px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-task-empty p {
+.enver-operator-ui .operator-shell.op-one-screen .op-task-empty p {
   font-size: 0.68rem;
   max-width: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-section--compact {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-section--compact {
   padding: 6px 8px;
   min-height: 0;
   overflow: hidden;
@@ -729,21 +672,21 @@ body.enver-operator-client.view-operator {
   flex-direction: column;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-head {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-head {
   margin-bottom: 4px;
   flex-shrink: 0;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-head h3 {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-head h3 {
   font-size: 0.7rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-status {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-status {
   font-size: 0.58rem;
   padding: 2px 6px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-body {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-body {
   gap: 8px;
   flex: 1;
   min-height: 0;
@@ -751,30 +694,30 @@ body.enver-operator-client.view-operator {
   flex-wrap: nowrap;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-ring-wrap {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-ring-wrap {
   width: 64px;
   height: 64px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-ring-bg,
-.enver-operator-client .operator-shell.op-one-screen .op-ring-fill {
+.enver-operator-ui .operator-shell.op-one-screen .op-ring-bg,
+.enver-operator-ui .operator-shell.op-one-screen .op-ring-fill {
   stroke-width: 6;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-ring-text {
+.enver-operator-ui .operator-shell.op-one-screen .op-ring-text {
   font-size: 0.82rem;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-details {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-details {
   min-width: 0;
   flex: 1;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-linear-progress {
+.enver-operator-ui .operator-shell.op-one-screen .op-linear-progress {
   display: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-machine-msg {
+.enver-operator-ui .operator-shell.op-one-screen .op-machine-msg {
   margin: 0;
   font-size: 0.65rem;
   line-height: 1.3;
@@ -784,17 +727,17 @@ body.enver-operator-client.view-operator {
   overflow: hidden;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-match-card {
+.enver-operator-ui .operator-shell.op-one-screen .op-match-card {
   margin-top: 4px;
   padding: 3px 6px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-match-head {
+.enver-operator-ui .operator-shell.op-one-screen .op-match-head {
   font-size: 0.58rem;
   margin-bottom: 2px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-match-card strong {
+.enver-operator-ui .operator-shell.op-one-screen .op-match-card strong {
   font-size: 0.65rem;
   margin-bottom: 0;
   white-space: nowrap;
@@ -802,17 +745,17 @@ body.enver-operator-client.view-operator {
   text-overflow: ellipsis;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-match-reason {
+.enver-operator-ui .operator-shell.op-one-screen .op-match-reason {
   display: none;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-bar {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-bar {
   gap: 6px;
   flex-shrink: 0;
   padding-top: 2px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-btn {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-btn {
   min-height: 44px;
   padding: 0 6px;
   gap: 5px;
@@ -822,46 +765,51 @@ body.enver-operator-client.view-operator {
   box-shadow: 0 1px 4px rgba(15, 42, 68, 0.08);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-icon {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-icon {
   width: 26px;
   height: 26px;
   border-radius: 7px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-icon svg {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-icon svg {
   width: 15px;
   height: 15px;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-text strong {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-text strong {
   font-size: 0.76rem;
   font-weight: 700;
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-btn--start:not(:disabled) {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-btn--start:not(:disabled) {
   background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-btn--pause:not(:disabled) {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-btn--pause:not(:disabled) {
   background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
   box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-btn--resume:not(:disabled) {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-btn--resume:not(:disabled) {
   background: linear-gradient(180deg, #2dd4bf 0%, #0d9488 100%);
   box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
 }
 
-.enver-operator-client .operator-shell.op-one-screen .op-action-btn--finish:not(:disabled) {
+.enver-operator-ui .operator-shell.op-one-screen .op-action-btn--finish:not(:disabled) {
   background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
   box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
 }
 
 /* Портрет на планшеті — лишаємо дві колонки для порізки */
 @media (orientation: portrait), (max-width: 820px) {
-  .enver-operator-client .operator-shell.op-one-screen .op-layout {
+  .enver-operator-ui .operator-shell.op-one-screen .op-layout {
     grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
     grid-template-rows: 1fr;
   }
+}
+
+/* operator.html: після входу — лише op-header у контенті, без дубля */
+body.enver-operator-ui:has(.operator-shell) .operator-client-header {
+  display: none;
 }

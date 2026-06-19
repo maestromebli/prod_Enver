@@ -528,10 +528,6 @@ body {
     text-align: center;
   }
 
-  .op-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .op-work-panel {
     padding: 16px;
     min-height: auto;
@@ -556,10 +552,6 @@ body {
 }
 
 @media (max-width: 380px) {
-  .op-stats {
-    grid-template-columns: 1fr;
-  }
-
   .op-action-btn {
     padding: 14px 16px;
     min-height: 64px;

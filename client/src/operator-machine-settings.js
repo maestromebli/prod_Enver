@@ -35,10 +35,16 @@ function parserHint(profile) {
 
 function pathPickerHint() {
   const caps = folderPickerCapabilities();
+  if (caps.android && caps.windowsDialog) {
+    return "Оберіть папку: на Android — провідник пристрою, на Windows — мережевий діалог (\\\\NAS\\...).";
+  }
   if (caps.android) {
     return "Натисніть «Обрати папку» — відкриється провідник Android (пам'ять пристрою або мережеве сховище).";
   }
-  return "Натисніть «Обрати папку» — відкриється діалог Windows (диск C:, мережа \\\\NAS\\...).";
+  if (caps.windowsDialog) {
+    return "Натисніть «Обрати папку» — діалог Windows (диск C:, мережа \\\\NAS\\...). Шлях має бути доступний серверу ENVER у вашій мережі.";
+  }
+  return "Вкажіть шлях вручну або відкрийте ENVER на Windows-ПК / у додатку Android для вибору папки.";
 }
 
 function pathPickerRow({ inputId, pickId, label, hint }) {

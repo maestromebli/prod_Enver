@@ -255,82 +255,6 @@ body.view-operator .app {
   opacity: 1;
 }
 
-/* Stats */
-.op-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.op-stat-card {
-  padding: 16px 18px;
-  background: var(--op-surface);
-  border: 1px solid var(--op-border);
-  border-radius: var(--op-radius-sm);
-  box-shadow: var(--op-shadow);
-}
-
-.op-stat-card--accent {
-  background: linear-gradient(145deg, var(--op-accent-soft), var(--op-surface));
-  border-color: color-mix(in srgb, var(--op-accent) 18%, var(--op-border));
-}
-
-.op-stat-card--live {
-  position: relative;
-  overflow: hidden;
-}
-
-.op-stat-card--live::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
-  animation: op-pulse-ring 2s ease-out infinite;
-}
-
-@keyframes op-pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
-  }
-}
-
-.op-stat-value {
-  display: block;
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  color: var(--op-text);
-}
-
-.op-stat-card--accent .op-stat-value {
-  color: var(--op-accent);
-}
-
-.op-stat-value--time {
-  font-size: 1.25rem;
-}
-
-.op-stat-label {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--op-muted);
-}
-
 /* Layout */
 .op-layout {
   display: grid;
@@ -508,6 +432,18 @@ body.view-operator .app {
   border-radius: 50%;
   background: #22c55e;
   animation: op-pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes op-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 .op-overdue-tag {
@@ -1273,11 +1209,11 @@ body.view-operator .app {
   opacity: 0.85;
 }
 
-.enver-operator-client .op-ms-path-row {
+.enver-operator-ui .op-ms-path-row {
   flex-direction: column;
 }
 
-.enver-operator-client .op-ms-pick-btn {
+.enver-operator-ui .op-ms-pick-btn {
   width: 100%;
   min-height: 44px;
 }
@@ -1287,7 +1223,7 @@ body.view-operator .app {
   flex-wrap: wrap;
 }
 
-.enver-operator-client .op-machine-settings-modal .modal {
+.enver-operator-ui .op-machine-settings-modal .modal {
   max-height: min(92vh, 720px);
   overflow: auto;
 }

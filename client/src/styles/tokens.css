@@ -54,9 +54,25 @@
 }
 
 /* Operator touch targets */
+body.enver-operator-ui,
 body.view-operator {
   font-family: var(--font-sans);
   font-size: 18px;
+}
+
+.op-build-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--muted, #64748b);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface-muted, #f1f5f9);
+  letter-spacing: 0.04em;
+}
+
+body.enver-operator-ui .op-header-actions .op-build-chip {
+  margin-right: 4px;
 }
 
 .op-btn-primary {

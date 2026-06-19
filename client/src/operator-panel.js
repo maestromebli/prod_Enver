@@ -24,6 +24,7 @@ import {
   initOperatorMachineSettingsModal,
   openOperatorMachineSettings
 } from "./operator-machine-settings.js";
+import { isCuttingOneScreen } from "./operator-ui.js";
 
 const STAGE_THEME = {
   cutting: {
@@ -291,34 +292,6 @@ function statusField() {
   return map[state.operatorStage] || "cuttingStatus";
 }
 
-function queueStats() {
-  const field = statusField();
-  let working = 0;
-  let waiting = 0;
-  for (const p of state.operatorQueue) {
-    const s = p[field];
-    if (s === "В роботі" || s === "На паузі") working += 1;
-    else if (s === "Передано") waiting += 1;
-  }
-  return { total: state.operatorQueue.length, working, waiting };
-}
-
-function formatElapsed(startedAt) {
-  if (!startedAt) return null;
-  const normalized = String(startedAt).includes("T")
-    ? startedAt
-    : String(startedAt).replace(" ", "T");
-  const start = new Date(normalized);
-  if (Number.isNaN(start.getTime())) return null;
-  const ms = Math.max(0, Date.now() - start.getTime());
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const min = minutes % 60;
-  if (hours > 0) return `${hours} год ${min} хв`;
-  if (minutes > 0) return `${minutes} хв`;
-  return "< 1 хв";
-}
-
 function stageTheme(key) {
   return STAGE_THEME[key] || STAGE_THEME.cutting;
 }
@@ -339,14 +312,6 @@ function userInitials(name) {
     .split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return (parts[0]?.[0] || "О").toUpperCase();
-}
-
-function isOperatorTabletClient() {
-  return document.body?.classList.contains("enver-operator-client");
-}
-
-function isCuttingOneScreen(stageKey) {
-  return stageKey === "cutting" && isOperatorTabletClient();
 }
 
 function folderStateLabel(state) {
@@ -506,14 +471,9 @@ export function renderOperatorView() {
   const inWork = hasBlockingSession();
   const sessionOnOtherStage = inWork && !isOnActiveSessionStage();
   const blockingStage = OPERATOR_STAGES.find((s) => s.key === activeSessionStageKey());
-  const stats = queueStats();
   const field = statusField();
   const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
   const freshQueueCount = freshQueueIds.size;
-  const elapsed =
-    inWork && isOnActiveSessionStage()
-      ? formatElapsed(state.operatorActiveSession?.started_at)
-      : null;
   const ringOffset = RING_C * (1 - (state.machineProgress || 0) / 100);
   const oneScreen = isCuttingOneScreen(stageKey);
 
@@ -564,7 +524,7 @@ export function renderOperatorView() {
           <div class="op-header-actions">
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Система</button>' : ""}
             ${
-              canShowOperatorMachineSettings(stageKey) && !isOperatorTabletClient()
+              canShowOperatorMachineSettings(stageKey)
                 ? '<button type="button" class="op-btn-ghost" id="operatorMachineSettingsBtn" title="Логи та ШІ">⚙ Логи</button>'
                 : ""
             }
@@ -598,35 +558,11 @@ export function renderOperatorView() {
           : ""
       }
 
-      <div class="op-stats" role="group" aria-label="Статистика черги">
-        <div class="op-stat-card">
-          <span class="op-stat-value">${stats.total}</span>
-          <span class="op-stat-label">У черзі</span>
-        </div>
-        <div class="op-stat-card op-stat-card--accent">
-          <span class="op-stat-value">${stats.working}</span>
-          <span class="op-stat-label">В роботі</span>
-        </div>
-        <div class="op-stat-card">
-          <span class="op-stat-value">${stats.waiting}</span>
-          <span class="op-stat-label">Очікують</span>
-        </div>
-        ${
-          elapsed
-            ? `
-        <div class="op-stat-card op-stat-card--live">
-          <span class="op-stat-value op-stat-value--time">${escapeHtml(elapsed)}</span>
-          <span class="op-stat-label">Час сесії</span>
-        </div>`
-            : ""
-        }
-      </div>
-
       <div class="op-layout">
         <aside class="op-queue-panel" aria-label="Черга завдань">
           <div class="op-panel-head">
             <h2>Черга</h2>
-            <span class="op-count-badge">${stats.total}</span>
+            <span class="op-count-badge">${state.operatorQueue.length}</span>
           </div>
           ${
             freshQueueCount > 0

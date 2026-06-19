@@ -20,11 +20,8 @@ import {
   refreshMachineProgress,
   renderOperatorView
 } from "./operator-panel.js";
-import {
-  canShowOperatorMachineSettings,
-  initOperatorMachineSettingsModal,
-  openOperatorMachineSettings
-} from "./operator-machine-settings.js";
+import { initOperatorMachineSettingsModal } from "./operator-machine-settings.js";
+import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
@@ -64,13 +61,11 @@ function renderOperatorClient() {
   if (stageChip) {
     stageChip.textContent = state.operatorStage ? stageLabel(state.operatorStage) : "";
   }
-  const settingsBtn = $("#operatorClientMachineSettingsBtn");
-  if (settingsBtn) {
-    settingsBtn.hidden = !canShowOperatorMachineSettings(state.operatorStage);
-  }
-  document.body.classList.add("view-operator");
+  setOperatorUiActive(true);
   const content = $("#content");
   if (content) content.innerHTML = renderOperatorView();
+  syncOperatorBuildChip("operatorBuildChipInline");
+  syncOperatorBuildChip("operatorBuildChip");
 }
 
 async function loadOperatorClientData() {
@@ -97,33 +92,26 @@ function registerServiceWorker() {
 }
 
 async function syncOperatorBuildLabel() {
+  const build = await import("./operator-ui.js").then((m) => m.fetchAppBuildLabel());
   const chip = $("#operatorBuildChip");
-  if (!chip) return;
-  try {
-    const health = await fetch("/api/health", { cache: "no-store" }).then((r) => r.json());
-    const build = String(health.build || "").slice(0, 7);
-    if (!build) {
-      chip.hidden = true;
-      return;
-    }
-    chip.hidden = false;
-    chip.textContent = build;
-    chip.title = `Версія сервера: ${health.build}`;
-
-    const stored = localStorage.getItem("enver_operator_build");
-    if (stored && stored !== build) {
-      localStorage.setItem("enver_operator_build", build);
-      if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-      location.reload();
-      return;
-    }
-    localStorage.setItem("enver_operator_build", build);
-  } catch {
-    chip.hidden = true;
+  if (!build) {
+    if (chip) chip.hidden = true;
+    return;
   }
+
+  const stored = localStorage.getItem("enver_operator_build");
+  if (stored && stored !== build) {
+    localStorage.setItem("enver_operator_build", build);
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    location.reload();
+    return;
+  }
+  localStorage.setItem("enver_operator_build", build);
+  await syncOperatorBuildChip("operatorBuildChip");
+  await syncOperatorBuildChip("operatorBuildChipInline");
 }
 
 async function afterOperatorLogin() {
@@ -147,19 +135,12 @@ window.__enverRender = () => {
 bindOperatorActions(() => loadOperatorClientData());
 initOperatorMachineSettingsModal();
 
-$("#operatorClientMachineSettingsBtn")?.addEventListener("click", async () => {
-  initOperatorMachineSettingsModal();
-  await openOperatorMachineSettings(state.operatorStage, async () => {
-    await refreshMachineProgress();
-    await loadOperatorClientData();
-  });
-});
-
 $("#logoutBtn")?.addEventListener("click", async () => {
   const ok = await confirmKioskBeforeLogout();
   if (!ok) return;
   logout();
   state.view = "main";
+  setOperatorUiActive(false);
   showAppShell(false);
   showLoginModal(true);
 });

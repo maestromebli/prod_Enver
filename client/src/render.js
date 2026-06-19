@@ -11,6 +11,7 @@ import { PRODUCTION_FLOOR_TAB, STAGE_TABS, TABS } from "./constants.js";
 import { STAGE_TAB_KEYS } from "./terminology.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
+import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody } from "./render-positions.js";
 import { positionActionButtons, stageQuickActions } from "./positions.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
@@ -557,7 +558,7 @@ export function renderHeaderChrome() {
   const topbar = document.querySelector(".topbar");
   const toolbar = document.querySelector("#mainToolbar");
   const showMainChrome = state.view === "main";
-  const immersiveOperator = state.view === "operator" && isOperator();
+  const immersiveOperator = state.view === "operator";
 
   if (chip) {
     chip.hidden = !user;
@@ -604,7 +605,7 @@ export function renderHeaderChrome() {
     );
   }
 
-  document.body.classList.toggle("view-operator", state.view === "operator");
+  setOperatorUiActive(state.view === "operator");
   document.body.classList.toggle(
     "view-dashboard",
     state.view === "main" && state.activeTab === "Дашборд"
@@ -631,6 +632,7 @@ export function renderApp(options = {}) {
   }
   if (state.view === "operator") {
     document.querySelector("#content").innerHTML = renderOperatorView();
+    syncOperatorBuildChip("operatorBuildChipInline");
     return;
   }
 

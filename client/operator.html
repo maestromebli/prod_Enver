@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="/src/styles/toast.css" />
     <link rel="stylesheet" href="/src/styles/login.css" />
   </head>
-  <body class="enver-operator-client">
+  <body class="enver-operator-ui">
     <div class="loading-overlay" id="loadingOverlay">Завантаження…</div>
 
     <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
@@ -99,6 +99,8 @@
           class="btn btn-sm btn-header-action"
           id="operatorClientMachineSettingsBtn"
           hidden
+          tabindex="-1"
+          aria-hidden="true"
           title="Логи станка та ШІ"
         >
           ⚙ Логи

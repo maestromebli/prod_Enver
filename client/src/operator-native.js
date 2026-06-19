@@ -6,5 +6,5 @@ export function isNativeOperatorShell() {
 export function markNativeOperatorShell() {
   if (!isNativeOperatorShell()) return;
   document.documentElement.classList.add("operator-pwa-capable", "enver-native-shell");
-  document.body.classList.add("enver-native-shell");
+  document.body.classList.add("enver-operator-ui", "enver-native-shell");
 }
