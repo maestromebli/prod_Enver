@@ -66,7 +66,9 @@ async function request(path, options = {}) {
   if (response.status === 401) {
     setStoredToken(null);
     const msg =
-      raw?.error?.message || (typeof raw?.error === "string" ? raw.error : null) || "Сесія закінчилась — увійдіть знову";
+      raw?.error?.message ||
+      (typeof raw?.error === "string" ? raw.error : null) ||
+      "Сесія закінчилась — увійдіть знову";
     throw new Error(msg);
   }
 

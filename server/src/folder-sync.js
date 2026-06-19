@@ -14,7 +14,6 @@ export function normalizeFolderKey(key) {
     .replace(/\s+/g, "-");
 }
 
-
 function parseJson(str, fallback) {
   try {
     return JSON.parse(str || "");

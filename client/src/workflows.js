@@ -8,7 +8,14 @@ import {
   stageStatusClass
 } from "@enver/shared/production/stages.js";
 
-export { STAGE_STATUSES, POSITION_STATUSES, PRODUCTION_PROGRESS_WEIGHTS, STAGES, getNextStatus, stageStatusClass };
+export {
+  STAGE_STATUSES,
+  POSITION_STATUSES,
+  PRODUCTION_PROGRESS_WEIGHTS,
+  STAGES,
+  getNextStatus,
+  stageStatusClass
+};
 
 const STAGE_DONE = STAGE_STATUS_DONE;
 
