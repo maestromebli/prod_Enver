@@ -1,4 +1,5 @@
 import { toastError } from "./toast.js";
+import { isNativeOperatorShell } from "./operator-native.js";
 import { $ } from "./utils.js";
 
 const KIOSK_EXIT_PASSWORD = "1111";
@@ -185,6 +186,12 @@ export async function enableOperatorKiosk() {
   kioskLocked = true;
   bindKioskListeners();
   applyKioskDom(true);
+
+  // У нативній Android-оболонці вже повноекранна activity — без Fullscreen API.
+  if (isNativeOperatorShell()) {
+    return;
+  }
+
   await requestAppFullscreen();
   applyKioskDom(true);
 }
@@ -206,7 +213,7 @@ export async function confirmKioskBeforeLogout() {
 
 export function initOperatorKioskEarly() {
   bindKioskListeners();
-  if (isStandalonePwa() || isIos()) {
+  if (isStandalonePwa() || isIos() || isNativeOperatorShell()) {
     document.documentElement.classList.add("operator-pwa-capable");
   }
 }

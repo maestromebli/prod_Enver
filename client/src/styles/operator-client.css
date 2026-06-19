@@ -16,7 +16,9 @@ html:has(body.enver-operator-client) {
 }
 
 html.operator-pwa-capable,
-html.operator-pwa-capable body.enver-operator-client {
+html.enver-native-shell,
+html.operator-pwa-capable body.enver-operator-client,
+html.enver-native-shell body.enver-operator-client {
   height: 100%;
   overflow: hidden;
 }

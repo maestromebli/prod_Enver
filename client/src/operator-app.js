@@ -12,6 +12,7 @@ import {
   enableOperatorKiosk,
   initOperatorKioskEarly
 } from "./operator-kiosk.js";
+import { markNativeOperatorShell } from "./operator-native.js";
 import {
   bindOperatorActions,
   enterOperatorView,
@@ -190,6 +191,7 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
 });
 
 initAuthFromStorage();
+markNativeOperatorShell();
 initOperatorKioskEarly();
 registerServiceWorker();
 

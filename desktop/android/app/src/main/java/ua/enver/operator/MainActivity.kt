@@ -3,7 +3,6 @@ package ua.enver.operator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
-import android.view.View
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -14,8 +13,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -39,10 +36,11 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun startWithUrl(serverUrl: String) {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Як у Chrome PWA: системні панелі + safe-area, без приховування навігації.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         webView = WebView(this)
         setContentView(webView)
-        enterImmersiveMode()
 
         with(webView.settings) {
             javaScriptEnabled = true
@@ -50,6 +48,16 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
+            useWideViewPort = true
+            loadWithOverviewMode = false
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
+            textZoom = 100
+            val ua = userAgentString.orEmpty()
+            if (!ua.contains("EnverOperator/")) {
+                userAgentString = "$ua EnverOperator/1.0"
+            }
         }
 
         webView.webViewClient =
@@ -58,13 +66,7 @@ class MainActivity : AppCompatActivity() {
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean = false
             }
 
-        webView.webChromeClient =
-            object : WebChromeClient() {
-                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                    super.onShowCustomView(view, callback)
-                    enterImmersiveMode()
-                }
-            }
+        webView.webChromeClient = WebChromeClient()
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -110,21 +112,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .show()
-    }
-
-    private fun enterImmersiveMode() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && ::webView.isInitialized) {
-            enterImmersiveMode()
-        }
     }
 
     companion object {
