@@ -10,50 +10,50 @@ export async function loadClientsInfo() {
 export function clientsSectionHtml() {
   const origin =
     typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+  const downloadUrl =
+    clientsInfo?.androidDownloadUrl || `${origin}/downloads/enver-operator-android.apk`;
+  const downloadReady = Boolean(clientsInfo?.androidDownloadAvailable);
   const installUrl = clientsInfo?.androidInstallUrl || `${origin}/android-install.html`;
-  const operatorUrl = clientsInfo?.operatorUrl || `${origin}/operator.html`;
 
   return `
     <div class="settings-section">
       <h2>Клієнти для цеху</h2>
       <p class="settings-hint">
-        Клієнт для операторів станків на планшетах Android: повноекранна PWA-панель біля станка.
+        Застосунок для операторів станків на планшетах Android: повноекранна панель біля станка.
       </p>
 
       <article class="clients-card">
         <h3>Android (планшет / телефон)</h3>
         <p class="settings-hint">
-          Встановлення через Google Chrome — іконка «ENVER Оператор» на головному екрані.
+          Завантажте APK, встановіть на планшет і вкажіть адресу сервера ENVER при першому запуску.
           Після входу — повноекранний режим; вихід лише кнопкою «Вийти з повноекранного» і паролем
           <code>1111</code>.
         </p>
-        <a class="btn btn-primary" href="${escapeHtml(installUrl)}">
-          Відкрити сторінку установки
-        </a>
+        ${
+          downloadReady
+            ? `<a class="btn btn-primary" href="${escapeHtml(downloadUrl)}" download="enver-operator-android.apk">
+                Завантажити застосунок для Android
+              </a>`
+            : `<p class="form-error">APK ще не зібрано. На сервері виконайте: <code>npm run build:android-client</code></p>
+               <a class="btn" href="${escapeHtml(downloadUrl)}">Спробувати завантажити</a>`
+        }
         <div class="clients-link-row">
           <input
             class="clients-url-input"
-            id="androidInstallUrl"
+            id="androidDownloadUrl"
             type="text"
             readonly
-            value="${escapeHtml(installUrl)}"
+            value="${escapeHtml(downloadUrl)}"
           />
-          <button type="button" class="btn" data-copy-client-url="androidInstallUrl">Копіювати</button>
+          <button type="button" class="btn" data-copy-client-url="androidDownloadUrl">Копіювати</button>
         </div>
-        <div class="clients-link-row">
-          <input
-            class="clients-url-input"
-            id="operatorPanelUrl"
-            type="text"
-            readonly
-            value="${escapeHtml(operatorUrl)}"
-          />
-          <button type="button" class="btn" data-copy-client-url="operatorPanelUrl">Копіювати</button>
-        </div>
+        <p class="settings-hint">
+          Альтернатива без APK: <a href="${escapeHtml(installUrl)}">встановлення через Chrome (PWA)</a>.
+        </p>
         <ol class="clients-steps">
-          <li>На планшеті Android відкрийте посилання установки в Chrome (кнопка або QR з адмін-панелі).</li>
-          <li>Натисніть «Встановити застосунок» або меню Chrome → «Додати на головний екран».</li>
-          <li>Запускайте ENVER лише з іконки на головному екрані, не з вкладки браузера.</li>
+          <li>Завантажте APK на планшет Android (кнопка вище або скопіюйте посилання).</li>
+          <li>Дозвольте установку з невідомих джерел для браузера або файлового менеджера.</li>
+          <li>Відкрийте «ENVER Оператор» і вкажіть URL сервера (наприклад <code>https://enver.example.com</code>).</li>
           <li>Увійдіть (наприклад <code>porizka</code> / <code>1234</code>).</li>
           <li>Після входу панель займе весь екран; для виходу — «Вийти з повноекранного» + пароль <code>1111</code>.</li>
         </ol>

@@ -8,6 +8,7 @@
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix client",
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",
+    "build:android-client": "cd desktop/android && ./gradlew assembleRelease && node scripts/copy-release.mjs",
     "pack:production-module": "node scripts/pack-production-module.mjs",
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
     "agent:dev": "node agent/src/index.js",

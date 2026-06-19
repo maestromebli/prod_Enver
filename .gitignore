@@ -2,6 +2,11 @@ node_modules/
 dist/
 releases/_production-module-staging/
 releases/enver-production-module.zip
+releases/enver-operator-android.apk
+desktop/android/.gradle/
+desktop/android/app/build/
+desktop/android/build/
+desktop/android/local.properties
 server/data/*.db
 server/data/*.db-*
 .DS_Store

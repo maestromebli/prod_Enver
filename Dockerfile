@@ -23,6 +23,7 @@ RUN addgroup -S enver && adduser -S enver -G enver
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=build /app/server ./server
 COPY --from=build /app/client/dist ./client/dist
+COPY releases/ ./releases/
 
 USER enver
 EXPOSE 3000

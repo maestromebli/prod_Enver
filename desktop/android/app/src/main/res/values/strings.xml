@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ENVER Оператор</string>
+    <string name="server_url_title">Адреса сервера ENVER</string>
+    <string name="server_url_message">Вкажіть URL сервера (без /operator.html)</string>
+    <string name="server_url_hint">https://enver.example.com</string>
+    <string name="save">Зберегти</string>
+    <string name="change_server">Змінити сервер</string>
+</resources>

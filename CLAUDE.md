@@ -21,6 +21,8 @@ npm run lint                               # ESLint
 npm run format:check / format              # Prettier
 npm run validate                           # format:check + lint + test
 npm run icons:pwa                          # генерація PWA-іконок з SVG
+npm run build:android-client               # APK клієнт оператора (Android)
+npm run pack:production-module             # архів виробничого модуля
 ```
 
 **Dev-сервер на одному порту**: Vite працює як middleware Express (`server/src/index.js` → `createServer({ middlewareMode: true })`), тому відкривай **http://localhost:3000**, не `:5173`. `client/vite.config.js` із власним портом 5173 — лише на випадок самостійного `vite` (проксує `/api` на `:3001`).

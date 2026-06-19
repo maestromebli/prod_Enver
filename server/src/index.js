@@ -17,7 +17,7 @@ import machineLogsRouter from "./routes/machine-logs.js";
 import settingsRouter from "./routes/settings.js";
 import operatorRouter from "./routes/operator.js";
 import productionRouter from "./routes/production.js";
-import clientsRouter from "./routes/clients.js";
+import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
 import folderAgentRouter from "./routes/folder-agent.js";
 import aiEstimateRouter from "./routes/ai-estimate.js";
 import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
@@ -67,6 +67,8 @@ function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/clients", clientsRouter);
   app.use("/api/folder-agent", folderAgentRouter);
   app.use("/api/ai", aiEstimateRouter);
+
+  registerDownloadRoutes(app);
 
   app.use((err, _req, res, _next) => {
     console.error(err);

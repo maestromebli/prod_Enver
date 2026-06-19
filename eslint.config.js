@@ -28,7 +28,7 @@ export default [
     }
   },
   {
-    files: ["desktop/**/*.js"],
+    files: ["desktop/**/*.js", "desktop/**/*.mjs"],
     languageOptions: {
       globals: { ...globals.node }
     }
