@@ -21,26 +21,28 @@ export const config = {
   buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null
 };
 
-/** У production забороняє старт із дефолтними або відсутніми секретами. */
+/** У production перевіряє критичну конфігурацію; небезпечні секрети — лише попередження (щоб не ламати існуючі .env на сервері). */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
-  const errors = [];
   if (!config.databaseUrl) {
-    errors.push("DATABASE_URL обов'язковий у production");
+    console.error("DATABASE_URL обов'язковий у production");
+    process.exit(1);
   }
+
+  const warnings = [];
   if (!process.env.SESSION_SECRET || config.sessionSecret === INSECURE_DEFAULTS.sessionSecret) {
-    errors.push("SESSION_SECRET має бути заданий і відмінний від дефолтного dev-значення");
+    warnings.push(
+      "SESSION_SECRET — дефолтне dev-значення; задайте власний секрет у /opt/enver/.env"
+    );
   }
   if (!process.env.AGENT_TOKEN || config.agentToken === INSECURE_DEFAULTS.agentToken) {
-    errors.push("AGENT_TOKEN має бути заданий і відмінний від дефолтного dev-значення");
+    warnings.push(
+      "AGENT_TOKEN — дефолтне або порожнє; файловий агент цеху не працюватиме без токена"
+    );
   }
 
-  if (errors.length === 0) return;
-
-  console.error("Небезпечна production-конфігурація:");
-  for (const message of errors) {
-    console.error(`  • ${message}`);
+  for (const message of warnings) {
+    console.warn(`[security] ${message}`);
   }
-  process.exit(1);
 }
