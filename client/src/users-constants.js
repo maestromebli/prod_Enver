@@ -1,16 +1,8 @@
-export const OPERATOR_STAGES = [
-  { key: "cutting", label: "Порізка", tab: "Порізка" },
-  { key: "edging", label: "Крайкування", tab: "Крайкування" },
-  { key: "drilling", label: "Присадка", tab: "Присадка" },
-  { key: "assembly", label: "Збірка", tab: "Збірка" }
-];
+import { OPERATOR_STAGES } from "@enver/shared/production/stages.js";
+import { UI_ROLES } from "@enver/shared/production/permissions.js";
 
-export const ROLES = [
-  { id: "admin", label: "Адміністратор" },
-  { id: "production", label: "Начальник виробництва" },
-  { id: "manager", label: "Менеджер (продажі)" },
-  { id: "operator", label: "Оператор" }
-];
+export { OPERATOR_STAGES };
+export const ROLES = UI_ROLES;
 
 export const PRODUCTION_FLOOR_TAB = "Цех зараз";
 

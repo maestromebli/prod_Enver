@@ -25,6 +25,7 @@ import {
   openOperatorMachineSettings
 } from "./operator-machine-settings.js";
 import {
+  registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
   setOperatorUiActive,
   syncOperatorBuildChip,
@@ -91,16 +92,6 @@ async function loadOperatorClientData() {
   } finally {
     setLoading(false);
   }
-}
-
-function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker
-    .register("/sw-operator.js")
-    .then((reg) => {
-      reg.update().catch(() => {});
-    })
-    .catch(() => {});
 }
 
 async function syncOperatorBuildLabel() {
@@ -174,8 +165,6 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
 initAuthFromStorage();
 markNativeOperatorShell();
 initOperatorKioskEarly();
-registerServiceWorker();
-watchAppBuildUpdates();
 
 async function bootstrap() {
   const hasToken = Boolean(localStorage.getItem("enver_token"));
@@ -196,4 +185,11 @@ async function bootstrap() {
   showLoginModal(true);
 }
 
-bootstrap();
+async function startOperatorApp() {
+  registerOperatorServiceWorker();
+  watchAppBuildUpdates();
+  if (await reloadIfAppBuildChanged()) return;
+  await bootstrap();
+}
+
+startOperatorApp();

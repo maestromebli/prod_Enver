@@ -7,7 +7,11 @@ import {
   enrichPositionRow,
   PRODUCTION_PROGRESS_WEIGHTS
 } from "../../shared/production/position-logic.js";
-import { STAGE_STATUSES } from "../../shared/production/stages.js";
+import {
+  OPERATOR_QUEUE_STATUSES,
+  OPERATOR_SESSION_ACTIVE_STATUSES_LIST,
+  STAGE_STATUSES
+} from "../../shared/production/stages.js";
 
 describe("shared/production", () => {
   it("ваги етапів = 100%", () => {
@@ -18,6 +22,11 @@ describe("shared/production", () => {
   it("STAGE_STATUSES містить усі робочі стани", () => {
     assert.ok(STAGE_STATUSES.includes("В роботі"));
     assert.ok(STAGE_STATUSES.includes("Передано"));
+  });
+
+  it("набори статусів узгоджені", () => {
+    assert.ok(OPERATOR_QUEUE_STATUSES.includes("Передано"));
+    assert.deepEqual(OPERATOR_SESSION_ACTIVE_STATUSES_LIST.sort(), ["В роботі", "На паузі"].sort());
   });
 
   it("handoff cutting → edging", () => {

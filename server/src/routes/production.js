@@ -2,6 +2,7 @@ import { Router } from "express";
 import { all, one } from "../db.js";
 import { OPERATOR_STAGES, STAGE_STATUS_FIELD } from "../roles.js";
 import { requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
+import { PRODUCTION_FLOOR_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
 
 const router = Router();
 router.use(requireAuth, requirePermissionOrAdmin("canViewProductionFloor"));
@@ -40,9 +41,10 @@ router.get("/floor", async (_req, res) => {
   for (const stage of OPERATOR_STAGES) {
     const field = STAGE_STATUS_FIELD[stage.key];
     const counts = { handed: 0, inWork: 0, paused: 0, problem: 0, overdue: 0 };
+    const floorIn = sqlLiteralsIn(PRODUCTION_FLOOR_STATUSES);
     const rows = await all(
       `SELECT ${field} AS status, problem, overdue_days FROM positions
-       WHERE ${field} IN ('Передано', 'В роботі', 'На паузі', 'Проблема')`
+       WHERE ${field} IN (${floorIn})`
     );
 
     for (const r of rows) {

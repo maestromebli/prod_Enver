@@ -15,6 +15,7 @@ import {
   OPERATOR_ACTIVE_STATUSES
 } from "../operator-sessions.js";
 import { nextPositionId } from "../db/position-id.js";
+import { insertPosition, updatePositionFull } from "../db/position-persistence.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -39,36 +40,7 @@ async function loadRow(id) {
 
 async function saveRow(id, data, planDate) {
   const enriched = enrichPositionRow(data, { planDate });
-  await run(
-    `UPDATE positions SET
-      parent_id = @parent_id,
-      order_id = @order_id,
-      order_number = @order_number,
-      object = @object,
-      item = @item,
-      item_type = @item_type,
-      manager = @manager,
-      constructor_name = @constructor_name,
-      cutting_status = @cutting_status,
-      edging_status = @edging_status,
-      drilling_status = @drilling_status,
-      assembly_status = @assembly_status,
-      assembly_responsible = @assembly_responsible,
-      ready_date = @ready_date,
-      install_date = @install_date,
-      install_end_date = @install_end_date,
-      install_time_start = @install_time_start,
-      install_time_end = @install_time_end,
-      install_responsible = @install_responsible,
-      position_status = @position_status,
-      progress = @progress,
-      current_stage = @current_stage,
-      overdue_days = @overdue_days,
-      problem = @problem,
-      note = @note
-    WHERE id = @id`,
-    { ...enriched, id }
-  );
+  await updatePositionFull({ ...enriched, id });
   return mapPosition(enrichPositionRow(await loadRow(id), { planDate }));
 }
 
@@ -172,18 +144,7 @@ router.post("/", requirePositionWrite, async (req, res) => {
   const planDate = planMap.get(raw.order_number);
   const enriched = enrichPositionRow({ ...raw, id }, { planDate });
 
-  await run(
-    `INSERT INTO positions (
-      id, parent_id, order_id, order_number, object, item, item_type, manager, constructor_name,
-      cutting_status, edging_status, drilling_status, assembly_status, assembly_responsible,
-      ready_date, install_date, install_end_date, install_time_start, install_time_end, install_responsible, position_status, progress, overdue_days, problem, note
-    ) VALUES (
-      @id, @parent_id, @order_id, @order_number, @object, @item, @item_type, @manager, @constructor_name,
-      @cutting_status, @edging_status, @drilling_status, @assembly_status, @assembly_responsible,
-      @ready_date, @install_date, @install_end_date, @install_time_start, @install_time_end, @install_responsible, @position_status, @progress, @overdue_days, @problem, @note
-    )`,
-    enriched
-  );
+  await insertPosition(enriched);
 
   const row = await loadRow(id);
   await logPositionCreate(row, auditActor(req));

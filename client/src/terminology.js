@@ -1,22 +1,15 @@
-/** Єдині назви етапів і UI — одне джерело правди. */
-export const STAGES = [
-  { key: "constructor", tab: "Конструктив", label: "Конструктив", operatorLabel: "Конструктив" },
-  { key: "cutting", tab: "Порізка", label: "Порізка", operatorLabel: "Порізка" },
-  { key: "edging", tab: "Крайкування", label: "Крайкування", operatorLabel: "Крайкування" },
-  { key: "drilling", tab: "Присадка", label: "Присадка", operatorLabel: "Присадка" },
-  { key: "assembly", tab: "Збірка", label: "Збірка", operatorLabel: "Збірка" }
-];
+import {
+  STAGES,
+  STAGE_TABS,
+  STAGE_TAB_KEYS,
+  STAGE_CLIENT_FIELD,
+  stageClientField
+} from "@enver/shared/production/stages.js";
 
-export const STAGE_TABS = STAGES.map((s) => s.tab);
+export { STAGES, STAGE_TABS, STAGE_TAB_KEYS, STAGE_CLIENT_FIELD, stageClientField };
 
-export const STAGE_TAB_KEYS = Object.fromEntries(STAGES.map((s) => [s.tab, s.key]));
-
-export const STAGE_STATUS_FIELD = {
-  cutting: "cuttingStatus",
-  edging: "edgingStatus",
-  drilling: "drillingStatus",
-  assembly: "assemblyStatus"
-};
+/** @deprecated Використовуйте STAGE_CLIENT_FIELD */
+export const STAGE_STATUS_FIELD = STAGE_CLIENT_FIELD;
 
 export const BRAND = {
   name: "ENVER",

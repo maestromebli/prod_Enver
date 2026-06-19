@@ -12,7 +12,7 @@ import {
   getStageStatus,
   stageStatusClass
 } from "./workflows.js";
-import { $, badge, escapeHtml, progressBar } from "./utils.js";
+import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
 
 let onSaved = () => {};
 let draft = null;
@@ -27,17 +27,7 @@ function backdrop() {
 }
 
 function showError(message) {
-  const el = $("#positionFormError");
-  if (!el) return;
-  el.textContent = message;
-  el.classList.toggle("visible", Boolean(message));
-}
-
-function fillSelect(el, options, value) {
-  el.innerHTML = options
-    .map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`)
-    .join("");
-  if (value !== undefined && value !== "") el.value = value;
+  showFormError("#positionFormError", message);
 }
 
 function listOptions(key) {

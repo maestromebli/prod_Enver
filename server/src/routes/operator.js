@@ -10,6 +10,8 @@ import {
   isOperatorSessionActive,
   stageStatusFromRow
 } from "../operator-sessions.js";
+import { updatePositionStages } from "../db/position-persistence.js";
+import { OPERATOR_QUEUE_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
 import {
   getOperatorJobDetails,
   onOperatorStartFolder,
@@ -46,27 +48,7 @@ async function getPosition(id) {
 
 async function savePosition(id, row) {
   const enriched = enrichPositionRow(row);
-  await run(
-    `UPDATE positions SET
-      cutting_status = @cutting_status,
-      edging_status = @edging_status,
-      drilling_status = @drilling_status,
-      assembly_status = @assembly_status,
-      position_status = @position_status,
-      progress = @progress,
-      current_stage = @current_stage
-    WHERE id = @id`,
-    {
-      id,
-      cutting_status: enriched.cutting_status,
-      edging_status: enriched.edging_status,
-      drilling_status: enriched.drilling_status,
-      assembly_status: enriched.assembly_status,
-      position_status: enriched.position_status,
-      progress: enriched.progress,
-      current_stage: enriched.current_stage
-    }
-  );
+  await updatePositionStages({ ...enriched, id });
   return mapPosition(await getPosition(id));
 }
 
@@ -87,11 +69,12 @@ router.get("/queue/:stageKey", async (req, res) => {
   await reconcileOperatorSessionsForUser(userId);
   await reconcileStaleStageStatuses(stageKey);
 
+  const queueIn = sqlLiteralsIn(OPERATOR_QUEUE_STATUSES);
   const rows = await all(
     `SELECT p.*, o.priority AS order_priority, o.plan_date
      FROM positions p
      LEFT JOIN orders o ON o.id = p.order_id
-     WHERE p.${field} IN ('Передано', 'В роботі', 'На паузі')
+     WHERE p.${field} IN (${queueIn})
      ORDER BY
        CASE p.${field} WHEN 'В роботі' THEN 0 WHEN 'На паузі' THEN 0 ELSE 1 END,
        CASE WHEN p.problem <> '' THEN 0 ELSE 1 END,

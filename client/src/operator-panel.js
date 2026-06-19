@@ -10,6 +10,7 @@ import {
 } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
+import { STAGE_STATUS_FIELD, stageClientField } from "@enver/shared/production/stages.js";
 import {
   emitRoleNotifications,
   initializeOperatorStageBaseline,
@@ -177,13 +178,7 @@ function activeSessionStageKey() {
 }
 
 function statusFieldForStage(stageKey) {
-  const map = {
-    cutting: "cuttingStatus",
-    edging: "edgingStatus",
-    drilling: "drillingStatus",
-    assembly: "assemblyStatus"
-  };
-  return map[stageKey] || "cuttingStatus";
+  return stageClientField(stageKey);
 }
 
 function activeSessionStageStatus() {
@@ -193,12 +188,7 @@ function activeSessionStageStatus() {
   const stageKey = sess.stage_key || state.operatorStage;
   const fromQueue = state.operatorQueue.find((p) => p.id === sess.position_id);
   if (fromQueue) return fromQueue[statusFieldForStage(stageKey)];
-  const snakeField = {
-    cutting: "cutting_status",
-    edging: "edging_status",
-    drilling: "drilling_status",
-    assembly: "assembly_status"
-  }[stageKey];
+  const snakeField = STAGE_STATUS_FIELD[stageKey];
   return snakeField ? sess[snakeField] : null;
 }
 
@@ -283,13 +273,7 @@ function isSessionPaused() {
 }
 
 function statusField() {
-  const map = {
-    cutting: "cuttingStatus",
-    edging: "edgingStatus",
-    drilling: "drillingStatus",
-    assembly: "assemblyStatus"
-  };
-  return map[state.operatorStage] || "cuttingStatus";
+  return stageClientField(state.operatorStage);
 }
 
 function stageTheme(key) {

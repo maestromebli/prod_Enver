@@ -1,0 +1,22 @@
+# Локальна Postgres для dev (без Supabase).
+# Запуск: docker compose -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: enver-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: enver_dev
+      POSTGRES_DB: enver
+    ports:
+      - "5433:5432"
+    volumes:
+      - enver_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d enver"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  enver_pg_dev:

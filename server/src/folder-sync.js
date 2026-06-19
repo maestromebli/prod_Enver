@@ -3,7 +3,12 @@ import { mapPosition } from "./mappers.js";
 import { enrichPositionRow } from "./position-logic.js";
 import { nextPositionId } from "./db/position-id.js";
 import { mergeGiblabSummary } from "./giblab-parser.js";
-import { orderStatusStagePreset, applyOrderStatusPreset } from "./order-status-workflow.js";
+import {
+  applyOrderStatusPreset,
+  defaultPositionRow,
+  orderStatusStagePreset
+} from "./order-status-workflow.js";
+import { insertPositionWithFolder, updatePositionWithFolder } from "./db/position-persistence.js";
 
 const FOLDER_STATES = new Set(["inbox", "active", "done", "archive"]);
 
@@ -14,13 +19,7 @@ export function normalizeFolderKey(key) {
     .replace(/\s+/g, "-");
 }
 
-function parseJson(str, fallback) {
-  try {
-    return JSON.parse(str || "");
-  } catch {
-    return fallback;
-  }
-}
+import { parseJson, parseJsonObject } from "./json-utils.js";
 
 export function mapMachineProgress(raw) {
   const data = typeof raw === "string" ? parseJson(raw, {}) : raw || {};
@@ -152,35 +151,9 @@ async function upsertPositionFromFolder({
   let position = await one("SELECT * FROM positions WHERE folder_key = $1 LIMIT 1", [folderKey]);
 
   const preset = orderStatusStagePreset(order.status);
-  let base = position
-    ? { ...position }
-    : {
-        id: await nextPositionId(),
-        parent_id: null,
-        order_id: order.id,
-        order_number: order.order_number,
-        object: order.object,
-        item: itemName,
-        item_type: "Виріб",
-        manager: order.manager,
-        constructor_name: "",
-        cutting_status: "Не розпочато",
-        edging_status: "Не розпочато",
-        drilling_status: "Не розпочато",
-        assembly_status: "Не розпочато",
-        assembly_responsible: "",
-        ready_date: "",
-        install_date: "",
-        install_end_date: "",
-        install_time_start: "",
-        install_time_end: "",
-        install_responsible: "",
-        position_status: "Не розпочато",
-        progress: 0,
-        overdue_days: 0,
-        problem: "",
-        note: ""
-      };
+  let base = position ? { ...position } : defaultPositionRow(order, await nextPositionId());
+  base.item = itemName;
+  base.item_type = "Виріб";
 
   base = applyOrderStatusPreset(base, preset);
 
@@ -210,50 +183,10 @@ async function upsertPositionFromFolder({
   });
 
   if (position) {
-    await run(
-      `UPDATE positions SET
-        order_id = @order_id,
-        order_number = @order_number,
-        object = @object,
-        item = @item,
-        cutting_status = @cutting_status,
-        edging_status = @edging_status,
-        drilling_status = @drilling_status,
-        assembly_status = @assembly_status,
-        position_status = @position_status,
-        progress = @progress,
-        folder_key = @folder_key,
-        folder_path = @folder_path,
-        folder_state = @folder_state,
-        folder_meta_json = @folder_meta_json,
-        folder_files_json = @folder_files_json,
-        material = @material,
-        giblab_summary_json = @giblab_summary_json
-      WHERE id = @id`,
-      { ...enriched, id: position.id }
-    );
+    await updatePositionWithFolder({ ...enriched, id: position.id });
     position = await one("SELECT * FROM positions WHERE id = $1", [position.id]);
   } else {
-    await run(
-      `INSERT INTO positions (
-        id, parent_id, order_id, order_number, object, item, item_type, manager,
-        constructor_name, cutting_status, edging_status, drilling_status, assembly_status,
-        assembly_responsible, ready_date, install_date, install_end_date,
-        install_time_start, install_time_end, install_responsible,
-        position_status, progress, overdue_days, problem, note,
-        folder_key, folder_path, folder_state, folder_meta_json, folder_files_json,
-        material, giblab_summary_json
-      ) VALUES (
-        @id, @parent_id, @order_id, @order_number, @object, @item, @item_type, @manager,
-        @constructor_name, @cutting_status, @edging_status, @drilling_status, @assembly_status,
-        @assembly_responsible, @ready_date, @install_date, @install_end_date,
-        @install_time_start, @install_time_end, @install_responsible,
-        @position_status, @progress, @overdue_days, @problem, @note,
-        @folder_key, @folder_path, @folder_state, @folder_meta_json, @folder_files_json,
-        @material, @giblab_summary_json
-      )`,
-      enriched
-    );
+    await insertPositionWithFolder(enriched);
     position = await one("SELECT * FROM positions WHERE id = $1", [enriched.id]);
   }
 

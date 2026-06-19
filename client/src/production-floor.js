@@ -7,6 +7,7 @@ import {
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
+import { NOTIFICATION_TASK_STATUSES, stageClientField } from "@enver/shared/production/stages.js";
 
 let floorCache = null;
 
@@ -21,24 +22,14 @@ function stageStatusLabel(status) {
   return status || "—";
 }
 
-function stageStatusField(stageKey) {
-  const map = {
-    cutting: "cuttingStatus",
-    edging: "edgingStatus",
-    drilling: "drillingStatus",
-    assembly: "assemblyStatus"
-  };
-  return map[stageKey] || "cuttingStatus";
-}
-
 function countNewTasksByStage(stages = []) {
   const freshIds = newProductionTaskIdsForCurrentRole(state.positions);
   const counters = Object.fromEntries((stages || []).map((stage) => [stage.key, 0]));
   for (const position of state.positions) {
     if (!freshIds.has(Number(position.id))) continue;
     for (const stage of stages) {
-      const field = stageStatusField(stage.key);
-      if (["Передано", "В роботі", "На паузі"].includes(position[field])) {
+      const field = stageClientField(stage.key);
+      if (NOTIFICATION_TASK_STATUSES.has(position[field])) {
         counters[stage.key] = (counters[stage.key] || 0) + 1;
       }
     }

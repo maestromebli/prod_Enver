@@ -50,18 +50,12 @@ export function mapPosition(row) {
     folderState: row.folder_state ?? "",
     material: row.material ?? "",
     machineProgressDetail: parseMachineProgressJson(row.machine_progress_json),
-    giblabSummary: parseJsonField(row.giblab_summary_json),
+    giblabSummary: parseJsonObject(row.giblab_summary_json),
     createdAt: row.created_at ?? null
   };
 }
 
-function parseJsonField(str) {
-  try {
-    return JSON.parse(str || "{}");
-  } catch {
-    return {};
-  }
-}
+import { parseJsonObject } from "./json-utils.js";
 
 function parseMachineProgressJson(str) {
   try {

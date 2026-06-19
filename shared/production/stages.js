@@ -24,6 +24,28 @@ export const STAGE_STATUS_DONE = new Set(["Готово", "Не потрібно
 
 export const STAGE_ACTIVE_STATUSES = new Set(["Передано", "В роботі", "На паузі", "Проблема"]);
 
+/** Черга оператора та сповіщення про нові виробничі задачі. */
+export const OPERATOR_QUEUE_STATUSES = ["Передано", "В роботі", "На паузі"];
+
+/** Статуси відкритої сесії оператора на етапі. */
+export const OPERATOR_SESSION_ACTIVE_STATUSES_LIST = ["В роботі", "На паузі"];
+
+/** Зведення цеху (включно з проблемами на етапі). */
+export const PRODUCTION_FLOOR_STATUSES = [...STAGE_ACTIVE_STATUSES];
+
+/** Кандидати для зіставлення логу станка з позицією. */
+export const MACHINE_MATCH_STATUSES = ["Передано", "В роботі"];
+
+export const OPERATOR_QUEUE_STATUS_SET = new Set(OPERATOR_QUEUE_STATUSES);
+export const NOTIFICATION_TASK_STATUSES = OPERATOR_QUEUE_STATUS_SET;
+export const OPERATOR_SESSION_ACTIVE_STATUSES = new Set(OPERATOR_SESSION_ACTIVE_STATUSES_LIST);
+export const MACHINE_MATCH_STATUS_SET = new Set(MACHINE_MATCH_STATUSES);
+
+/** Літерали для SQL `IN (...)` — лише фіксовані статуси з цього модуля. */
+export function sqlLiteralsIn(statuses) {
+  return statuses.map((s) => `'${String(s).replace(/'/g, "''")}'`).join(", ");
+}
+
 /** Ваги етапів виробництва (сума 100). Конструктив і монтаж не входять. */
 export const PRODUCTION_PROGRESS_WEIGHTS = {
   cutting: 20,
@@ -40,6 +62,8 @@ export const OPERATOR_STAGES = [
 ];
 
 export const ALL_STAGE_KEYS = OPERATOR_STAGES.map((s) => s.key);
+
+export const OPERATOR_STAGE_KEY_SET = new Set(ALL_STAGE_KEYS);
 
 export const STAGE_STATUS_FIELD = {
   cutting: "cutting_status",
@@ -83,6 +107,20 @@ export const STAGES = [
   },
   { key: "install", label: "Монтаж", icon: "🏠", type: "install" }
 ];
+
+/** camelCase поля позиції на клієнті (API). */
+export const STAGE_CLIENT_FIELD = Object.fromEntries(
+  STAGES.filter((s) => s.field).map((s) => [s.key, s.field])
+);
+
+export function stageClientField(stageKey) {
+  return STAGE_CLIENT_FIELD[stageKey] || "cuttingStatus";
+}
+
+/** Вкладки pipeline в UI (без окремого «Монтаж»). */
+export const PIPELINE_STAGES = STAGES.filter((s) => s.key !== "install");
+export const STAGE_TABS = PIPELINE_STAGES.map((s) => s.label);
+export const STAGE_TAB_KEYS = Object.fromEntries(PIPELINE_STAGES.map((s) => [s.label, s.key]));
 
 export const STAGE_PATCH_MAP = {
   constructor: { type: "constructor" },

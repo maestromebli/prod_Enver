@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import pg from "pg";
 import { hashPassword } from "../src/auth-utils.js";
+import { INSECURE_DEFAULTS } from "../src/config.js";
 import { DEFAULT_PERMISSIONS, OPERATOR_STAGES } from "../src/roles.js";
 import { DEFAULT_DIRECTORIES } from "../src/directories-store.js";
 
@@ -47,11 +48,11 @@ async function seedDirectories(client) {
 }
 
 async function seedFolderAgent(client) {
-  const token = process.env.AGENT_TOKEN || "enver-agent-dev-token";
+  const token = process.env.AGENT_TOKEN || INSECURE_DEFAULTS.agentToken;
   await client.query(
     `INSERT INTO app_settings (key, value_json)
      VALUES ('folder_agent', $1)
-     ON CONFLICT (key) DO UPDATE SET value_json = excluded.value_json`,
+     ON CONFLICT (key) DO NOTHING`,
     [
       JSON.stringify({
         token,

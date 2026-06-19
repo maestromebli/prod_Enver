@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import pg from "pg";
 import { enrichPositionRow } from "../src/position-logic.js";
+import { POSITION_BASE_COLUMNS } from "../src/db/position-persistence.js";
 
 const DONE_ORDER_STATUS = "Завершено";
 
@@ -85,46 +86,10 @@ async function nextPositionId(client) {
 }
 
 async function insertPosition(client, row) {
-  await client.query(
-    `INSERT INTO positions (
-      id, parent_id, order_id, order_number, object, item, item_type, manager, constructor_name,
-      cutting_status, edging_status, drilling_status, assembly_status, assembly_responsible,
-      ready_date, install_date, install_end_date, install_time_start, install_time_end, install_responsible,
-      position_status, progress, overdue_days, problem, note
-    ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,
-      $10,$11,$12,$13,$14,
-      $15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25
-    )`,
-    [
-      row.id,
-      row.parent_id,
-      row.order_id,
-      row.order_number,
-      row.object,
-      row.item,
-      row.item_type,
-      row.manager,
-      row.constructor_name,
-      row.cutting_status,
-      row.edging_status,
-      row.drilling_status,
-      row.assembly_status,
-      row.assembly_responsible,
-      row.ready_date,
-      row.install_date,
-      row.install_end_date,
-      row.install_time_start,
-      row.install_time_end,
-      row.install_responsible,
-      row.position_status,
-      row.progress,
-      row.overdue_days,
-      row.problem,
-      row.note
-    ]
-  );
+  const cols = POSITION_BASE_COLUMNS;
+  const placeholders = cols.map((_, i) => `$${i + 1}`).join(",");
+  const values = cols.map((col) => row[col]);
+  await client.query(`INSERT INTO positions (${cols.join(", ")}) VALUES (${placeholders})`, values);
 }
 
 async function insertOrder(client, payload) {

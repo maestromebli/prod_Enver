@@ -5,8 +5,10 @@ import {
   STAGE_ACTIVE_STATUSES,
   STAGE_PATCH_MAP,
   STAGE_STATUS_DONE,
-  STAGE_STATUS_FIELD
+  STAGE_STATUS_FIELD,
+  isStageIdle
 } from "./stages.js";
+import { parseUaDate } from "../dates/ua-date.js";
 
 export { PRODUCTION_PROGRESS_WEIGHTS, STAGE_PATCH_MAP, STAGE_STATUS_DONE };
 
@@ -69,15 +71,6 @@ export function deriveCurrentStage(row) {
   return order.find((k) => !STAGE_STATUS_DONE.has(row[STAGE_STATUS_FIELD[k]])) || "assembly";
 }
 
-function parseUaDate(str) {
-  if (!str?.trim()) return null;
-  const m = String(str)
-    .trim()
-    .match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-}
-
 export function computeOverdueDays(row, planDateStr) {
   const plan = parseUaDate(planDateStr);
   if (!plan) return Number(row.overdue_days) || 0;
@@ -127,10 +120,6 @@ export function applyStageHandoff(row, stageKey, patch = {}) {
   }
 
   return copy;
-}
-
-function isStageIdle(status) {
-  return !status || status === "Не розпочато";
 }
 
 export function nextStageKey(stageKey) {

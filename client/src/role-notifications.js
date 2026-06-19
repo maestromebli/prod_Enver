@@ -1,13 +1,5 @@
 import { state } from "./state.js";
-
-const STAGE_STATUS_FIELD = {
-  cutting: "cuttingStatus",
-  edging: "edgingStatus",
-  drilling: "drillingStatus",
-  assembly: "assemblyStatus"
-};
-
-const TASK_STATUSES = new Set(["Передано", "В роботі", "На паузі"]);
+import { NOTIFICATION_TASK_STATUSES, STAGE_CLIENT_FIELD } from "@enver/shared/production/stages.js";
 const SOUND_COOLDOWN_MS = 2500;
 
 const DEFAULT_CONFIG_BY_ROLE = {
@@ -147,7 +139,7 @@ function thresholdByWindow(seenAt, windowHours) {
 
 export function productionTaskPositions(positions = state.positions) {
   return positions.filter((p) =>
-    Object.values(STAGE_STATUS_FIELD).some((field) => TASK_STATUSES.has(p?.[field]))
+    Object.values(STAGE_CLIENT_FIELD).some((field) => NOTIFICATION_TASK_STATUSES.has(p?.[field]))
   );
 }
 

@@ -1,8 +1,14 @@
 import { all, run } from "./db.js";
 import { STAGE_STATUS_FIELD } from "./roles.js";
 import { enrichPositionRow } from "./position-logic.js";
+import {
+  OPERATOR_SESSION_ACTIVE_STATUSES,
+  sqlLiteralsIn,
+  OPERATOR_SESSION_ACTIVE_STATUSES_LIST
+} from "../../shared/production/stages.js";
+import { updatePositionStages } from "./db/position-persistence.js";
 
-export const OPERATOR_ACTIVE_STATUSES = new Set(["В роботі", "На паузі"]);
+export { OPERATOR_SESSION_ACTIVE_STATUSES as OPERATOR_ACTIVE_STATUSES };
 
 export function stageStatusFromRow(row, stageKey) {
   const field = STAGE_STATUS_FIELD[stageKey];
@@ -10,7 +16,7 @@ export function stageStatusFromRow(row, stageKey) {
 }
 
 export function isOperatorSessionActive(row, stageKey) {
-  return OPERATOR_ACTIVE_STATUSES.has(stageStatusFromRow(row, stageKey));
+  return OPERATOR_SESSION_ACTIVE_STATUSES.has(stageStatusFromRow(row, stageKey));
 }
 
 /** Закриває сесії користувача, якщо статус позиції на етапі вже не «В роботі» / «На паузі». */
@@ -39,10 +45,11 @@ export async function reconcileStaleStageStatuses(stageKey) {
   const field = STAGE_STATUS_FIELD[stageKey];
   if (!field) return 0;
 
+  const inList = sqlLiteralsIn(OPERATOR_SESSION_ACTIVE_STATUSES_LIST);
   const rows = await all(
     `SELECT p.*
      FROM positions p
-     WHERE p.${field} IN ('В роботі', 'На паузі')
+     WHERE p.${field} IN (${inList})
        AND NOT EXISTS (
          SELECT 1 FROM operator_sessions os
          WHERE os.position_id = p.id
@@ -56,27 +63,7 @@ export async function reconcileStaleStageStatuses(stageKey) {
   for (const row of rows) {
     row[field] = "Передано";
     const enriched = enrichPositionRow(row);
-    await run(
-      `UPDATE positions SET
-        cutting_status = @cutting_status,
-        edging_status = @edging_status,
-        drilling_status = @drilling_status,
-        assembly_status = @assembly_status,
-        position_status = @position_status,
-        progress = @progress,
-        current_stage = @current_stage
-      WHERE id = @id`,
-      {
-        id: row.id,
-        cutting_status: enriched.cutting_status,
-        edging_status: enriched.edging_status,
-        drilling_status: enriched.drilling_status,
-        assembly_status: enriched.assembly_status,
-        position_status: enriched.position_status,
-        progress: enriched.progress,
-        current_stage: enriched.current_stage
-      }
-    );
+    await updatePositionStages({ ...enriched, id: row.id });
     reset += 1;
   }
   return reset;
@@ -86,7 +73,7 @@ export async function reconcileStaleStageStatuses(stageKey) {
 export async function closeSessionsAfterStageStatusChanges(beforeRow, afterRow, positionId) {
   for (const [stageKey, field] of Object.entries(STAGE_STATUS_FIELD)) {
     if (beforeRow[field] === afterRow[field]) continue;
-    if (!OPERATOR_ACTIVE_STATUSES.has(afterRow[field])) {
+    if (!OPERATOR_SESSION_ACTIVE_STATUSES.has(afterRow[field])) {
       await closeOperatorSessionsForStage(positionId, stageKey);
     }
   }

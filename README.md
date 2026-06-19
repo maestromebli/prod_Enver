@@ -39,10 +39,10 @@ npm run dev               # сервер + Vite на :3000
 
 Один workflow `.github/workflows/ci-cd.yml`:
 
-| Тригер              | Кроки                                                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Pull request → main | `validate` (format check + lint + tests), `build` (Docker без push)                                                 |
-| Push до main        | `validate`, `build` (push до GHCR із тегом `latest` і `${{ sha }}`), `migrate` (Supabase), `deploy` (SSH → Hetzner) |
+| Тригер              | Кроки                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Pull request → main | `validate` (format + lint + tests + npm audit), `build-android` (APK), `build` (Docker без push)                                    |
+| Push до main        | `validate`, `build-android`, `build` (push до GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (health check + rollback при збої) |
 
 Потрібні GitHub Secrets:
 
@@ -50,6 +50,8 @@ npm run dev               # сервер + Vite на :3000
 - `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою
 
 `GITHUB_TOKEN` (автоматичний) — для push в GHCR.
+
+Dependabot щотижня оновлює npm і Docker-залежності (`.github/dependabot.yml`).
 
 ## Hetzner setup (одноразово)
 
@@ -80,7 +82,11 @@ npm run dev               # сервер + Vite на :3000
 
 - Bearer-токен в усіх API (крім login). Сесії — таблиця `sessions`, TTL 7 днів.
 - Rate limit на вхід (12 спроб / хв на IP).
+- У production сервер не стартує з дефолтними `SESSION_SECRET` / `AGENT_TOKEN`.
+- CORS обмежений доменом `DOMAIN`; HTTP security headers через `helmet`.
+- Перегляд логів станків — лише з правом `canViewMachineLogs`.
 - Адмін-юзер створюється тільки якщо немає жодного через `ADMIN_DEFAULT_PASSWORD` (одноразово).
+- Seed не перезаписує `folder_agent` у БД при повторних migrate.
 
 ## Тести
 

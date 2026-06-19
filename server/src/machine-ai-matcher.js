@@ -4,20 +4,15 @@ import { enrichPositionRow } from "./position-logic.js";
 import { getAiSettings } from "./app-settings.js";
 import { updatePositionMachineProgress } from "./folder-sync.js";
 import { parseAiSourceSubfolders } from "./machine-config.js";
+import { MACHINE_MATCH_STATUSES, sqlLiteralsIn } from "../../shared/production/stages.js";
 
-function parseJsonField(str, fallback) {
-  try {
-    return JSON.parse(str || "");
-  } catch {
-    return fallback;
-  }
-}
+import { parseJson, parseJsonObject } from "./json-utils.js";
 
 /** Текст з meta.json і файлів підпапок проєкту для зіставлення з логом. */
 export function buildPositionFolderContext(row, subfolders) {
   const parts = [];
-  const meta = parseJsonField(row.folder_meta_json, {});
-  const files = parseJsonField(row.folder_files_json, []);
+  const meta = parseJsonObject(row.folder_meta_json);
+  const files = parseJson(row.folder_files_json, []);
   const normalizedSubs = (subfolders || []).map((s) =>
     String(s || "")
       .trim()
@@ -118,11 +113,12 @@ export async function getMatchCandidates(stageKey, { activeSessionPositionId } =
     ? await one("SELECT * FROM positions WHERE id = $1", [activeSessionPositionId])
     : null;
 
+  const matchIn = sqlLiteralsIn(MACHINE_MATCH_STATUSES);
   const rows = await all(
     `SELECT p.*, o.priority AS order_priority, o.plan_date
      FROM positions p
      LEFT JOIN orders o ON o.id = p.order_id
-     WHERE p.${field} IN ('Передано', 'В роботі')
+     WHERE p.${field} IN (${matchIn})
      ORDER BY
        CASE p.${field} WHEN 'В роботі' THEN 0 ELSE 1 END,
        CASE WHEN p.problem <> '' THEN 0 ELSE 1 END,

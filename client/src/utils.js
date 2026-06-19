@@ -57,3 +57,22 @@ export function overdue(value) {
   if (value > 0) return `<span class="overdue">+${value}</span>`;
   return `<span class="overdue">${value}</span>`;
 }
+
+export function showFormError(selectorOrEl, message) {
+  const el = typeof selectorOrEl === "string" ? $(selectorOrEl) : selectorOrEl;
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("visible", Boolean(message));
+}
+
+export function fillSelect(target, options, value, { escapeOptions = true } = {}) {
+  const select = typeof target === "string" ? $(target) : target;
+  if (!select) return;
+  select.innerHTML = options
+    .map((o) => {
+      const v = escapeOptions ? escapeHtml(o) : o;
+      return `<option value="${v}">${v}</option>`;
+    })
+    .join("");
+  if (value !== undefined && value !== "") select.value = value;
+}

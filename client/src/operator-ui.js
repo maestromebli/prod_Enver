@@ -1,6 +1,12 @@
 /** Єдиний режим UI оператора: index.html, operator.html, PWA, APK. */
 
 const BUILD_STORAGE_KEY = "enver_app_build";
+const INSTALLED_POLL_MS = 60_000;
+const BROWSER_POLL_MS = 5 * 60_000;
+const SW_UPDATE_POLL_MS = 60_000;
+
+let buildWatchStarted = false;
+let reloadingForBuild = false;
 
 export function isOperatorUiMode() {
   const body = document.body;
@@ -10,6 +16,20 @@ export function isOperatorUiMode() {
 
 export function isCuttingOneScreen(stageKey) {
   return stageKey === "cutting" && isOperatorUiMode();
+}
+
+/** PWA на головному екрані, fullscreen або Android WebView (APK). */
+export function isInstalledClient() {
+  if (window.EnverNative || /EnverOperator\/\d/i.test(navigator.userAgent)) return true;
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      window.navigator.standalone === true
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function setOperatorUiActive(active) {
@@ -43,11 +63,14 @@ export async function syncOperatorBuildChip(elementId = "operatorBuildChip") {
 
 /** Після деплою — перезавантажити вкладку, якщо збірка на сервері змінилась. */
 export async function reloadIfAppBuildChanged() {
+  if (reloadingForBuild) return false;
+
   const build = await fetchAppBuildLabel();
   if (!build) return false;
 
   const stored = localStorage.getItem(BUILD_STORAGE_KEY);
   if (stored && stored !== build) {
+    reloadingForBuild = true;
     localStorage.setItem(BUILD_STORAGE_KEY, build);
     if ("serviceWorker" in navigator) {
       try {
@@ -65,8 +88,53 @@ export async function reloadIfAppBuildChanged() {
   return false;
 }
 
+function shouldPollBuildNow() {
+  return document.visibilityState === "visible" || isInstalledClient();
+}
+
 export function watchAppBuildUpdates() {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") reloadIfAppBuildChanged();
+  if (buildWatchStarted) return;
+  buildWatchStarted = true;
+
+  const tick = () => {
+    if (!shouldPollBuildNow()) return;
+    reloadIfAppBuildChanged();
+  };
+
+  document.addEventListener("visibilitychange", tick);
+
+  const pollMs = isInstalledClient() ? INSTALLED_POLL_MS : BROWSER_POLL_MS;
+  setInterval(tick, pollMs);
+  tick();
+}
+
+/** Service worker для operator.html — мережевий кеш JS/CSS і автооновлення після деплою. */
+export function registerOperatorServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  let reloadingForSw = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForSw) return;
+    reloadingForSw = true;
+    location.reload();
   });
+
+  navigator.serviceWorker
+    .register("/sw-operator.js")
+    .then((reg) => {
+      const checkUpdate = () => reg.update().catch(() => {});
+      checkUpdate();
+      setInterval(checkUpdate, SW_UPDATE_POLL_MS);
+
+      reg.addEventListener("updatefound", () => {
+        const worker = reg.installing;
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            reloadIfAppBuildChanged();
+          }
+        });
+      });
+    })
+    .catch(() => {});
 }

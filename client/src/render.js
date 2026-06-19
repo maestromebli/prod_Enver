@@ -9,6 +9,7 @@ import {
 } from "./auth.js";
 import { PRODUCTION_FLOOR_TAB, STAGE_TABS, TABS } from "./constants.js";
 import { STAGE_TAB_KEYS } from "./terminology.js";
+import { stageClientField } from "@enver/shared/production/stages.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";

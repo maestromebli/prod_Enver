@@ -8,6 +8,9 @@
     "build": "vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "@enver/shared": "file:../shared"
+  },
   "devDependencies": {
     "vite": "^6.3.5"
   }

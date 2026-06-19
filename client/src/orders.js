@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
-import { $ } from "./utils.js";
+import { $, fillSelect, showFormError } from "./utils.js";
 
 let onSaved = () => {};
 
@@ -14,15 +14,7 @@ function modal() {
 }
 
 function showError(message) {
-  const el = $("#orderFormError");
-  el.textContent = message;
-  el.classList.toggle("visible", Boolean(message));
-}
-
-function fillSelect(id, options, value) {
-  const select = $(id);
-  select.innerHTML = options.map((o) => `<option value="${o}">${o}</option>`).join("");
-  if (value) select.value = value;
+  showFormError("#orderFormError", message);
 }
 
 function fillDatalists() {

@@ -1,22 +1,23 @@
 import { Router } from "express";
-import { requireAdmin, requireAuth } from "../middleware/auth.js";
-import { OPERATOR_STAGES } from "../roles.js";
+import { requireAdmin, requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
+import { OPERATOR_STAGE_KEY_SET } from "../roles.js";
 import { getRecentLogEvents, ingestLogFile, ingestLogText } from "../machine-log-ingest.js";
 import { getLatestMatch } from "../machine-ai-matcher.js";
 import { getParserProfiles } from "../machine-log-parser.js";
 import { one, run } from "../db.js";
 
 const router = Router();
-const validStages = new Set(OPERATOR_STAGES.map((s) => s.key));
 
 router.use(requireAuth);
 
-router.get("/profiles", (_req, res) => {
+const requireMachineLogsView = requirePermissionOrAdmin("canViewMachineLogs");
+
+router.get("/profiles", requireMachineLogsView, (_req, res) => {
   res.json(getParserProfiles());
 });
 
-router.get("/events/:stageKey", async (req, res) => {
-  if (!validStages.has(req.params.stageKey)) {
+router.get("/events/:stageKey", requireMachineLogsView, async (req, res) => {
+  if (!OPERATOR_STAGE_KEY_SET.has(req.params.stageKey)) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
@@ -27,8 +28,8 @@ router.get("/events/:stageKey", async (req, res) => {
   });
 });
 
-router.get("/match/:stageKey", async (req, res) => {
-  if (!validStages.has(req.params.stageKey)) {
+router.get("/match/:stageKey", requireMachineLogsView, async (req, res) => {
+  if (!OPERATOR_STAGE_KEY_SET.has(req.params.stageKey)) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
@@ -36,7 +37,7 @@ router.get("/match/:stageKey", async (req, res) => {
 });
 
 router.post("/ingest/:stageKey", requireAdmin, async (req, res) => {
-  if (!validStages.has(req.params.stageKey)) {
+  if (!OPERATOR_STAGE_KEY_SET.has(req.params.stageKey)) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }
@@ -47,7 +48,7 @@ router.post("/ingest/:stageKey", requireAdmin, async (req, res) => {
 });
 
 router.post("/upload/:stageKey", requireAdmin, async (req, res) => {
-  if (!validStages.has(req.params.stageKey)) {
+  if (!OPERATOR_STAGE_KEY_SET.has(req.params.stageKey)) {
     res.status(400).json({ error: "Невідомий етап" });
     return;
   }

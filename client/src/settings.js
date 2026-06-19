@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { canViewSettings, isAdmin } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, ROLES, stageLabel } from "./users-constants.js";
+import { DEFAULT_PERMISSIONS } from "@enver/shared/production/permissions.js";
 import { directoriesSectionHtml, handleDirectoriesClick } from "./settings-directories.js";
 import { bindClientsActions, clientsSectionHtml, loadClientsInfo } from "./settings-clients.js";
 import {
@@ -514,27 +515,10 @@ function collectPermissionsFromDom() {
       if (el.checked) base.stages.push(el.dataset.permStage);
     });
     if (role.id === "admin") {
-      Object.assign(base, {
-        canViewSettings: true,
-        canManageUsers: true,
-        canManageAccess: true,
-        canEditOrders: true,
-        canEditPositions: true,
-        canUseOperatorPanel: true,
-        canViewProductionFloor: true,
-        canViewMachineLogs: true,
-        stages: OPERATOR_STAGES.map((s) => s.key)
-      });
+      Object.assign(base, DEFAULT_PERMISSIONS.admin);
     }
     if (role.id === "production") {
-      Object.assign(base, {
-        canEditOrders: true,
-        canEditPositions: true,
-        canUseOperatorPanel: true,
-        canViewProductionFloor: true,
-        canViewMachineLogs: true,
-        stages: OPERATOR_STAGES.map((s) => s.key)
-      });
+      Object.assign(base, DEFAULT_PERMISSIONS.production);
     }
     result[role.id] = base;
   }

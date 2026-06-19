@@ -1,17 +1,15 @@
 import { Router } from "express";
 import { fetchMachineProgress } from "../machine-service.js";
 import { requireAuth } from "../middleware/auth.js";
-import { OPERATOR_STAGES } from "../roles.js";
+import { OPERATOR_STAGE_KEY_SET } from "../roles.js";
 
 const router = Router();
 router.use(requireAuth);
 
-const validStages = new Set(OPERATOR_STAGES.map((s) => s.key));
-
 router.get("/progress/:stageKey", async (req, res, next) => {
   try {
     const { stageKey } = req.params;
-    if (!validStages.has(stageKey)) {
+    if (!OPERATOR_STAGE_KEY_SET.has(stageKey)) {
       res.status(400).json({ error: "Невідомий етап" });
       return;
     }

@@ -1,4 +1,4 @@
-const CACHE = "enver-operator-v4";
+const CACHE = "enver-operator-v5";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

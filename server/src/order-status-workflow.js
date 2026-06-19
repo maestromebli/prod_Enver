@@ -1,16 +1,7 @@
 /** Статуси замовлення, для яких потрібна хоча б одна основна позиція. */
-export const ORDER_STATUSES_NEED_POSITION = new Set([
-  "У конструктиві",
-  "Передано у виробництво",
-  "У виробництві",
-  "Частково готово",
-  "Готово до встановлення",
-  "На встановленні"
-]);
+export { ORDER_STATUSES_NEED_POSITION } from "../../shared/production/orders.js";
 
-function isStageIdle(status) {
-  return !status || status === "Не розпочато";
-}
+import { isStageIdle } from "../../shared/production/stages.js";
 
 /** Пресети етапів позиції за статусом замовлення (лише підвищення, без відкату). */
 export function orderStatusStagePreset(status) {

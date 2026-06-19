@@ -17,7 +17,7 @@ router.get("/machine-config", requirePermissionOrAdmin("canViewMachineLogs"), as
 
 router.use(requireAdmin);
 
-function mapUser(row) {
+function mapUserRow(row) {
   let stages = [];
   try {
     stages = JSON.parse(row.stages_json || "[]");
@@ -92,7 +92,7 @@ router.get("/", async (_req, res) => {
   const rows = await all(
     "SELECT id, name, login, role, stages_json, active FROM users ORDER BY name"
   );
-  res.json(rows.map(mapUser));
+  res.json(rows.map(mapUserRow));
 });
 
 router.post("/", async (req, res) => {
@@ -120,7 +120,7 @@ router.post("/", async (req, res) => {
         active: Boolean(active)
       }
     );
-    res.status(201).json(mapUser(row));
+    res.status(201).json(mapUserRow(row));
   } catch (err) {
     if (err.code === PG_UNIQUE_VIOLATION) {
       res.status(409).json({ error: "Логін уже зайнятий" });
@@ -159,7 +159,7 @@ router.put("/:id", async (req, res) => {
        RETURNING id, name, login, role, stages_json, active`,
       { ...updates, id }
     );
-    res.json(mapUser(row));
+    res.json(mapUserRow(row));
   } catch (err) {
     if (err.code === PG_UNIQUE_VIOLATION) {
       res.status(409).json({ error: "Логін уже зайнятий" });
