@@ -12,6 +12,7 @@ COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=deps /app/client/node_modules ./client/node_modules
 COPY server ./server
 COPY client ./client
+COPY shared ./shared
 RUN npm run build --prefix client
 
 FROM node:22-alpine AS runtime
@@ -22,6 +23,7 @@ RUN addgroup -S enver && adduser -S enver -G enver
 
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=build /app/server ./server
+COPY --from=build /app/shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 COPY releases/ ./releases/
 
