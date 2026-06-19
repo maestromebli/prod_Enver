@@ -1,4 +1,4 @@
-import { apiOk, apiError } from "./http/api-response.js";
+import { apiOk, apiError } from "./api-response.js";
 
 /** Автоматично обгортає legacy JSON у формат v2 { ok, data/error }. */
 export function apiFormatMiddleware(req, res, next) {
