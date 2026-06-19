@@ -72,6 +72,7 @@ export async function enterOperatorView(stageKey) {
     state.machineProgressMessage = err?.message || "Не вдалося завантажити чергу";
   }
   window.__enverRender?.();
+  window.scrollTo(0, 0);
 }
 
 export function closeOperatorView() {

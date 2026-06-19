@@ -1,4 +1,5 @@
 import { toastError } from "./toast.js";
+import { isInstalledClient } from "./operator-ui.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 import { $ } from "./utils.js";
 
@@ -173,8 +174,27 @@ function bindKioskListeners() {
   });
 }
 
+/** Kiosk/fullscreen — планшет, PWA, APK; не звичайний браузер на ПК (Windows/macOS). */
+function shouldEnableOperatorKiosk() {
+  if (window.enverDesktop?.isDesktop) return true;
+  if (isNativeOperatorShell()) return true;
+  if (isInstalledClient()) return true;
+  try {
+    return window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
 /** Увімкнути повноекранний kiosk після входу оператора. */
 export async function enableOperatorKiosk() {
+  if (!shouldEnableOperatorKiosk()) {
+    kioskLocked = false;
+    bindKioskListeners();
+    applyKioskDom(false);
+    return;
+  }
+
   if (window.enverDesktop?.isDesktop) {
     kioskLocked = true;
     bindKioskListeners();

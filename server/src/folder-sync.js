@@ -19,7 +19,7 @@ export function normalizeFolderKey(key) {
     .replace(/\s+/g, "-");
 }
 
-import { parseJson, parseJsonObject } from "./json-utils.js";
+import { parseJson } from "./json-utils.js";
 
 export function mapMachineProgress(raw) {
   const data = typeof raw === "string" ? parseJson(raw, {}) : raw || {};

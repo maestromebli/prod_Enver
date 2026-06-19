@@ -12,6 +12,7 @@ import {
   OPERATOR_SESSION_ACTIVE_STATUSES_LIST,
   STAGE_STATUSES
 } from "../../shared/production/stages.js";
+import { parseUaDate } from "../../shared/dates/ua-date.js";
 
 describe("shared/production", () => {
   it("ваги етапів = 100%", () => {
@@ -27,6 +28,13 @@ describe("shared/production", () => {
   it("набори статусів узгоджені", () => {
     assert.ok(OPERATOR_QUEUE_STATUSES.includes("Передано"));
     assert.deepEqual(OPERATOR_SESSION_ACTIVE_STATUSES_LIST.sort(), ["В роботі", "На паузі"].sort());
+  });
+
+  it("parseUaDate підтримує UA та ISO", () => {
+    const ua = parseUaDate("15.06.2026");
+    assert.equal(ua?.getDate(), 15);
+    const iso = parseUaDate("2026-06-15");
+    assert.equal(iso?.getMonth(), 5);
   });
 
   it("handoff cutting → edging", () => {

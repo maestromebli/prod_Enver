@@ -4,7 +4,7 @@ import { parseUaDate, toIsoDate, fromIsoDate, addDays } from "./install-calendar
 import { dayPresetOptions, getInstallDayRange, inputDateToUa } from "./install-calendar-days.js";
 import { getInstallScheduleCandidates, positionInstallLabel } from "./install-utils.js";
 import { state } from "./state.js";
-import { $, escapeHtml } from "./utils.js";
+import { $, escapeHtml, showFormError } from "./utils.js";
 import { runSave } from "./save-flow.js";
 import { toastError } from "./toast.js";
 
@@ -137,10 +137,7 @@ function ensureModal() {
 }
 
 function showError(msg) {
-  const el = $("#installScheduleFormError");
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.toggle("visible", Boolean(msg));
+  showFormError("#installScheduleFormError", msg);
 }
 
 function isoFromUa(ua) {

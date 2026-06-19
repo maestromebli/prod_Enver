@@ -34,7 +34,7 @@ import {
 } from "./production-floor.js";
 import { state } from "./state.js";
 import { badge, escapeHtml, overdue } from "./utils.js";
-import { orderRowHighlightClasses } from "./workflows.js";
+import { orderRowHighlightClasses, STAGES } from "./workflows.js";
 
 export { filteredPositions };
 
@@ -219,15 +219,8 @@ function archiveTab() {
 }
 
 function stageRows(stageName) {
-  const statusMap = {
-    Порізка: "cuttingStatus",
-    Крайкування: "edgingStatus",
-    Присадка: "drillingStatus",
-    Збірка: "assemblyStatus"
-  };
-
-  const statusKey = statusMap[stageName];
   const stageKey = STAGE_TAB_KEYS[stageName] || "cutting";
+  const statusKey = stageName === "Конструктив" ? null : stageClientField(stageKey);
 
   return filteredPositions()
     .map((p) => {
@@ -296,6 +289,29 @@ function stageTable(stageName) {
   `;
 }
 
+function productionStageCell(position, stageTab) {
+  const stage = STAGES.find((s) => s.label === stageTab);
+  if (!stage) return { status: "Не розпочато", responsible: "—" };
+  if (stage.type === "constructor") {
+    return {
+      status: position.constructor ? "Передано" : "Не розпочато",
+      responsible: position.constructor || "—"
+    };
+  }
+  if (stage.field) {
+    const responsible =
+      stage.defaultResponsible ||
+      (stage.key === "drilling" || stage.key === "assembly"
+        ? position.assemblyResponsible || "—"
+        : "—");
+    return {
+      status: position[stage.field] || "Не розпочато",
+      responsible
+    };
+  }
+  return { status: "Не розпочато", responsible: "—" };
+}
+
 function productionTable() {
   const stageFilter = state.productionStageFilter || "";
   const stages = stageFilter ? [stageFilter] : STAGE_TABS;
@@ -303,30 +319,7 @@ function productionTable() {
 
   filteredPositions().forEach((p) => {
     stages.forEach((stage) => {
-      let status = "Не розпочато";
-      let responsible = "—";
-
-      if (stage === "Конструктив") {
-        status = p.constructor ? "Передано" : "Не розпочато";
-        responsible = p.constructor || "—";
-      }
-      if (stage === "Порізка") {
-        status = p.cuttingStatus;
-        responsible = "Віяр";
-      }
-      if (stage === "Крайкування") {
-        status = p.edgingStatus;
-        responsible = "Віяр";
-      }
-      if (stage === "Присадка") {
-        status = p.drillingStatus;
-        responsible = p.assemblyResponsible || "—";
-      }
-      if (stage === "Збірка") {
-        status = p.assemblyStatus;
-        responsible = p.assemblyResponsible || "—";
-      }
-
+      const { status, responsible } = productionStageCell(p, stage);
       rows.push(`
         <tr>
           <td class="col-opt-id">${p.id}</td>
@@ -634,6 +627,7 @@ export function renderApp(options = {}) {
   if (state.view === "operator") {
     document.querySelector("#content").innerHTML = renderOperatorView();
     syncOperatorBuildChip("operatorBuildChipInline");
+    window.scrollTo(0, 0);
     return;
   }
 

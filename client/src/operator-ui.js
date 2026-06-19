@@ -33,8 +33,12 @@ export function isInstalledClient() {
 }
 
 export function setOperatorUiActive(active) {
-  document.body?.classList.toggle("enver-operator-ui", active);
   document.body?.classList.toggle("view-operator", active);
+  // operator.html: enver-operator-ui задано в розмітці, не знімаємо при виході
+  const isOperatorClient = document.body?.classList.contains("operator-client-mode");
+  if (!isOperatorClient) {
+    document.body?.classList.toggle("enver-operator-ui", active);
+  }
 }
 
 /** Версія збірки з /api/health (v2 і legacy). */
