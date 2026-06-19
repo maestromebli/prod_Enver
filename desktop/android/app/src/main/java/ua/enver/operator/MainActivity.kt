@@ -16,10 +16,12 @@ import androidx.core.view.WindowCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private lateinit var jsBridge: EnverJsBridge
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        jsBridge = EnverJsBridge(this) { if (::webView.isInitialized) webView else null }
 
         val serverUrl = prefs.getString(KEY_SERVER_URL, null)?.trim().orEmpty()
         if (serverUrl.isEmpty()) {
@@ -59,6 +61,8 @@ class MainActivity : AppCompatActivity() {
                 userAgentString = "$ua EnverOperator/1.0"
             }
         }
+
+        webView.addJavascriptInterface(jsBridge, "EnverNative")
 
         webView.webViewClient =
             object : WebViewClient() {

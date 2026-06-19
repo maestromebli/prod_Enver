@@ -19,12 +19,14 @@ import {
 import { ingestLogFile } from "../machine-log-ingest.js";
 import { getMachineConfig, updateMachineConfig } from "../machine-config.js";
 import { getParserProfiles } from "../machine-log-parser.js";
+import { pickWindowsFolder, windowsFolderPickerAvailable } from "../folder-picker-win.js";
 import {
   auditActor,
   requireAuth,
   requireOperatorPanelView,
   requireOperatorSelf,
-  requireStageMachineConfig
+  requireStageMachineConfig,
+  canManageStageMachineConfig
 } from "../middleware/auth.js";
 
 const router = Router();
@@ -368,6 +370,32 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
 
 router.get("/machine-config/profiles", (_req, res) => {
   res.json({ profiles: getParserProfiles() });
+});
+
+router.get("/machine-config/pick-folder/capabilities", (_req, res) => {
+  res.json({ windowsDialog: windowsFolderPickerAvailable() });
+});
+
+router.post("/machine-config/pick-folder", (req, res) => {
+  if (!canManageStageMachineConfig(req.user, "cutting")) {
+    res.status(403).json({ error: "Немає доступу до налаштувань порізки" });
+    return;
+  }
+  const title = String(req.body?.title || "Оберіть папку");
+  try {
+    const folderPath = pickWindowsFolder({ title });
+    if (!folderPath) {
+      res.status(409).json({ error: "Скасовано" });
+      return;
+    }
+    res.json({ path: folderPath });
+  } catch (err) {
+    if (err.status === 501) {
+      res.status(501).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.get("/machine-config/:stageKey", requireStageMachineConfig, async (req, res) => {

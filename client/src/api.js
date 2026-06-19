@@ -49,7 +49,9 @@ async function request(path, options = {}) {
     throw new Error(data.error || "Сесія закінчилась — увійдіть знову");
   }
   if (!response.ok) {
-    throw new Error(data.error || `Помилка ${response.status}`);
+    const err = new Error(data.error || `Помилка ${response.status}`);
+    err.status = response.status;
+    throw err;
   }
 
   return data;
@@ -145,6 +147,11 @@ export const api = {
     }),
   scanOperatorMachineLogs: (stageKey, body = {}) =>
     request(`/api/operator/machine-config/${stageKey}/scan`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  pickOperatorFolder: (body = {}) =>
+    request("/api/operator/machine-config/pick-folder", {
       method: "POST",
       body: JSON.stringify(body)
     }),
