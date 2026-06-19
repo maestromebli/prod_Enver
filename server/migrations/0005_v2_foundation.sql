@@ -12,7 +12,7 @@ ALTER TABLE operator_sessions ADD COLUMN IF NOT EXISTS pause_reason TEXT NOT NUL
 ALTER TABLE operator_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_operator_sessions_open
-  ON operator_sessions(operator_id, stage_key) WHERE finished_at IS NULL;
+  ON operator_sessions(user_id, stage_key) WHERE finished_at IS NULL;
 
 ALTER TABLE positions ADD COLUMN IF NOT EXISTS constructor_status TEXT NOT NULL DEFAULT '';
 ALTER TABLE positions ADD COLUMN IF NOT EXISTS install_status TEXT NOT NULL DEFAULT '';
