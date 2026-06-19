@@ -18,6 +18,7 @@ import {
   loadOperatorData,
   renderOperatorView
 } from "./operator-panel.js";
+import { initOperatorMachineSettingsModal } from "./operator-machine-settings.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
@@ -98,6 +99,7 @@ window.__enverRender = () => {
 };
 
 bindOperatorActions(() => loadOperatorClientData());
+initOperatorMachineSettingsModal();
 
 $("#logoutBtn")?.addEventListener("click", async () => {
   const ok = await confirmKioskBeforeLogout();

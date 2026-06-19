@@ -1171,3 +1171,73 @@ body.view-operator .app {
 .operator-page {
   max-width: none;
 }
+
+/* Модал налаштувань логів/ШІ (панель порізчика) */
+.op-machine-settings-modal .op-ms-card {
+  max-width: 560px;
+  width: calc(100% - 24px);
+}
+
+.op-ms-body {
+  padding: 0 20px 8px;
+}
+
+.op-ms-intro {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.op-ms-section {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.op-ms-section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.op-ms-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.op-ms-subfolders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.op-ms-subfolder {
+  font-size: 13px;
+}
+
+.op-ms-extra-label {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.op-ms-status {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.op-ms-footer {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.enver-operator-client .op-machine-settings-modal .modal {
+  max-height: min(92vh, 720px);
+  overflow: auto;
+}

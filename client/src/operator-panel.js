@@ -19,6 +19,11 @@ import {
 } from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml } from "./utils.js";
+import {
+  canShowOperatorMachineSettings,
+  initOperatorMachineSettingsModal,
+  openOperatorMachineSettings
+} from "./operator-machine-settings.js";
 
 const STAGE_THEME = {
   cutting: {
@@ -558,6 +563,11 @@ export function renderOperatorView() {
           </div>
           <div class="op-header-actions">
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Система</button>' : ""}
+            ${
+              canShowOperatorMachineSettings(stageKey)
+                ? '<button type="button" class="op-btn-ghost" id="operatorMachineSettingsBtn" title="Логи та ШІ">⚙ Логи</button>'
+                : ""
+            }
             ${isOperator() ? '<button type="button" class="op-btn-ghost op-btn-ghost-danger" id="operatorLogoutBtn">Вийти</button>' : ""}
           </div>
         </div>
@@ -866,6 +876,15 @@ export function bindOperatorActions(onChange) {
       if (e.target.closest("#operatorMarkSeenBtn")) {
         markOperatorStageSeen(state.operatorStage, state.operatorQueue);
         operatorOnChange();
+        return;
+      }
+
+      if (e.target.closest("#operatorMachineSettingsBtn")) {
+        initOperatorMachineSettingsModal();
+        await openOperatorMachineSettings(state.operatorStage, async () => {
+          await refreshMachineProgress();
+          operatorOnChange();
+        });
         return;
       }
 

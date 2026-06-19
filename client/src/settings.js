@@ -260,6 +260,34 @@ function machinesSectionHtml() {
               AI
             </label>
           </div>
+          ${
+            m.stageKey === "cutting"
+              ? `
+          <div class="form-field">
+            <label>Корінь папок проєктів</label>
+            <input
+              class="machine-projects-root"
+              type="text"
+              data-machine-projects-root="${escapeHtml(m.stageKey)}"
+              value="${escapeHtml(m.projectsRootPath || "")}"
+              placeholder="C:\\ENVER"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="form-field">
+            <label>Підпапки для ШІ (через кому)</label>
+            <input
+              class="machine-ai-subfolders"
+              type="text"
+              data-machine-ai-subfolders="${escapeHtml(m.stageKey)}"
+              value="${escapeHtml((m.aiSourceSubfolders || []).join(", "))}"
+              placeholder="meta.json, giblab, kdt"
+              autocomplete="off"
+            />
+          </div>`
+              : ""
+          }
           <p class="machine-stage-status"><small>${escapeHtml(m.lastMatchSummary || "—")}</small></p>
           <div class="machine-actions-cell">
             <button type="button" class="btn btn-primary btn-sm" data-save-machine="${escapeHtml(m.stageKey)}">Зберегти</button>
@@ -456,11 +484,21 @@ export function renderSettingsView() {
 }
 
 function collectMachineConfigFromDom(key) {
+  const subfoldersRaw =
+    document.querySelector(`[data-machine-ai-subfolders="${key}"]`)?.value ?? "";
+  const aiSourceSubfolders = subfoldersRaw
+    .split(/[,;\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return {
     logPath: document.querySelector(`[data-machine-log-path="${key}"]`)?.value ?? "",
     parserProfile: document.querySelector(`[data-machine-parser="${key}"]`)?.value ?? "generic",
     watchEnabled: document.querySelector(`[data-machine-watch="${key}"]`)?.checked ?? false,
     aiMatchingEnabled: document.querySelector(`[data-machine-ai="${key}"]`)?.checked ?? true,
+    projectsRootPath:
+      document.querySelector(`[data-machine-projects-root="${key}"]`)?.value?.trim() ?? "",
+    aiSourceSubfolders,
     resetLogOffset: false
   };
 }

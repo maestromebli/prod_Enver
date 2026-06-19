@@ -137,6 +137,17 @@ export const api = {
   operatorFinish: (body) =>
     request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
   getOperatorJob: (positionId) => request(`/api/operator/job/${positionId}`),
+  getOperatorMachineConfig: (stageKey) => request(`/api/operator/machine-config/${stageKey}`),
+  updateOperatorMachineConfig: (stageKey, body) =>
+    request(`/api/operator/machine-config/${stageKey}`, {
+      method: "PUT",
+      body: JSON.stringify(body)
+    }),
+  scanOperatorMachineLogs: (stageKey, body = {}) =>
+    request(`/api/operator/machine-config/${stageKey}/scan`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
   estimateCutting: (body) =>
     request("/api/ai/estimate-cutting", { method: "POST", body: JSON.stringify(body) }),
 
