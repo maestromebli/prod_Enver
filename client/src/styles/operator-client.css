@@ -91,6 +91,17 @@ body.operator-kiosk-locked {
   background: color-mix(in srgb, var(--brand, #0f2a44) 10%, transparent);
 }
 
+.operator-client-build {
+  flex-shrink: 0;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.58rem;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: var(--muted, #64748b);
+  background: #eef2f7;
+}
+
 .operator-client-user {
   flex: 1;
   min-width: 0;

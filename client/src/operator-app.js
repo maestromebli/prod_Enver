@@ -87,7 +87,42 @@ async function loadOperatorClientData() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("/sw-operator.js").catch(() => {});
+  navigator.serviceWorker
+    .register("/sw-operator.js")
+    .then((reg) => {
+      reg.update().catch(() => {});
+    })
+    .catch(() => {});
+}
+
+async function syncOperatorBuildLabel() {
+  const chip = $("#operatorBuildChip");
+  if (!chip) return;
+  try {
+    const health = await fetch("/api/health", { cache: "no-store" }).then((r) => r.json());
+    const build = String(health.build || "").slice(0, 7);
+    if (!build) {
+      chip.hidden = true;
+      return;
+    }
+    chip.hidden = false;
+    chip.textContent = build;
+    chip.title = `Версія сервера: ${health.build}`;
+
+    const stored = localStorage.getItem("enver_operator_build");
+    if (stored && stored !== build) {
+      localStorage.setItem("enver_operator_build", build);
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      location.reload();
+      return;
+    }
+    localStorage.setItem("enver_operator_build", build);
+  } catch {
+    chip.hidden = true;
+  }
 }
 
 async function afterOperatorLogin() {
@@ -100,6 +135,7 @@ async function afterOperatorLogin() {
   const stages = operatorStages();
   await enterOperatorView(stages[0] || "cutting");
   await loadOperatorClientData();
+  await syncOperatorBuildLabel();
   await enableOperatorKiosk();
 }
 

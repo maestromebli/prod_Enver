@@ -1,13 +1,7 @@
-const CACHE = "enver-operator-v2";
-const ASSETS = ["/operator.html", "/manifest-operator.webmanifest"];
+const CACHE = "enver-operator-v3";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
@@ -19,21 +13,31 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isOperatorAppAsset(pathname) {
+  return (
+    pathname.endsWith(".html") ||
+    pathname.endsWith(".js") ||
+    pathname.endsWith(".css") ||
+    pathname.startsWith("/assets/") ||
+    pathname === "/sw-operator.js"
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) return;
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(request).then((r) => r || caches.match("/operator.html")))
-  );
+  // HTML/JS/CSS — завжди з мережі, щоб планшет бачив оновлення після деплою.
+  if (isOperatorAppAsset(url.pathname)) {
+    event.respondWith(
+      fetch(request, { cache: "no-store" }).catch(() =>
+        url.pathname.includes("operator") ? caches.match("/operator.html") : Response.error()
+      )
+    );
+    return;
+  }
+
+  event.respondWith(fetch(request));
 });

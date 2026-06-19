@@ -4,6 +4,8 @@ services:
     container_name: enver
     restart: unless-stopped
     env_file: .env
+    environment:
+      APP_BUILD_SHA: ${IMAGE_TAG:-latest}
     networks:
       - enver-net
 

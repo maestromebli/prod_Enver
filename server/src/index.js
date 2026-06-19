@@ -41,6 +41,7 @@ function createApiApp({ dbConfigured, dbConnected }) {
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
+      build: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
       production: process.env.NODE_ENV === "production",
       database: { configured: dbConfigured, connected: dbConnected },
       features: {
@@ -154,6 +155,17 @@ async function start() {
       process.exit(1);
     }
   } else {
+    app.use((req, res, next) => {
+      if (
+        req.path === "/operator.html" ||
+        req.path === "/sw-operator.js" ||
+        req.path.startsWith("/assets/")
+      ) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+      }
+      next();
+    });
     app.use(express.static(clientDist));
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api")) {
