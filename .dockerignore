@@ -6,7 +6,11 @@
 .idea
 client/dist
 server/data
-releases
+releases/enver-production-module.zip
+releases/_production-module-staging
+releases/_windows-staging
+releases/windows-build
+releases/enver-operator-windows.zip
 desktop
 .cursor
 *.md

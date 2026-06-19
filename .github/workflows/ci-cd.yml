@@ -82,6 +82,9 @@ jobs:
           name: android-apk
           path: releases
 
+      - name: Verify APK in build context
+        run: ls -la releases/
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
