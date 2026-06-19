@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f2a44" />
+    <title>ENVER — Установка для Android</title>
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="stylesheet" href="/src/styles/theme-dark.css" />
+    <link rel="stylesheet" href="/src/styles/login.css" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background: var(--bg, #f1f5f9);
+      }
+
+      .android-install-card {
+        width: min(100%, 32rem);
+        padding: 1.75rem;
+        border-radius: 16px;
+        border: 1px solid var(--border, #e2e8f0);
+        background: var(--surface, #fff);
+        box-shadow: 0 12px 40px rgba(15, 42, 68, 0.08);
+      }
+
+      .android-install-card h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.35rem;
+      }
+
+      .android-install-card p {
+        margin: 0 0 1rem;
+        color: var(--muted, #64748b);
+        line-height: 1.55;
+      }
+
+      .android-install-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin: 1rem 0;
+      }
+
+      .android-install-steps {
+        margin: 0;
+        padding-left: 1.25rem;
+        color: var(--muted, #64748b);
+        line-height: 1.55;
+      }
+
+      .android-install-steps li + li {
+        margin-top: 0.45rem;
+      }
+
+      .android-install-note {
+        margin-top: 1rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 10px;
+        background: var(--bg-muted, #f8fafc);
+        font-size: 0.9rem;
+        color: var(--muted, #64748b);
+      }
+
+      #installBtn[hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="android-install-card">
+      <h1>ENVER Оператор для Android</h1>
+      <p>
+        Встановіть панель оператора на планшет або телефон Android. Після входу відкриється
+        повноекранний режим; вихід — кнопкою «Вийти з повноекранного» і паролем
+        <code>1111</code>.
+      </p>
+
+      <div class="android-install-actions">
+        <button type="button" class="btn btn-primary" id="installBtn" hidden>
+          Встановити застосунок
+        </button>
+        <a class="btn" id="openOperatorBtn" href="/operator.html">Відкрити панель оператора</a>
+      </div>
+
+      <ol class="android-install-steps">
+        <li>Переконайтесь, що пристрій у тій самій мережі, що сервер ENVER.</li>
+        <li>Відкрийте цю сторінку в <strong>Google Chrome</strong>.</li>
+        <li>Натисніть «Встановити застосунок» або меню Chrome → «Додати на головний екран».</li>
+        <li>Запускайте ENVER лише з іконки на головному екрані, не з браузера.</li>
+        <li>Увійдіть (наприклад <code>porizka</code> / <code>1234</code>).</li>
+      </ol>
+
+      <p class="android-install-note" id="installHint">
+        Якщо кнопки установки немає — використайте меню Chrome (⋮) → «Додати на головний екран» або
+        «Install app».
+      </p>
+    </main>
+    <script type="module" src="/src/android-install.js"></script>
+  </body>
+</html>

@@ -10,63 +10,52 @@ export async function loadClientsInfo() {
 export function clientsSectionHtml() {
   const origin =
     typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
-  const ipadUrl =
-    clientsInfo?.ipadDownloadUrl || `${origin}/downloads/enver-operator-ipad.mobileconfig`;
-  const ipadReady = clientsInfo?.ipadDownloadAvailable !== false;
-  const windowsUrl =
-    clientsInfo?.windowsDownloadUrl || `${origin}/downloads/enver-operator-windows.zip`;
-  const windowsReady = Boolean(clientsInfo?.windowsDownloadAvailable);
+  const installUrl = clientsInfo?.androidInstallUrl || `${origin}/android-install.html`;
+  const operatorUrl = clientsInfo?.operatorUrl || `${origin}/operator.html`;
 
   return `
     <div class="settings-section">
       <h2>Клієнти для цеху</h2>
       <p class="settings-hint">
-        Окремі клієнти для операторів станків: установка на планшет Apple та повноекранний клієнт Windows біля станка.
+        Клієнт для операторів станків на планшетах Android: повноекранна PWA-панель біля станка.
       </p>
 
       <article class="clients-card">
-        <h3>iPad / iPhone (Apple)</h3>
+        <h3>Android (планшет / телефон)</h3>
         <p class="settings-hint">
-          Профіль установки (.mobileconfig) додає іконку «ENVER Оператор» на головний екран.
-          Повноекранний режим як на Windows: після входу — на весь екран; вихід лише кнопкою
-          «Вийти з повноекранного» і паролем <code>1111</code>.
+          Встановлення через Google Chrome — іконка «ENVER Оператор» на головному екрані.
+          Після входу — повноекранний режим; вихід лише кнопкою «Вийти з повноекранного» і паролем
+          <code>1111</code>.
         </p>
-        ${
-          ipadReady
-            ? `<a class="btn btn-primary" href="${escapeHtml(ipadUrl)}" download="enver-operator-ipad.mobileconfig">
-                Завантажити програму установки для iPad
-              </a>`
-            : `<p class="form-error">Профіль установки тимчасово недоступний.</p>`
-        }
+        <a class="btn btn-primary" href="${escapeHtml(installUrl)}">
+          Відкрити сторінку установки
+        </a>
+        <div class="clients-link-row">
+          <input
+            class="clients-url-input"
+            id="androidInstallUrl"
+            type="text"
+            readonly
+            value="${escapeHtml(installUrl)}"
+          />
+          <button type="button" class="btn" data-copy-client-url="androidInstallUrl">Копіювати</button>
+        </div>
+        <div class="clients-link-row">
+          <input
+            class="clients-url-input"
+            id="operatorPanelUrl"
+            type="text"
+            readonly
+            value="${escapeHtml(operatorUrl)}"
+          />
+          <button type="button" class="btn" data-copy-client-url="operatorPanelUrl">Копіювати</button>
+        </div>
         <ol class="clients-steps">
-          <li>Переконайтесь, що планшет у тій самій мережі, що сервер ENVER.</li>
-          <li>На iPad завантажте профіль (кнопка вище в Safari) або передайте файл з ПК (AirDrop, пошта).</li>
-          <li>Відкрийте файл → «Налаштування» → «Профіль завантажено» → «Встановити» → підтвердіть.</li>
-          <li>На головному екрані з’явиться «ENVER Оператор» — запускайте лише з іконки, не з Safari.</li>
+          <li>На планшеті Android відкрийте посилання установки в Chrome (кнопка або QR з адмін-панелі).</li>
+          <li>Натисніть «Встановити застосунок» або меню Chrome → «Додати на головний екран».</li>
+          <li>Запускайте ENVER лише з іконки на головному екрані, не з вкладки браузера.</li>
           <li>Увійдіть (наприклад <code>porizka</code> / <code>1234</code>).</li>
           <li>Після входу панель займе весь екран; для виходу — «Вийти з повноекранного» + пароль <code>1111</code>.</li>
-        </ol>
-      </article>
-
-      <article class="clients-card">
-        <h3>Windows (станок / ПК)</h3>
-        <p class="settings-hint">
-          Повноекранний режим, автозапуск при ввімкненні Windows. Вихід з повноекранного режиму — кнопка
-          «Вийти з повноекранного» та пароль <code>1111</code>.
-        </p>
-        ${
-          windowsReady
-            ? `<a class="btn btn-primary" href="${escapeHtml(windowsUrl)}" download="enver-operator-windows.zip">
-                Завантажити клієнт для Windows
-              </a>`
-            : `<p class="form-error">Архів ще не зібрано. На сервері виконайте: <code>npm run build:windows-client</code></p>
-               <a class="btn" href="${escapeHtml(windowsUrl)}">Спробувати завантажити</a>`
-        }
-        <ol class="clients-steps">
-          <li>Розпакуйте ZIP і запустіть <code>ENVER Operator.exe</code>.</li>
-          <li>У файлі <code>config.json</code> поруч із exe вкажіть URL сервера (наприклад <code>http://192.168.1.10:3001</code>).</li>
-          <li>Клієнт додасть себе в автозапуск Windows.</li>
-          <li>Для виходу з повноекранного — кнопка в шапці та пароль <code>1111</code>.</li>
         </ol>
       </article>
     </div>

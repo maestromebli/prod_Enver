@@ -46,6 +46,8 @@ const MODULE_FILES = [
   "client/src/styles/operator.css",
   "client/src/styles/operator-client.css",
   "client/operator.html",
+  "client/android-install.html",
+  "client/src/android-install.js",
   "client/public/manifest-operator.webmanifest",
   "client/public/sw-operator.js",
   "client/public/icons/icon-192.png",
@@ -58,12 +60,11 @@ const MODULE_FILES = [
   "server/test/position-logic.test.js"
 ];
 
-const MODULE_DIRS = ["desktop/windows"];
+const MODULE_DIRS = [];
 
 const DOC_FILES = [
   "releases/production-module/PIDKLUCHENNYA.md",
-  "releases/production-module/templates/env.production-module.example",
-  "releases/production-module/templates/config.operator-windows.json"
+  "releases/production-module/templates/env.production-module.example"
 ];
 
 function readPkgVersion() {
@@ -161,7 +162,7 @@ function buildManifest(copiedFiles) {
     builtAt: new Date().toISOString(),
     gitSha: sha,
     target: "ENVER OS",
-    description: "Цех, панель оператора, інтеграція зі станками (логи + AI), клієнти Windows/iPad",
+    description: "Цех, панель оператора, інтеграція зі станками (логи + AI), клієнт Android (PWA)",
     api: {
       production: ["/api/production/floor"],
       operator: [
@@ -185,7 +186,7 @@ function buildManifest(copiedFiles) {
     docs: {
       connection: "PIDKLUCHENNYA.md",
       envExample: "templates/env.production-module.example",
-      windowsConfig: "templates/config.operator-windows.json"
+      androidInstall: "/android-install.html"
     }
   };
 }
@@ -238,7 +239,7 @@ Git: ${manifest.gitSha}
 
 1. Прочитайте PIDKLUCHENNYA.md
 2. Підключіть до ENVER OS (сервер + права + станки)
-3. Розгорніть operator-clients/windows на ПК цеху
+3. Відкрийте на планшетах Android сторінку установки з ENVER OS (Налаштування → Клієнти)
 
 Архів: releases/enver-production-module.zip
 `,

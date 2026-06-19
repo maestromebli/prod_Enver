@@ -11,7 +11,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
-        operator: path.resolve(__dirname, "operator.html")
+        operator: path.resolve(__dirname, "operator.html"),
+        androidInstall: path.resolve(__dirname, "android-install.html")
       }
     }
   },

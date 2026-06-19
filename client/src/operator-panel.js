@@ -336,6 +336,14 @@ function userInitials(name) {
   return (parts[0]?.[0] || "О").toUpperCase();
 }
 
+function isOperatorTabletClient() {
+  return document.body?.classList.contains("enver-operator-client");
+}
+
+function isCuttingOneScreen(stageKey) {
+  return stageKey === "cutting" && isOperatorTabletClient();
+}
+
 function folderStateLabel(state) {
   const map = {
     inbox: "Очікує в цеху",
@@ -346,13 +354,50 @@ function folderStateLabel(state) {
   return map[state] || state || "";
 }
 
-function renderFolderJobBlock() {
+function renderFolderJobBlock(options = {}) {
+  const { compact = false } = options;
   const job = state.operatorJobDetail;
   if (!job) return "";
 
   const files = (job.files || []).slice(0, 12);
   const estimate = state.operatorCuttingEstimate;
   const mp = job.machineProgress || state.machinePositionProgress || {};
+
+  if (compact) {
+    const chips = [];
+    if (job.material) {
+      chips.push(`<span class="op-folder-chip">${escapeHtml(job.material)}</span>`);
+    }
+    if (job.giblabSummary?.piecesTotal) {
+      chips.push(`<span class="op-folder-chip">${job.giblabSummary.piecesTotal} дет.</span>`);
+    }
+    if (estimate?.label) {
+      chips.push(
+        `<span class="op-folder-chip op-folder-chip--accent">${escapeHtml(estimate.label)}</span>`
+      );
+    }
+    if (mp.piecesTotal > 0) {
+      chips.push(
+        `<span class="op-folder-chip op-folder-chip--live">${mp.piecesDone || 0}/${mp.piecesTotal} дет.${mp.cutLengthM ? ` · ${mp.cutLengthM} м` : ""}</span>`
+      );
+    }
+    if (files.length) {
+      chips.push(`<span class="op-folder-chip">${files.length} файлів</span>`);
+    }
+
+    if (!chips.length && !job.folderState) return "";
+
+    return `
+    <section class="op-folder-card op-folder-card--compact" aria-label="Дані з папки проєкту">
+      ${job.folderState ? `<span class="op-folder-state">${escapeHtml(folderStateLabel(job.folderState))}</span>` : ""}
+      ${
+        chips.length
+          ? `<div class="op-folder-chips">${chips.join("")}</div>`
+          : '<p class="op-folder-empty">Синхронізація папки…</p>'
+      }
+    </section>
+  `;
+  }
 
   return `
     <section class="op-folder-card" aria-label="Дані з папки проєкту">
@@ -465,6 +510,7 @@ export function renderOperatorView() {
       ? formatElapsed(state.operatorActiveSession?.started_at)
       : null;
   const ringOffset = RING_C * (1 - (state.machineProgress || 0) / 100);
+  const oneScreen = isCuttingOneScreen(stageKey);
 
   const stageTabs = stages
     .map((key) => {
@@ -489,7 +535,7 @@ export function renderOperatorView() {
   const initials = userInitials(state.currentUser?.name);
 
   return `
-    <div class="operator-shell" data-stage="${escapeHtml(stageKey)}"
+    <div class="operator-shell${oneScreen ? " op-one-screen" : ""}" data-stage="${escapeHtml(stageKey)}"
       style="--op-accent: ${theme.accent}; --op-accent-soft: ${theme.accentSoft}; --op-gradient: ${theme.gradient}">
       <header class="op-header">
         <div class="op-header-brand">
@@ -601,7 +647,7 @@ export function renderOperatorView() {
           ${
             pos
               ? `
-            <div class="op-task-hero ${inWork && isOnActiveSessionStage() && activeSessionPositionId() === pos.id ? "op-task-hero--live" : ""}">
+            <div class="op-task-hero${oneScreen ? " op-task-hero--compact" : ""} ${inWork && isOnActiveSessionStage() && activeSessionPositionId() === pos.id ? "op-task-hero--live" : ""}">
               <div class="op-task-hero-top">
                 <span class="op-task-id">Позиція #${pos.id}</span>
                 ${badge(pos[field])}
@@ -609,6 +655,25 @@ export function renderOperatorView() {
               <h2 class="op-task-title">${escapeHtml(pos.item)}</h2>
               <p class="op-task-subtitle">${escapeHtml(pos.orderNumber)} · ${escapeHtml(pos.object)}</p>
 
+              ${
+                oneScreen
+                  ? `
+              ${
+                (pos.overdueDays || 0) > 0
+                  ? `<p class="op-task-inline op-task-inline--warn">Прострочення: +${pos.overdueDays} дн.</p>`
+                  : ""
+              }
+              ${
+                pos.problem
+                  ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>`
+                  : ""
+              }
+              ${
+                pos.note
+                  ? `<p class="op-task-inline op-task-inline--note">${escapeHtml(pos.note)}</p>`
+                  : ""
+              }`
+                  : `
               <div class="op-task-grid">
                 <div class="op-task-field">
                   <span class="op-task-field-label">Замовлення</span>
@@ -649,9 +714,10 @@ export function renderOperatorView() {
                 </div>`
                     : ""
                 }
-              </div>
+              </div>`
+              }
             </div>
-            ${renderFolderJobBlock()}
+            ${renderFolderJobBlock({ compact: oneScreen })}
           `
               : `
             <div class="op-task-empty">
@@ -668,7 +734,7 @@ export function renderOperatorView() {
           `
           }
 
-          <section class="op-machine-section" aria-labelledby="opMachineTitle">
+          <section class="op-machine-section${oneScreen ? " op-machine-section--compact" : ""}" aria-labelledby="opMachineTitle">
             <div class="op-machine-head">
               <h3 id="opMachineTitle">Прогрес станка</h3>
               <span class="op-machine-status ${state.machineProgress > 0 ? "is-active" : ""}">
@@ -737,13 +803,15 @@ export function renderOperatorView() {
           </div>
 
           ${
-            inWork && isOnActiveSessionStage() && isSessionPaused()
-              ? '<p class="op-hint"><span class="op-hint-icon">⏸</span> Завдання на паузі. Натисніть «Продовжити» або «Закінчив», щоб закрити етап.</p>'
-              : inWork && isOnActiveSessionStage()
-                ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Між «Почав» і «Закінчив» можна поставити на паузу. Наступне замовлення — лише після завершення.</p>'
-                : inWork
-                  ? '<p class="op-hint op-hint--warn"><span class="op-hint-icon">!</span> Нове замовлення недоступне, поки не завершите поточне на іншому етапі.</p>'
-                  : ""
+            oneScreen
+              ? ""
+              : inWork && isOnActiveSessionStage() && isSessionPaused()
+                ? '<p class="op-hint"><span class="op-hint-icon">⏸</span> Завдання на паузі. Натисніть «Продовжити» або «Закінчив», щоб закрити етап.</p>'
+                : inWork && isOnActiveSessionStage()
+                  ? '<p class="op-hint"><span class="op-hint-icon">ℹ</span> Між «Почав» і «Закінчив» можна поставити на паузу. Наступне замовлення — лише після завершення.</p>'
+                  : inWork
+                    ? '<p class="op-hint op-hint--warn"><span class="op-hint-icon">!</span> Нове замовлення недоступне, поки не завершите поточне на іншому етапі.</p>'
+                    : ""
           }
         </main>
       </div>
