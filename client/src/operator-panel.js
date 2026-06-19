@@ -564,7 +564,7 @@ export function renderOperatorView() {
           <div class="op-header-actions">
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Система</button>' : ""}
             ${
-              canShowOperatorMachineSettings(stageKey)
+              canShowOperatorMachineSettings(stageKey) && !isOperatorTabletClient()
                 ? '<button type="button" class="op-btn-ghost" id="operatorMachineSettingsBtn" title="Логи та ШІ">⚙ Логи</button>'
                 : ""
             }

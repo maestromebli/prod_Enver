@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { bindFolderPickButton, folderPickerCapabilities } from "./folder-picker.js";
 import { runSave } from "./save-flow.js";
 import { escapeHtml } from "./utils.js";
 import { toastError } from "./toast.js";
@@ -32,8 +33,27 @@ function parserHint(profile) {
     : "Один текстовий файл логу на сервері ENVER";
 }
 
-function parserPlaceholder(profile) {
-  return profile === "kdt" ? "C:\\Users\\Administrator\\Desktop\\KDTSaw1" : "/var/log/stanok.log";
+function pathPickerHint() {
+  const caps = folderPickerCapabilities();
+  if (caps.android) {
+    return "Натисніть «Обрати папку» — відкриється провідник Android (пам'ять пристрою або мережеве сховище).";
+  }
+  return "Натисніть «Обрати папку» — відкриється діалог Windows (диск C:, мережа \\\\NAS\\...).";
+}
+
+function pathPickerRow({ inputId, pickId, label, hint }) {
+  return `
+    <div class="form-field">
+      <label for="${inputId}">${escapeHtml(label)}</label>
+      ${hint ? `<p class="field-hint">${escapeHtml(hint)}</p>` : ""}
+      <p class="field-hint op-ms-picker-hint">${escapeHtml(pathPickerHint())}</p>
+      <div class="op-ms-path-row">
+        <input id="${inputId}" type="text" class="op-ms-path-display" readonly placeholder="Папку ще не обрано" />
+        <button type="button" class="btn btn-primary op-ms-pick-btn" id="${pickId}">Обрати папку</button>
+      </div>
+      <button type="button" class="op-ms-manual-toggle" data-manual-for="${inputId}">Ввести шлях вручну (мережа)</button>
+    </div>
+  `;
 }
 
 function renderSubfolderChecks(selected = []) {
@@ -64,7 +84,6 @@ function fillForm(config) {
   const profile = config.parserProfile || "kdt";
   $("opMsParser").value = profile;
   $("opMsLogPath").value = config.logPath || "";
-  $("opMsLogPath").placeholder = parserPlaceholder(profile);
   $("opMsPathHint").textContent = parserHint(profile);
   $("opMsProjectsRoot").value = config.projectsRootPath || "";
   $("opMsWatch").checked = Boolean(config.watchEnabled);
@@ -95,7 +114,7 @@ export function initOperatorMachineSettingsModal() {
         </div>
         <form id="opMachineSettingsForm" class="op-ms-body">
           <p class="op-ms-intro">
-            Шляхи вказуються на сервері ENVER (або ПК, де працює агент папок). ШІ зіставляє рядки логу з позиціями,
+            Оберіть папки через системний діалог (Android або Windows). ШІ зіставляє рядки логу з позиціями,
             використовуючи дані з обраних підпапок проєкту.
           </p>
 
@@ -108,10 +127,12 @@ export function initOperatorMachineSettingsModal() {
               </select>
             </div>
             <p class="field-hint" id="opMsPathHint"></p>
-            <div class="form-field">
-              <label for="opMsLogPath">Шлях до логів</label>
-              <input id="opMsLogPath" type="text" autocomplete="off" spellcheck="false" />
-            </div>
+            ${pathPickerRow({
+              inputId: "opMsLogPath",
+              pickId: "opMsPickLogPath",
+              label: "Папка або файл логів",
+              hint: "KDT — папка з .txt; інші профілі — один файл логу."
+            })}
             <div class="op-ms-checks">
               <label class="checkbox-label">
                 <input type="checkbox" id="opMsWatch" />
@@ -126,11 +147,12 @@ export function initOperatorMachineSettingsModal() {
 
           <section class="op-ms-section">
             <h3>Папки проєктів</h3>
-            <div class="form-field">
-              <label for="opMsProjectsRoot">Корінь папок замовлень</label>
-              <p class="field-hint">Та сама коренева папка, що в агенті (inbox / active / done). Звідси беруться назва об'єкта та файли для ШІ.</p>
-              <input id="opMsProjectsRoot" type="text" placeholder="C:\\ENVER або \\\\NAS\\Production" autocomplete="off" spellcheck="false" />
-            </div>
+            ${pathPickerRow({
+              inputId: "opMsProjectsRoot",
+              pickId: "opMsPickProjectsRoot",
+              label: "Корінь папок замовлень",
+              hint: "Та сама коренева папка, що в агенті (inbox / active / done)."
+            })}
             <div class="form-field">
               <label>Підпапки для аналізу ШІ</label>
               <p class="field-hint">Файли з цих підпапок кожного проєкту порівнюються з логом станка.</p>
@@ -154,10 +176,32 @@ export function initOperatorMachineSettingsModal() {
   `;
   document.body.appendChild(wrap.firstElementChild);
 
+  bindFolderPickButton({
+    button: $("opMsPickLogPath"),
+    input: $("opMsLogPath"),
+    title: "Папка або файл логів станка"
+  });
+  bindFolderPickButton({
+    button: $("opMsPickProjectsRoot"),
+    input: $("opMsProjectsRoot"),
+    title: "Корінь папок замовлень"
+  });
+
+  document.getElementById("opMachineSettingsForm")?.addEventListener("click", (e) => {
+    const toggle = e.target.closest("[data-manual-for]");
+    if (!toggle) return;
+    const input = document.getElementById(toggle.dataset.manualFor);
+    if (!input) return;
+    const manual = input.dataset.manual === "1";
+    input.dataset.manual = manual ? "0" : "1";
+    input.readOnly = manual;
+    toggle.textContent = manual ? "Ввести шлях вручну (мережа)" : "Лише вибір папки";
+    if (!manual) input.focus();
+  });
+
   $("opMsParser")?.addEventListener("change", () => {
     const profile = $("opMsParser").value;
     $("opMsPathHint").textContent = parserHint(profile);
-    $("opMsLogPath").placeholder = parserPlaceholder(profile);
   });
 
   $("opMsClose")?.addEventListener("click", closeOperatorMachineSettings);

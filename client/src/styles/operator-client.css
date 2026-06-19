@@ -112,6 +112,12 @@ body.operator-kiosk-locked {
   line-height: 1.2;
 }
 
+#operatorClientMachineSettingsBtn:not([hidden]) {
+  color: var(--brand, #0f2a44);
+  border: 1px solid color-mix(in srgb, var(--brand, #0f2a44) 18%, transparent);
+  background: color-mix(in srgb, var(--brand, #0f2a44) 6%, #fff);
+}
+
 .operator-kiosk-exit,
 .operator-kiosk-restore {
   margin-left: 0;

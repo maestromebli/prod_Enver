@@ -1,4 +1,4 @@
-const CACHE = "enver-operator-v1";
+const CACHE = "enver-operator-v2";
 const ASSETS = ["/operator.html", "/manifest-operator.webmanifest"];
 
 self.addEventListener("install", (event) => {
