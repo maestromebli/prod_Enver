@@ -38,6 +38,7 @@
     <link rel="stylesheet" href="/src/styles/production-floor.css" />
     <link rel="stylesheet" href="/src/styles/toast.css" />
     <link rel="stylesheet" href="/src/styles/login.css" />
+    <link rel="stylesheet" href="/src/styles/brand-logo.css" />
     <link rel="stylesheet" href="/src/styles/responsive.css" />
     <link rel="stylesheet" href="/src/styles/install-calendar.css" />
   </head>
@@ -52,7 +53,14 @@
         aria-describedby="loginSubtitle"
       >
         <header class="login-hero">
-          <span class="login-hero-logo">ENVER</span>
+          <span class="enver-brand enver-brand--hero" role="img" aria-label="ENVER">
+            <img
+              class="enver-brand__img"
+              src="/brand/enver-logo-light.png"
+              alt=""
+              decoding="async"
+            />
+          </span>
           <p class="login-hero-tagline">Виробничий контроль замовлень</p>
         </header>
         <form id="loginForm" class="login-form" novalidate>
@@ -158,10 +166,24 @@
     <div class="app app-shell" id="appRoot">
       <aside class="app-shell-sidebar" id="appSidebar" aria-label="Навігація">
         <div class="app-shell-brand">
-          <span class="app-shell-brand-mark" aria-hidden="true">E</span>
-          <div class="app-shell-brand-text">
-            <span class="brand-logo">ENVER</span>
-          </div>
+          <span
+            class="enver-brand enver-brand--sidebar enver-brand--switch"
+            role="img"
+            aria-label="ENVER"
+          >
+            <img
+              class="enver-brand__img enver-brand__img--dark"
+              src="/brand/enver-logo-dark.png"
+              alt=""
+              decoding="async"
+            />
+            <img
+              class="enver-brand__img enver-brand__img--light"
+              src="/brand/enver-logo-light.png"
+              alt=""
+              decoding="async"
+            />
+          </span>
         </div>
         <div class="app-shell-nav" id="tabs" role="navigation"></div>
         <div class="app-shell-sidebar-foot">

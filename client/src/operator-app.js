@@ -15,8 +15,8 @@ import {
 import { markNativeOperatorShell } from "./operator-native.js";
 import {
   bindOperatorActions,
-  enterOperatorView,
   loadOperatorData,
+  openOperatorView,
   renderOperatorView
 } from "./operator-panel.js";
 import {
@@ -72,14 +72,15 @@ function renderOperatorClient() {
   syncOperatorBuildChip("operatorBuildChip");
 }
 
-async function loadOperatorClientData() {
+async function refreshOperatorData() {
   setLoading(true);
   try {
     await loadOperatorData();
     renderOperatorClient();
   } catch (err) {
     toastError(err.message);
-    $("#content").innerHTML = `<div class="note">${err.message}</div>`;
+    const content = $("#content");
+    if (content) content.innerHTML = `<div class="note">${err.message}</div>`;
   } finally {
     setLoading(false);
   }
@@ -99,17 +100,17 @@ async function afterOperatorLogin() {
   showLoginModal(false);
   showAppShell(true);
   const stages = operatorStages();
-  await enterOperatorView(stages[0] || "cutting");
-  await loadOperatorClientData();
+  openOperatorView(stages[0] || "cutting");
+  await refreshOperatorData();
   await syncOperatorBuildLabel();
   await enableOperatorKiosk();
 }
 
 window.__enverRender = () => {
-  loadOperatorClientData();
+  renderOperatorClient();
 };
 
-bindOperatorActions(() => loadOperatorClientData());
+bindOperatorActions(() => renderOperatorClient());
 
 $("#logoutBtn")?.addEventListener("click", async () => {
   const ok = await confirmKioskBeforeLogout();

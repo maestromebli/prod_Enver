@@ -161,8 +161,8 @@ export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
     onRefresh?.();
   });
   document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      enterOperatorView(btn.dataset.openOperatorStage);
+    btn.addEventListener("click", async () => {
+      await enterOperatorView(btn.dataset.openOperatorStage);
     });
   });
 

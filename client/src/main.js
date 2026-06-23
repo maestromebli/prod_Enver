@@ -65,6 +65,7 @@ import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.j
 import { initTheme } from "./theme.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
+import "./styles/brand-logo.css";
 
 let contentRenderTimer = null;
 const CONTENT_RENDER_DELAY_MS = 180;
@@ -153,6 +154,22 @@ async function afterAuth({ restoreNavigation = false } = {}) {
   }
 
   showLoginModal(false);
+}
+
+function openNewPositionForContext() {
+  if (state.selectedOrderId) {
+    const order = state.orders.find((o) => o.id === state.selectedOrderId);
+    if (order) {
+      openPositionDrawer(null, {
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        object: order.object,
+        manager: order.manager
+      });
+      return;
+    }
+  }
+  openPositionDrawer();
 }
 
 function bindContentActions() {
@@ -245,8 +262,8 @@ function bindContentActions() {
 
   $("#newOrderBtn")?.addEventListener("click", () => openOrderModal());
   $("#toolbarNewOrderBtn")?.addEventListener("click", () => openOrderModal());
-  $("#newPositionBtn")?.addEventListener("click", () => openPositionDrawer());
-  $("#toolbarNewPositionBtn")?.addEventListener("click", () => openPositionDrawer());
+  $("#newPositionBtn")?.addEventListener("click", () => openNewPositionForContext());
+  $("#toolbarNewPositionBtn")?.addEventListener("click", () => openNewPositionForContext());
 
   document.querySelectorAll("[data-toggle-position]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -355,6 +372,9 @@ async function prepareViewData() {
 }
 
 async function setTab(tab) {
+  if (tab !== "Замовлення") {
+    state.selectedOrderId = null;
+  }
   state.activeTab = tab;
   if (tab === "Замовлення") {
     markOrdersSeenForCurrentRole(state.orders);

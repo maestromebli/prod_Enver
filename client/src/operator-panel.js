@@ -8,6 +8,7 @@ import {
 } from "./auth.js";
 import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
+import { brandLogoHtml } from "./brand-logo.js";
 import { STAGE_STATUS_FIELD, stageClientField } from "@enver/shared/production/stages.js";
 import {
   emitRoleNotifications,
@@ -276,6 +277,9 @@ export function renderOperatorView() {
   const field = statusField();
   const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
   const oneScreen = isCuttingOneScreen(stageKey);
+  const sessionOnOtherStage = hasBlockingSession() && !isOnActiveSessionStage();
+  const blockingStageKey = activeSessionStageKey();
+  const blockingStage = OPERATOR_STAGES.find((s) => s.key === blockingStageKey);
 
   const stageTabs = stages
     .map((key) => {
@@ -298,7 +302,7 @@ export function renderOperatorView() {
         <div class="op-header-brand">
           <div class="op-logo-mark">${stageIconSvg(theme.icon)}</div>
           <div>
-            <p class="op-eyebrow">ENVER</p>
+            ${brandLogoHtml("switch", "enver-brand--eyebrow")}
             <h1 class="op-title">${escapeHtml(stage?.label || stageLabel(stageKey))}</h1>
           </div>
         </div>
@@ -312,7 +316,17 @@ export function renderOperatorView() {
         </div>
       </header>
 
-      ${stages.length > 1 ? `<nav class="op-stage-nav">${stageTabs}</nav>` : ""}
+      ${stages.length > 1 ? `<nav class="op-stage-nav" aria-label="Етапи">${stageTabs}</nav>` : ""}
+
+      ${
+        sessionOnOtherStage
+          ? `<div class="op-lock-banner" role="alert">
+        <strong>Незавершене завдання</strong>
+        <p>Завершіть #${activeSessionPositionId()} (${escapeHtml(state.operatorActiveSession?.order_number || "")} — ${escapeHtml(state.operatorActiveSession?.item || "")}) на етапі «${escapeHtml(blockingStage?.label || stageLabel(blockingStageKey || ""))}».</p>
+        <button type="button" class="op-btn-ghost" data-operator-stage="${escapeHtml(blockingStageKey || "")}">Перейти до етапу</button>
+      </div>`
+          : ""
+      }
 
       ${isSupervisorOperatorPanel() ? `<div class="op-supervisor-banner"><strong>Режим огляду</strong> — кнопки дій доступні лише операторам.</div>` : ""}
 
@@ -352,6 +366,7 @@ export function renderOperatorView() {
 
 let operatorActionsBound = false;
 let operatorOnChange = () => {};
+let operatorStageSwitchSeq = 0;
 
 export function bindOperatorActions(onChange) {
   operatorOnChange = onChange;
@@ -375,9 +390,18 @@ export function bindOperatorActions(onChange) {
     }
     const stageBtn = e.target.closest("[data-operator-stage]");
     if (stageBtn) {
-      state.operatorStage = stageBtn.dataset.operatorStage;
+      const nextStage = stageBtn.dataset.operatorStage;
+      if (!nextStage) return;
+      const seq = ++operatorStageSwitchSeq;
+      state.operatorStage = nextStage;
       if (!hasBlockingSession()) state.operatorSelectedPositionId = null;
-      await loadOperatorData();
+      try {
+        await loadOperatorData();
+      } catch (err) {
+        state.operatorQueue = [];
+        state.operatorLoadError = err?.message || "Не вдалося завантажити чергу";
+      }
+      if (seq !== operatorStageSwitchSeq) return;
       operatorOnChange();
       return;
     }

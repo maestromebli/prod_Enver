@@ -1,0 +1,49 @@
+/* Логотип ENVER — темний для світлої теми, світлий для темної */
+
+.enver-brand {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.enver-brand__img {
+  display: block;
+  width: auto;
+  height: var(--enver-brand-h, 1.75rem);
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.enver-brand--switch .enver-brand__img--light {
+  display: none;
+}
+
+[data-theme="dark"] .enver-brand--switch .enver-brand__img--dark {
+  display: none;
+}
+
+[data-theme="dark"] .enver-brand--switch .enver-brand__img--light {
+  display: block;
+}
+
+.enver-brand--hero {
+  --enver-brand-h: 2rem;
+}
+
+.enver-brand--sidebar {
+  --enver-brand-h: 1.65rem;
+}
+
+.enver-brand--header {
+  --enver-brand-h: 1.5rem;
+}
+
+.enver-brand--eyebrow {
+  --enver-brand-h: 0.875rem;
+  margin: 0 0 2px;
+}
+
+.login-hero .enver-brand--hero {
+  --enver-brand-h: 2rem;
+}

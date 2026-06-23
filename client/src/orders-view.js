@@ -1,4 +1,5 @@
 import { stageLabel } from "@enver/shared/production/stages.js";
+import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
 
@@ -116,18 +117,50 @@ export function renderOrdersGrid(orders, positions) {
   return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
 }
 
-function openOrderPosition(orderId, { onOpenPosition, orders, positions }) {
+export function renderOrderDetailHeader(order, positions, { canEditOrder = false } = {}) {
+  const rootPositions = positions.filter((p) => !p.parentId);
+  const main = mainPositionForOrder(order, rootPositions);
+  const progress = main?.progress ?? 0;
+  const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
+  const priClass = priorityClass(order.priority);
+  const positionCount = positionsForOrder(order, positions).filter((p) => !p.parentId).length;
+
+  return `
+    <div class="order-detail-head">
+      <button type="button" class="btn btn-sm order-detail-back" data-orders-back>← Усі замовлення</button>
+      <div class="order-detail-summary">
+        <div class="order-detail-main">
+          <h2 class="order-detail-title">${escapeHtml(order.orderNumber)}</h2>
+          <p class="order-card-meta">${escapeHtml(order.client || "—")}</p>
+          <p class="order-card-meta order-card-object">${escapeHtml(order.object || "—")}</p>
+          <div class="order-detail-meta">
+            ${badge(order.status || "—")}
+            <span class="stage-pill">${escapeHtml(stage)}</span>
+            <span class="order-card-meta order-detail-count">${positionCount} поз.</span>
+            <span class="order-card-meta order-detail-plan">
+              ${priClass ? `<span class="priority-dot ${priClass}" title="${escapeHtml(order.priority || "")}"></span>` : ""}
+              План ${escapeHtml(order.planDate || "—")}${order.priority ? ` · ${escapeHtml(order.priority)}` : ""}
+            </span>
+          </div>
+        </div>
+        ${progressRing(progress, { size: 72 })}
+      </div>
+      ${
+        canEditOrder
+          ? `<button type="button" class="btn btn-sm" data-edit-order="${order.id}">Редагувати замовлення</button>`
+          : ""
+      }
+    </div>`;
+}
+
+function openOrder(orderId, { onOrderClick, orders }) {
   const order = orders.find((o) => o.id === Number(orderId));
-  if (!order) return;
-  const pos = positions.find(
-    (p) => !p.parentId && (p.orderId === order.id || p.orderNumber === order.orderNumber)
-  );
-  if (pos && onOpenPosition) onOpenPosition(pos);
+  if (order && onOrderClick) onOrderClick(order);
 }
 
 function bindOrderCards(root, handlers) {
   root?.querySelectorAll("[data-order-card]").forEach((card) => {
-    const open = () => openOrderPosition(card.dataset.orderCard, handlers);
+    const open = () => openOrder(card.dataset.orderCard, handlers);
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -140,7 +173,7 @@ function bindOrderCards(root, handlers) {
 
 function bindOrdersList(root, handlers) {
   root?.querySelectorAll("[data-order-list-row]").forEach((row) => {
-    const open = () => openOrderPosition(row.dataset.orderListRow, handlers);
+    const open = () => openOrder(row.dataset.orderListRow, handlers);
     row.addEventListener("click", open);
     row.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -165,4 +198,8 @@ export function bindOrdersGrid(root, handlers) {
   } else {
     bindOrderCards(root, handlers);
   }
+}
+
+export function bindOrderDetailBack(root, onBack) {
+  root?.querySelector("[data-orders-back]")?.addEventListener("click", onBack);
 }

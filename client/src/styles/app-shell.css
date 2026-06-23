@@ -75,41 +75,7 @@ body.enver-v3 {
 .app-shell-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 4px 8px 20px;
-}
-
-.app-shell-brand-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: linear-gradient(145deg, #1d1d1f 0%, #3a3a3c 100%);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-}
-
-[data-theme="dark"] .app-shell-brand-mark {
-  background: linear-gradient(145deg, #0a84ff 0%, #5e5ce6 100%);
-}
-
-.app-shell-brand-text .brand-logo {
-  display: block;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--v3-text);
-  line-height: 1.2;
-}
-
-.app-shell-brand-text .brand-tagline {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--v3-muted);
 }
 
 .app-shell-nav {
@@ -414,6 +380,57 @@ body.enver-v3 {
   flex-direction: column;
   gap: 12px;
   padding: 4px 0;
+}
+
+.orders-view--detail .card {
+  margin-top: 4px;
+}
+
+.order-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--v3-elevated);
+  border-radius: var(--v3-radius);
+  padding: 18px 20px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: var(--v3-shadow);
+}
+
+.order-detail-back {
+  align-self: flex-start;
+}
+
+.order-detail-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.order-detail-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.order-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.order-detail-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-detail-count {
+  font-weight: 600;
 }
 
 .orders-mode-bar {

@@ -9,7 +9,7 @@ import { state } from "./state.js";
 import { $ } from "./utils.js";
 
 const STORAGE_KEY = "enver_ui_state";
-const VERSION = 2;
+const VERSION = 3;
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
@@ -49,6 +49,7 @@ export function captureUiState() {
     ordersView: {
       displayMode: state.ordersView.displayMode
     },
+    selectedOrderId: state.selectedOrderId,
     operatorStage: state.operatorStage,
     operatorSelectedPositionId: state.operatorSelectedPositionId,
     scrollY: window.scrollY,
@@ -147,6 +148,11 @@ export function applyUiState(snapshot) {
   const ordersView = snapshot.ordersView;
   if (ordersView && VALID_ORDERS_DISPLAY.has(ordersView.displayMode)) {
     state.ordersView.displayMode = ordersView.displayMode;
+  }
+
+  if (snapshot.selectedOrderId != null) {
+    const id = Number(snapshot.selectedOrderId);
+    state.selectedOrderId = Number.isFinite(id) ? id : null;
   }
 
   if (snapshot.operatorStage) state.operatorStage = snapshot.operatorStage;

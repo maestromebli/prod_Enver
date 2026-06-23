@@ -64,19 +64,8 @@ body.operator-kiosk-locked {
   box-shadow: 0 1px 0 rgba(15, 42, 68, 0.06);
 }
 
-.operator-client-header .brand-logo {
-  flex-shrink: 0;
-  width: 1.65rem;
-  height: 1.65rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  color: #fff;
-  background: var(--brand, #0f2a44);
+.operator-client-header .enver-brand--header {
+  margin-right: 0.15rem;
 }
 
 .operator-client-stage {

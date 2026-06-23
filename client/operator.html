@@ -38,6 +38,7 @@
     <link rel="stylesheet" href="/src/styles/operator-client.css" />
     <link rel="stylesheet" href="/src/styles/toast.css" />
     <link rel="stylesheet" href="/src/styles/login.css" />
+    <link rel="stylesheet" href="/src/styles/brand-logo.css" />
   </head>
   <body class="enver-operator-ui operator-client-mode">
     <div class="loading-overlay" id="loadingOverlay">Завантаження…</div>
@@ -45,7 +46,14 @@
     <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
       <div class="modal login-card" role="dialog" aria-labelledby="loginTitle">
         <header class="login-hero">
-          <span class="login-hero-logo">ENVER</span>
+          <span class="enver-brand enver-brand--hero" role="img" aria-label="ENVER">
+            <img
+              class="enver-brand__img"
+              src="/brand/enver-logo-light.png"
+              alt=""
+              decoding="async"
+            />
+          </span>
           <p class="login-hero-tagline">Панель оператора · планшет / станок</p>
         </header>
         <form id="loginForm" class="login-form" novalidate>
@@ -86,7 +94,24 @@
 
     <div class="operator-client-shell" id="appRoot" hidden>
       <header class="operator-client-header">
-        <span class="brand-logo" aria-hidden="true">E</span>
+        <span
+          class="enver-brand enver-brand--header enver-brand--switch"
+          role="img"
+          aria-label="ENVER"
+        >
+          <img
+            class="enver-brand__img enver-brand__img--dark"
+            src="/brand/enver-logo-dark.png"
+            alt=""
+            decoding="async"
+          />
+          <img
+            class="enver-brand__img enver-brand__img--light"
+            src="/brand/enver-logo-light.png"
+            alt=""
+            decoding="async"
+          />
+        </span>
         <span class="operator-client-stage" id="operatorStageChip"></span>
         <span class="operator-client-build" id="operatorBuildChip" hidden></span>
         <span class="operator-client-user" id="userChip"></span>

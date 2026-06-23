@@ -367,8 +367,8 @@ body {
 
 /* Дуже вузькі екрани */
 @media (max-width: 480px) {
-  .brand-logo {
-    font-size: 18px;
+  .enver-brand--sidebar {
+    --enver-brand-h: 1.45rem;
   }
 
   .directory-grid {

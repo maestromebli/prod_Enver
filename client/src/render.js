@@ -12,7 +12,12 @@ import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody } from "./render-positions.js";
-import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
+import {
+  bindOrdersGrid,
+  bindOrderDetailBack,
+  renderOrderDetailHeader,
+  renderOrdersGrid
+} from "./orders-view.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import { filteredPositions } from "./filters.js";
@@ -29,6 +34,9 @@ import {
 } from "./production-floor.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
+import { activePositions } from "./archive.js";
+import { positionsForOrder } from "./workflows.js";
+import { notifyUiChanged } from "./ui-persistence.js";
 
 export { filteredPositions };
 
@@ -133,6 +141,17 @@ function renderPageChrome() {
   const meta = TAB_META[state.activeTab] || { subtitle: "" };
   const title = document.querySelector("#pageTitle");
   const sub = document.querySelector("#pageSubtitle");
+  if (state.activeTab === "Замовлення" && state.selectedOrderId) {
+    const order = state.orders.find((o) => o.id === state.selectedOrderId);
+    if (order) {
+      if (title) title.textContent = order.orderNumber;
+      if (sub) {
+        sub.textContent =
+          [order.client, order.object].filter(Boolean).join(" · ") || "Позиції замовлення";
+      }
+      return;
+    }
+  }
   if (title) title.textContent = state.activeTab;
   if (sub) sub.textContent = meta.subtitle || "";
 }
@@ -212,9 +231,14 @@ export function renderToolbarActions() {
   const el = document.querySelector("#toolbarActions");
   if (!el) return;
   const parts = [];
-  if (state.activeTab === "Замовлення" && canEditOrders()) {
+  if (state.activeTab === "Замовлення" && !state.selectedOrderId && canEditOrders()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
+    );
+  }
+  if (state.activeTab === "Замовлення" && state.selectedOrderId && canEditPositions()) {
+    parts.push(
+      `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
     );
   }
   if (state.activeTab === "Позиції" && canEditPositions()) {
@@ -238,11 +262,28 @@ export function renderStageFilter() {
   if (field) field.hidden = true;
 }
 
+function renderOrderDetail() {
+  const order = state.orders.find((o) => o.id === state.selectedOrderId);
+  if (!order) {
+    state.selectedOrderId = null;
+    return renderOrdersGrid(state.orders, state.positions);
+  }
+  const related = positionsForOrder(order, activePositions(state.positions, state.orders));
+  const header = renderOrderDetailHeader(order, state.positions, {
+    canEditOrder: canEditOrders()
+  });
+  const table = positionsTable(related, "Позиції замовлення", true);
+  return `<div class="orders-view orders-view--detail">${header}${table}</div>`;
+}
+
 function renderContent() {
   const data = filteredPositions();
   const tab = state.activeTab;
 
-  if (tab === "Замовлення") return renderOrdersGrid(state.orders, state.positions);
+  if (tab === "Замовлення") {
+    if (state.selectedOrderId) return renderOrderDetail();
+    return renderOrdersGrid(state.orders, state.positions);
+  }
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
@@ -350,14 +391,24 @@ export function renderApp(options = {}) {
   document.querySelector("#content").innerHTML = renderContent();
 
   if (state.activeTab === "Замовлення") {
-    bindOrdersGrid(document.querySelector("#content"), {
-      orders: state.orders,
-      positions: state.positions,
-      onOpenPosition: async (pos) => {
-        const { openPositionDrawer } = await import("./positions.js");
-        openPositionDrawer(pos);
-      }
-    });
+    if (!state.selectedOrderId) {
+      bindOrdersGrid(document.querySelector("#content"), {
+        orders: state.orders,
+        onOrderClick: (order) => {
+          state.selectedOrderId = order.id;
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    } else {
+      bindOrderDetailBack(document.querySelector("#content"), () => {
+        state.selectedOrderId = null;
+        notifyUiChanged();
+        renderApp();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    }
   }
 
   if (state.activeTab === PRODUCTION_FLOOR_TAB && canViewProductionFloor()) {

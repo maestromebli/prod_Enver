@@ -444,6 +444,24 @@ async function deletePosition() {
   }).catch(() => {});
 }
 
+function scrollPositionDrawerToTabs() {
+  requestAnimationFrame(() => {
+    const body = $("#positionDrawerBody");
+    const tabs = body?.querySelector(".drawer-tabs");
+    if (!body || !tabs) return;
+    body.scrollTo({ top: Math.max(0, tabs.offsetTop - 8), behavior: "smooth" });
+  });
+}
+
+function onDrawerTabSelect(panel) {
+  if (!panel) return;
+  activePanel = panel;
+  syncDraftFromForm();
+  renderDrawerContent();
+  scrollPositionDrawerToTabs();
+  if (activePanel === "history") refreshDrawerHistory();
+}
+
 function bindDrawerEvents() {
   $("#positionForm")?.addEventListener("input", () => {
     document.dispatchEvent(new CustomEvent("enver-ui-changed"));
@@ -451,15 +469,6 @@ function bindDrawerEvents() {
   $("#positionForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     savePosition();
-  });
-
-  document.querySelectorAll(".drawer-tab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      activePanel = btn.dataset.panel;
-      syncDraftFromForm();
-      renderDrawerContent();
-      if (activePanel === "history") refreshDrawerHistory();
-    });
   });
 
   $("#posOrderNumber")?.addEventListener("change", (e) => {
@@ -475,8 +484,7 @@ function bindDrawerEvents() {
       const stage = STAGES.find((s) => s.key === key);
       if (stage.type === "constructor") {
         if (!draft.hasConstructiveFile && next !== "Не розпочато") {
-          activePanel = "stages";
-          renderDrawerContent();
+          onDrawerTabSelect("stages");
           showError("Завантажте файл конструктива");
           return;
         }
@@ -719,6 +727,12 @@ export function initPositionDrawer() {
     </div>
   `;
   document.body.appendChild(el);
+
+  $("#positionDrawerBody")?.addEventListener("click", (e) => {
+    const tab = e.target.closest(".drawer-tab");
+    if (!tab?.dataset.panel) return;
+    onDrawerTabSelect(tab.dataset.panel);
+  });
 
   el.addEventListener("click", (e) => {
     if (e.target === el) closePositionDrawer();
