@@ -264,6 +264,7 @@
 
 /* install calendar */
 [data-theme="dark"] .install-mode-switch,
+[data-theme="dark"] .orders-mode-switch,
 [data-theme="dark"] .ical-toolbar-center {
   background: var(--surface-2);
 }
@@ -278,7 +279,8 @@
 }
 
 [data-theme="dark"] .ical-view-btn.active,
-[data-theme="dark"] .install-mode-btn.active {
+[data-theme="dark"] .install-mode-btn.active,
+[data-theme="dark"] .orders-mode-btn.active {
   background: var(--surface);
 }
 
@@ -291,18 +293,21 @@
   background: var(--surface-2);
 }
 
-[data-theme="dark"] .install-mode-btn {
+[data-theme="dark"] .install-mode-btn,
+[data-theme="dark"] .orders-mode-btn {
   background: var(--surface-muted);
   color: var(--text);
 }
 
-[data-theme="dark"] .install-mode-btn.active {
+[data-theme="dark"] .install-mode-btn.active,
+[data-theme="dark"] .orders-mode-btn.active {
   background: var(--navy-3);
   color: var(--navy);
   border-color: var(--navy-2);
 }
 
-[data-theme="dark"] .install-list-table tbody tr:hover {
+[data-theme="dark"] .install-list-table tbody tr:hover,
+[data-theme="dark"] .orders-list-row:hover {
   background: var(--surface-hover);
 }
 

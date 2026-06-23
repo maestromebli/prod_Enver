@@ -8,6 +8,8 @@ export const state = {
   /** Порожній рядок — усі етапи на вкладці «Виробництво за етапами» */
   productionStageFilter: "",
   activeTab: "Замовлення",
+  /** id замовлення на вкладці «Замовлення» (детальний вигляд); null — сітка карток */
+  selectedOrderId: null,
   loading: false,
   /** id основних позицій, у яких розгорнуті підпозиції */
   expandedPositionIds: new Set(),
@@ -30,5 +32,9 @@ export const state = {
     view: "month",
     anchor: null,
     installerFilter: ""
+  },
+  ordersView: {
+    /** cards | list */
+    displayMode: "cards"
   }
 };

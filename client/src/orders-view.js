@@ -1,5 +1,8 @@
 import { stageLabel } from "@enver/shared/production/stages.js";
+import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
+
+const DISPLAY_LABELS = { cards: "Картки", list: "Список" };
 
 function priorityClass(priority) {
   const p = String(priority || "").toLowerCase();
@@ -8,15 +11,25 @@ function priorityClass(priority) {
   return "";
 }
 
-export function renderOrdersGrid(orders, positions, { onOrderClick: _onOrderClick } = {}) {
-  const rootPositions = positions.filter((p) => !p.parentId);
+function mainPositionForOrder(order, rootPositions) {
+  return rootPositions.find((p) => p.orderId === order.id || p.orderNumber === order.orderNumber);
+}
 
+function ordersModeBarHtml() {
+  const mode = state.ordersView.displayMode || "cards";
+  const buttons = Object.entries(DISPLAY_LABELS)
+    .map(
+      ([key, label]) =>
+        `<button type="button" class="orders-mode-btn ${mode === key ? "active" : ""}" data-orders-mode="${key}">${label}</button>`
+    )
+    .join("");
+  return `<div class="orders-mode-bar card"><div class="orders-mode-switch">${buttons}</div></div>`;
+}
+
+function renderOrdersCards(orders, rootPositions) {
   const cards = orders
     .map((order) => {
-      const related = rootPositions.filter(
-        (p) => p.orderId === order.id || p.orderNumber === order.orderNumber
-      );
-      const main = related[0];
+      const main = mainPositionForOrder(order, rootPositions);
       const progress = main?.progress ?? 0;
       const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
       const priClass = priorityClass(order.priority);
@@ -43,23 +56,78 @@ export function renderOrdersGrid(orders, positions, { onOrderClick: _onOrderClic
     })
     .join("");
 
-  return `
-    <div class="orders-view">
-      <div class="orders-grid">${cards || '<p class="empty" style="padding:24px;color:var(--v3-muted)">Немає замовлень — створіть перше</p>'}</div>
-    </div>`;
+  return `<div class="orders-grid">${cards || '<p class="empty orders-empty">Немає замовлень — створіть перше</p>'}</div>`;
 }
 
-export function bindOrdersGrid(root, { onOpenPosition, orders, positions }) {
+function renderOrdersList(orders, rootPositions) {
+  const rows = orders.length
+    ? orders
+        .map((order) => {
+          const main = mainPositionForOrder(order, rootPositions);
+          const progress = main?.progress ?? 0;
+          const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
+          const priClass = priorityClass(order.priority);
+
+          return `<tr class="orders-list-row row-clickable" data-order-list-row="${order.id}" tabindex="0">
+            <td><strong>${escapeHtml(order.orderNumber || "—")}</strong></td>
+            <td class="left">${escapeHtml(order.client || "—")}</td>
+            <td class="left">${escapeHtml(order.object || "—")}</td>
+            <td>${escapeHtml(order.manager || "—")}</td>
+            <td><span class="stage-pill stage-pill--compact">${escapeHtml(stage)}</span></td>
+            <td>${badge(order.status || "—")}</td>
+            <td>${progress}%</td>
+            <td>${escapeHtml(order.planDate || "—")}</td>
+            <td>${priClass ? `<span class="priority-dot ${priClass}" title="${escapeHtml(order.priority || "")}"></span> ` : ""}${escapeHtml(order.priority || "—")}</td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="9" class="empty-cell">Немає замовлень — створіть перше</td></tr>`;
+
+  return `<div class="orders-list card" id="ordersList">
+    <div class="table-wrap">
+      <table class="orders-list-table">
+        <thead>
+          <tr>
+            <th>Номер</th>
+            <th class="left">Клієнт</th>
+            <th class="left">Об'єкт</th>
+            <th>Менеджер</th>
+            <th>Етап</th>
+            <th>Статус</th>
+            <th>Готово</th>
+            <th>План</th>
+            <th>Пріоритет</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+export function renderOrdersGrid(orders, positions) {
+  const rootPositions = positions.filter((p) => !p.parentId);
+  const mode = state.ordersView.displayMode || "cards";
+  const body =
+    mode === "list"
+      ? renderOrdersList(orders, rootPositions)
+      : renderOrdersCards(orders, rootPositions);
+
+  return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
+}
+
+function openOrderPosition(orderId, { onOpenPosition, orders, positions }) {
+  const order = orders.find((o) => o.id === Number(orderId));
+  if (!order) return;
+  const pos = positions.find(
+    (p) => !p.parentId && (p.orderId === order.id || p.orderNumber === order.orderNumber)
+  );
+  if (pos && onOpenPosition) onOpenPosition(pos);
+}
+
+function bindOrderCards(root, handlers) {
   root?.querySelectorAll("[data-order-card]").forEach((card) => {
-    const open = () => {
-      const orderId = Number(card.dataset.orderCard);
-      const order = orders.find((o) => o.id === orderId);
-      if (!order) return;
-      const pos = positions.find(
-        (p) => !p.parentId && (p.orderId === order.id || p.orderNumber === order.orderNumber)
-      );
-      if (pos && onOpenPosition) onOpenPosition(pos);
-    };
+    const open = () => openOrderPosition(card.dataset.orderCard, handlers);
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -68,4 +136,33 @@ export function bindOrdersGrid(root, { onOpenPosition, orders, positions }) {
       }
     });
   });
+}
+
+function bindOrdersList(root, handlers) {
+  root?.querySelectorAll("[data-order-list-row]").forEach((row) => {
+    const open = () => openOrderPosition(row.dataset.orderListRow, handlers);
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+export function bindOrdersGrid(root, handlers) {
+  root?.querySelectorAll("[data-orders-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.ordersView.displayMode = btn.dataset.ordersMode;
+      window.__enverRender?.({ contentOnly: true });
+    });
+  });
+
+  const mode = state.ordersView.displayMode || "cards";
+  if (mode === "list") {
+    bindOrdersList(root, handlers);
+  } else {
+    bindOrderCards(root, handlers);
+  }
 }

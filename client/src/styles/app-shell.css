@@ -408,9 +408,96 @@ body.enver-v3 {
   font-weight: 600;
 }
 
-/* Orders grid */
+/* Orders view */
 .orders-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 4px 0;
+}
+
+.orders-mode-bar {
+  padding: 10px 14px;
+}
+
+.orders-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f3f4;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.orders-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.orders-mode-btn:hover {
+  color: var(--text);
+}
+
+.orders-mode-btn.active {
+  background: var(--white);
+  color: var(--blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.orders-empty {
+  padding: 24px;
+  color: var(--v3-muted);
+  grid-column: 1 / -1;
+}
+
+.orders-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.orders-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.orders-list-table th,
+.orders-list-table td {
+  padding: 10px 12px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+}
+
+.orders-list-table th.left,
+.orders-list-table td.left {
+  text-align: left;
+}
+
+.orders-list-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--v3-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.orders-list-row {
+  cursor: pointer;
+}
+
+.orders-list-row:hover {
+  background: rgba(0, 113, 227, 0.04);
+}
+
+.stage-pill--compact {
+  padding: 3px 10px;
+  font-size: 0.72rem;
 }
 
 .orders-view .card-header-row {

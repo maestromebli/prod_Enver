@@ -13,6 +13,7 @@ const VERSION = 2;
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
+const VALID_ORDERS_DISPLAY = new Set(["cards", "list"]);
 
 let saveTimer = null;
 let scrollRestoreY = null;
@@ -44,6 +45,9 @@ export function captureUiState() {
       view: state.installCalendar.view,
       anchor: state.installCalendar.anchor,
       installerFilter: state.installCalendar.installerFilter ?? ""
+    },
+    ordersView: {
+      displayMode: state.ordersView.displayMode
     },
     operatorStage: state.operatorStage,
     operatorSelectedPositionId: state.operatorSelectedPositionId,
@@ -138,6 +142,11 @@ export function applyUiState(snapshot) {
     if (VALID_CALENDAR_VIEWS.has(cal.view)) state.installCalendar.view = cal.view;
     if (cal.anchor) state.installCalendar.anchor = cal.anchor;
     if (cal.installerFilter != null) state.installCalendar.installerFilter = cal.installerFilter;
+  }
+
+  const ordersView = snapshot.ordersView;
+  if (ordersView && VALID_ORDERS_DISPLAY.has(ordersView.displayMode)) {
+    state.ordersView.displayMode = ordersView.displayMode;
   }
 
   if (snapshot.operatorStage) state.operatorStage = snapshot.operatorStage;

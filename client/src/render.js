@@ -122,7 +122,7 @@ function visibleTabs() {
 }
 
 const TAB_META = {
-  Замовлення: { icon: "◫", subtitle: "Картки з прогресом і етапами" },
+  Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
   Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
