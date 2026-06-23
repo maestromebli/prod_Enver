@@ -1,7 +1,7 @@
 {
   "name": "ENVER — Панель оператора",
   "short_name": "ENVER Оператор",
-  "description": "Панель оператора станків ENVER для планшетів",
+  "description": "Панель оператора ENVER для планшетів цеху",
   "start_url": "/operator.html",
   "scope": "/",
   "display": "fullscreen",

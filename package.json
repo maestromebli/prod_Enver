@@ -13,7 +13,6 @@
     "build:android-client": "cd desktop/android && ./gradlew assembleRelease && node scripts/copy-release.mjs",
     "pack:production-module": "node scripts/pack-production-module.mjs",
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
-    "agent:dev": "node agent/src/index.js",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server",
     "migrate": "npm run migrate --prefix server",

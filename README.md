@@ -61,14 +61,21 @@ npm run dev               # сервер + Vite на :3000
 
 ## Env
 
-| Змінна                    | Опис                                                    |
-| ------------------------- | ------------------------------------------------------- |
-| `DATABASE_URL`            | Pooler Supabase (port 6543)                             |
-| `DATABASE_URL_MIGRATIONS` | Direct Postgres (port 5432) для міграцій                |
-| `UPLOADS_DIR`             | Каталог файлів конструктивів (default `./data/uploads`) |
-| `OPENAI_API_KEY`          | Опційно; ключ можна задати в налаштуваннях ШІ           |
-| `SESSION_SECRET`          | Секрет сесій                                            |
-| `DOMAIN`                  | Домен для Caddy                                         |
+| Змінна                    | Опис                                                     |
+| ------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`            | Pooler Supabase (port 6543)                              |
+| `DATABASE_URL_MIGRATIONS` | Direct Postgres (port 5432) для міграцій                 |
+| `UPLOADS_DIR`             | Каталог файлів конструктивів (default `./data/uploads`)  |
+| `OPENAI_API_KEY`          | Опційно; ключ можна задати в налаштуваннях ШІ            |
+| `OPENAI_MODEL`            | Модель OpenAI (default `gpt-4o-mini`)                    |
+| `SESSION_SECRET`          | Секрет сесій (**обов'язковий у production**)             |
+| `DOMAIN`                  | Домен для Caddy                                          |
+| `ADMIN_DEFAULT_PASSWORD`  | Пароль admin при seed; у production не залишайте `admin` |
+
+### Безпека production
+
+- `SESSION_SECRET` — задайте власний випадковий рядок; сервер не стартує з dev-дефолтом.
+- `ADMIN_DEFAULT_PASSWORD` — змініть перед першим deploy; значення `admin` блокує старт у production.
 
 ## Команди
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Збирає архів enver-production-module.zip для переносу та підключення
- * виробничого модуля (цех, оператор, станки) до ENVER OS.
+ * виробничого модуля (цех, оператор, ШІ-аналіз конструктивів) до ENVER OS.
  *
  *   node scripts/pack-production-module.mjs
  *   npm run pack:production-module
@@ -223,7 +223,7 @@ Git: ${manifest.gitSha}
 Збірка: ${manifest.builtAt}
 
 1. Прочитайте PIDKLUCHENNYA.md
-2. Підключіть до ENVER OS (сервер + права + станки)
+2. Підключіть до ENVER OS (сервер + права + клієнти оператора)
 3. Відкрийте на планшетах Android сторінку установки з ENVER OS (Налаштування → Клієнти)
 
 Архів: releases/enver-production-module.zip

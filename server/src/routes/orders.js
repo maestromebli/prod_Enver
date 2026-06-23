@@ -4,8 +4,6 @@ import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
 import { ensureOrderRootPosition, syncOrderStatusWorkflow } from "../order-status-sync.js";
-import { archiveFolderForOrder } from "../folder-sync.js";
-
 const router = Router();
 router.use(requireAuth);
 
@@ -120,7 +118,6 @@ router.put("/:id", requireOrderWrite, async (req, res) => {
     );
     if (updated.status === ORDER_DONE_STATUS) {
       await archiveOrderPositions(id);
-      await archiveFolderForOrder(id);
     }
     await logOrderUpdate(existing, updated, auditActor(req));
     await syncOrderStatusWorkflow(updated, { actor: auditActor(req) });

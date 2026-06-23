@@ -3,9 +3,8 @@ import { describe, it } from "node:test";
 import { INSECURE_DEFAULTS, assertProductionSafety } from "../src/config.js";
 
 describe("production config safety", () => {
-  it("дефолтні секрети відомі для перевірки", () => {
+  it("дефолтний sessionSecret відомий для перевірки", () => {
     assert.equal(INSECURE_DEFAULTS.sessionSecret, "enver-dev-secret");
-    assert.equal(INSECURE_DEFAULTS.agentToken, "enver-agent-dev-token");
   });
 
   it("assertProductionSafety не падає у dev", () => {

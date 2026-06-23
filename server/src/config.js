@@ -1,8 +1,7 @@
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const INSECURE_DEFAULTS = {
-  sessionSecret: "enver-dev-secret",
-  agentToken: "enver-agent-dev-token"
+  sessionSecret: "enver-dev-secret"
 };
 
 export const config = {
@@ -16,13 +15,12 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
   domain: process.env.DOMAIN || null,
-  agentToken: process.env.AGENT_TOKEN || INSECURE_DEFAULTS.agentToken,
   adminDefaultPassword: process.env.ADMIN_DEFAULT_PASSWORD || null,
   buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
   uploadsDir: process.env.UPLOADS_DIR || null
 };
 
-/** У production перевіряє критичну конфігурацію; небезпечні секрети — лише попередження (щоб не ламати існуючі .env на сервері). */
+/** У production перевіряє критичну конфігурацію; небезпечні значення — fail-fast. */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
@@ -31,13 +29,17 @@ export function assertProductionSafety() {
     process.exit(1);
   }
 
-  const warnings = [];
   if (!process.env.SESSION_SECRET || config.sessionSecret === INSECURE_DEFAULTS.sessionSecret) {
-    warnings.push(
-      "SESSION_SECRET — дефолтне dev-значення; задайте власний секрет у /opt/enver/.env"
+    console.error(
+      "SESSION_SECRET обов'язковий у production — задайте власний випадковий секрет у /opt/enver/.env"
     );
+    process.exit(1);
   }
-  for (const message of warnings) {
-    console.warn(`[security] ${message}`);
+
+  if (process.env.ADMIN_DEFAULT_PASSWORD === "admin") {
+    console.error(
+      "ADMIN_DEFAULT_PASSWORD не може бути 'admin' у production — змініть перед першим deploy"
+    );
+    process.exit(1);
   }
 }

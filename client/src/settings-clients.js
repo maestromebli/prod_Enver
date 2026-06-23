@@ -19,7 +19,7 @@ export function clientsSectionHtml() {
     <div class="settings-section">
       <h2>Клієнти для цеху</h2>
       <p class="settings-hint">
-        Застосунок для операторів станків на планшетах Android: повноекранна панель біля станка.
+        Застосунок для операторів цеху на планшетах Android: повноекранна панель етапів виробництва.
       </p>
 
       <article class="clients-card">

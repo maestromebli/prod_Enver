@@ -30,16 +30,6 @@ const BASE_COLUMNS = [
   "has_constructive_file"
 ];
 
-const FOLDER_COLUMNS = [
-  "folder_key",
-  "folder_path",
-  "folder_state",
-  "folder_meta_json",
-  "folder_files_json",
-  "material",
-  "giblab_summary_json"
-];
-
 function insertSql(columns) {
   const names = columns.join(", ");
   const params = columns.map((c) => `@${c}`).join(", ");
@@ -57,12 +47,6 @@ function pickRow(row, columns) {
 /** Стандартний INSERT позиції (без полів папки). */
 export async function insertPosition(row) {
   await run(insertSql(BASE_COLUMNS), pickRow(row, BASE_COLUMNS));
-}
-
-/** INSERT позиції з полями синхронізації папки. */
-export async function insertPositionWithFolder(row) {
-  const columns = [...BASE_COLUMNS, ...FOLDER_COLUMNS];
-  await run(insertSql(columns), pickRow(row, columns));
 }
 
 /** Повний UPDATE усіх редагованих полів позиції. */
@@ -152,33 +136,6 @@ export async function updatePositionStagesFromOrderSync(row) {
       progress: row.progress,
       overdue_days: row.overdue_days
     }
-  );
-}
-
-/** UPDATE позиції з полями папки (folder-sync). */
-export async function updatePositionWithFolder(row) {
-  await run(
-    `UPDATE positions SET
-      order_id = @order_id,
-      order_number = @order_number,
-      object = @object,
-      item = @item,
-      cutting_status = @cutting_status,
-      edging_status = @edging_status,
-      drilling_status = @drilling_status,
-      assembly_status = @assembly_status,
-      packaging_status = @packaging_status,
-      position_status = @position_status,
-      progress = @progress,
-      folder_key = @folder_key,
-      folder_path = @folder_path,
-      folder_state = @folder_state,
-      folder_meta_json = @folder_meta_json,
-      folder_files_json = @folder_files_json,
-      material = @material,
-      giblab_summary_json = @giblab_summary_json
-    WHERE id = @id`,
-    row
   );
 }
 
