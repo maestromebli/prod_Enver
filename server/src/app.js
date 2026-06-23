@@ -9,14 +9,11 @@ import directoriesRouter from "./routes/directories.js";
 import historyRouter from "./routes/history.js";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
-import machineRouter from "./routes/machine.js";
-import machineLogsRouter from "./routes/machine-logs.js";
 import settingsRouter from "./routes/settings.js";
 import operatorRouter from "./routes/operator.js";
 import productionRouter from "./routes/production.js";
 import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
-import folderAgentRouter from "./routes/folder-agent.js";
-import aiEstimateRouter from "./routes/ai-estimate.js";
+import aiRouter from "./routes/ai.js";
 import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
 import { apiFormatMiddleware } from "./http/api-format-middleware.js";
@@ -54,10 +51,8 @@ export function createApiApp({ dbConfigured, dbConnected }) {
         production: config.isProduction,
         database: { configured: dbConfigured, connected: dbConnected },
         features: {
-          machineLogs: dbConnected,
-          aiMatching: dbConnected,
-          folderAgent: dbConnected,
-          cuttingEstimate: dbConnected
+          constructiveAi: dbConnected,
+          fileUploads: dbConnected
         }
       }
     });
@@ -70,14 +65,11 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/history", historyRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
-  app.use("/api/machine", machineRouter);
-  app.use("/api/machine/logs", machineLogsRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/operator", operatorRouter);
   app.use("/api/production", productionRouter);
   app.use("/api/clients", clientsRouter);
-  app.use("/api/folder-agent", folderAgentRouter);
-  app.use("/api/ai", aiEstimateRouter);
+  app.use("/api/ai", aiRouter);
 
   registerDownloadRoutes(app);
 

@@ -22,13 +22,18 @@ export function stageScore(status, { isConstructor = false, hasConstructor = fal
   return 25;
 }
 
+export function hasConstructive(row) {
+  return Boolean(row.has_constructive_file);
+}
+
 export function computeProgress(row) {
   const w = PRODUCTION_PROGRESS_WEIGHTS;
   const weighted =
     w.cutting * stageScore(row.cutting_status) +
     w.edging * stageScore(row.edging_status) +
     w.drilling * stageScore(row.drilling_status) +
-    w.assembly * stageScore(row.assembly_status);
+    w.assembly * stageScore(row.assembly_status) +
+    w.packaging * stageScore(row.packaging_status);
   return Math.round(weighted / 100);
 }
 
@@ -40,14 +45,15 @@ export function derivePositionStatus(row) {
     row.cutting_status,
     row.edging_status,
     row.drilling_status,
-    row.assembly_status
+    row.assembly_status,
+    row.packaging_status
   ];
 
-  const hasConstructor = Boolean(row.constructor_name?.trim());
+  const hasConstructor = hasConstructive(row);
   const allDone = hasConstructor && production.every((s) => STAGE_STATUS_DONE.has(s) || !s);
   const anyActive = production.some((s) => STAGE_ACTIVE_STATUSES.has(s));
 
-  if (allDone && production.every((s) => STAGE_STATUS_DONE.has(s))) {
+  if (allDone && production.every((s) => !s || STAGE_STATUS_DONE.has(s))) {
     return "Готово до встановлення";
   }
   if (hasConstructor || anyActive) return "У виробництві";
@@ -59,23 +65,24 @@ export function derivePositionStatus(row) {
 
 /** Поточний активний етап для UI та operator queue. */
 export function deriveCurrentStage(row) {
-  const order = ["cutting", "edging", "drilling", "assembly"];
+  if (!hasConstructive(row)) return "constructor";
+
+  const order = ["cutting", "edging", "drilling", "assembly", "packaging"];
   for (const key of order) {
     const field = STAGE_STATUS_FIELD[key];
     const status = row[field];
-    if (status && STAGE_ACTIVE_STATUSES.has(status)) return key;
-    if (status === "Готово" || status === "Не потрібно") continue;
     if (!status || status === "Не розпочато") return key;
+    if (STAGE_ACTIVE_STATUSES.has(status)) return key;
+    if (!STAGE_STATUS_DONE.has(status)) return key;
   }
-  if (row.constructor_name?.trim() && !row.cutting_status) return "constructor";
-  return order.find((k) => !STAGE_STATUS_DONE.has(row[STAGE_STATUS_FIELD[k]])) || "assembly";
+  return "packaging";
 }
 
 export function computeOverdueDays(row, planDateStr) {
   const plan = parseUaDate(planDateStr);
   if (!plan) return Number(row.overdue_days) || 0;
   const done = ["Готово до встановлення", "Завершено"].includes(row.position_status);
-  if (done || (STAGE_STATUS_DONE.has(row.assembly_status) && row.progress >= 100)) return 0;
+  if (done || (STAGE_STATUS_DONE.has(row.packaging_status) && row.progress >= 100)) return 0;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -102,9 +109,9 @@ export function applyStageHandoff(row, stageKey, patch = {}) {
   const copy = { ...row };
 
   if (stageKey === "constructor") {
-    const hasConstructor = Boolean(String(copy.constructor_name || patch.constructor || "").trim());
-    const forwarded = patch.status ? patch.status !== "Не розпочато" : hasConstructor;
-    if (hasConstructor && forwarded && isStageIdle(copy.cutting_status)) {
+    const hasFile = Boolean(copy.has_constructive_file);
+    const forwarded = patch.status ? patch.status !== "Не розпочато" : hasFile;
+    if (hasFile && forwarded && isStageIdle(copy.cutting_status)) {
       copy.cutting_status = "Передано";
     }
     return copy;

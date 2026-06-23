@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { all, one } from "../db.js";
+import { all } from "../db.js";
 import { OPERATOR_STAGES, STAGE_STATUS_FIELD } from "../roles.js";
 import { requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
 import { PRODUCTION_FLOOR_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
@@ -12,7 +12,7 @@ router.get("/floor", async (_req, res) => {
     `SELECT os.id, os.user_id, os.position_id, os.stage_key, os.started_at,
             u.name AS user_name,
             p.order_number, p.item, p.object, p.problem,
-            p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status
+            p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status, p.packaging_status
      FROM operator_sessions os
      JOIN users u ON u.id = os.user_id
      JOIN positions p ON p.id = os.position_id
@@ -55,23 +55,16 @@ router.get("/floor", async (_req, res) => {
       if ((r.overdue_days || 0) > 0) counts.overdue += 1;
     }
 
-    const machine = await one(
-      "SELECT last_progress, last_match_summary FROM machine_config WHERE stage_key = $1",
-      [stage.key]
-    );
-
     stages.push({
       key: stage.key,
       label: stage.label,
-      ...counts,
-      machineProgress: machine?.last_progress ?? 0,
-      machineMatch: machine?.last_match_summary || ""
+      ...counts
     });
   }
 
   const problemPositions = await all(
     `SELECT id, order_number, item, object, problem, position_status,
-            cutting_status, edging_status, drilling_status, assembly_status, overdue_days
+            cutting_status, edging_status, drilling_status, assembly_status, packaging_status, overdue_days
      FROM positions
      WHERE trim(problem) <> '' OR position_status = 'Проблема'
      ORDER BY overdue_days DESC, id

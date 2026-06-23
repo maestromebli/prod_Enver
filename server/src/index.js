@@ -5,8 +5,7 @@ import { fileURLToPath } from "url";
 import { pool, shutdownDb } from "./db.js";
 import { createApiApp } from "./app.js";
 import { assertProductionSafety, config } from "./config.js";
-import { startMachineLogWatchers, stopMachineLogWatchers } from "./machine-log-watcher.js";
-import { logSmbMountStatus } from "./smb-shares.js";
+import { ensureUploadsDir } from "./file-storage.js";
 
 const PORT = config.port;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,7 +22,6 @@ function shutdown(signal) {
   shuttingDown = true;
 
   const done = () => {
-    stopMachineLogWatchers();
     shutdownDb().finally(() => {
       if (signal) {
         console.log(`\nЗупинка (${signal})…`);
@@ -49,7 +47,7 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 async function start() {
   assertProductionSafety();
-  logSmbMountStatus();
+  ensureUploadsDir();
 
   let dbConfigured = Boolean(process.env.DATABASE_URL);
   let dbConnected = false;
@@ -62,7 +60,6 @@ async function start() {
     console.warn("DATABASE_URL не задано. Dev-сервер запущено без доступу до БД.");
   } else {
     try {
-      // Перевірка з'єднання з БД — швидкий fail, якщо DATABASE_URL невалідний.
       await pool.query("SELECT 1");
       dbConnected = true;
     } catch (err) {
@@ -147,11 +144,6 @@ async function start() {
       console.log(`ENVER: http://localhost:${PORT}`);
       if (isDev) {
         console.log("Режим розробки — відкривайте саме цю адресу (не :5173)");
-      }
-      if (dbConnected) {
-        startMachineLogWatchers();
-      } else {
-        console.warn("Machine log watcher вимкнено: немає підключення до БД.");
       }
       resolve();
     });

@@ -15,12 +15,13 @@ describe("applyStageHandoff", () => {
     assert.equal(next.edging_status, "Передано");
   });
 
-  it("конструктор призначено — передає порізку", () => {
+  it("файл конструктива завантажено — передає порізку", () => {
     const row = {
+      has_constructive_file: true,
       constructor_name: "Ігор",
       cutting_status: "Не розпочато"
     };
-    const next = applyStageHandoff(row, "constructor", { status: "Передано", constructor: "Ігор" });
+    const next = applyStageHandoff(row, "constructor", { status: "Передано" });
     assert.equal(next.cutting_status, "Передано");
   });
 

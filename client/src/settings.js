@@ -1,12 +1,3 @@
-import {
-  applyBrowserPathDisplay,
-  bindFolderPickButton,
-  fetchFolderPickerCapabilities,
-  ingestBrowserPickedFolder,
-  isBrowserPickedPath,
-  resolvePathInputValue,
-  validateMachineLogPathForServer
-} from "./folder-picker.js";
 import { api } from "./api.js";
 import { canViewSettings, isAdmin } from "./auth.js";
 import { state } from "./state.js";
@@ -24,7 +15,6 @@ import { $, escapeHtml } from "./utils.js";
 
 let users = [];
 let permissions = {};
-let machineConfig = [];
 let aiSettings = {
   enabled: true,
   openaiModel: "gpt-4o-mini",
@@ -33,6 +23,7 @@ let aiSettings = {
   openaiApiKeyMasked: ""
 };
 let aiSettingsLoadError = "";
+let recentAiAnalyses = [];
 
 function mergeAiSettings(data) {
   if (!data || typeof data !== "object") return;
@@ -49,17 +40,11 @@ function mergeAiSettings(data) {
 }
 
 export async function loadSettingsData() {
-  const [u, p, m] = await Promise.all([
-    api.getUsers(),
-    api.getPermissions(),
-    api.getMachineConfig()
-  ]);
+  const [u, p] = await Promise.all([api.getUsers(), api.getPermissions()]);
   if (!Array.isArray(u)) throw new Error("Некоректна відповідь сервера: користувачі");
   if (!p || typeof p !== "object") throw new Error("Некоректна відповідь сервера: доступи");
-  if (!Array.isArray(m)) throw new Error("Некоректна відповідь сервера: конфігурація станків");
   users = u;
   permissions = p;
-  machineConfig = m;
 
   try {
     await loadClientsInfo();
@@ -72,6 +57,13 @@ export async function loadSettingsData() {
   try {
     mergeAiSettings(await api.getAiSettings());
     aiSettingsLoadError = "";
+    if (isAdmin()) {
+      try {
+        recentAiAnalyses = await api.getRecentAiAnalyses();
+      } catch {
+        recentAiAnalyses = [];
+      }
+    }
   } catch (err) {
     aiSettingsLoadError =
       err.message ||
@@ -189,7 +181,6 @@ function accessSectionHtml() {
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canEditPositions" ${p.canEditPositions ? "checked" : ""} /> Позиції</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canUseOperatorPanel" ${p.canUseOperatorPanel ? "checked" : ""} /> Панель оператора (огляд)</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canViewProductionFloor" ${p.canViewProductionFloor ? "checked" : ""} /> Вкладка «Цех зараз»</label>
-          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canViewMachineLogs" ${p.canViewMachineLogs ? "checked" : ""} /> Перегляд логів станків</label>
         </div>
         <div class="access-stages">
           <div class="access-stages-title">Етапи</div>
@@ -208,158 +199,6 @@ function accessSectionHtml() {
         <button type="button" class="btn btn-primary btn-sm" id="savePermissionsBtn">Зберегти доступи</button>
       </div>
       <div class="access-roles">${roleBlocks}</div>
-    </div>
-  `;
-}
-
-const PARSER_OPTIONS = [
-  { id: "kdt", label: "KDT Saw (папка .txt)" },
-  { id: "generic", label: "Загальний (файл)" },
-  { id: "biesse", label: "Biesse" },
-  { id: "homag", label: "Homag" },
-  { id: "scm", label: "SCM" }
-];
-
-function machinesSectionHtml() {
-  const stageCards = machineConfig
-    .map((m) => {
-      const profile = m.parserProfile || "generic";
-      const isKdt = profile === "kdt";
-      const pathHint = isKdt
-        ? "Папка з логами KDT на сервері ENVER (усі .txt рекурсивно)"
-        : "Один текстовий файл логу на сервері ENVER";
-      const pathPlaceholder = isKdt ? "\\\\192.168.1.203\\KDTsaw" : "/var/log/stanok.log";
-
-      return `
-        <article class="machine-stage-card" data-stage-card="${escapeHtml(m.stageKey)}">
-          <header class="machine-stage-card-head">
-            <h3>${escapeHtml(stageLabel(m.stageKey))}</h3>
-            <span class="machine-stage-progress">${m.lastProgress ?? 0}%</span>
-          </header>
-          <p class="field-hint machine-path-hint">${pathHint}</p>
-          <p class="field-hint machine-browser-mode-hint">
-            <strong>Windows-ПК у мережі:</strong> відкрийте ENVER у Chrome на комп'ютері з доступом до NAS.
-            Натисніть «Обрати папку» → <code>\\\\192.168.1.203\\KDTsaw</code> (не вводьте шлях вручну).
-            Після збереження натисніть «Сканувати» — далі логи читаються з цього ПК автоматично.
-          </p>
-          <div class="form-field">
-            <label>Шлях до логів</label>
-            <div class="machine-path-row">
-              <input
-                class="machine-log-path"
-                type="text"
-                data-machine-log-path="${escapeHtml(m.stageKey)}"
-                value="${escapeHtml(m.logPath || "")}"
-                placeholder="${escapeHtml(pathPlaceholder)}"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="btn btn-sm" data-pick-log-path="${escapeHtml(m.stageKey)}">Обрати папку</button>
-            </div>
-          </div>
-          <div class="machine-stage-grid">
-            <div class="form-field">
-              <label>Парсер</label>
-              <select class="machine-parser-profile" data-machine-parser="${escapeHtml(m.stageKey)}">
-                ${PARSER_OPTIONS.map(
-                  (p) =>
-                    `<option value="${p.id}" ${profile === p.id ? "selected" : ""}>${escapeHtml(p.label)}</option>`
-                ).join("")}
-              </select>
-            </div>
-            <label class="checkbox-label">
-              <input type="checkbox" data-machine-watch="${escapeHtml(m.stageKey)}" ${m.watchEnabled ? "checked" : ""} />
-              Стежити
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" data-machine-ai="${escapeHtml(m.stageKey)}" ${m.aiMatchingEnabled !== false ? "checked" : ""} />
-              AI
-            </label>
-          </div>
-          ${
-            m.stageKey === "cutting"
-              ? `
-          <div class="form-field">
-            <label>Корінь папок проєктів</label>
-            <div class="machine-path-row">
-              <input
-                class="machine-projects-root"
-                type="text"
-                data-machine-projects-root="${escapeHtml(m.stageKey)}"
-                value="${escapeHtml(m.projectsRootPath || "")}"
-                placeholder="C:\\ENVER"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="btn btn-sm" data-pick-projects-root="${escapeHtml(m.stageKey)}">Обрати папку</button>
-            </div>
-          </div>
-          <div class="form-field">
-            <label>Підпапки для ШІ (через кому)</label>
-            <input
-              class="machine-ai-subfolders"
-              type="text"
-              data-machine-ai-subfolders="${escapeHtml(m.stageKey)}"
-              value="${escapeHtml((m.aiSourceSubfolders || []).join(", "))}"
-              placeholder="meta.json, giblab, kdt"
-              autocomplete="off"
-            />
-          </div>`
-              : ""
-          }
-          <p class="machine-stage-status"><small>${escapeHtml(m.lastMatchSummary || "—")}</small></p>
-          <div class="machine-actions-cell">
-            <button type="button" class="btn btn-primary btn-sm" data-save-machine="${escapeHtml(m.stageKey)}">Зберегти</button>
-            <button type="button" class="btn btn-sm" data-ingest-machine="${escapeHtml(m.stageKey)}">Сканувати</button>
-            <button type="button" class="btn btn-sm" data-full-scan-machine="${escapeHtml(m.stageKey)}">Повне сканування</button>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  return `
-    <div class="settings-section machines-settings">
-      <div class="settings-section-header">
-        <h2>Логи станків</h2>
-      </div>
-      <p class="settings-hint">
-        Окремий шлях для кожного етапу (на сервері ENVER). Порізка KDT: парсер <strong>KDT Saw</strong> + папка з .txt.
-        OpenAI — вкладка <strong>ШІ</strong>.
-      </p>
-      <div class="machine-stage-list">${stageCards}</div>
-      <div class="settings-subsection">
-        <h3>Завантажити фрагмент логу</h3>
-        <div class="machine-upload-row">
-          <select id="machineUploadStage">
-            ${OPERATOR_STAGES.map((s) => `<option value="${s.key}">${escapeHtml(s.label)}</option>`).join("")}
-          </select>
-          <textarea id="machineUploadText" rows="4" placeholder="Вставте рядки логу KDT або іншого станка…"></textarea>
-          <button type="button" class="btn btn-sm" id="machineUploadBtn">Імпортувати</button>
-        </div>
-      </div>
-      <p class="settings-hint">Ключ OpenAI — вкладка <strong>ШІ</strong>.</p>
-      <details class="settings-hint-details">
-        <summary>Опційно: зовнішній API станка</summary>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Етап</th><th>URL</th><th>Токен</th><th></th></tr></thead>
-            <tbody>
-              ${machineConfig
-                .map(
-                  (m) => `
-                <tr>
-                  <td>${escapeHtml(stageLabel(m.stageKey))}</td>
-                  <td><input class="machine-url-input" type="url" data-machine-url="${escapeHtml(m.stageKey)}" value="${escapeHtml(m.apiUrl)}" /></td>
-                  <td><input class="machine-token-input" type="password" data-machine-token="${escapeHtml(m.stageKey)}" value="${escapeHtml(m.apiToken)}" autocomplete="off" /></td>
-                  <td><button type="button" class="btn btn-sm" data-save-machine-api="${escapeHtml(m.stageKey)}">Зберегти API</button></td>
-                </tr>`
-                )
-                .join("")}
-            </tbody>
-          </table>
-        </div>
-      </details>
     </div>
   `;
 }
@@ -399,14 +238,13 @@ function aiSectionHtml() {
           : ""
       }
       <p class="settings-hint">
-        Ключ використовується для <strong>зіставлення рядків логу станка</strong> з позиціями замовлень у ENVER.
-        Без ключа працює лише евристичне зіставлення (номер замовлення, виріб, токени з логу).
+        Ключ використовується для <strong>аналізу конструкторських файлів</strong> та покращення підказок у системі.
       </p>
 
       <form class="ai-settings-card" id="aiSettingsForm">
         <label class="checkbox-label ai-enable-row">
           <input type="checkbox" id="aiEnabled" ${aiSettings.enabled !== false ? "checked" : ""} />
-          Увімкнути AI-зіставлення
+          Увімкнути ШІ-аналіз
         </label>
 
         <div class="form-field">
@@ -445,6 +283,37 @@ function aiSectionHtml() {
         </div>
         <p class="form-error" id="aiSettingsError" role="alert"></p>
       </form>
+
+      <div class="ai-feedback-card">
+        <h3>Історія аналізів і навчання</h3>
+        <p class="settings-hint">Позначте аналіз як коректний або додайте корекцію — наступні запити врахують останні приклади.</p>
+        ${
+          recentAiAnalyses.length
+            ? `<ul class="ai-analysis-list">
+                ${recentAiAnalyses
+                  .map(
+                    (a) => `
+                  <li class="ai-analysis-item">
+                    <div class="ai-analysis-meta">
+                      <strong>#${a.id}</strong> · ${escapeHtml(a.orderNumber || "—")} · ${escapeHtml(a.item || "—")}
+                      <br><small>${escapeHtml(a.fileName || "")} · ${escapeHtml(a.createdAt || "")}</small>
+                    </div>
+                    <p class="ai-analysis-summary">${escapeHtml(a.summary || "—")}</p>
+                    <form class="ai-feedback-form" data-analysis-id="${a.id}">
+                      <select name="rating" class="ai-feedback-rating">
+                        <option value="correct">Коректний</option>
+                        <option value="needs_fix">Потребує правки</option>
+                      </select>
+                      <textarea name="correction" rows="2" placeholder="Корекція для навчання (опційно)"></textarea>
+                      <button type="submit" class="btn btn-sm">Зберегти відгук</button>
+                    </form>
+                  </li>`
+                  )
+                  .join("")}
+              </ul>`
+            : '<p class="settings-hint">Ще немає збережених аналізів конструктивів.</p>'
+        }
+      </div>
     </div>
   `;
 }
@@ -461,7 +330,6 @@ export function renderSettingsView() {
         ["users", "Користувачі"],
         ["access", "Доступи"],
         ["directories", "Довідники"],
-        ["machines", "Станки"],
         ["clients", "Клієнти"],
         ["notifications", "Сповіщення"],
         ...(isAdmin() ? [["ai", "ШІ"]] : [])
@@ -480,7 +348,7 @@ export function renderSettingsView() {
               ? directoriesSectionHtml()
               : section === "ai"
                 ? aiSectionHtml()
-                : machinesSectionHtml();
+                : notificationsSectionHtml();
 
   return `
     <div class="settings-page">
@@ -500,60 +368,6 @@ export function renderSettingsView() {
       ${sectionHtml}
     </div>
   `;
-}
-
-function collectMachineConfigFromDom(key) {
-  const subfoldersRaw =
-    document.querySelector(`[data-machine-ai-subfolders="${key}"]`)?.value ?? "";
-  const aiSourceSubfolders = subfoldersRaw
-    .split(/[,;\n]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const logInput = document.querySelector(`[data-machine-log-path="${key}"]`);
-  const projectsInput = document.querySelector(`[data-machine-projects-root="${key}"]`);
-
-  return {
-    logPath: resolvePathInputValue(logInput),
-    parserProfile: document.querySelector(`[data-machine-parser="${key}"]`)?.value ?? "generic",
-    watchEnabled: document.querySelector(`[data-machine-watch="${key}"]`)?.checked ?? false,
-    aiMatchingEnabled: document.querySelector(`[data-machine-ai="${key}"]`)?.checked ?? true,
-    projectsRootPath: resolvePathInputValue(projectsInput),
-    aiSourceSubfolders,
-    resetLogOffset: false
-  };
-}
-
-export async function bindMachinesFolderPickers() {
-  if (state.settingsSection !== "machines") return;
-
-  await fetchFolderPickerCapabilities({ refresh: true });
-
-  for (const m of machineConfig) {
-    const logInput = document.querySelector(`[data-machine-log-path="${m.stageKey}"]`);
-    if (logInput && isBrowserPickedPath(m.logPath)) {
-      await applyBrowserPathDisplay(logInput, m.logPath);
-    }
-    bindFolderPickButton({
-      button: document.querySelector(`[data-pick-log-path="${m.stageKey}"]`),
-      input: logInput,
-      title: `Папка логів: ${stageLabel(m.stageKey)}`,
-      storageKey: `settings_log_${m.stageKey}`
-    });
-
-    if (m.stageKey !== "cutting") continue;
-
-    const rootInput = document.querySelector(`[data-machine-projects-root="${m.stageKey}"]`);
-    if (rootInput && isBrowserPickedPath(m.projectsRootPath)) {
-      await applyBrowserPathDisplay(rootInput, m.projectsRootPath);
-    }
-    bindFolderPickButton({
-      button: document.querySelector(`[data-pick-projects-root="${m.stageKey}"]`),
-      input: rootInput,
-      title: "Корінь папок замовлень",
-      storageKey: `settings_projects_${m.stageKey}`
-    });
-  }
 }
 
 function collectPermissionsFromDom() {
@@ -706,6 +520,22 @@ export function bindSettingsActions(onChange) {
     if (e.target?.id === "aiSettingsForm") {
       e.preventDefault();
       saveAiSettingsFromDom();
+      return;
+    }
+    const feedbackForm = e.target?.closest?.(".ai-feedback-form");
+    if (feedbackForm) {
+      e.preventDefault();
+      const analysisId = Number(feedbackForm.dataset.analysisId);
+      const rating = feedbackForm.querySelector('[name="rating"]')?.value || "";
+      const correctionText = feedbackForm.querySelector('[name="correction"]')?.value?.trim() || "";
+      runSettingsSave("Відгук ШІ", {
+        saveFn: () => api.submitAiFeedback({ analysisId, rating, correctionText }),
+        successMessage: "Відгук збережено",
+        onSuccess: async () => {
+          await loadSettingsData();
+          settingsOnChange();
+        }
+      }).catch(() => {});
     }
   });
 
@@ -772,107 +602,6 @@ export function bindSettingsActions(onChange) {
           permissions = p;
           return loadSettingsData();
         }
-      }).catch(() => {});
-      return;
-    }
-
-    const saveMachine = e.target.closest("[data-save-machine]");
-    if (saveMachine) {
-      const key = saveMachine.dataset.saveMachine;
-      const body = collectMachineConfigFromDom(key);
-      const pathErr = validateMachineLogPathForServer(body.logPath);
-      if (pathErr) {
-        import("./toast.js").then(({ toastError }) => toastError(pathErr));
-        return;
-      }
-      const label = `Станок: ${stageLabel(key)}`;
-      runSettingsSave(label, {
-        onReload: () => settingsOnChange(),
-        saveFn: () => api.updateMachineConfig(key, body),
-        onSuccess: async (config) => {
-          await loadSettingsData();
-          if (isBrowserPickedPath(config?.logPath)) {
-            try {
-              await ingestBrowserPickedFolder(key, config.logPath, {
-                upload: (stage, ingestBody) => api.uploadMachineLog(stage, ingestBody),
-                fullScan: true
-              });
-            } catch {
-              /* можна повторити «Сканувати» */
-            }
-          }
-        }
-      }).catch(() => {});
-      return;
-    }
-
-    const saveMachineApi = e.target.closest("[data-save-machine-api]");
-    if (saveMachineApi) {
-      const key = saveMachineApi.dataset.saveMachineApi;
-      runSettingsSave(`API: ${stageLabel(key)}`, {
-        onReload: () => settingsOnChange(),
-        saveFn: () =>
-          api.updateMachineConfig(key, {
-            apiUrl: document.querySelector(`[data-machine-url="${key}"]`)?.value ?? "",
-            apiToken: document.querySelector(`[data-machine-token="${key}"]`)?.value ?? "",
-            clearToken: !document.querySelector(`[data-machine-token="${key}"]`)?.value
-          }),
-        onSuccess: () => loadSettingsData()
-      }).catch(() => {});
-      return;
-    }
-
-    const ingestMachine = e.target.closest("[data-ingest-machine]");
-    if (ingestMachine) {
-      const key = ingestMachine.dataset.ingestMachine;
-      const logPath = resolvePathInputValue(
-        document.querySelector(`[data-machine-log-path="${key}"]`)
-      );
-      runSettingsSave(`Сканування: ${stageLabel(key)}`, {
-        onReload: () => settingsOnChange(),
-        saveFn: async () => {
-          if (isBrowserPickedPath(logPath)) {
-            return ingestBrowserPickedFolder(key, logPath, {
-              upload: (stage, body) => api.uploadMachineLog(stage, body)
-            });
-          }
-          return api.ingestMachineLog(key);
-        },
-        onSuccess: () => loadSettingsData()
-      }).catch(() => {});
-      return;
-    }
-
-    const fullScanMachine = e.target.closest("[data-full-scan-machine]");
-    if (fullScanMachine) {
-      const key = fullScanMachine.dataset.fullScanMachine;
-      const logPath = resolvePathInputValue(
-        document.querySelector(`[data-machine-log-path="${key}"]`)
-      );
-      if (!confirm("Повторно прочитати всі логи з початку для цього етапу?")) return;
-      runSettingsSave(`Повне сканування: ${stageLabel(key)}`, {
-        onReload: () => settingsOnChange(),
-        saveFn: async () => {
-          if (isBrowserPickedPath(logPath)) {
-            return ingestBrowserPickedFolder(key, logPath, {
-              upload: (stage, body) => api.uploadMachineLog(stage, body),
-              fullScan: true
-            });
-          }
-          return api.ingestMachineLog(key, { fullScan: true });
-        },
-        onSuccess: () => loadSettingsData()
-      }).catch(() => {});
-      return;
-    }
-
-    if (e.target.closest("#machineUploadBtn")) {
-      const stage = document.querySelector("#machineUploadStage")?.value;
-      const text = document.querySelector("#machineUploadText")?.value ?? "";
-      runSettingsSave("Імпорт логу", {
-        onReload: () => settingsOnChange(),
-        saveFn: () => api.uploadMachineLog(stage, text),
-        onSuccess: () => loadSettingsData()
       }).catch(() => {});
       return;
     }

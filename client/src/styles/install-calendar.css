@@ -1,3 +1,54 @@
+/* ENVER v3 — календар монтажу (Apple-like) */
+
+.install-tab {
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif);
+}
+
+.install-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+}
+
+.install-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 10px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6e6e73);
+  min-height: 44px;
+}
+
+.install-mode-btn.active {
+  background: #fff;
+  color: var(--accent, #0071e3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.install-calendar-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(245, 245, 247, 0.92);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  padding: 8px 4px;
+  margin-bottom: 8px;
+}
+
+.install-day-load-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #34c759, #ff9500, #ff3b30);
+  opacity: 0.85;
+}
+
 .toolbar--calendar #stageFilter,
 .toolbar--calendar #exportCsvBtn {
   display: none;

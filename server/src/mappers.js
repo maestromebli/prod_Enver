@@ -28,10 +28,13 @@ export function mapPosition(row) {
     itemType: row.item_type ?? "",
     manager: row.manager ?? "",
     constructor: row.constructor_name ?? "",
+    hasConstructiveFile: Boolean(row.has_constructive_file),
+    constructiveFileName: row.constructive_file_name ?? "",
     cuttingStatus: row.cutting_status ?? "",
     edgingStatus: row.edging_status ?? "",
     drillingStatus: row.drilling_status ?? "",
     assemblyStatus: row.assembly_status ?? "",
+    packagingStatus: row.packaging_status ?? "",
     assemblyResponsible: row.assembly_responsible ?? "",
     readyDate: row.ready_date ?? "",
     installDate: row.install_date ?? "",
@@ -45,31 +48,9 @@ export function mapPosition(row) {
     overdueDays: row.overdue_days ?? 0,
     problem: row.problem ?? "",
     note: row.note ?? "",
-    folderKey: row.folder_key ?? "",
-    folderPath: row.folder_path ?? "",
-    folderState: row.folder_state ?? "",
     material: row.material ?? "",
-    machineProgressDetail: parseMachineProgressJson(row.machine_progress_json),
-    giblabSummary: parseJsonObject(row.giblab_summary_json),
     createdAt: row.created_at ?? null
   };
-}
-
-import { parseJsonObject } from "./json-utils.js";
-
-function parseMachineProgressJson(str) {
-  try {
-    const data = JSON.parse(str || "{}");
-    return {
-      percent: Number(data.percent) || 0,
-      piecesDone: Number(data.piecesDone) || 0,
-      piecesTotal: Number(data.piecesTotal) || 0,
-      cutLengthMm: Number(data.cutLengthMm) || 0,
-      jobRef: data.jobRef || ""
-    };
-  } catch {
-    return { percent: 0, piecesDone: 0, piecesTotal: 0, cutLengthMm: 0, jobRef: "" };
-  }
 }
 
 export function orderToDb(body) {
@@ -96,10 +77,12 @@ export function positionToDb(body) {
     item_type: body.itemType?.trim() ?? "",
     manager: body.manager?.trim() ?? "",
     constructor_name: body.constructor?.trim() ?? "",
+    has_constructive_file: Boolean(body.hasConstructiveFile),
     cutting_status: body.cuttingStatus?.trim() ?? "Не розпочато",
     edging_status: body.edgingStatus?.trim() ?? "Не розпочато",
     drilling_status: body.drillingStatus?.trim() ?? "Не розпочато",
     assembly_status: body.assemblyStatus?.trim() ?? "Не розпочато",
+    packaging_status: body.packagingStatus?.trim() ?? "Не розпочато",
     assembly_responsible: body.assemblyResponsible?.trim() ?? "",
     ready_date: body.readyDate?.trim() ?? "",
     install_date: body.installDate?.trim() ?? "",

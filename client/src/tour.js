@@ -8,16 +8,16 @@ const TOUR_STEPS = [
     focusSelector: "#toolbarNewOrderBtn"
   },
   {
-    tab: "Позиції замовлення",
+    tab: "Позиції",
     title: "Крок 2 з 3",
     hint: "Додай позицію з відповідальними",
     focusSelector: "#toolbarNewPositionBtn"
   },
   {
-    tab: "Виробництво за етапами",
+    tab: "Цех зараз",
     title: "Крок 3 з 3",
     hint: "Проведи позицію по етапах до монтажу",
-    focusSelector: "#stageFilter"
+    focusSelector: "#pfRefreshBtn"
   }
 ];
 

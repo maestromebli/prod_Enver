@@ -96,26 +96,9 @@ export function canOperatorStage(user, stageKey) {
   return stages.includes(stageKey) && Boolean(STAGE_STATUS_FIELD[stageKey]);
 }
 
-/** Налаштування логів/ШІ для етапу: адмін, начальник виробництва або оператор цього етапу. */
-export function canManageStageMachineConfig(user, stageKey) {
-  if (!user || !STAGE_STATUS_FIELD[stageKey]) return false;
-  if (user.role === "admin") return true;
-  if (user.role === "production" && user.permissions?.canUseOperatorPanel) return true;
-  return canOperatorStage(user, stageKey);
-}
-
-export function requireStageMachineConfig(req, res, next) {
-  const stageKey = req.params.stageKey;
-  if (!canManageStageMachineConfig(req.user, stageKey)) {
-    res.status(403).json({ error: "Немає доступу до налаштувань цього етапу" });
-    return;
-  }
-  next();
-}
-
 export function requireOperatorSelf(req, res, next) {
   if (req.user?.role !== "operator") {
-    res.status(403).json({ error: "Цю дію може виконати лише оператор на станку" });
+    res.status(403).json({ error: "Цю дію може виконати лише оператор цеху" });
     return;
   }
   const bodyId = Number(req.body?.userId);

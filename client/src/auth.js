@@ -37,7 +37,6 @@ export async function logout() {
     /* ignore */
   }
   saveUser(null);
-  stopMachinePolling();
 }
 
 export function isAdmin() {
@@ -74,11 +73,6 @@ export function canViewProductionFloor() {
   return Boolean(state.currentUser?.permissions?.canViewProductionFloor);
 }
 
-export function canViewMachineLogs() {
-  return Boolean(state.currentUser?.permissions?.canViewMachineLogs);
-}
-
-/** Панель оператора в режимі огляду (начальник / адмін), без кнопок «Почав». */
 export function isSupervisorOperatorPanel() {
   if (!state.currentUser?.permissions?.canUseOperatorPanel) return false;
   return state.currentUser.role !== "operator";
@@ -95,20 +89,6 @@ export function hasOperatorAccess() {
 
 export function shouldShowProductionFloorByDefault() {
   return isProductionHead() && canViewProductionFloor();
-}
-
-let pollTimer = null;
-
-export function startMachinePolling(callback, intervalMs = 3000) {
-  stopMachinePolling();
-  pollTimer = setInterval(callback, intervalMs);
-}
-
-export function stopMachinePolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
 }
 
 export async function refreshCurrentUser() {

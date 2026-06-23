@@ -12,23 +12,12 @@ import {
 } from "../operator-sessions.js";
 import { updatePositionStages } from "../db/position-persistence.js";
 import { OPERATOR_QUEUE_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
-import {
-  getOperatorJobDetails,
-  onOperatorStartFolder,
-  onOperatorFinishCutting,
-  recordCuttingStat
-} from "../folder-sync.js";
-import { ingestLogFile, ingestLogPayload } from "../machine-log-ingest.js";
-import { getMachineConfig, updateMachineConfig } from "../machine-config.js";
-import { getParserProfiles } from "../machine-log-parser.js";
-import { pickWindowsFolder, windowsFolderPickerAvailable } from "../folder-picker-win.js";
+import { getOperatorJobDetails } from "../folder-sync.js";
 import {
   auditActor,
   requireAuth,
   requireOperatorPanelView,
-  requireOperatorSelf,
-  requireStageMachineConfig,
-  canManageStageMachineConfig
+  requireOperatorSelf
 } from "../middleware/auth.js";
 
 const router = Router();
@@ -87,7 +76,7 @@ router.get("/queue/:stageKey", async (req, res) => {
 
   let activeSession = await one(
     `SELECT os.*, p.order_number, p.item, p.object,
-            p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status
+            p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status, p.packaging_status
      FROM operator_sessions os
      JOIN positions p ON p.id = os.position_id
      WHERE os.user_id = $1 AND os.finished_at IS NULL
@@ -178,7 +167,6 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
   );
 
   await savePosition(positionId, row);
-  await onOperatorStartFolder(positionId);
   await logStageChange(
     before,
     await getPosition(positionId),
@@ -229,38 +217,6 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
     `UPDATE operator_sessions SET status = 'finished', finished_at = now(), updated_at = now() WHERE id = $1`,
     [session.id]
   );
-
-  if (stageKey === "cutting") {
-    await onOperatorFinishCutting(positionId);
-    const giblab = (() => {
-      try {
-        return JSON.parse(row.giblab_summary_json || "{}");
-      } catch {
-        return {};
-      }
-    })();
-    const machine = (() => {
-      try {
-        return JSON.parse(row.machine_progress_json || "{}");
-      } catch {
-        return {};
-      }
-    })();
-    const durationSec = session.started_at
-      ? Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000)
-      : 0;
-    await recordCuttingStat({
-      positionId,
-      orderNumber: row.order_number,
-      material: row.material || giblab.material || "",
-      piecesTotal: machine.piecesTotal || giblab.piecesTotal || 0,
-      cutLengthMm: machine.cutLengthMm || giblab.cutLengthMm || 0,
-      giblabHash: giblab.giblabHash || "",
-      startedAt: session.started_at,
-      finishedAt: new Date(),
-      durationSec
-    });
-  }
 
   await savePosition(positionId, handedOff);
   await logStageChange(
@@ -365,77 +321,5 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
 
   res.json({ position: mapPosition(await getPosition(positionId)) });
 });
-
-router.get("/machine-config/profiles", (_req, res) => {
-  res.json({ profiles: getParserProfiles() });
-});
-
-router.get("/machine-config/pick-folder/capabilities", (_req, res) => {
-  res.json({ windowsDialog: windowsFolderPickerAvailable() });
-});
-
-router.post("/machine-config/pick-folder", (req, res) => {
-  if (!canManageStageMachineConfig(req.user, "cutting")) {
-    res.status(403).json({ error: "Немає доступу до налаштувань порізки" });
-    return;
-  }
-  const title = String(req.body?.title || "Оберіть папку");
-  try {
-    const folderPath = pickWindowsFolder({ title });
-    if (!folderPath) {
-      res.status(409).json({ error: "Скасовано" });
-      return;
-    }
-    res.json({ path: folderPath });
-  } catch (err) {
-    if (err.status === 501) {
-      res.status(501).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
-});
-
-router.get("/machine-config/:stageKey", requireStageMachineConfig, async (req, res) => {
-  const config = await getMachineConfig(req.params.stageKey);
-  if (!config) {
-    res.status(404).json({ error: "Етап не знайдено" });
-    return;
-  }
-  res.json(config);
-});
-
-router.put("/machine-config/:stageKey", requireStageMachineConfig, async (req, res) => {
-  try {
-    const config = await updateMachineConfig(req.params.stageKey, req.body || {});
-    res.json(config);
-  } catch (err) {
-    if (err.status === 404) {
-      res.status(404).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
-});
-
-router.post("/machine-config/:stageKey/scan", requireStageMachineConfig, async (req, res) => {
-  const result = await ingestLogFile(req.params.stageKey, {
-    fullScan: Boolean(req.body?.fullScan)
-  });
-  res.json(result);
-});
-
-router.post(
-  "/machine-config/:stageKey/ingest-browser",
-  requireStageMachineConfig,
-  async (req, res) => {
-    const outcome = await ingestLogPayload(req.params.stageKey, req.body || {});
-    if (outcome.error) {
-      res.status(outcome.status || 400).json({ error: outcome.error });
-      return;
-    }
-    res.json(outcome.result);
-  }
-);
 
 export default router;

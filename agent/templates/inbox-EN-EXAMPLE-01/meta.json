@@ -1,9 +1,0 @@
-{
-  "orderNumber": "EN-EXAMPLE-01",
-  "object": "Кухня — демо",
-  "client": "Демо клієнт",
-  "material": "ДСП 18мм W960",
-  "items": [{ "id": "kitchen", "name": "Кухня", "kdtFolder": "kdt/Kitchen" }],
-  "giblabFile": "giblab/project.txt",
-  "comment": "Скопіюйте цю папку в inbox агента для тесту"
-}

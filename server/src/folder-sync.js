@@ -228,28 +228,20 @@ export async function getOperatorJobDetails(positionId) {
   const row = await one("SELECT * FROM positions WHERE id = $1", [positionId]);
   if (!row) return null;
 
-  const meta = parseJson(row.folder_meta_json, {});
-  const files = parseJson(row.folder_files_json, []);
-  const giblab = parseJson(row.giblab_summary_json, {});
-  const machine = mapMachineProgress(row.machine_progress_json);
+  const file = await one(
+    `SELECT original_name FROM position_files
+     WHERE position_id = $1 AND kind = 'constructive'
+     ORDER BY created_at DESC LIMIT 1`,
+    [positionId]
+  );
 
   return {
     position: mapPosition(enrichPositionRow(row)),
     orderNumber: row.order_number,
     object: row.object,
-    client: meta.client || "",
-    material: row.material || meta.material || giblab.material || "",
-    folderKey: row.folder_key,
-    folderPath: row.folder_path,
-    folderState: row.folder_state,
-    meta,
-    files,
-    giblabSummary: giblab,
-    machineProgress: machine,
-    kdtJobs: (meta.items || []).map((item) => ({
-      name: item.name || item.id,
-      kdtFolder: item.kdtFolder || ""
-    }))
+    item: row.item,
+    material: row.material || "",
+    constructiveFileName: file?.original_name || ""
   };
 }
 
@@ -299,17 +291,6 @@ export async function archiveFolderForOrder(orderId) {
     if (id) commandIds.push(id);
   }
   return commandIds;
-}
-
-export async function updatePositionMachineProgress(positionId, patch) {
-  const row = await one("SELECT machine_progress_json FROM positions WHERE id = $1", [positionId]);
-  if (!row) return;
-  const current = parseJson(row.machine_progress_json, {});
-  const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-  await run(`UPDATE positions SET machine_progress_json = $1 WHERE id = $2`, [
-    JSON.stringify(next),
-    positionId
-  ]);
 }
 
 export async function recordCuttingStat({

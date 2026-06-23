@@ -1,0 +1,177 @@
+/* ENVER v3 — Apple-like shell */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --surface: #f5f5f7;
+  --surface-elevated: rgba(255, 255, 255, 0.82);
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --radius-card: 16px;
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+
+body.view-main {
+  background: var(--surface);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.app-sidebar-nav {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 0;
+  flex-wrap: wrap;
+}
+
+.app-sidebar-nav .tab-btn {
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  padding: 10px 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.app-sidebar-nav .tab-btn.active {
+  background: #fff;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  padding: 8px 0 24px;
+}
+
+.order-card {
+  background: var(--surface-elevated);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.1);
+}
+
+.order-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.order-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.order-card-meta {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.progress-ring {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.progress-ring svg {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.08);
+  stroke-width: 6;
+}
+
+.progress-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.progress-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.constructive-block,
+.constructive-analysis .analysis-card {
+  background: rgba(0, 113, 227, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.constructive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.create-tasks-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.v3-operator .op-action-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.op-meta-card {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.op-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+[data-theme="dark"] {
+  --surface: #1c1c1e;
+  --surface-elevated: rgba(44, 44, 46, 0.92);
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .app-sidebar-nav .tab-btn.active {
+  background: #2c2c2e;
+}
+
+[data-theme="dark"] .order-card {
+  border-color: rgba(255, 255, 255, 0.06);
+}

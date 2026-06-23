@@ -147,7 +147,7 @@ async function afterAuth({ restoreNavigation = false } = {}) {
       await loadOperatorData();
     } catch (err) {
       state.operatorQueue = [];
-      state.machineProgressMessage = err.message;
+      state.operatorLoadError = err.message;
     }
   }
 
@@ -289,10 +289,7 @@ function renderApp(options) {
   if (state.view === "main" && state.activeTab === "Замовлення") {
     markOrdersSeenForCurrentRole(state.orders);
   }
-  if (
-    state.view === "main" &&
-    (state.activeTab === PRODUCTION_FLOOR_TAB || state.activeTab === "Виробництво за етапами")
-  ) {
+  if (state.view === "main" && state.activeTab === PRODUCTION_FLOOR_TAB) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
   paint(options);
@@ -361,7 +358,7 @@ async function setTab(tab) {
   if (tab === "Замовлення") {
     markOrdersSeenForCurrentRole(state.orders);
   }
-  if (tab === PRODUCTION_FLOOR_TAB || tab === "Виробництво за етапами") {
+  if (tab === PRODUCTION_FLOOR_TAB) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
   if (tab === PRODUCTION_FLOOR_TAB) {
@@ -405,9 +402,9 @@ function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) 
 async function handleDashboardNav(destination) {
   const quickRoutes = {
     "У фокусі": { tab: "Прострочки" },
-    Проблеми: { tab: "Позиції замовлення", status: "Проблема" },
-    "У виробництві": { tab: "Позиції замовлення", status: "У виробництві" },
-    "До монтажу": { tab: "Позиції замовлення", status: "Готово до встановлення" }
+    Проблеми: { tab: "Позиції", status: "Проблема" },
+    "У виробництві": { tab: "Позиції", status: "У виробництві" },
+    "До монтажу": { tab: "Позиції", status: "Готово до встановлення" }
   };
 
   const route = quickRoutes[destination];

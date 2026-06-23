@@ -173,48 +173,6 @@
   max-width: 480px;
 }
 
-.machine-url-input,
-.machine-token-input,
-.machine-log-path {
-  width: 100%;
-  min-width: 180px;
-}
-
-.machine-path-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.machine-path-row .machine-log-path,
-.machine-path-row .machine-projects-root {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.machine-config-table table {
-  font-size: 13px;
-}
-
-.machine-actions-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.machine-upload-row {
-  display: grid;
-  gap: 10px;
-  max-width: 640px;
-}
-
-.machine-upload-row textarea {
-  width: 100%;
-  font-family: ui-monospace, monospace;
-  font-size: 12px;
-}
-
 .settings-subsection {
   margin-top: 24px;
   padding-top: 16px;
@@ -366,64 +324,6 @@
 
 .settings-hint-details {
   margin-top: 20px;
-}
-
-.machine-stage-list {
-  display: grid;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.machine-stage-card {
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--white);
-  box-shadow: var(--shadow);
-}
-
-.machine-stage-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.machine-stage-card-head h3 {
-  margin: 0;
-  font-size: 17px;
-}
-
-.machine-stage-progress {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--navy);
-}
-
-.machine-stage-grid {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px 20px;
-  align-items: end;
-  margin-top: 12px;
-}
-
-@media (max-width: 720px) {
-  .machine-stage-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.machine-stage-card .machine-log-path {
-  width: 100%;
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 13px;
-}
-
-.machine-stage-status {
-  margin: 10px 0 0;
-  color: var(--muted);
 }
 
 .directories-section .directory-grid {
@@ -587,4 +487,38 @@
 
 .settings-notify-check {
   font-size: 14px;
+}
+
+.ai-feedback-card {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft, #e5e5ea);
+}
+
+.ai-analysis-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-analysis-item {
+  background: var(--surface, #f5f5f7);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.ai-feedback-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: flex-start;
+}
+
+.ai-feedback-form textarea {
+  flex: 1 1 200px;
+  min-height: 56px;
 }

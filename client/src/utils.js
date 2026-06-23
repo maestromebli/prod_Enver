@@ -52,6 +52,22 @@ export function progressBar(value) {
   `;
 }
 
+export function progressRing(value, { size = 56 } = {}) {
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const r = (size - 8) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - v / 100);
+  return `
+    <div class="progress-ring" style="width:${size}px;height:${size}px" aria-label="${v}%">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="progress-ring-bg"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="progress-ring-fill"
+          style="stroke-dasharray:${c};stroke-dashoffset:${offset}"/>
+      </svg>
+      <span class="progress-ring-label">${v}%</span>
+    </div>`;
+}
+
 export function overdue(value) {
   if (!value) return `<span class="muted">0</span>`;
   if (value > 0) return `<span class="overdue">+${value}</span>`;

@@ -7,23 +7,18 @@ import {
   hasOperatorAccess,
   isOperator
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, STAGE_TABS, TABS } from "./constants.js";
-import { STAGE_TAB_KEYS } from "./terminology.js";
-import { stageClientField } from "@enver/shared/production/stages.js";
+import { PRODUCTION_FLOOR_TAB, TABS } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody } from "./render-positions.js";
-import { positionActionButtons, stageQuickActions } from "./positions.js";
-import { bindSettingsActions, bindMachinesFolderPickers, renderSettingsView } from "./settings.js";
-import { renderDashboard } from "./dashboard.js";
-import { activeOrders, archivedOrders, archivedPositions } from "./archive.js";
+import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
+import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import { filteredPositions } from "./filters.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole,
-  newOrderIdsForCurrentRole,
   newProductionTaskIdsForCurrentRole
 } from "./role-notifications.js";
 import { renderInstallTab } from "./install-calendar.js";
@@ -33,8 +28,7 @@ import {
   renderProductionFloorTab
 } from "./production-floor.js";
 import { state } from "./state.js";
-import { badge, escapeHtml, overdue } from "./utils.js";
-import { orderRowHighlightClasses, STAGES } from "./workflows.js";
+import { escapeHtml } from "./utils.js";
 
 export { filteredPositions };
 
@@ -45,7 +39,7 @@ function emptyRow(colspan = 10) {
 function positionsTable(data, title = "Позиції замовлення", showActions = false) {
   const allowActions = showActions && canEditPositions();
   const actionHeader = allowActions ? "<th>Дії</th>" : "";
-  const colspan = allowActions ? 20 : 19;
+  const colspan = allowActions ? 21 : 20;
   const newTaskIds = newProductionTaskIdsForCurrentRole();
   const body =
     renderPositionTableBody(
@@ -80,6 +74,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
             <col class="col-w-stage col-opt-edging" />
             <col class="col-w-stage col-opt-drilling" />
             <col class="col-w-stage" />
+            <col class="col-w-stage" />
             <col class="col-w-date col-opt-ready" />
             <col class="col-w-date col-opt-install-date" />
             <col class="col-w-person" />
@@ -103,6 +98,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th class="col-opt-edging">Крайкування</th>
               <th class="col-opt-drilling">Присадка</th>
               <th>Збірка</th>
+              <th>Пакування</th>
               <th class="col-opt-ready">Дата готовності</th>
               <th class="col-opt-install-date">Дата встановлення</th>
               <th>Монтажник</th>
@@ -121,304 +117,6 @@ function positionsTable(data, title = "Позиції замовлення", sho
   `;
 }
 
-function ordersLegendHtml(newOrdersCount = 0) {
-  return `
-    <div class="orders-legend">
-      ${newOrdersCount > 0 ? `<span class="legend-item legend-fresh">Нових з минулого перегляду: ${newOrdersCount}</span>` : ""}
-      <span class="legend-item legend-new">Нове замовлення</span>
-      <span class="legend-item legend-no-assignment">Без наступного призначення</span>
-    </div>
-  `;
-}
-
-function ordersTable(showActions = false, ordersData = activeOrders(state.orders)) {
-  const allowEdit = showActions && canEditOrders();
-  const actionHeader = allowEdit ? "<th>Дії</th>" : "";
-  const freshOrderIds = newOrderIdsForCurrentRole(ordersData);
-  const rows = ordersData
-    .map((o) => {
-      const isFresh = freshOrderIds.has(Number(o.id));
-      const rowClass = [
-        orderRowHighlightClasses(o, state.positions),
-        isFresh ? "row-order-fresh" : ""
-      ]
-        .filter(Boolean)
-        .join(" ");
-      const actions = allowEdit
-        ? `<td class="actions-cell">
-            <button type="button" class="btn btn-sm" data-edit-order="${o.id}">Змінити</button>
-           </td>`
-        : "";
-
-      const dates = [o.startDate, o.planDate].filter(Boolean).join(" → ");
-      return `
-        <tr class="${rowClass}">
-          <td class="order-cell-number">
-            <strong>${escapeHtml(o.orderNumber)}</strong>
-            ${isFresh ? '<span class="cell-fresh-pill">NEW</span>' : ""}
-          </td>
-          <td class="col-opt-object">
-            <div class="order-cell-object">${escapeHtml(o.object)}</div>
-            ${o.comment ? `<div class="order-cell-note">${escapeHtml(o.comment)}</div>` : ""}
-          </td>
-          <td class="col-opt-client">${escapeHtml(o.client || "—")}</td>
-          <td class="col-opt-manager">${escapeHtml(o.manager || "—")}</td>
-          <td>${badge(o.status)}</td>
-          <td class="col-opt-dates muted">${escapeHtml(dates || "—")}</td>
-          ${actions}
-        </tr>
-      `;
-    })
-    .join("");
-
-  const headerActions = allowEdit
-    ? `<div class="card-header-row">
-        <div class="block-title">Замовлення</div>
-        <button type="button" class="btn btn-primary btn-sm" id="newOrderBtn">+ Нове замовлення</button>
-       </div>`
-    : `<div class="block-title">Замовлення</div>`;
-
-  return `
-    <div class="card">
-      ${headerActions}
-      ${ordersLegendHtml(freshOrderIds.size)}
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Номер</th>
-              <th class="col-opt-object">Об'єкт</th>
-              <th class="col-opt-client">Клієнт</th>
-              <th class="col-opt-manager">Менеджер</th>
-              <th>Статус</th>
-              <th class="col-opt-dates">Терміни</th>
-              ${actionHeader}
-            </tr>
-          </thead>
-          <tbody>${rows || emptyRow(showActions ? 7 : 6)}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function archiveTab() {
-  const ordersData = archivedOrders(state.orders);
-  const orderNumberSet = new Set(ordersData.map((o) => o.orderNumber));
-  const positionsData = archivedPositions(state.positions, state.orders).filter((p) =>
-    orderNumberSet.has(p.orderNumber)
-  );
-
-  return `
-    <div class="note">
-      У архів автоматично потрапляють завершені проєкти. Вони зникають з активних вкладок і лишаються лише тут.
-    </div>
-    ${ordersTable(false, ordersData)}
-    ${positionsTable(positionsData, "Архівні позиції")}
-  `;
-}
-
-function stageRows(stageName) {
-  const stageKey = STAGE_TAB_KEYS[stageName] || "cutting";
-  const statusKey = stageName === "Конструктив" ? null : stageClientField(stageKey);
-
-  return filteredPositions()
-    .map((p) => {
-      const responsible =
-        stageName === "Конструктив"
-          ? p.constructor
-          : stageName === "Збірка"
-            ? p.assemblyResponsible
-            : stageName === "Порізка" || stageName === "Крайкування"
-              ? "Віяр"
-              : p.assemblyResponsible || "—";
-
-      const status =
-        stageName === "Конструктив" ? (p.constructor ? "Передано" : "Не розпочато") : p[statusKey];
-      const itemLabel = p.parentId ? `↳ ${p.item}` : p.item;
-
-      return `
-        <tr class="${p.parentId ? "row-sub-position" : ""}">
-          <td class="col-opt-id">${p.id}</td>
-          <td>${escapeHtml(p.orderNumber)}</td>
-          <td class="col-opt-object">${escapeHtml(p.object)}</td>
-          <td class="left">${escapeHtml(itemLabel)}</td>
-          <td class="col-opt-manager">${escapeHtml(responsible || "—")}</td>
-          <td>${badge(status)}</td>
-          <td class="col-opt-plan-date">${escapeHtml(p.readyDate || "—")}</td>
-          <td class="col-opt-fact-date">${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
-          <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>
-          <td>${stageQuickActions(p.id, stageKey)}</td>
-          <td class="left col-opt-comment">${escapeHtml(p.problem || p.note || "—")}</td>
-        </tr>
-      `;
-    })
-    .join("");
-}
-
-function stageTable(stageName) {
-  const rows = stageRows(stageName);
-
-  return `
-    <div class="note">
-      Вкладка «${escapeHtml(stageName)}» показує завдання лише за одним процесом. Так виробництво бачить не всю простиню замовлень, а конкретний етап, статус, відповідального й прострочку.
-    </div>
-    <div class="card">
-      <div class="block-title">${escapeHtml(stageName)}</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="col-opt-id">ID позиції</th>
-              <th>Замовлення</th>
-              <th class="col-opt-object">Об'єкт</th>
-              <th class="left">Виріб</th>
-              <th class="col-opt-manager">Відповідальний</th>
-              <th>Статус</th>
-              <th class="col-opt-plan-date">Планова дата</th>
-              <th class="col-opt-fact-date">Фактична дата</th>
-              <th class="col-opt-overdue">Прострочка</th>
-              <th>Перехід</th>
-              <th class="left col-opt-comment">Коментар</th>
-            </tr>
-          </thead>
-          <tbody>${rows || emptyRow(11)}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function productionStageCell(position, stageTab) {
-  const stage = STAGES.find((s) => s.label === stageTab);
-  if (!stage) return { status: "Не розпочато", responsible: "—" };
-  if (stage.type === "constructor") {
-    return {
-      status: position.constructor ? "Передано" : "Не розпочато",
-      responsible: position.constructor || "—"
-    };
-  }
-  if (stage.field) {
-    const responsible =
-      stage.defaultResponsible ||
-      (stage.key === "drilling" || stage.key === "assembly"
-        ? position.assemblyResponsible || "—"
-        : "—");
-    return {
-      status: position[stage.field] || "Не розпочато",
-      responsible
-    };
-  }
-  return { status: "Не розпочато", responsible: "—" };
-}
-
-function productionTable() {
-  const stageFilter = state.productionStageFilter || "";
-  const stages = stageFilter ? [stageFilter] : STAGE_TABS;
-  const rows = [];
-
-  filteredPositions().forEach((p) => {
-    stages.forEach((stage) => {
-      const { status, responsible } = productionStageCell(p, stage);
-      rows.push(`
-        <tr>
-          <td class="col-opt-id">${p.id}</td>
-          <td>${escapeHtml(p.orderNumber)}</td>
-          <td class="col-opt-object">${escapeHtml(p.object)}</td>
-          <td class="left">${escapeHtml(p.item)}</td>
-          <td>${escapeHtml(stage)}</td>
-          <td>${badge(status)}</td>
-          <td class="col-opt-manager">${escapeHtml(responsible)}</td>
-          <td class="col-opt-plan-date">${escapeHtml(p.readyDate || "—")}</td>
-          <td class="col-opt-fact-date">${status === "Готово" ? escapeHtml(p.readyDate || "—") : "—"}</td>
-          <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>
-          <td class="left col-opt-comment">${escapeHtml(p.problem || "—")}</td>
-        </tr>
-      `);
-    });
-  });
-
-  return `
-    <div class="card">
-      <div class="block-title">Виробництво за етапами</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="col-opt-id">ID позиції</th>
-              <th>Замовлення</th>
-              <th class="col-opt-object">Об'єкт</th>
-              <th class="left">Виріб</th>
-              <th>Етап</th>
-              <th>Статус етапу</th>
-              <th class="col-opt-manager">Відповідальний</th>
-              <th class="col-opt-plan-date">Планова дата</th>
-              <th class="col-opt-fact-date">Фактична дата</th>
-              <th class="col-opt-overdue">Прострочка</th>
-              <th class="left col-opt-comment">Коментар</th>
-            </tr>
-          </thead>
-          <tbody>${rows.length ? rows.join("") : emptyRow(11)}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function overdueTable() {
-  const data = filteredPositions(state.positions.filter((p) => p.overdueDays > 0));
-
-  return `
-    <div class="card">
-      <div class="block-title">Прострочені позиції</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="col-opt-id">ID позиції</th>
-              <th>Замовлення</th>
-              <th class="col-opt-object">Об'єкт</th>
-              <th class="left">Виріб</th>
-              <th>Етап</th>
-              <th class="col-opt-manager">Відповідальний</th>
-              <th>Прострочка, днів</th>
-              <th class="left col-opt-comment">Причина</th>
-              <th>Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              data.length
-                ? data
-                    .map(
-                      (p) => `
-                        <tr class="row-clickable" data-edit-position="${p.id}">
-                          <td class="col-opt-id">${p.id}</td>
-                          <td>${escapeHtml(p.orderNumber)}</td>
-                          <td class="col-opt-object">${escapeHtml(p.object)}</td>
-                          <td class="left">${escapeHtml(p.item)}</td>
-                          <td>${p.assemblyStatus !== "Готово" ? "Збірка / Виробництво" : "Встановлення"}</td>
-                          <td class="col-opt-manager">${escapeHtml(p.assemblyResponsible || p.constructor || "—")}</td>
-                          <td>${overdue(p.overdueDays)}</td>
-                          <td class="left col-opt-comment">${escapeHtml(p.problem || "Не вказано")}</td>
-                          <td>${positionActionButtons(p.id, true)}</td>
-                        </tr>
-                      `
-                    )
-                    .join("")
-                : emptyRow(9)
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function dashboard() {
-  return renderDashboard();
-}
-
 function visibleTabs() {
   return TABS.filter((tab) => tab !== PRODUCTION_FLOOR_TAB || canViewProductionFloor());
 }
@@ -428,7 +126,7 @@ export function renderTabs() {
   const newOrders = countNewOrdersForCurrentRole();
   const newTasks = countNewProductionTasksForCurrentRole();
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
-  document.querySelector("#tabs").innerHTML = visibleTabs()
+  document.querySelector("#tabs").innerHTML = `<nav class="app-sidebar-nav">${visibleTabs()
     .map(
       (tab) => `
       <button
@@ -438,11 +136,11 @@ export function renderTabs() {
       >
         <span class="tab-btn-label">${escapeHtml(tab)}</span>
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
-        ${tab === PRODUCTION_FLOOR_TAB || tab === "Виробництво за етапами" ? tabBadge(newTasks) : ""}
+        ${tab === PRODUCTION_FLOOR_TAB ? tabBadge(newTasks) : ""}
       </button>
     `
     )
-    .join("");
+    .join("")}</nav>`;
 }
 
 export function renderKpis() {
@@ -502,12 +200,12 @@ export function renderToolbarActions() {
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
     );
   }
-  if (state.activeTab === "Позиції замовлення" && canEditPositions()) {
+  if (state.activeTab === "Позиції" && canEditPositions()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
     );
   }
-  if (["Дашборд", "Позиції замовлення", "Прострочки"].includes(state.activeTab)) {
+  if (state.activeTab === "Позиції") {
     parts.push(`<button type="button" class="btn btn-sm" id="exportCsvBtn">Експорт CSV</button>`);
   }
   parts.push(renderTourCoach());
@@ -518,30 +216,21 @@ export function renderStageFilter() {
   const select = document.querySelector("#stageFilter");
   if (!select) return;
 
-  const show = state.activeTab === "Виробництво за етапами";
   const field = select.closest(".filter-field");
-  select.hidden = !show;
-  if (field) field.hidden = !show;
-  if (show) {
-    select.value = state.productionStageFilter || "";
-  }
+  select.hidden = true;
+  if (field) field.hidden = true;
 }
 
 function renderContent() {
   const data = filteredPositions();
   const tab = state.activeTab;
 
-  if (tab === "Дашборд") return dashboard();
+  if (tab === "Замовлення") return renderOrdersGrid(state.orders, state.positions);
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
-  if (tab === "Замовлення") return ordersTable(true);
-  if (tab === "Позиції замовлення") return positionsTable(data, "Позиції замовлення", true);
-  if (tab === "Виробництво за етапами") return productionTable();
-  if (STAGE_TABS.includes(tab)) return stageTable(tab);
+  if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
-  if (tab === "Прострочки") return overdueTable();
-  if (tab === "Архів") return archiveTab();
   if (tab === "Історія змін") return historyTab();
-  return dashboard();
+  return renderOrdersGrid(state.orders, state.positions);
 }
 
 export function renderHeaderChrome() {
@@ -600,10 +289,7 @@ export function renderHeaderChrome() {
   }
 
   setOperatorUiActive(state.view === "operator");
-  document.body.classList.toggle(
-    "view-dashboard",
-    state.view === "main" && state.activeTab === "Дашборд"
-  );
+  document.body.classList.toggle("view-main", state.view === "main");
 }
 
 export function renderApp(options = {}) {
@@ -615,7 +301,6 @@ export function renderApp(options = {}) {
     try {
       content.innerHTML = renderSettingsView();
       bindSettingsActions(() => window.__enverRender?.());
-      void bindMachinesFolderPickers();
     } catch (err) {
       content.innerHTML = `
         <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">
@@ -639,6 +324,17 @@ export function renderApp(options = {}) {
   }
   renderStageFilter();
   document.querySelector("#content").innerHTML = renderContent();
+
+  if (state.activeTab === "Замовлення") {
+    bindOrdersGrid(document.querySelector("#content"), {
+      orders: state.orders,
+      positions: state.positions,
+      onOpenPosition: async (pos) => {
+        const { openPositionDrawer } = await import("./positions.js");
+        openPositionDrawer(pos);
+      }
+    });
+  }
 
   if (state.activeTab === PRODUCTION_FLOOR_TAB && canViewProductionFloor()) {
     bindProductionFloorActions({

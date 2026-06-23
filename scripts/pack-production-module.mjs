@@ -21,17 +21,14 @@ const MODULE_FILES = [
   // ——— Сервер: API та логіка цеху ———
   "server/src/routes/production.js",
   "server/src/routes/operator.js",
-  "server/src/routes/machine.js",
-  "server/src/routes/machine-logs.js",
-  "server/src/machine-log-parser.js",
-  "server/src/machine-log-ingest.js",
-  "server/src/machine-log-watcher.js",
-  "server/src/machine-service.js",
-  "server/src/machine-ai-matcher.js",
-  "server/src/kdt-log-parser.js",
+  "server/src/routes/ai.js",
+  "server/src/constructive-ai.js",
+  "server/src/file-storage.js",
   "server/src/order-status-workflow.js",
   "server/src/order-status-sync.js",
-  "server/src/position-logic.js",
+  "shared/production/position-logic.js",
+  "shared/production/stages.js",
+  "shared/production/permissions.js",
   "server/src/kpi-snapshots.js",
   "server/src/roles.js",
   // ——— Клієнт: цех і оператор ———
@@ -53,11 +50,8 @@ const MODULE_FILES = [
   "client/public/icons/icon-192.png",
   "client/public/icons/icon-512.png",
   // ——— Тести модуля ———
-  "server/test/machine-log-parser.test.js",
-  "server/test/kdt-log-parser.test.js",
-  "server/test/machine-ai-matcher.test.js",
   "server/test/order-status-workflow.test.js",
-  "server/test/position-logic.test.js"
+  "server/test/shared-production.test.js"
 ];
 
 const MODULE_DIRS = [];
@@ -121,22 +115,14 @@ function extractSchemaExcerpt() {
   const migration = path.join(root, "server/migrations/0001_init.sql");
   if (!fs.existsSync(migration)) return "";
   const sql = fs.readFileSync(migration, "utf8");
-  const blocks = [
-    "machine_config",
-    "operator_sessions",
-    "machine_log_events",
-    "machine_task_matches"
-  ];
+  const tableNames = ["operator_sessions", "position_files", "constructive_analyses"];
+  const tablePattern = new RegExp(`CREATE TABLE IF NOT EXISTS (${tableNames.join("|")})`);
   const lines = sql.split("\n");
   const out = ["-- Фрагмент схеми виробничого модуля (з 0001_init.sql)", ""];
   let capture = false;
   let depth = 0;
   for (const line of lines) {
-    if (
-      /CREATE TABLE IF NOT EXISTS (machine_config|operator_sessions|machine_log_events|machine_task_matches)/.test(
-        line
-      )
-    ) {
+    if (tablePattern.test(line)) {
       capture = true;
       depth = 0;
     }
@@ -162,7 +148,7 @@ function buildManifest(copiedFiles) {
     builtAt: new Date().toISOString(),
     gitSha: sha,
     target: "ENVER OS",
-    description: "Цех, панель оператора, інтеграція зі станками (логи + AI), клієнт Android (PWA)",
+    description: "Цех, панель оператора (5 етапів), ШІ-аналіз конструктивів, клієнт Android (PWA)",
     api: {
       production: ["/api/production/floor"],
       operator: [
@@ -172,16 +158,15 @@ function buildManifest(copiedFiles) {
         "/api/operator/resume",
         "/api/operator/finish"
       ],
-      machine: ["/api/machine/progress/:stageKey"],
-      machineLogs: [
-        "/api/machine/logs/events/:stageKey",
-        "/api/machine/logs/ingest/:stageKey",
-        "/api/machine/logs/upload/:stageKey",
-        "/api/machine/logs/match/:id/confirm"
-      ]
+      ai: [
+        "/api/ai/analyze-constructive/:positionId",
+        "/api/ai/analyses/:positionId",
+        "/api/ai/feedback"
+      ],
+      positions: ["/api/positions/:id/constructive-file", "/api/positions/:id/create-tasks"]
     },
-    permissions: ["canUseOperatorPanel", "canViewProductionFloor", "canViewMachineLogs"],
-    operatorStages: ["cutting", "edging", "drilling", "assembly"],
+    permissions: ["canUseOperatorPanel", "canViewProductionFloor"],
+    operatorStages: ["cutting", "edging", "drilling", "assembly", "packaging"],
     files: copiedFiles.sort(),
     docs: {
       connection: "PIDKLUCHENNYA.md",

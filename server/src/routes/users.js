@@ -1,21 +1,13 @@
 import { Router } from "express";
 import { all, one, run } from "../db.js";
 import { hashPassword } from "../auth-utils.js";
-import { requireAdmin, requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
-import { mapMachineConfigRow, updateMachineConfig } from "../machine-config.js";
+import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { DEFAULT_PERMISSIONS, ROLES } from "../roles.js";
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireAdmin);
 
 const PG_UNIQUE_VIOLATION = "23505";
-
-router.get("/machine-config", requirePermissionOrAdmin("canViewMachineLogs"), async (_req, res) => {
-  const rows = await all("SELECT * FROM machine_config ORDER BY stage_key");
-  res.json(rows.map(mapMachineConfigRow));
-});
-
-router.use(requireAdmin);
 
 function mapUserRow(row) {
   let stages = [];
@@ -73,19 +65,6 @@ router.put("/permissions", async (req, res) => {
     }
   }
   res.json(result);
-});
-
-router.put("/machine-config/:stageKey", async (req, res) => {
-  try {
-    const config = await updateMachineConfig(req.params.stageKey, req.body || {});
-    res.json(config);
-  } catch (err) {
-    if (err.status === 404) {
-      res.status(404).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
 });
 
 router.get("/", async (_req, res) => {

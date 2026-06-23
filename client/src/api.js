@@ -105,6 +105,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body)
     }),
+  uploadConstructiveFile: (id, body) =>
+    request(`/api/positions/${id}/constructive-file`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  createProductionTasks: (id, stages) =>
+    request(`/api/positions/${id}/create-tasks`, {
+      method: "POST",
+      body: JSON.stringify({ stages })
+    }),
   patchPositionInstall: (id, body) =>
     request(`/api/positions/${id}/install`, {
       method: "PATCH",
@@ -134,30 +144,19 @@ export const api = {
   updatePermissions: (body) =>
     request("/api/users/permissions", { method: "PUT", body: JSON.stringify(body) }),
 
-  getMachineConfig: () => request("/api/users/machine-config"),
-  updateMachineConfig: (stageKey, body) =>
-    request(`/api/users/machine-config/${stageKey}`, { method: "PUT", body: JSON.stringify(body) }),
-
-  getMachineProgress: (stageKey) => request(`/api/machine/progress/${stageKey}`),
-
-  getMachineLogEvents: (stageKey, limit = 20) =>
-    request(`/api/machine/logs/events/${stageKey}?limit=${limit}`),
-  ingestMachineLog: (stageKey, body = {}) =>
-    request(`/api/machine/logs/ingest/${stageKey}`, { method: "POST", body: JSON.stringify(body) }),
-  uploadMachineLog: (stageKey, body) =>
-    request(`/api/machine/logs/upload/${stageKey}`, {
-      method: "POST",
-      body: JSON.stringify(typeof body === "string" ? { text: body } : body)
-    }),
-  confirmMachineMatch: (matchId) =>
-    request(`/api/machine/logs/match/${matchId}/confirm`, { method: "PUT" }),
-
   getClientsInfo: () => request("/api/clients/info"),
 
   getAiSettings: () => request("/api/settings/ai"),
   updateAiSettings: (body) =>
     request("/api/settings/ai", { method: "PUT", body: JSON.stringify(body) }),
   testAiSettings: () => request("/api/settings/ai/test", { method: "POST" }),
+
+  analyzeConstructive: (positionId) =>
+    request(`/api/ai/analyze-constructive/${positionId}`, { method: "POST" }),
+  getConstructiveAnalyses: (positionId) => request(`/api/ai/analyses/${positionId}`),
+  getRecentAiAnalyses: () => request("/api/ai/recent"),
+  submitAiFeedback: (body) =>
+    request("/api/ai/feedback", { method: "POST", body: JSON.stringify(body) }),
 
   getProductionFloor: () => request("/api/production/floor"),
 
@@ -171,31 +170,6 @@ export const api = {
   operatorFinish: (body) =>
     request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
   getOperatorJob: (positionId) => request(`/api/operator/job/${positionId}`),
-  getOperatorMachineConfig: (stageKey) => request(`/api/operator/machine-config/${stageKey}`),
-  updateOperatorMachineConfig: (stageKey, body) =>
-    request(`/api/operator/machine-config/${stageKey}`, {
-      method: "PUT",
-      body: JSON.stringify(body)
-    }),
-  scanOperatorMachineLogs: (stageKey, body = {}) =>
-    request(`/api/operator/machine-config/${stageKey}/scan`, {
-      method: "POST",
-      body: JSON.stringify(body)
-    }),
-  pickOperatorFolder: (body = {}) =>
-    request("/api/operator/machine-config/pick-folder", {
-      method: "POST",
-      body: JSON.stringify(body)
-    }),
-  getOperatorFolderPickerCapabilities: () =>
-    request("/api/operator/machine-config/pick-folder/capabilities"),
-  ingestOperatorBrowserLogs: (stageKey, body) =>
-    request(`/api/operator/machine-config/${stageKey}/ingest-browser`, {
-      method: "POST",
-      body: JSON.stringify(body)
-    }),
-  estimateCutting: (body) =>
-    request("/api/ai/estimate-cutting", { method: "POST", body: JSON.stringify(body) }),
 
   getHistory: (params = {}) => {
     const q = new URLSearchParams();

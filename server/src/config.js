@@ -18,7 +18,8 @@ export const config = {
   domain: process.env.DOMAIN || null,
   agentToken: process.env.AGENT_TOKEN || INSECURE_DEFAULTS.agentToken,
   adminDefaultPassword: process.env.ADMIN_DEFAULT_PASSWORD || null,
-  buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null
+  buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
+  uploadsDir: process.env.UPLOADS_DIR || null
 };
 
 /** У production перевіряє критичну конфігурацію; небезпечні секрети — лише попередження (щоб не ламати існуючі .env на сервері). */
@@ -36,12 +37,6 @@ export function assertProductionSafety() {
       "SESSION_SECRET — дефолтне dev-значення; задайте власний секрет у /opt/enver/.env"
     );
   }
-  if (!process.env.AGENT_TOKEN || config.agentToken === INSECURE_DEFAULTS.agentToken) {
-    warnings.push(
-      "AGENT_TOKEN — дефолтне або порожнє; файловий агент цеху не працюватиме без токена"
-    );
-  }
-
   for (const message of warnings) {
     console.warn(`[security] ${message}`);
   }

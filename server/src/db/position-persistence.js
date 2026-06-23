@@ -14,6 +14,7 @@ const BASE_COLUMNS = [
   "edging_status",
   "drilling_status",
   "assembly_status",
+  "packaging_status",
   "assembly_responsible",
   "ready_date",
   "install_date",
@@ -25,7 +26,8 @@ const BASE_COLUMNS = [
   "progress",
   "overdue_days",
   "problem",
-  "note"
+  "note",
+  "has_constructive_file"
 ];
 
 const FOLDER_COLUMNS = [
@@ -79,6 +81,7 @@ export async function updatePositionFull(row) {
       edging_status = @edging_status,
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
+      packaging_status = @packaging_status,
       assembly_responsible = @assembly_responsible,
       ready_date = @ready_date,
       install_date = @install_date,
@@ -91,7 +94,8 @@ export async function updatePositionFull(row) {
       current_stage = @current_stage,
       overdue_days = @overdue_days,
       problem = @problem,
-      note = @note
+      note = @note,
+      has_constructive_file = @has_constructive_file
     WHERE id = @id`,
     row
   );
@@ -105,6 +109,7 @@ export async function updatePositionStages(row) {
       edging_status = @edging_status,
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
+      packaging_status = @packaging_status,
       position_status = @position_status,
       progress = @progress,
       current_stage = @current_stage
@@ -115,6 +120,7 @@ export async function updatePositionStages(row) {
       edging_status: row.edging_status,
       drilling_status: row.drilling_status,
       assembly_status: row.assembly_status,
+      packaging_status: row.packaging_status,
       position_status: row.position_status,
       progress: row.progress,
       current_stage: row.current_stage
@@ -130,6 +136,7 @@ export async function updatePositionStagesFromOrderSync(row) {
       edging_status = @edging_status,
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
+      packaging_status = @packaging_status,
       position_status = @position_status,
       progress = @progress,
       overdue_days = @overdue_days
@@ -140,6 +147,7 @@ export async function updatePositionStagesFromOrderSync(row) {
       edging_status: row.edging_status,
       drilling_status: row.drilling_status,
       assembly_status: row.assembly_status,
+      packaging_status: row.packaging_status,
       position_status: row.position_status,
       progress: row.progress,
       overdue_days: row.overdue_days
@@ -159,6 +167,7 @@ export async function updatePositionWithFolder(row) {
       edging_status = @edging_status,
       drilling_status = @drilling_status,
       assembly_status = @assembly_status,
+      packaging_status = @packaging_status,
       position_status = @position_status,
       progress = @progress,
       folder_key = @folder_key,

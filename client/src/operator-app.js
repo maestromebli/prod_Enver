@@ -20,11 +20,6 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import {
-  canShowOperatorMachineSettings,
-  initOperatorMachineSettingsModal,
-  openOperatorMachineSettings
-} from "./operator-machine-settings.js";
-import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
   setOperatorUiActive,
@@ -69,10 +64,6 @@ function renderOperatorClient() {
   const stageChip = $("#operatorStageChip");
   if (stageChip) {
     stageChip.textContent = state.operatorStage ? stageLabel(state.operatorStage) : "";
-  }
-  const settingsBtn = $("#operatorClientMachineSettingsBtn");
-  if (settingsBtn) {
-    settingsBtn.hidden = !canShowOperatorMachineSettings(state.operatorStage);
   }
   setOperatorUiActive(true);
   const content = $("#content");
@@ -119,12 +110,6 @@ window.__enverRender = () => {
 };
 
 bindOperatorActions(() => loadOperatorClientData());
-initOperatorMachineSettingsModal();
-
-$("#operatorClientMachineSettingsBtn")?.addEventListener("click", async () => {
-  initOperatorMachineSettingsModal();
-  await openOperatorMachineSettings(state.operatorStage, () => loadOperatorClientData());
-});
 
 $("#logoutBtn")?.addEventListener("click", async () => {
   const ok = await confirmKioskBeforeLogout();

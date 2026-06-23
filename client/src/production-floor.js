@@ -55,10 +55,6 @@ function renderStageCards(stages, freshByStage = {}) {
             <div class="pf-stat pf-stat--warn"><span class="pf-stat-val">${s.problem || 0}</span><span class="pf-stat-lbl">Проблеми</span></div>
             <div class="pf-stat pf-stat--alert"><span class="pf-stat-val">${s.overdue || 0}</span><span class="pf-stat-lbl">Простроч.</span></div>
           </div>
-          <div class="pf-machine">
-            <span>Станок: ${s.machineProgress || 0}%</span>
-            ${s.machineMatch ? `<small title="${escapeHtml(s.machineMatch)}">${escapeHtml(s.machineMatch.slice(0, 48))}${s.machineMatch.length > 48 ? "…" : ""}</small>` : ""}
-          </div>
           <p class="pf-stage-total">Активних у черзі: <strong>${total}</strong></p>
         </article>
       `;
@@ -131,7 +127,7 @@ export function renderProductionFloorTab(data = floorCache) {
     <div class="production-floor">
       <div class="card pf-hero">
         <div class="block-title">Цех зараз</div>
-        <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів, проблеми та прогрес станків. «Панель етапу» — огляд без кнопок оператора.</p>
+        <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів і проблемні позиції. «Панель етапу» — огляд без кнопок оператора.</p>
         <div class="pf-fresh-reminder">
           Нові задачі у цеху: <strong>${freshTotal}</strong>
           <span class="pf-fresh-empty">${freshTotal > 0 ? "" : "нових поки немає"}</span>

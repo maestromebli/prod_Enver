@@ -103,14 +103,21 @@ export function applyUiState(snapshot) {
 
   if (VALID_VIEWS.has(snapshot.view)) state.view = snapshot.view;
   if (TABS.includes(snapshot.activeTab)) state.activeTab = snapshot.activeTab;
-  const settingsSections = new Set(["users", "access", "directories", "machines"]);
+  const settingsSections = new Set([
+    "users",
+    "access",
+    "directories",
+    "clients",
+    "notifications",
+    "ai"
+  ]);
   if (settingsSections.has(snapshot.settingsSection)) {
     state.settingsSection = snapshot.settingsSection;
   }
   if (snapshot.activeTab === "Довідники") {
     state.view = "settings";
     state.settingsSection = "directories";
-    state.activeTab = "Дашборд";
+    state.activeTab = "Замовлення";
   }
 
   applyFilters(snapshot.filters);

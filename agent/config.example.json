@@ -1,9 +1,0 @@
-{
-  "enverUrl": "http://localhost:3000",
-  "enverToken": "enver-agent-dev-token",
-  "agentId": "workshop-1",
-  "version": "1.0.0",
-  "rootPath": "C:\\ENVER",
-  "pollIntervalMs": 15000,
-  "states": ["inbox", "active", "done"]
-}

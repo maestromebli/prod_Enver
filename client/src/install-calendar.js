@@ -504,7 +504,7 @@ function renderInstallCalendar() {
     .join("");
 
   return `<div class="install-calendar card" id="installCalendar">
-    <div class="ical-toolbar">
+    <div class="ical-toolbar install-calendar-toolbar">
       <div class="ical-toolbar-left">
         <button type="button" class="btn btn-sm" data-ical-nav="today">Сьогодні</button>
         <div class="ical-nav">

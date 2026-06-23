@@ -1,3 +1,0 @@
-material: ДСП 18мм W960
-quantity: 24
-cut length: 8400 mm

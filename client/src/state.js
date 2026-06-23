@@ -7,7 +7,7 @@ export const state = {
   historyEntityFilter: "",
   /** Порожній рядок — усі етапи на вкладці «Виробництво за етапами» */
   productionStageFilter: "",
-  activeTab: "Дашборд",
+  activeTab: "Замовлення",
   loading: false,
   /** id основних позицій, у яких розгорнуті підпозиції */
   expandedPositionIds: new Set(),
@@ -21,14 +21,9 @@ export const state = {
   operatorStage: null,
   operatorQueue: [],
   operatorActiveSession: null,
-  machineProgress: 0,
-  machineProgressMessage: "",
-  machineMatch: null,
   operatorSelectedPositionId: null,
-  operatorBrowserLogPath: "",
   operatorJobDetail: null,
-  operatorCuttingEstimate: null,
-  machinePositionProgress: null,
+  operatorLoadError: "",
   installCalendar: {
     /** calendar | list */
     displayMode: "calendar",

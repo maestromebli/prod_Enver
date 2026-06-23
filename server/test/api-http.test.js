@@ -75,8 +75,8 @@ describe("API HTTP", () => {
     assert.equal(res.status, 401);
   });
 
-  it("GET /api/machine/logs/events/cutting без токена — 401", async () => {
-    const res = await fetch(`${baseUrl}/api/machine/logs/events/cutting`);
+  it("GET /api/ai/analyses/1 без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/ai/analyses/1`);
     assert.equal(res.status, 401);
   });
 });

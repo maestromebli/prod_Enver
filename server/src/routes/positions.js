@@ -9,6 +9,7 @@ import {
 } from "../audit.js";
 import { auditActor, requireAuth, requirePositionWrite } from "../middleware/auth.js";
 import { STAGE_PATCH_MAP, applyStageHandoff, enrichPositionRow } from "../position-logic.js";
+import { STAGE_STATUS_FIELD } from "../roles.js";
 import {
   closeOperatorSessionsForStage,
   closeSessionsAfterStageStatusChanges,
@@ -16,6 +17,8 @@ import {
 } from "../operator-sessions.js";
 import { nextPositionId } from "../db/position-id.js";
 import { insertPosition, updatePositionFull } from "../db/position-persistence.js";
+import { saveConstructiveFile, resolveStoredPath } from "../file-storage.js";
+import fs from "fs";
 
 const router = Router();
 router.use(requireAuth);
@@ -34,8 +37,14 @@ function mapEnrichedRow(row, planMap) {
   return mapPosition(enrichPositionRow(row, { planDate }));
 }
 
+const POSITION_SELECT = `SELECT p.*,
+  (SELECT pf.original_name FROM position_files pf
+   WHERE pf.position_id = p.id AND pf.kind = 'constructive'
+   ORDER BY pf.created_at DESC LIMIT 1) AS constructive_file_name
+ FROM positions p`;
+
 async function loadRow(id) {
-  return one("SELECT * FROM positions WHERE id = $1", [id]);
+  return one(`${POSITION_SELECT} WHERE p.id = $1`, [id]);
 }
 
 async function saveRow(id, data, planDate) {
@@ -89,14 +98,14 @@ async function resolveOrderLink(data) {
 router.get("/", async (_req, res) => {
   const planMap = await planDateByOrderNumber();
   const rows = await all(
-    `SELECT * FROM positions
-     ORDER BY COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, id`
+    `${POSITION_SELECT}
+     ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`
   );
   res.json(rows.map((row) => mapEnrichedRow(row, planMap)));
 });
 
 router.get("/:id", async (req, res) => {
-  const row = await loadRow(req.params.id);
+  const row = await one(`${POSITION_SELECT} WHERE p.id = $1`, [req.params.id]);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
@@ -208,9 +217,16 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
 
   if (config.type === "constructor") {
     if (constructor !== undefined) existing.constructor_name = String(constructor).trim();
-    if (status === "Не розпочато") existing.constructor_name = "";
-    else if (status && status !== "Не розпочато" && !existing.constructor_name) {
-      res.status(400).json({ error: "Вкажіть конструктора" });
+    if (status === "Не розпочато") {
+      existing.constructor_name = "";
+      existing.has_constructive_file = false;
+    } else if (
+      status &&
+      status !== "Не розпочато" &&
+      !existing.has_constructive_file &&
+      !existing.constructor_name
+    ) {
+      res.status(400).json({ error: "Завантажте файл конструктива або вкажіть конструктора" });
       return;
     }
   } else {
@@ -243,6 +259,118 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
     await closeOperatorSessionsForStage(id, stageKey);
   }
   await logStageChange(beforeRow, afterRow, stageKey, { status, constructor }, auditActor(req));
+  res.json(mapEnrichedRow(afterRow, planMap));
+});
+
+router.post("/:id/constructive-file", requirePositionWrite, async (req, res) => {
+  const id = Number(req.params.id);
+  const existing = await loadRow(id);
+  if (!existing) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  const { fileName, mime, dataBase64 } = req.body || {};
+  if (!fileName || !dataBase64) {
+    res.status(400).json({ error: "fileName та dataBase64 обов'язкові" });
+    return;
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(String(dataBase64), "base64");
+  } catch {
+    res.status(400).json({ error: "Некоректні дані файлу" });
+    return;
+  }
+  if (buffer.length > 8 * 1024 * 1024) {
+    res.status(400).json({ error: "Файл завеликий (макс. 8 МБ)" });
+    return;
+  }
+
+  const saved = await saveConstructiveFile(id, {
+    buffer,
+    originalName: fileName,
+    mime: mime || "application/octet-stream"
+  });
+
+  const fileRow = await one(
+    `INSERT INTO position_files (position_id, kind, original_name, storage_path, mime, size_bytes, uploaded_by)
+     VALUES ($1, 'constructive', $2, $3, $4, $5, $6)
+     RETURNING id`,
+    [id, saved.originalName, saved.storagePath, saved.mime, saved.size, auditActor(req)?.id || null]
+  );
+
+  const before = { ...existing };
+  existing.has_constructive_file = true;
+  const handedOff = applyStageHandoff(existing, "constructor", { status: "Передано" });
+
+  const planMap = await planDateByOrderNumber();
+  const planDate = planMap.get(existing.order_number);
+  await saveRow(id, handedOff, planDate);
+  const afterRow = await loadRow(id);
+  await logStageChange(before, afterRow, "constructor", { status: "Передано" }, auditActor(req));
+
+  res.status(201).json({
+    fileId: fileRow.id,
+    fileName: saved.originalName,
+    position: mapEnrichedRow({ ...afterRow, constructive_file_name: saved.originalName }, planMap)
+  });
+});
+
+router.get("/:id/constructive-file", async (req, res) => {
+  const id = Number(req.params.id);
+  const file = await one(
+    `SELECT * FROM position_files
+     WHERE position_id = $1 AND kind = 'constructive'
+     ORDER BY created_at DESC LIMIT 1`,
+    [id]
+  );
+  if (!file) {
+    res.status(404).json({ error: "Файл не знайдено" });
+    return;
+  }
+  const fullPath = resolveStoredPath(file.storage_path);
+  if (!fs.existsSync(fullPath)) {
+    res.status(404).json({ error: "Файл відсутній на диску" });
+    return;
+  }
+  res.setHeader("Content-Type", file.mime || "application/octet-stream");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${encodeURIComponent(file.original_name)}"`
+  );
+  fs.createReadStream(fullPath).pipe(res);
+});
+
+router.post("/:id/create-tasks", requirePositionWrite, async (req, res) => {
+  const id = Number(req.params.id);
+  const existing = await loadRow(id);
+  if (!existing) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  const stages = Array.isArray(req.body?.stages) ? req.body.stages : [];
+  const valid = stages.filter((k) => STAGE_STATUS_FIELD[k]);
+  if (!valid.length) {
+    res.status(400).json({ error: "Оберіть хоча б один етап" });
+    return;
+  }
+
+  const before = { ...existing };
+  for (const key of valid) {
+    const field = STAGE_STATUS_FIELD[key];
+    if (!existing[field] || existing[field] === "Не розпочато") {
+      existing[field] = "Передано";
+    }
+  }
+
+  const planMap = await planDateByOrderNumber();
+  const planDate = planMap.get(existing.order_number);
+  await saveRow(id, existing, planDate);
+  const afterRow = await loadRow(id);
+  await logPositionUpdate(before, afterRow, auditActor(req));
   res.json(mapEnrichedRow(afterRow, planMap));
 });
 

@@ -1,19 +1,15 @@
 #!/usr/bin/env node
 import pg from "pg";
 import { hashPassword } from "../src/auth-utils.js";
-import { INSECURE_DEFAULTS } from "../src/config.js";
-import { DEFAULT_PERMISSIONS, OPERATOR_STAGES } from "../src/roles.js";
+import { DEFAULT_PERMISSIONS } from "../src/roles.js";
 import { DEFAULT_DIRECTORIES } from "../src/directories-store.js";
-import { SMB_KDT_UNC, SMB_LOG_UNC } from "../src/smb-shares.js";
 
 const ADMIN_LOGIN = "admin";
 const ADMIN_DEFAULT_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || "admin";
 
 export async function runSeed(client) {
   await seedRolePermissions(client);
-  await seedMachineConfig(client);
   await seedDirectories(client);
-  await seedFolderAgent(client);
   await seedAdminUser(client);
 }
 
@@ -28,46 +24,12 @@ async function seedRolePermissions(client) {
   }
 }
 
-async function seedMachineConfig(client) {
-  for (const stage of OPERATOR_STAGES) {
-    const isCutting = stage.key === "cutting";
-    await client.query(
-      `INSERT INTO machine_config (stage_key, log_path, parser_profile, projects_root_path, watch_enabled)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (stage_key) DO NOTHING`,
-      [
-        stage.key,
-        isCutting ? SMB_KDT_UNC : "",
-        isCutting ? "kdt" : "generic",
-        isCutting ? SMB_LOG_UNC : "",
-        isCutting
-      ]
-    );
-  }
-}
-
 async function seedDirectories(client) {
   await client.query(
     `INSERT INTO app_settings (key, value_json)
      VALUES ('directories', $1)
      ON CONFLICT (key) DO NOTHING`,
     [JSON.stringify(DEFAULT_DIRECTORIES)]
-  );
-}
-
-async function seedFolderAgent(client) {
-  const token = process.env.AGENT_TOKEN || INSECURE_DEFAULTS.agentToken;
-  await client.query(
-    `INSERT INTO app_settings (key, value_json)
-     VALUES ('folder_agent', $1)
-     ON CONFLICT (key) DO NOTHING`,
-    [
-      JSON.stringify({
-        token,
-        rootPath: SMB_LOG_UNC,
-        enabled: true
-      })
-    ]
   );
 }
 

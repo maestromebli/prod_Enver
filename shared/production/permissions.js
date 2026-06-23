@@ -15,7 +15,6 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: true,
     canEditPositions: true,
     canUseOperatorPanel: true,
-    canViewMachineLogs: true,
     canViewProductionFloor: true,
     stages: ALL_STAGE_KEYS
   },
@@ -26,7 +25,6 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: true,
     canEditPositions: true,
     canUseOperatorPanel: false,
-    canViewMachineLogs: false,
     canViewProductionFloor: false,
     stages: []
   },
@@ -37,7 +35,6 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: true,
     canEditPositions: true,
     canUseOperatorPanel: true,
-    canViewMachineLogs: true,
     canViewProductionFloor: true,
     stages: ALL_STAGE_KEYS
   },
@@ -48,7 +45,6 @@ export const DEFAULT_PERMISSIONS = {
     canEditOrders: false,
     canEditPositions: false,
     canUseOperatorPanel: true,
-    canViewMachineLogs: false,
     canViewProductionFloor: false,
     stages: []
   }

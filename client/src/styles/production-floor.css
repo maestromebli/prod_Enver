@@ -151,17 +151,6 @@
   color: #b91c1c;
 }
 
-.pf-machine {
-  font-size: 0.8rem;
-  color: var(--text-muted, #64748b);
-  margin-bottom: 8px;
-}
-
-.pf-machine small {
-  display: block;
-  margin-top: 4px;
-}
-
 .pf-stage-total {
   margin: 0;
   font-size: 0.85rem;

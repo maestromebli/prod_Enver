@@ -50,27 +50,44 @@ describe("shared/production", () => {
 
   it("deriveCurrentStage знаходить активний етап", () => {
     const row = {
+      has_constructive_file: true,
       cutting_status: "Готово",
       edging_status: "В роботі",
       drilling_status: "Не розпочато",
-      assembly_status: "Не розпочато"
+      assembly_status: "Не розпочато",
+      packaging_status: "Не розпочато"
     };
     assert.equal(deriveCurrentStage(row), "edging");
   });
 
+  it("deriveCurrentStage без файлу — етап constructor", () => {
+    const row = {
+      has_constructive_file: false,
+      constructor_name: "Ігор",
+      cutting_status: "Не розпочато",
+      edging_status: "Не розпочато",
+      drilling_status: "Не розпочато",
+      assembly_status: "Не розпочато",
+      packaging_status: "Не розпочато"
+    };
+    assert.equal(deriveCurrentStage(row), "constructor");
+  });
+
   it("enrichPositionRow додає progress і current_stage", () => {
     const enriched = enrichPositionRow({
+      has_constructive_file: true,
       cutting_status: "Готово",
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
+      packaging_status: "Не розпочато",
       constructor_name: "",
       problem: "",
       position_status: "",
       overdue_days: 0
     });
-    assert.equal(enriched.progress, 20);
+    assert.equal(enriched.progress, 18);
     assert.equal(enriched.current_stage, "edging");
-    assert.equal(computeProgress(enriched), 20);
+    assert.equal(computeProgress(enriched), 18);
   });
 });

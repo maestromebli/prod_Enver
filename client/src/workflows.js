@@ -21,7 +21,7 @@ const STAGE_DONE = STAGE_STATUS_DONE;
 
 export function getStageStatus(position, stage) {
   if (stage.type === "constructor") {
-    return position.constructor ? "Передано" : "Не розпочато";
+    return position.hasConstructiveFile ? "Передано" : "Не розпочато";
   }
   return position[stage.field] || "Не розпочато";
 }
@@ -38,7 +38,9 @@ export function stageRequiresAssignment(stage) {
 }
 
 function hasStageAssignment(position, stage) {
-  if (stage.type === "constructor") return Boolean(position.constructor?.trim());
+  if (stage.type === "constructor") {
+    return Boolean(position.hasConstructiveFile);
+  }
   return Boolean(position.assemblyResponsible?.trim());
 }
 
