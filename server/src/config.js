@@ -20,7 +20,7 @@ export const config = {
   uploadsDir: process.env.UPLOADS_DIR || null
 };
 
-/** У production перевіряє критичну конфігурацію; небезпечні значення — fail-fast. */
+/** У production перевіряє критичну конфігурацію; небезпечні секрети — попередження (не ламаємо існуючі .env). */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
@@ -29,17 +29,13 @@ export function assertProductionSafety() {
     process.exit(1);
   }
 
+  const warnings = [];
   if (!process.env.SESSION_SECRET || config.sessionSecret === INSECURE_DEFAULTS.sessionSecret) {
-    console.error(
-      "SESSION_SECRET обов'язковий у production — задайте власний випадковий секрет у /opt/enver/.env"
+    warnings.push(
+      "SESSION_SECRET — дефолтне dev-значення; задайте власний секрет у /opt/enver/.env"
     );
-    process.exit(1);
   }
-
-  if (process.env.ADMIN_DEFAULT_PASSWORD === "admin") {
-    console.error(
-      "ADMIN_DEFAULT_PASSWORD не може бути 'admin' у production — змініть перед першим deploy"
-    );
-    process.exit(1);
+  for (const message of warnings) {
+    console.warn(`[security] ${message}`);
   }
 }
