@@ -121,26 +121,45 @@ function visibleTabs() {
   return TABS.filter((tab) => tab !== PRODUCTION_FLOOR_TAB || canViewProductionFloor());
 }
 
+const TAB_META = {
+  Замовлення: { icon: "◫", subtitle: "Картки з прогресом і етапами" },
+  [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
+  Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
+  Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
+  "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
+};
+
+function renderPageChrome() {
+  const meta = TAB_META[state.activeTab] || { subtitle: "" };
+  const title = document.querySelector("#pageTitle");
+  const sub = document.querySelector("#pageSubtitle");
+  if (title) title.textContent = state.activeTab;
+  if (sub) sub.textContent = meta.subtitle || "";
+}
+
 export function renderTabs() {
   const tour = getTourStep();
   const newOrders = countNewOrdersForCurrentRole();
   const newTasks = countNewProductionTasksForCurrentRole();
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
-  document.querySelector("#tabs").innerHTML = `<nav class="app-sidebar-nav">${visibleTabs()
-    .map(
-      (tab) => `
+  document.querySelector("#tabs").innerHTML = visibleTabs()
+    .map((tab) => {
+      const meta = TAB_META[tab] || { icon: "•" };
+      return `
       <button
         type="button"
         class="tab-btn ${tab === state.activeTab ? "active" : ""} ${tour?.tab === tab ? "tour-target" : ""}"
         data-tab="${escapeHtml(tab)}"
       >
-        <span class="tab-btn-label">${escapeHtml(tab)}</span>
+        <span class="app-shell-nav-icon" aria-hidden="true">${meta.icon}</span>
+        <span class="app-shell-nav-label">${escapeHtml(tab)}</span>
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
         ${tab === PRODUCTION_FLOOR_TAB ? tabBadge(newTasks) : ""}
       </button>
-    `
-    )
-    .join("")}</nav>`;
+    `;
+    })
+    .join("");
+  renderPageChrome();
 }
 
 export function renderKpis() {
@@ -148,22 +167,20 @@ export function renderKpis() {
   if (!k) return;
 
   const kpis = [
-    ["Активні замовлення", k.activeOrders, "blue"],
-    ["У виробництві", k.inProduction, "blue"],
-    ["Вироби в роботі", k.inWork, "blue"],
-    ["Прострочені", k.overdueCount, "red"],
-    ["До монтажу", k.readyInstall, "green"],
-    ["Монтажі", k.installs, "blue"],
-    ["Конструктори", k.constructors, "blue"],
-    ["Збирачі", k.assemblers, "blue"]
+    ["Активні", k.activeOrders, ""],
+    ["У виробництві", k.inProduction, ""],
+    ["В роботі", k.inWork, ""],
+    ["Прострочені", k.overdueCount, "alert"],
+    ["До монтажу", k.readyInstall, "ok"],
+    ["Монтажі", k.installs, ""]
   ];
 
   document.querySelector("#kpiGrid").innerHTML = kpis
     .map(
       ([label, value, tone]) => `
-        <div class="kpi kpi-tone-${tone}" title="${escapeHtml(label)}">
-          <div class="kpi-label">${escapeHtml(label)}</div>
-          <div class="kpi-value ${tone}">${value}</div>
+        <div class="shell-kpi ${tone ? `shell-kpi--${tone}` : ""}" title="${escapeHtml(label)}">
+          <strong>${value}</strong>
+          <span>${escapeHtml(label)}</span>
         </div>
       `
     )
@@ -238,10 +255,16 @@ export function renderHeaderChrome() {
   const chip = document.querySelector("#userChip");
   const gear = document.querySelector("#settingsGearBtn");
   const logout = document.querySelector("#logoutBtn");
-  const topbar = document.querySelector(".topbar");
+  const topbar = document.querySelector(".app-shell-main");
+  const appRoot = document.querySelector("#appRoot");
   const toolbar = document.querySelector("#mainToolbar");
   const showMainChrome = state.view === "main";
   const immersiveOperator = state.view === "operator";
+  const focusMode = state.view !== "main";
+
+  if (appRoot) {
+    appRoot.classList.toggle("app-shell--focus", focusMode);
+  }
 
   if (chip) {
     chip.hidden = !user;
@@ -276,7 +299,6 @@ export function renderHeaderChrome() {
 
   if (topbar) {
     topbar.style.display = immersiveOperator ? "none" : "";
-    topbar.classList.toggle("topbar-slim", !showMainChrome && !immersiveOperator);
   }
   if (toolbar) {
     toolbar.style.display = showMainChrome ? "" : "none";
@@ -321,6 +343,8 @@ export function renderApp(options = {}) {
     renderTabs();
     renderKpis();
     renderToolbarActions();
+  } else {
+    renderPageChrome();
   }
   renderStageFilter();
   document.querySelector("#content").innerHTML = renderContent();

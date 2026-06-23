@@ -13,6 +13,5 @@ export const STAGE_STATUS_FIELD = STAGE_CLIENT_FIELD;
 
 export const BRAND = {
   name: "ENVER",
-  tagline: "Виробничий контроль замовлень",
-  city: "Київ · меблі на замовлення"
+  tagline: "Виробничий контроль замовлень"
 };

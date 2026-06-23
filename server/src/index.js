@@ -121,6 +121,8 @@ async function start() {
         next();
         return;
       }
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
       res.sendFile(path.join(clientDist, "index.html"), (err) => {
         if (err) next(err);
       });

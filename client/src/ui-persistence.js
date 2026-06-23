@@ -9,7 +9,7 @@ import { state } from "./state.js";
 import { $ } from "./utils.js";
 
 const STORAGE_KEY = "enver_ui_state";
-const VERSION = 1;
+const VERSION = 2;
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);

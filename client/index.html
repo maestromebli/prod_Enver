@@ -24,7 +24,6 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-family='Arial' font-weight='700' font-size='14'%3EE%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/src/styles/tokens.css" />
-    <link rel="stylesheet" href="/src/styles/app-shell.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/design-system.css" />
     <link rel="stylesheet" href="/src/styles/dashboard.css" />
@@ -42,7 +41,7 @@
     <link rel="stylesheet" href="/src/styles/responsive.css" />
     <link rel="stylesheet" href="/src/styles/install-calendar.css" />
   </head>
-  <body>
+  <body class="enver-v3">
     <div class="loading-overlay" id="loadingOverlay">Завантаження даних…</div>
 
     <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
@@ -156,119 +155,133 @@
       </div>
     </div>
 
-    <div class="app" id="appRoot">
-      <div class="topbar">
-        <div class="header-bar">
-          <div class="brand-compact">
+    <div class="app app-shell" id="appRoot">
+      <aside class="app-shell-sidebar" id="appSidebar" aria-label="Навігація">
+        <div class="app-shell-brand">
+          <span class="app-shell-brand-mark" aria-hidden="true">E</span>
+          <div class="app-shell-brand-text">
             <span class="brand-logo">ENVER</span>
-            <span class="brand-tagline">Київ · меблі на замовлення</span>
           </div>
+        </div>
+        <div class="app-shell-nav" id="tabs" role="navigation"></div>
+        <div class="app-shell-sidebar-foot">
+          <span class="user-chip app-shell-user" id="userChip" hidden></span>
+        </div>
+      </aside>
 
-          <div class="kpi-strip" id="kpiGrid"></div>
-          <div class="header-actions" id="headerActions">
-            <button
-              type="button"
-              class="btn-icon theme-toggle"
-              id="themeToggleBtn"
-              title="Темна тема"
-              aria-label="Увімкнути темну тему"
-              aria-pressed="false"
-            >
-              <svg
-                class="theme-icon-sun"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
+      <div class="app-shell-main">
+        <header class="app-shell-header">
+          <div class="app-shell-header-row">
+            <div class="app-shell-header-titles">
+              <h1 class="app-shell-page-title" id="pageTitle">Замовлення</h1>
+              <p class="app-shell-page-sub" id="pageSubtitle">Огляд активних проєктів</p>
+            </div>
+            <div class="header-actions app-shell-actions" id="headerActions">
+              <button
+                type="button"
+                class="btn-icon theme-toggle"
+                id="themeToggleBtn"
+                title="Темна тема"
+                aria-label="Увімкнути темну тему"
+                aria-pressed="false"
               >
-                <circle cx="12" cy="12" r="4" />
-                <path
-                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                />
-              </svg>
-              <svg
-                class="theme-icon-moon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
+                <svg
+                  class="theme-icon-sun"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="4" />
+                  <path
+                    d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                  />
+                </svg>
+                <svg
+                  class="theme-icon-moon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  aria-hidden="true"
+                  hidden
+                >
+                  <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="btn-icon"
+                id="notifySettingsBtn"
+                title="Сповіщення"
+                aria-label="Налаштування сповіщень"
                 hidden
               >
-                <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" />
-              </svg>
-            </button>
-            <span class="user-chip" id="userChip" hidden></span>
-            <button
-              type="button"
-              class="btn-icon"
-              id="notifySettingsBtn"
-              title="Сповіщення"
-              aria-label="Налаштування сповіщень"
-              hidden
-            >
-              🔔
-            </button>
-            <button
-              type="button"
-              class="btn-icon"
-              id="settingsGearBtn"
-              title="Налаштування"
-              aria-label="Налаштування"
-              hidden
-            >
-              ⚙
-            </button>
-            <button type="button" class="btn btn-sm" id="logoutBtn" hidden>Вийти</button>
+                🔔
+              </button>
+              <button
+                type="button"
+                class="btn-icon"
+                id="settingsGearBtn"
+                title="Налаштування"
+                aria-label="Налаштування"
+                hidden
+              >
+                ⚙
+              </button>
+              <button type="button" class="btn btn-sm app-shell-logout" id="logoutBtn" hidden>
+                Вийти
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="tabs" id="tabs"></div>
-      </div>
+          <div class="shell-kpi-row" id="kpiGrid" aria-label="Показники"></div>
+        </header>
 
-      <div class="filter-bar toolbar" id="mainToolbar">
-        <div class="filter-field filter-field--search">
-          <label class="filter-label" for="searchInput">Пошук</label>
-          <input id="searchInput" placeholder="Замовлення, об'єкт, виріб…" autocomplete="off" />
+        <div class="filter-bar toolbar app-shell-toolbar" id="mainToolbar">
+          <div class="filter-field filter-field--search">
+            <label class="filter-label" for="searchInput">Пошук</label>
+            <input id="searchInput" placeholder="Замовлення, об'єкт, виріб…" autocomplete="off" />
+          </div>
+          <div class="filter-field filter-field--select">
+            <label class="filter-label" for="statusFilter">Статус</label>
+            <select id="statusFilter">
+              <option value="">Усі статуси</option>
+              <option value="Передано">Передано</option>
+              <option value="В роботі">В роботі</option>
+              <option value="Готово">Готово</option>
+              <option value="Готово до встановлення">Готово до встановлення</option>
+              <option value="На паузі">На паузі</option>
+              <option value="Проблема">Проблема</option>
+              <option value="Не розпочато">Не розпочато</option>
+            </select>
+          </div>
+          <div class="filter-field filter-field--select">
+            <label class="filter-label" for="responsibleFilter">Відповідальний</label>
+            <select id="responsibleFilter">
+              <option value="">Усі</option>
+            </select>
+          </div>
+          <div class="filter-field filter-field--select">
+            <label class="filter-label" for="stageFilter">Етап</label>
+            <select id="stageFilter" hidden aria-label="Етап">
+              <option value="">Усі етапи</option>
+              <option value="Конструктив">Конструктив</option>
+              <option value="Порізка">Порізка</option>
+              <option value="Крайкування">Крайкування</option>
+              <option value="Присадка">Присадка</option>
+              <option value="Збірка">Збірка</option>
+            </select>
+          </div>
+          <div class="filter-field filter-field--action">
+            <span class="filter-label" aria-hidden="true">&nbsp;</span>
+            <button id="resetBtn" type="button" class="btn">Скинути</button>
+          </div>
+          <div class="toolbar-actions" id="toolbarActions"></div>
         </div>
-        <div class="filter-field filter-field--select">
-          <label class="filter-label" for="statusFilter">Статус</label>
-          <select id="statusFilter">
-            <option value="">Усі статуси</option>
-            <option value="Передано">Передано</option>
-            <option value="В роботі">В роботі</option>
-            <option value="Готово">Готово</option>
-            <option value="Готово до встановлення">Готово до встановлення</option>
-            <option value="На паузі">На паузі</option>
-            <option value="Проблема">Проблема</option>
-            <option value="Не розпочато">Не розпочато</option>
-          </select>
-        </div>
-        <div class="filter-field filter-field--select">
-          <label class="filter-label" for="responsibleFilter">Відповідальний</label>
-          <select id="responsibleFilter">
-            <option value="">Усі</option>
-          </select>
-        </div>
-        <div class="filter-field filter-field--select">
-          <label class="filter-label" for="stageFilter">Етап</label>
-          <select id="stageFilter" hidden aria-label="Етап">
-            <option value="">Усі етапи</option>
-            <option value="Конструктив">Конструктив</option>
-            <option value="Порізка">Порізка</option>
-            <option value="Крайкування">Крайкування</option>
-            <option value="Присадка">Присадка</option>
-            <option value="Збірка">Збірка</option>
-          </select>
-        </div>
-        <div class="filter-field filter-field--action">
-          <span class="filter-label" aria-hidden="true">&nbsp;</span>
-          <button id="resetBtn" type="button" class="btn">Скинути</button>
-        </div>
-        <div class="toolbar-actions" id="toolbarActions"></div>
-      </div>
 
-      <main id="content"></main>
+        <main id="content" class="app-shell-content"></main>
+      </div>
     </div>
 
     <div class="modal-backdrop" id="orderModal" aria-hidden="true">

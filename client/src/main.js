@@ -64,6 +64,7 @@ import {
 import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.js";
 import { initTheme } from "./theme.js";
 import { $ } from "./utils.js";
+import "./styles/app-shell.css";
 
 let contentRenderTimer = null;
 const CONTENT_RENDER_DELAY_MS = 180;

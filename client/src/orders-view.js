@@ -1,6 +1,13 @@
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
 
+function priorityClass(priority) {
+  const p = String(priority || "").toLowerCase();
+  if (p.includes("висок")) return "priority-dot--high";
+  if (p.includes("низ")) return "priority-dot--low";
+  return "";
+}
+
 export function renderOrdersGrid(orders, positions, { onOrderClick: _onOrderClick } = {}) {
   const rootPositions = positions.filter((p) => !p.parentId);
 
@@ -11,32 +18,34 @@ export function renderOrdersGrid(orders, positions, { onOrderClick: _onOrderClic
       );
       const main = related[0];
       const progress = main?.progress ?? 0;
-      const stage = main?.currentStage ? stageLabel(main.currentStage) : "—";
+      const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
+      const priClass = priorityClass(order.priority);
 
       return `
         <article class="order-card" data-order-card="${order.id}" tabindex="0">
           <div class="order-card-head">
-            <div>
+            <div class="order-card-body">
               <h3 class="order-card-title">${escapeHtml(order.orderNumber)}</h3>
-              <p class="order-card-meta">${escapeHtml(order.client || "—")} · ${escapeHtml(order.object || "—")}</p>
-              <p class="order-card-meta">${badge(order.status || "—")} · ${escapeHtml(stage)}</p>
+              <p class="order-card-meta">${escapeHtml(order.client || "—")}</p>
+              <p class="order-card-meta order-card-object">${escapeHtml(order.object || "—")}</p>
             </div>
-            ${progressRing(progress, { size: 64 })}
+            ${progressRing(progress, { size: 72 })}
           </div>
-          <p class="order-card-meta" style="margin-top:10px">План: ${escapeHtml(order.planDate || "—")} · ${escapeHtml(order.priority || "—")}</p>
+          <div class="order-card-foot">
+            <span class="stage-pill">${escapeHtml(stage)}</span>
+            ${badge(order.status || "—")}
+          </div>
+          <p class="order-card-meta" style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            ${priClass ? `<span class="priority-dot ${priClass}" title="${escapeHtml(order.priority || "")}"></span>` : ""}
+            <span>План ${escapeHtml(order.planDate || "—")}${order.priority ? ` · ${escapeHtml(order.priority)}` : ""}</span>
+          </p>
         </article>`;
     })
     .join("");
 
   return `
     <div class="orders-view">
-      <div class="card-header-row">
-        <div>
-          <h2 class="block-title" style="margin:0">Замовлення</h2>
-          <p class="positions-hint">Картки з прогресом і поточним етапом. Натисніть, щоб відкрити позицію.</p>
-        </div>
-      </div>
-      <div class="orders-grid">${cards || '<p class="empty">Немає замовлень</p>'}</div>
+      <div class="orders-grid">${cards || '<p class="empty" style="padding:24px;color:var(--v3-muted)">Немає замовлень — створіть перше</p>'}</div>
     </div>`;
 }
 
