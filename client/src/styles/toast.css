@@ -18,8 +18,8 @@
   opacity: 0;
   transform: translateY(8px);
   transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
+    opacity var(--enver-motion-base, 180ms) var(--enver-ease-enter, ease),
+    transform var(--enver-motion-base, 180ms) var(--enver-ease-enter, ease);
 }
 
 .toast.visible {

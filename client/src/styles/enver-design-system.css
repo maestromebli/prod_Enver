@@ -74,7 +74,14 @@
   --enver-touch-lg: 56px;
 
   /* ——— Motion ——— */
-  --enver-transition: 0.15s ease;
+  --enver-motion-fast: 120ms;
+  --enver-motion-base: 180ms;
+  --enver-motion-slow: 260ms;
+  --enver-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --enver-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --enver-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --enver-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --enver-transition: var(--enver-motion-fast) var(--enver-ease-standard);
 
   /* ——— Bridge: legacy main.css ——— */
   --navy: var(--enver-primary);
@@ -873,6 +880,219 @@ body {
 .enver-segmented-btn:focus-visible {
   outline: none;
   box-shadow: var(--enver-focus);
+}
+
+/* ——— Форми (глобально) ——— */
+.form-field,
+.enver-form-field {
+  display: grid;
+  gap: var(--enver-space-2, 6px);
+}
+
+.form-field label,
+.enver-form-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--enver-text-muted, var(--navy));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea,
+.enver-form-field input,
+.enver-form-field select,
+.enver-form-field textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 10px);
+  padding: 10px 12px;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--enver-text, var(--text));
+  background: var(--enver-surface, var(--white));
+  transition:
+    border-color var(--enver-transition),
+    box-shadow var(--enver-transition),
+    background var(--enver-transition);
+}
+
+.form-field textarea,
+.enver-form-field textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder,
+.enver-form-field input::placeholder,
+.enver-form-field textarea::placeholder {
+  color: var(--enver-text-soft, var(--muted));
+  font-weight: 400;
+}
+
+.form-field input:hover,
+.form-field select:hover,
+.form-field textarea:hover,
+.enver-form-field input:hover,
+.enver-form-field select:hover,
+.enver-form-field textarea:hover {
+  border-color: var(--enver-border-strong, var(--border));
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus,
+.enver-form-field input:focus,
+.enver-form-field select:focus,
+.enver-form-field textarea:focus {
+  outline: none;
+  border-color: var(--enver-primary, var(--accent));
+  box-shadow: var(--enver-focus);
+}
+
+.form-field input:disabled,
+.form-field select:disabled,
+.form-field textarea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: var(--enver-surface-soft, var(--surface-muted));
+}
+
+.form-field--invalid input,
+.form-field--invalid select,
+.form-field--invalid textarea {
+  border-color: var(--enver-danger, var(--red));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--enver-danger, var(--red)) 18%, transparent);
+}
+
+.form-field-hint,
+.field-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--enver-text-muted, var(--muted));
+  line-height: 1.4;
+}
+
+/* ——— Sticky CTA bar (mobile) ——— */
+.enver-sticky-bar {
+  display: none;
+}
+
+.enver-screen--sticky-mobile {
+  /* padding applied per-screen in media query */
+}
+
+@media (max-width: 767px) {
+  .enver-screen--sticky-mobile {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .orders-view--detail.enver-screen--sticky-mobile {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .enver-sticky-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--enver-space-3, 12px);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--enver-surface, #fff) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--enver-border, var(--border));
+    box-shadow: 0 -8px 24px rgba(15, 42, 68, 0.08);
+  }
+
+  .enver-sticky-bar--blocked {
+    border-top-color: var(--enver-danger, #b42318);
+    background: color-mix(
+      in srgb,
+      var(--enver-danger-soft, #fde7e4) 55%,
+      var(--enver-surface, #fff)
+    );
+  }
+
+  .enver-sticky-bar-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .enver-sticky-bar-kicker {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--enver-text-muted, var(--muted));
+  }
+
+  .enver-sticky-bar-text strong {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .enver-sticky-bar-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .enver-sticky-bar-cta {
+    border: none;
+    border-radius: var(--enver-radius-sm, 10px);
+    padding: 10px 14px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    background: var(--enver-primary, var(--navy));
+    color: #fff;
+    cursor: pointer;
+    min-height: 44px;
+  }
+
+  .enver-sticky-bar-cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .enver-sticky-bar-secondary {
+    border: 1px solid var(--enver-border, var(--border));
+    border-radius: var(--enver-radius-sm, 10px);
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: var(--enver-surface-soft, var(--surface-muted));
+    color: var(--enver-text, var(--text));
+    cursor: pointer;
+    min-height: 44px;
+  }
+
+  [data-theme="dark"] .enver-sticky-bar {
+    background: color-mix(in srgb, var(--enver-surface, #1e293b) 94%, transparent);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  [data-theme="dark"] .enver-sticky-bar--blocked {
+    background: color-mix(
+      in srgb,
+      var(--enver-danger-soft, #3d1f1c) 40%,
+      var(--enver-surface, #1e293b)
+    );
+  }
 }
 
 /* Godmode banner — enver tokens */

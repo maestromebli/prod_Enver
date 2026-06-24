@@ -24,13 +24,18 @@ function hasHighPriorityHints() {
 }
 
 function renderHintItem(h) {
-  const actionBtn = h.action
-    ? `<button type="button" class="ai-hint-action" data-ai-nav="${escapeHtml(h.action)}">${escapeHtml(h.action)} →</button>`
-    : "";
+  const doBtn = h.godmodeAction
+    ? `<button type="button" class="ai-hint-action ai-hint-action--do"
+        data-ai-entity-type="${escapeHtml(h.godmodeAction.entityType)}"
+        data-ai-entity-id="${h.godmodeAction.entityId}"
+        data-ai-action-type="${escapeHtml(h.godmodeAction.actionType || "")}">Зробити зараз →</button>`
+    : h.action
+      ? `<button type="button" class="ai-hint-action" data-ai-nav="${escapeHtml(h.action)}">${escapeHtml(h.action)} →</button>`
+      : "";
   return `
     <li class="ai-hint-item ai-hint-item--${h.priority === "high" ? "high" : "normal"}">
       <span class="ai-hint-text">${escapeHtml(h.text)}</span>
-      ${actionBtn}
+      ${doBtn}
     </li>
   `;
 }
@@ -158,6 +163,19 @@ function bindPanelEvents() {
     btn.addEventListener("click", () => {
       const dest = btn.dataset.aiNav;
       if (dest && onNavigate) onNavigate(dest);
+    });
+  });
+
+  document.querySelectorAll(".ai-hint-action--do").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      panelOpen = false;
+      renderPanel();
+      const { executeGodmodeAction } = await import("./godmode-ui.js");
+      await executeGodmodeAction({
+        entityType: btn.dataset.aiEntityType,
+        entityId: Number(btn.dataset.aiEntityId),
+        actionType: btn.dataset.aiActionType || undefined
+      }).catch(() => {});
     });
   });
 

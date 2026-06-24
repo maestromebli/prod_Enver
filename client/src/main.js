@@ -487,6 +487,7 @@ async function handleDashboardNav(destination) {
   const quickRoutes = {
     "У фокусі": { tab: ATTENTION_TAB },
     [ATTENTION_TAB]: { tab: ATTENTION_TAB },
+    Прострочки: { tab: ATTENTION_TAB },
     Проблеми: { tab: "Позиції", status: "Проблема" },
     "У виробництві": { tab: "Позиції", status: "У виробництві" },
     "До монтажу": { tab: "Позиції", status: "Готово до встановлення" }

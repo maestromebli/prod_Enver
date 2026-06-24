@@ -262,17 +262,19 @@
 .form-field label {
   font-size: 12px;
   font-weight: 800;
-  color: var(--navy);
+  color: var(--enver-text-muted, var(--navy));
   text-transform: uppercase;
 }
 
 .form-field input,
 .form-field select,
 .form-field textarea {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 10px);
   padding: 10px 12px;
   font-weight: 600;
+  background: var(--enver-surface, #fff);
+  color: var(--enver-text, var(--text));
 }
 
 .form-field textarea {

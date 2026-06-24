@@ -1,27 +1,27 @@
-/* ENVER v3 — Apple-like app shell (завантажується останнім, перекриває legacy) */
+/* ENVER v3 — app shell (enver tokens) */
 
 .enver-v3 {
-  --v3-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-  --v3-surface: #f5f5f7;
-  --v3-surface-2: #ebebed;
-  --v3-elevated: #ffffff;
-  --v3-text: #1d1d1f;
-  --v3-muted: #6e6e73;
-  --v3-accent: #0071e3;
-  --v3-accent-soft: rgba(0, 113, 227, 0.12);
-  --v3-radius: 16px;
-  --v3-radius-sm: 12px;
-  --v3-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --v3-font: var(--enver-font-sans, system-ui, sans-serif);
+  --v3-surface: var(--enver-bg, #f5f5f7);
+  --v3-surface-2: var(--enver-surface-soft, #ebebed);
+  --v3-elevated: var(--enver-surface, #ffffff);
+  --v3-text: var(--enver-text, #1d1d1f);
+  --v3-muted: var(--enver-text-muted, #6e6e73);
+  --v3-accent: var(--enver-primary, #245c3b);
+  --v3-accent-soft: var(--enver-primary-soft, rgba(36, 92, 59, 0.12));
+  --v3-radius: var(--enver-radius-md, 16px);
+  --v3-radius-sm: var(--enver-radius-sm, 12px);
+  --v3-shadow: var(--enver-shadow-md, 0 8px 32px rgba(0, 0, 0, 0.08));
   --v3-sidebar-w: 248px;
 }
 
 html[data-theme="dark"] body.enver-v3 {
-  --v3-surface: #000000;
-  --v3-surface-2: #1c1c1e;
-  --v3-elevated: #1c1c1e;
-  --v3-text: #f5f5f7;
-  --v3-muted: #a1a1a6;
-  --v3-accent-soft: rgba(10, 132, 255, 0.2);
+  --v3-surface: var(--enver-bg, #000000);
+  --v3-surface-2: var(--enver-surface-soft, #1c1c1e);
+  --v3-elevated: var(--enver-surface, #1c1c1e);
+  --v3-text: var(--enver-text, #f5f5f7);
+  --v3-muted: var(--enver-text-muted, #a1a1a6);
+  --v3-accent-soft: color-mix(in srgb, var(--enver-primary, #4a9e6a) 20%, transparent);
   --v3-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
@@ -143,7 +143,7 @@ body.enver-v3 {
 }
 
 .tab-reminder-badge {
-  background: #ff3b30;
+  background: var(--enver-danger, #b42318);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 700;
@@ -216,6 +216,7 @@ body.enver-v3 {
 .app-shell-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -280,11 +281,11 @@ body.enver-v3 {
 }
 
 .shell-kpi--alert strong {
-  color: #ff3b30;
+  color: var(--enver-danger, #b42318);
 }
 
 .shell-kpi--ok strong {
-  color: #34c759;
+  color: var(--enver-success, #287a3e);
 }
 
 /* Toolbar — вища специфічність замість !important */
@@ -629,7 +630,7 @@ body.enver-v3 {
 }
 
 .priority-dot--high {
-  background: #ff3b30;
+  background: var(--enver-danger, #b42318);
 }
 
 .priority-dot--low {

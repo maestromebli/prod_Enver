@@ -186,6 +186,15 @@
   cursor: pointer;
 }
 
+.ai-hint-action--do {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
 .ai-refresh-hints {
   width: 100%;
 }

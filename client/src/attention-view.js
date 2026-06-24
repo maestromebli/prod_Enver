@@ -253,6 +253,37 @@ function pickRiskPositions(positions) {
     .slice(0, 12);
 }
 
+function renderAttentionStickyBar(items) {
+  const top =
+    items.find((i) => i.kind === "blocker") ||
+    items.find((i) => i.kind === "warning") ||
+    items.find((i) => i.kind === "next" && i.positionId && canQuickRunGodmodeAction(i.code));
+  if (!top) return "";
+
+  const isBlocked = top.kind === "blocker";
+  const kicker = isBlocked ? "Блокер" : top.kind === "warning" ? "Увага" : "Дія";
+
+  let primaryBtn = "";
+  if (top.kind === "next" && top.positionId && canQuickRunGodmodeAction(top.code)) {
+    primaryBtn = `<button type="button" class="enver-sticky-bar-cta" data-attention-run="${top.positionId}" data-attention-action="${escapeHtml(top.code)}">Виконати</button>`;
+  } else if (top.positionId) {
+    primaryBtn = `<button type="button" class="enver-sticky-bar-cta" data-attention-position="${top.positionId}">Відкрити</button>`;
+  } else if (top.orderId) {
+    primaryBtn = `<button type="button" class="enver-sticky-bar-cta" data-attention-order="${top.orderId}">Відкрити</button>`;
+  }
+
+  if (!primaryBtn) return "";
+
+  return `
+    <div class="enver-sticky-bar ${isBlocked ? "enver-sticky-bar--blocked" : ""}" role="region" aria-label="Пріоритетна увага">
+      <div class="enver-sticky-bar-text">
+        <span class="enver-sticky-bar-kicker">${kicker}</span>
+        <strong>${escapeHtml(top.message)}</strong>
+      </div>
+      <div class="enver-sticky-bar-actions">${primaryBtn}</div>
+    </div>`;
+}
+
 export function renderAttentionTab() {
   const positions = activePositions(state.positions, state.orders);
   const items = attentionFromState(state);
@@ -299,9 +330,10 @@ export function renderAttentionTab() {
   );
 
   const hasContent = groupsHtml || operatorsHtml || installHtml || riskHtml;
+  const stickyBar = renderAttentionStickyBar(items);
 
   return `
-    <div class="attention-screen">
+    <div class="attention-screen${stickyBar ? " enver-screen--sticky-mobile" : ""}">
       <header class="attention-hero card">
         <h2 class="attention-hero-title enver-page-title">Потребує уваги</h2>
         <p class="attention-hero-sub enver-meta">Блокери, оператори в цеху, монтаж сьогодні та рекомендовані дії</p>
@@ -322,6 +354,7 @@ export function renderAttentionTab() {
           <p class="enver-empty-state-text">Немає критичних блокерів і попереджень. Виробництво працює за планом.</p>
         </div>`
       }
+      ${stickyBar}
     </div>`;
 }
 

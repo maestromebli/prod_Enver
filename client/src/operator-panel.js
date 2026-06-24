@@ -269,11 +269,19 @@ function renderOperatorNextAction(pos, field) {
       ? `<ul class="op-warn-list">${alerts.map((w) => `<li>${escapeHtml(w.message || w.title || "")}</li>`).join("")}</ul>`
       : "";
 
+  const advanceCta =
+    next?.type === "advance_stage" && canFinish()
+      ? `<button type="button" class="op-advance-cta" id="operatorFocusFinishBtn">Завершити: ${escapeHtml(next.label)}</button>`
+      : next?.type === "advance_stage" && canStart()
+        ? `<button type="button" class="op-advance-cta" id="operatorFocusStartBtn">Почати: ${escapeHtml(next.label)}</button>`
+        : "";
+
   return `
     <div class="op-next-action" role="status">
       <strong>Наступна дія</strong>
       <span>${escapeHtml(next?.label || "Оберіть завдання з черги")}</span>
       ${afterFinish ? `<p class="op-hint">${escapeHtml(afterFinish)}</p>` : ""}
+      ${advanceCta}
       ${warnList}
     </div>`;
 }
@@ -521,6 +529,14 @@ export function bindOperatorActions(onChange) {
           }
         }).catch(() => {});
       }
+    }
+    if (e.target.closest("#operatorFocusFinishBtn")) {
+      document.querySelector("#operatorFinishBtn")?.click();
+      return;
+    }
+    if (e.target.closest("#operatorFocusStartBtn")) {
+      document.querySelector("#operatorStartBtn")?.click();
+      return;
     }
     if (e.target.closest("#operatorFinishBtn") && canFinish()) {
       const stageKey = state.operatorStage;

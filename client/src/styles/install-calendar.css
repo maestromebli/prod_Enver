@@ -139,10 +139,10 @@
 }
 
 .install-calendar.card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--white);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 12px);
+  background: var(--enver-surface, var(--white));
+  box-shadow: var(--enver-shadow-sm, var(--shadow));
 }
 
 .ical-toolbar {
@@ -166,9 +166,9 @@
   display: flex;
   gap: 4px;
   margin: 0 auto;
-  background: #f1f3f4;
+  background: var(--enver-surface-muted, #f1f3f4);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: var(--enver-radius-sm, 8px);
 }
 
 .ical-title {
@@ -187,17 +187,17 @@
 .ical-nav-btn {
   width: 36px;
   height: 36px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--enver-border, var(--border));
   border-radius: 50%;
-  background: var(--white);
+  background: var(--enver-surface, var(--white));
   cursor: pointer;
   font-size: 1.25rem;
   line-height: 1;
-  color: var(--text);
+  color: var(--enver-text, var(--text));
 }
 
 .ical-nav-btn:hover {
-  background: #f8f9fa;
+  background: var(--enver-surface-soft, #f8f9fa);
 }
 
 .ical-view-btn {
@@ -212,9 +212,9 @@
 }
 
 .ical-view-btn.active {
-  background: var(--white);
-  color: var(--navy);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  background: var(--enver-surface, var(--white));
+  color: var(--enver-primary, var(--accent, #245c3b));
+  box-shadow: var(--enver-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
 }
 
 .ical-installer-filter {
@@ -249,9 +249,9 @@
 }
 
 .ical-sidebar {
-  border-right: 1px solid var(--border-soft);
+  border-right: 1px solid var(--enver-border, var(--border-soft));
   padding: 16px;
-  background: #fafbfc;
+  background: var(--enver-surface-soft, #fafbfc);
   overflow-y: auto;
 }
 
@@ -302,13 +302,13 @@
 }
 
 .ical-mini-day--today {
-  background: #e8f0fe;
-  color: var(--blue);
+  background: var(--enver-primary-soft, #e8f3ec);
+  color: var(--enver-primary, var(--accent, #245c3b));
   font-weight: 700;
 }
 
 .ical-mini-day--selected {
-  background: var(--blue);
+  background: var(--enver-primary, var(--accent, #245c3b));
   color: #fff;
 }
 
@@ -321,7 +321,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--enver-primary, var(--green));
 }
 
 .ical-queue h4 {
@@ -350,15 +350,15 @@
 
 .ical-queue-item {
   text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 8px);
   padding: 8px 10px;
-  background: var(--white);
+  background: var(--enver-surface, var(--white));
   cursor: grab;
 }
 
 .ical-queue-item:hover {
-  border-color: var(--blue);
+  border-color: var(--enver-primary, var(--accent, #245c3b));
 }
 
 .ical-queue-title {
@@ -401,7 +401,7 @@
 .ical-main {
   overflow: auto;
   padding: 12px;
-  background: var(--white);
+  background: var(--enver-surface, var(--white));
   min-width: 0;
 }
 
@@ -427,19 +427,19 @@
 
 .ical-day {
   min-height: 110px;
-  border-right: 1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
+  border-right: 1px solid var(--enver-border, var(--border-soft));
+  border-bottom: 1px solid var(--enver-border, var(--border-soft));
   padding: 4px;
-  background: var(--white);
+  background: var(--enver-surface, var(--white));
   transition: background 0.15s;
 }
 
 .ical-day--outside {
-  background: #f8f9fa;
+  background: var(--enver-surface-soft, #f8f9fa);
 }
 
 .ical-day--today .ical-day-num {
-  background: var(--blue);
+  background: var(--enver-primary, var(--accent, #245c3b));
   color: #fff;
   border-radius: 50%;
   width: 26px;
@@ -483,8 +483,12 @@
   width: 100%;
   text-align: left;
   border: none;
-  border-left: 3px solid var(--event-color, var(--blue));
-  background: color-mix(in srgb, var(--event-color, var(--blue)) 12%, white);
+  border-left: 3px solid var(--event-color, var(--enver-primary, var(--accent, #245c3b)));
+  background: color-mix(
+    in srgb,
+    var(--event-color, var(--enver-primary, var(--accent, #245c3b))) 12%,
+    var(--enver-surface, white)
+  );
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 0.7rem;
@@ -501,12 +505,12 @@
 }
 
 .ical-event--ready {
-  border-left-color: var(--green);
+  border-left-color: var(--enver-success, var(--green));
 }
 
 .ical-event--problem {
-  background: #fef2f2;
-  border-left-color: var(--red);
+  background: var(--enver-danger-soft, #fef2f2);
+  border-left-color: var(--enver-danger, var(--red));
 }
 
 .ical-event-title {

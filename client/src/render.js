@@ -7,7 +7,7 @@ import {
   hasOperatorAccess,
   isOperator
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB, OVERVIEW_TAB } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
@@ -35,9 +35,10 @@ import { positionsForOrder } from "./workflows.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 import { notifyAiContextChanged } from "./ai-assistant.js";
 import { attentionTabBadgeCount, bindAttentionTab, renderAttentionTab } from "./attention-view.js";
+import { renderDashboard } from "./dashboard.js";
 import {
-  closeGodmodeNotifyPanel,
   mountGodmodeNotifyChrome,
+  syncGodmodeNotifyForView,
   updateGodmodeNotifyBadge
 } from "./godmode-notifications.js";
 
@@ -147,6 +148,7 @@ function visibleTabs() {
 }
 
 const TAB_META = {
+  [OVERVIEW_TAB]: { icon: "◎", subtitle: "Ключові показники та швидкі переходи" },
   Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
   [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
@@ -296,6 +298,7 @@ function renderContent() {
   const data = filteredPositions();
   const tab = state.activeTab;
 
+  if (tab === OVERVIEW_TAB) return renderDashboard();
   if (tab === "Замовлення") {
     if (state.selectedOrderId) return renderOrderDetail();
     return renderOrdersGrid(state.orders, state.positions);
@@ -333,14 +336,17 @@ export function renderHeaderChrome() {
   if (notifyBtn) notifyBtn.hidden = !user || canViewSettings();
   if (logout) logout.hidden = !user;
 
-  const gnWrap = document.querySelector(".gn-wrap");
   if (user && state.view === "main") {
     mountGodmodeNotifyChrome();
     updateGodmodeNotifyBadge();
-    if (gnWrap) gnWrap.hidden = false;
-  } else {
-    closeGodmodeNotifyPanel();
-    if (gnWrap) gnWrap.hidden = true;
+  }
+  syncGodmodeNotifyForView(state.view);
+
+  if (state.view === "settings") {
+    const title = document.querySelector("#pageTitle");
+    const sub = document.querySelector("#pageSubtitle");
+    if (title) title.textContent = "Налаштування";
+    if (sub) sub.textContent = "Користувачі, доступи та параметри";
   }
 
   let opBtn = document.querySelector("#productionOperatorBtn");
@@ -380,6 +386,10 @@ export function renderHeaderChrome() {
 
   setOperatorUiActive(state.view === "operator");
   document.body.classList.toggle("view-main", state.view === "main");
+  document.body.classList.toggle(
+    "view-dashboard",
+    state.view === "main" && state.activeTab === OVERVIEW_TAB
+  );
 }
 
 export function renderApp(options = {}) {

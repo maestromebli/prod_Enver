@@ -11,6 +11,7 @@ export function setSubmitLoading(submitEl, loading) {
   if (!submitEl) return;
   submitEl.disabled = loading;
   submitEl.classList.toggle("is-loading", loading);
+  submitEl.classList.toggle("enver-loading", loading);
   submitEl.setAttribute("aria-busy", loading ? "true" : "false");
 }
 

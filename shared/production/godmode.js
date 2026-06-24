@@ -935,6 +935,22 @@ export function buildNotifications({
     const orderId = order.id;
     if (orderId == null) continue;
     const orderNumber = field(order, "order_number", "orderNumber");
+    const manager = field(order, "manager", "manager").trim();
+
+    if (!manager && status !== "Новий") {
+      notifications.push({
+        id: `order-${orderId}-assignment`,
+        type: "order_assignment",
+        level: "warning",
+        title: "Немає відповідального",
+        message: `Замовлення ${orderNumber}: не призначено менеджера замовлення.`,
+        entityType: "order",
+        entityId: orderId,
+        actionType: "open_order",
+        createdAt: ts
+      });
+    }
+
     const related = positions.filter(
       (p) =>
         (p.order_id ?? p.orderId) === orderId ||

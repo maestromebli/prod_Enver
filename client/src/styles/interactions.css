@@ -1,0 +1,418 @@
+/* ═══════════════════════════════════════════════════════════════
+   ENVER Interaction Layer — motion tokens, feedback, drag states
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --enver-motion-fast: 120ms;
+  --enver-motion-base: 180ms;
+  --enver-motion-slow: 260ms;
+  --enver-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --enver-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --enver-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --enver-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* ——— Press / hover feedback ——— */
+.enver-interactive {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.enver-pressable {
+  cursor: pointer;
+  transition:
+    transform var(--enver-motion-fast) var(--enver-ease-standard),
+    box-shadow var(--enver-motion-fast) var(--enver-ease-standard),
+    background-color var(--enver-motion-fast) var(--enver-ease-standard),
+    border-color var(--enver-motion-fast) var(--enver-ease-standard),
+    opacity var(--enver-motion-fast) var(--enver-ease-standard);
+}
+
+@media (hover: hover) {
+  .enver-pressable:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.enver-pressable:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.enver-pressable:focus-visible {
+  outline: none;
+  box-shadow: var(--enver-focus, 0 0 0 4px rgba(36, 92, 59, 0.18));
+}
+
+/* ——— Drag & drop ——— */
+.enver-draggable {
+  touch-action: none;
+  cursor: grab;
+}
+
+.enver-draggable:active {
+  cursor: grabbing;
+}
+
+.enver-dragging {
+  opacity: 0.92;
+  transform: scale(1.02);
+  box-shadow: var(--enver-shadow-lg, 0 24px 70px rgba(20, 30, 20, 0.12));
+  z-index: 5;
+  transition: none;
+}
+
+.enver-drop-target {
+  transition:
+    background-color var(--enver-motion-fast) var(--enver-ease-standard),
+    border-color var(--enver-motion-fast) var(--enver-ease-standard),
+    box-shadow var(--enver-motion-fast) var(--enver-ease-standard);
+}
+
+.enver-drop-target-active,
+.enver-drop-target.enver-drag-over {
+  background: var(--enver-primary-soft, #e2efe7);
+  border-color: var(--enver-primary, #245c3b);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--enver-primary, #245c3b) 35%, transparent);
+}
+
+.enver-drop-target--denied {
+  background: var(--enver-danger-soft, #fde7e4);
+  border-color: var(--enver-danger, #b42318);
+}
+
+/* ——— Card enter / exit ——— */
+.enver-card-enter {
+  animation: enver-card-enter var(--enver-motion-base) var(--enver-ease-enter) both;
+}
+
+.enver-card-exit {
+  animation: enver-card-exit var(--enver-motion-base) var(--enver-ease-exit) both;
+}
+
+@keyframes enver-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes enver-card-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* ——— Status / feedback ——— */
+.enver-status-change {
+  animation: enver-status-pulse var(--enver-motion-base) var(--enver-ease-standard);
+}
+
+@keyframes enver-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--enver-primary, #245c3b) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+.enver-save-flash {
+  animation: enver-save-flash var(--enver-motion-slow) var(--enver-ease-standard);
+}
+
+@keyframes enver-save-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--enver-success-soft, #e1f3e6) 80%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.enver-shake {
+  animation: enver-shake var(--enver-motion-base) var(--enver-ease-standard);
+}
+
+@keyframes enver-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.enver-optimistic-rollback {
+  animation: enver-shake var(--enver-motion-base) var(--enver-ease-standard);
+}
+
+/* ——— Loading / skeleton ——— */
+.enver-loading,
+.btn.enver-loading,
+.btn.is-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.82;
+}
+
+.enver-loading::after,
+.btn.enver-loading::after,
+.btn.is-loading::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: enver-spin 0.65s linear infinite;
+  opacity: 0.75;
+}
+
+.btn.enver-loading,
+.btn.is-loading {
+  padding-right: 34px;
+}
+
+@keyframes enver-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.enver-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--enver-surface-soft, #f0f2ec) 25%,
+    var(--enver-surface, #fff) 50%,
+    var(--enver-surface-soft, #f0f2ec) 75%
+  );
+  background-size: 200% 100%;
+  animation: enver-shimmer 1.4s ease infinite;
+  border-radius: var(--enver-radius-sm, 8px);
+}
+
+@keyframes enver-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ——— Toast з дією ——— */
+.enver-toast-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--enver-radius-sm, 8px);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.enver-toast-action:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.toast-with-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-with-action .toast-message {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ——— Constructive upload zone ——— */
+.constructive-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.constructive-upload-zone {
+  position: relative;
+  border: 2px dashed var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-md, 14px);
+  padding: 20px 16px;
+  text-align: center;
+  background: var(--enver-surface-soft, var(--surface-muted));
+  cursor: pointer;
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  transition:
+    border-color var(--enver-motion-fast) var(--enver-ease-standard),
+    background-color var(--enver-motion-fast) var(--enver-ease-standard),
+    box-shadow var(--enver-motion-fast) var(--enver-ease-standard);
+}
+
+.constructive-upload-zone:focus-visible {
+  outline: none;
+  box-shadow: var(--enver-focus);
+}
+
+.constructive-upload-zone.enver-drag-over,
+.constructive-upload-zone[data-state="dragover"] {
+  border-color: var(--enver-primary, var(--navy));
+  background: var(--enver-primary-soft, #e2efe7);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--enver-primary, #245c3b) 25%, transparent);
+}
+
+.constructive-upload-zone[data-state="uploading"] {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.constructive-upload-zone[data-state="error"],
+.constructive-upload-zone[data-state="too-large"],
+.constructive-upload-zone[data-state="unsupported"] {
+  border-color: var(--enver-danger, var(--red));
+  background: var(--enver-danger-soft, #fde7e4);
+}
+
+.constructive-upload-zone[data-state="success"] {
+  border-style: solid;
+  border-color: var(--enver-success, var(--green));
+  background: var(--enver-success-soft, #e1f3e6);
+}
+
+.constructive-upload-zone.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.constructive-upload-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.constructive-upload-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--enver-text, var(--text));
+}
+
+.constructive-upload-hint,
+.constructive-upload-formats {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--enver-text-muted, var(--muted));
+  line-height: 1.4;
+}
+
+.constructive-upload-status {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.constructive-upload-zone[data-state="uploading"] .constructive-upload-status::after {
+  content: "Завантаження…";
+  color: var(--enver-primary, var(--navy));
+}
+
+.constructive-upload-zone[data-state="error"] .constructive-upload-status::after {
+  content: "Не вдалося завантажити. Спробуйте ще раз";
+  color: var(--enver-danger, var(--red));
+}
+
+.constructive-upload-zone[data-state="too-large"] .constructive-upload-status::after {
+  content: "Файл завеликий (макс. 8 МБ)";
+  color: var(--enver-danger, var(--red));
+}
+
+.constructive-upload-zone[data-state="unsupported"] .constructive-upload-status::after {
+  content: "Непідтримуваний тип файлу";
+  color: var(--enver-danger, var(--red));
+}
+
+.constructive-actions--cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.constructive-analyze-cta {
+  flex: 1;
+  min-height: var(--enver-touch-min, 44px);
+}
+
+.constructive-analyze-cta:disabled {
+  opacity: 0.5;
+}
+
+/* ——— Order cards ——— */
+.order-card.enver-interactive {
+  transition:
+    transform var(--enver-motion-fast) var(--enver-ease-standard),
+    box-shadow var(--enver-motion-fast) var(--enver-ease-standard),
+    border-color var(--enver-motion-base) var(--enver-ease-standard);
+}
+
+.order-card.enver-pressable:active {
+  transform: scale(0.995);
+}
+
+.order-card-cta.enver-pressable:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enver-pressable:hover,
+  .enver-pressable:active,
+  .order-card.enver-pressable:active {
+    transform: none;
+  }
+
+  .enver-card-enter,
+  .enver-card-exit,
+  .enver-status-change,
+  .enver-save-flash,
+  .enver-shake,
+  .enver-skeleton,
+  .enver-loading::after,
+  .btn.enver-loading::after,
+  .btn.is-loading::after {
+    animation: none !important;
+  }
+
+  .enver-pressable,
+  .enver-draggable,
+  .enver-drop-target,
+  .constructive-upload-zone,
+  .order-card.enver-interactive,
+  .toast {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,5 +1,6 @@
 import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
+import { ATTENTION_TAB } from "./constants.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole
@@ -171,6 +172,30 @@ export function pickInstallSoon(positions, limit = 4) {
     .slice(0, limit);
 }
 
+function renderDashboardStickyBar(focusPool) {
+  const top = focusPool[0];
+  if (!top) return "";
+
+  const isProblem = top.problem?.trim() || top.positionStatus === "Проблема";
+  const label = isProblem
+    ? top.problem?.trim() || "Проблема на позиції"
+    : top.overdueDays > 0
+      ? `Прострочено: ${top.orderNumber}`
+      : `${top.orderNumber} · ${top.item || "—"}`;
+
+  return `
+    <div class="enver-sticky-bar ${isProblem ? "enver-sticky-bar--blocked" : ""}" role="region" aria-label="Пріоритет">
+      <div class="enver-sticky-bar-text">
+        <span class="enver-sticky-bar-kicker">${isProblem ? "Проблема" : "У фокусі"}</span>
+        <strong>${escapeHtml(label)}</strong>
+      </div>
+      <div class="enver-sticky-bar-actions">
+        <button type="button" class="enver-sticky-bar-cta" data-edit-position="${top.id}">Відкрити</button>
+        <button type="button" class="enver-sticky-bar-secondary" data-dash-nav="${escapeHtml(ATTENTION_TAB)}">Увага</button>
+      </div>
+    </div>`;
+}
+
 export function renderDashboard() {
   const filters = currentFilters();
   const filteredData = filteredPositions();
@@ -260,9 +285,10 @@ export function renderDashboard() {
   );
 
   const showOnboarding = !isOnboardingDismissed();
+  const stickyBar = renderDashboardStickyBar(focusPool);
 
   return `
-    <div class="dash-board">
+    <div class="dash-board${stickyBar ? " enver-screen--sticky-mobile" : ""}">
       <header class="dash-hero">
         <div class="dash-hero-main">
           <div class="dash-hero-text">
@@ -279,6 +305,7 @@ export function renderDashboard() {
         <div class="dash-hero-actions">
           <nav class="dash-quick-nav" aria-label="Швидкі переходи">
             <button type="button" class="dash-quick-btn" data-dash-nav="Замовлення">Замовлення</button>
+            <button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(ATTENTION_TAB)}">Увага</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="Встановлення">Монтажі</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="Виробництво за етапами">Етапи</button>
           </nav>
@@ -415,5 +442,6 @@ export function renderDashboard() {
           </div>
         </section>
       </div>
+      ${stickyBar}
     </div>`;
 }

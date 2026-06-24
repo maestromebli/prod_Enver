@@ -99,8 +99,8 @@ function orderCardActions(order, attn) {
   const ctaLabel = attn.nextAction?.label || "Деталі";
   const hasCta = Boolean(attn.nextAction?.label);
   return `<div class="order-card-actions">
-    ${hasCta ? `<button type="button" class="order-card-cta" data-order-cta="${order.id}">${escapeHtml(ctaLabel)}</button>` : ""}
-    <button type="button" class="order-card-cta order-card-cta--secondary" data-order-detail="${order.id}">Деталі</button>
+    ${hasCta ? `<button type="button" class="order-card-cta enver-pressable" data-order-cta="${order.id}">${escapeHtml(ctaLabel)}</button>` : ""}
+    <button type="button" class="order-card-cta order-card-cta--secondary enver-pressable" data-order-detail="${order.id}">Деталі</button>
   </div>`;
 }
 
@@ -130,7 +130,7 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
         : "";
 
       return `
-        <article class="order-card ${cardClass}" data-order-card="${order.id}" tabindex="0">
+        <article class="order-card enver-interactive enver-pressable ${cardClass}" data-order-card="${order.id}" tabindex="0">
           <div class="order-card-status-row">
             <h3 class="order-card-title enver-card-title">${escapeHtml(order.orderNumber)}</h3>
             ${healthBadge}${attentionBadge}${statusPill(order, attn)}

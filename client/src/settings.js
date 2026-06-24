@@ -12,6 +12,7 @@ import {
 import { runSave } from "./save-flow.js";
 import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
+import { closeGodmodeNotifyPanel } from "./godmode-notifications.js";
 
 let users = [];
 let permissions = {};
@@ -80,6 +81,7 @@ export async function refreshAiSettingsFromServer() {
 
 export function openSettings(section = "users") {
   if (!canViewSettings()) return;
+  closeGodmodeNotifyPanel();
   state.settingsReturnView = null;
   state.view = "settings";
   state.settingsSection = section;
@@ -88,6 +90,7 @@ export function openSettings(section = "users") {
 /** Сповіщення — доступні всім авторизованим (навіть без повних налаштувань). */
 export function openNotificationSettings() {
   if (!state.currentUser) return;
+  closeGodmodeNotifyPanel();
   if (state.view !== "settings") {
     state.settingsReturnView = state.view;
   }
@@ -318,6 +321,31 @@ function aiSectionHtml() {
   `;
 }
 
+const SETTINGS_STICKY_SAVE = {
+  access: { target: "#savePermissionsBtn", label: "Зберегти доступи" },
+  ai: { target: "#saveAiSettingsBtn", label: "Зберегти ШІ" },
+  directories: { target: "#saveAllDirectoriesBtn", label: "Зберегти всі" }
+};
+
+function renderSettingsStickyBar(section, { limited = false } = {}) {
+  if (limited) return "";
+  const cfg = SETTINGS_STICKY_SAVE[section];
+  if (!cfg) return "";
+  if (section === "ai" && !isAdmin()) return "";
+  if (section === "directories" && !isAdmin()) return "";
+
+  return `
+    <div class="enver-sticky-bar settings-sticky-bar" role="region" aria-label="Збереження">
+      <div class="enver-sticky-bar-text">
+        <span class="enver-sticky-bar-kicker">Налаштування</span>
+        <strong>${escapeHtml(cfg.label)}</strong>
+      </div>
+      <div class="enver-sticky-bar-actions">
+        <button type="button" class="enver-sticky-bar-cta" data-settings-sticky-trigger="${escapeHtml(cfg.target)}">${escapeHtml(cfg.label)}</button>
+      </div>
+    </div>`;
+}
+
 export function renderSettingsView() {
   const limited = !canViewSettings();
   let section = state.settingsSection;
@@ -350,8 +378,10 @@ export function renderSettingsView() {
                 ? aiSectionHtml()
                 : notificationsSectionHtml();
 
+  const stickyBar = renderSettingsStickyBar(section, { limited });
+
   return `
-    <div class="settings-page">
+    <div class="settings-page${stickyBar ? " enver-screen--sticky-mobile" : ""}">
       <div class="settings-top">
         <button type="button" class="btn" id="settingsBackBtn">← Назад</button>
         <h1>Налаштування</h1>
@@ -366,6 +396,7 @@ export function renderSettingsView() {
       </div>
       ${renderSettingsSaveBanner()}
       ${sectionHtml}
+      ${stickyBar}
     </div>
   `;
 }
@@ -565,6 +596,13 @@ export function bindSettingsActions(onChange) {
     if (e.target.closest("#settingsBackBtn")) {
       closeSettings();
       settingsOnChange();
+      return;
+    }
+
+    const stickySave = e.target.closest("[data-settings-sticky-trigger]");
+    if (stickySave) {
+      const target = document.querySelector(stickySave.dataset.settingsStickyTrigger);
+      if (target) target.click();
       return;
     }
 

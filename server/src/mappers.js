@@ -49,9 +49,6 @@ export function mapPosition(row) {
     problem: row.problem ?? "",
     note: row.note ?? "",
     material: row.material ?? "",
-    nextAction: row.next_action ?? null,
-    warnings: row.warnings ?? [],
-    blockers: row.blockers ?? [],
     createdAt: row.created_at ?? null
   };
 }

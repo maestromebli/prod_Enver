@@ -159,6 +159,16 @@ describe("godmode", () => {
     assert.ok(notes.some((n) => n.entityType === "order" && n.actionType === "close_order"));
   });
 
+  it("notifications — order_assignment без менеджера", () => {
+    const order = { id: 11, order_number: "EN-301", status: "Активний", manager: "" };
+    const notes = buildNotifications({
+      orders: [order],
+      positions: [basePosition({ id: 2, order_id: 11, orderNumber: "EN-301" })],
+      now: new Date("2026-06-24")
+    });
+    assert.ok(notes.some((n) => n.type === "order_assignment"));
+  });
+
   it("attentionScore sorting", () => {
     const low = getAttentionScore(basePosition(), [], []);
     const high = getAttentionScore(

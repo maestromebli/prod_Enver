@@ -1,4 +1,11 @@
 import { buildOrderGodmode, buildPositionGodmode } from "@enver/shared/production/godmode.js";
+import {
+  HANDOFF_ACTION_TYPES,
+  ORDER_API_ACTION_TYPES,
+  UI_ACTION_TYPES,
+  canQuickRunGodmodeAction,
+  panelForGodmodeAction
+} from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { aggregateOrderAttention } from "./attention.js";
 import { positionsForOrder } from "./workflows.js";
@@ -63,7 +70,10 @@ export function renderBlockersList(blockers = []) {
   </ul>`;
 }
 
-const ORDER_API_ACTION_TYPES = new Set(["close_order"]);
+export {
+  canQuickRunGodmodeAction,
+  panelForGodmodeAction
+} from "@enver/shared/production/godmode-ui-helpers.js";
 
 export function renderNextActionBanner(
   godmode,
@@ -208,23 +218,6 @@ export function renderFloorGodmodeSection(buckets) {
   ].join("");
 }
 
-const HANDOFF_ACTION_TYPES = new Set([
-  "handoff_to_cutting",
-  "handoff_to_edging",
-  "handoff_to_drilling",
-  "handoff_to_assembly",
-  "handoff_to_packaging",
-  "ready_for_install"
-]);
-
-const UI_ACTION_TYPES = new Set([
-  "upload_constructive",
-  "run_ai_analysis",
-  "create_tasks_from_ai",
-  "schedule_install",
-  "resolve_problem"
-]);
-
 export function sortOrdersByAttention(orders, positions = []) {
   return [...orders].sort(
     (a, b) =>
@@ -235,6 +228,25 @@ export function sortOrdersByAttention(orders, positions = []) {
 
 export function rootPositionForOrder(order, positions) {
   return positionsForOrder(order, positions).find((p) => !p.parentId);
+}
+
+async function runOptimisticHandoff(positionId, actionType, deps) {
+  const positions = deps.getPositions?.() || [];
+  const snapshot = positions.find((p) => p.id === positionId);
+  const { showOptimisticUpdate } = await import("./interactions/optimistic-ui.js");
+
+  return showOptimisticUpdate({
+    apply: () => {},
+    rollback: () => {
+      if (snapshot) deps.upsertPosition?.(snapshot);
+    },
+    commit: async () => {
+      const updated = await deps.api.runPositionNextAction(positionId, actionType);
+      deps.upsertPosition?.(updated);
+      return updated;
+    },
+    label: "Етап передано"
+  });
 }
 
 /** Виконує головну дію замовлення або повертає підказку для UI. */
@@ -252,8 +264,11 @@ export async function executePrimaryOrderAction(
   }
 
   if (HANDOFF_ACTION_TYPES.has(next.type) && root?.id && next.allowed !== false) {
-    const updated = await api.runPositionNextAction(root.id, next.type);
-    upsertPosition(updated);
+    const updated = await runOptimisticHandoff(root.id, next.type, {
+      api,
+      upsertPosition,
+      getPositions: () => positions
+    });
     return { action: "handoff", position: updated, message: next.label };
   }
 
@@ -277,16 +292,6 @@ export async function executePrimaryOrderAction(
   }
 
   return { action: "open_order", nextAction: next };
-}
-
-export function panelForGodmodeAction(actionType) {
-  if (actionType === "schedule_install" || actionType === "wait_install") return "install";
-  if (UI_ACTION_TYPES.has(actionType) || actionType === "resolve_problem") return "more";
-  return "general";
-}
-
-export function canQuickRunGodmodeAction(actionType) {
-  return HANDOFF_ACTION_TYPES.has(actionType) || ORDER_API_ACTION_TYPES.has(actionType);
 }
 
 /** Залежності для виконання godmode-дій з UI. */
@@ -360,12 +365,11 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
     const effectiveAction = actionType || position.godmode?.nextAction?.type;
 
     if (effectiveAction && HANDOFF_ACTION_TYPES.has(effectiveAction)) {
-      const updated = await deps.api.runPositionNextAction(positionId, effectiveAction);
-      deps.upsertPosition?.(updated);
+      await runOptimisticHandoff(positionId, effectiveAction, deps);
       deps.toastSuccess?.("Дію виконано");
       await deps.refreshAppData?.({ includeDirectories: false });
       window.__enverRender?.({ contentOnly: true });
-      return { action: "handoff", position: updated };
+      return { action: "handoff" };
     }
 
     deps.openPositionDrawer?.(position, { panel: panelForGodmodeAction(effectiveAction) });

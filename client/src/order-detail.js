@@ -326,18 +326,18 @@ function renderOrderStickyBar(order, allPositions, related) {
   const ctaLabel = next.buttonLabel || "Виконати";
   const ctaBtn =
     next.allowed !== false && (ctaAttrs || next.buttonLabel)
-      ? `<button type="button" class="order-detail-sticky-cta" ${ctaAttrs} ${!ctaAttrs ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>`
+      ? `<button type="button" class="enver-sticky-bar-cta" ${ctaAttrs} ${!ctaAttrs ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>`
       : "";
 
   return `
-    <div class="order-detail-sticky ${isBlocked ? "order-detail-sticky--blocked" : ""}" role="region" aria-label="Головна дія">
-      <div class="order-detail-sticky-text">
-        <span class="order-detail-sticky-kicker">${isBlocked ? "Потрібна дія" : "Далі"}</span>
+    <div class="enver-sticky-bar ${isBlocked ? "enver-sticky-bar--blocked" : ""}" role="region" aria-label="Головна дія">
+      <div class="enver-sticky-bar-text">
+        <span class="enver-sticky-bar-kicker">${isBlocked ? "Потрібна дія" : "Далі"}</span>
         <strong>${escapeHtml(next.label)}</strong>
       </div>
-      <div class="order-detail-sticky-actions">
+      <div class="enver-sticky-bar-actions">
         ${ctaBtn}
-        <button type="button" class="order-detail-sticky-secondary" data-order-detail-tab="positions">Позиції</button>
+        <button type="button" class="enver-sticky-bar-secondary" data-order-detail-tab="positions">Позиції</button>
       </div>
     </div>`;
 }
@@ -380,7 +380,9 @@ export function renderOrderDetailView(order, allPositions, related) {
         </section>`
       : "";
 
-  return `<div class="orders-view orders-view--detail">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div>${renderOrderStickyBar(order, allPositions, related)}</div>`;
+  const stickyBar = renderOrderStickyBar(order, allPositions, related);
+
+  return `<div class="orders-view orders-view--detail${stickyBar ? " enver-screen--sticky-mobile" : ""}">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div>${stickyBar}</div>`;
 }
 
 async function patchPositionStage(positionId, stageKey, payload, onRefresh) {

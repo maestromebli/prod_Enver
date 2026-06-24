@@ -310,6 +310,31 @@
   background: color-mix(in srgb, var(--enver-surface, var(--surface)) 92%, transparent);
 }
 
+[data-theme="dark"] .ical-sidebar {
+  background: var(--enver-surface-soft, var(--surface-2));
+}
+
+[data-theme="dark"] .ical-main {
+  background: var(--enver-surface, var(--surface));
+}
+
+[data-theme="dark"] .ical-day--outside {
+  background: var(--enver-surface-soft, var(--surface-2));
+}
+
+[data-theme="dark"] .ical-mini-day--today {
+  background: color-mix(in srgb, var(--enver-primary, #4a9e6a) 22%, transparent);
+  color: var(--enver-primary-light, #86c9a0);
+}
+
+[data-theme="dark"] .ical-event--problem {
+  background: color-mix(
+    in srgb,
+    var(--enver-danger, #b42318) 18%,
+    var(--enver-surface, var(--surface))
+  );
+}
+
 [data-theme="dark"] .install-list-table tbody tr:hover,
 [data-theme="dark"] .orders-list-row:hover {
   background: var(--surface-hover);
@@ -320,8 +345,8 @@
 }
 
 [data-theme="dark"] .settings-nav-btn.active {
-  background: rgba(37, 99, 235, 0.22);
-  border-color: rgba(147, 197, 253, 0.4);
+  background: color-mix(in srgb, var(--enver-primary, #4a9e6a) 22%, transparent);
+  border-color: color-mix(in srgb, var(--enver-primary, #4a9e6a) 40%, transparent);
 }
 
 /* responsive overrides */

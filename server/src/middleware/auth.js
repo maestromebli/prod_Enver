@@ -4,6 +4,8 @@ import { STAGE_STATUS_FIELD } from "../roles.js";
 function extractToken(req) {
   const header = req.headers.authorization;
   if (header?.startsWith("Bearer ")) return header.slice(7).trim();
+  const queryToken = req.query?.access_token;
+  if (queryToken) return String(queryToken).trim();
   return null;
 }
 

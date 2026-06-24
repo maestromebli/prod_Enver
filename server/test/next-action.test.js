@@ -74,7 +74,7 @@ describe("next-action", () => {
     assert.equal(handoffs[0].stageKey, "edging");
   });
 
-  it("enrichPositionRow додає next_action, warnings, blockers", () => {
+  it("enrichPositionRow обчислює progress без legacy next_action", () => {
     const enriched = enrichPositionRow({
       has_constructive_file: true,
       cutting_status: "Передано",
@@ -87,8 +87,9 @@ describe("next-action", () => {
       position_status: "",
       overdue_days: 0
     });
-    assert.ok(enriched.next_action);
-    assert.ok(Array.isArray(enriched.warnings));
-    assert.ok(Array.isArray(enriched.blockers));
+    assert.equal(enriched.progress > 0, true);
+    assert.equal(enriched.current_stage, "cutting");
+    assert.equal(enriched.next_action, undefined);
+    assert.equal(enriched.warnings, undefined);
   });
 });

@@ -23,10 +23,16 @@ import {
   progressBar,
   showFormError
 } from "./utils.js";
+import { createFileDropZone } from "./interactions/drag-drop.js";
+import { pulseSuccess, shakeError } from "./interactions/motion.js";
+
+const CONSTRUCTIVE_ACCEPT_EXT = [".pdf", ".zip", ".xml", ".txt", ".dwg", ".dxf"];
+const CONSTRUCTIVE_MAX_BYTES = 8 * 1024 * 1024;
 
 let onSaved = () => {};
 let draft = null;
 let activePanel = "general";
+let constructiveDropZone = null;
 
 export function setPositionSaveHandler(handler) {
   onSaved = handler;
@@ -49,6 +55,42 @@ function normalizeSuggestedTasks(result) {
     }
     return t;
   });
+}
+
+function renderConstructiveUploadBlock(p) {
+  if (!p.id) {
+    return `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`;
+  }
+
+  const state = p.hasConstructiveFile ? "success" : "idle";
+  const fileLine = p.hasConstructiveFile
+    ? `<p class="constructive-upload-title">${escapeHtml(p.constructiveFileName || "завантажено")}</p>
+       <p class="constructive-upload-hint">Натисніть або перетягніть, щоб замінити файл</p>`
+    : `<p class="constructive-upload-title">Перетягніть конструктив сюди</p>
+       <p class="constructive-upload-hint">або натисніть, щоб вибрати файл</p>`;
+
+  return `
+    <div class="constructive-upload-wrap">
+      <div
+        id="constructiveUploadZone"
+        class="constructive-upload-zone enver-interactive enver-pressable enver-drop-target"
+        data-state="${state}"
+        data-prev-state="${state}"
+        aria-label="Завантаження конструктива"
+      >
+        <input type="file" id="constructiveFileInput" accept="${CONSTRUCTIVE_ACCEPT_EXT.join(",")}" hidden />
+        <div class="constructive-upload-inner">
+          <span class="constructive-upload-icon" aria-hidden="true">${p.hasConstructiveFile ? "✓" : "📎"}</span>
+          ${fileLine}
+          <p class="constructive-upload-formats">PDF, ZIP, XML, TXT, DWG, DXF · до 8 МБ</p>
+          <p class="constructive-upload-status" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="constructive-actions constructive-actions--cta">
+        <button type="button" class="btn btn-primary constructive-analyze-cta enver-pressable" id="analyzeConstructiveBtn" ${p.hasConstructiveFile ? "" : "disabled"}>Запустити ШІ-аналіз</button>
+      </div>
+      <div id="constructiveAnalysis" class="constructive-analysis"></div>
+    </div>`;
 }
 
 function renderAiAnalysisResult(result) {
@@ -297,17 +339,7 @@ function renderDrawerContent() {
       <div class="drawer-panel ${activePanel === "more" ? "active" : ""}" data-panel="more">
         <details class="drawer-more-block" ${p.hasConstructiveFile ? "open" : ""}>
           <summary>Конструктив</summary>
-          <p class="field-hint">${p.hasConstructiveFile ? `Файл: <strong>${escapeHtml(p.constructiveFileName || "завантажено")}</strong>` : "PDF, ZIP, XML, TXT"}</p>
-          ${
-            p.id
-              ? `<div class="constructive-actions">
-            <input type="file" id="constructiveFileInput" accept=".pdf,.zip,.xml,.txt,.dwg,.dxf" hidden />
-            <button type="button" class="btn btn-sm" id="pickConstructiveBtn">Завантажити</button>
-            <button type="button" class="btn btn-sm" id="analyzeConstructiveBtn" ${p.hasConstructiveFile ? "" : "disabled"}>ШІ-аналіз</button>
-          </div>
-          <div id="constructiveAnalysis" class="constructive-analysis"></div>`
-              : `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`
-          }
+          ${renderConstructiveUploadBlock(p)}
         </details>
         <div class="form-grid" style="margin-top:12px">
           <div class="form-field span-2">
@@ -538,6 +570,72 @@ function onDrawerTabSelect(panel) {
   if (activePanel === "more") refreshDrawerHistory();
 }
 
+async function uploadConstructiveFromFile(file) {
+  if (!file || !draft?.id) return;
+  const zone = $("#constructiveUploadZone");
+
+  const dataBase64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || "");
+      resolve(raw.includes(",") ? raw.split(",")[1] : raw);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+  try {
+    await runSave("Конструктив", {
+      saveFn: () =>
+        api.uploadConstructiveFile(draft.id, {
+          fileName: file.name,
+          mime: file.type,
+          dataBase64
+        }),
+      successMessage: "Файл завантажено",
+      onSuccess: async (res) => {
+        draft = { ...draft, ...res.position, hasConstructiveFile: true };
+        updateHeader();
+        pulseSuccess(zone);
+        renderDrawerContent();
+        await onSaved();
+      }
+    });
+  } catch (err) {
+    shakeError(zone);
+    throw err;
+  }
+}
+
+function bindConstructiveUpload() {
+  constructiveDropZone?.destroy();
+  constructiveDropZone = null;
+
+  const zone = $("#constructiveUploadZone");
+  const input = $("#constructiveFileInput");
+  if (!zone || !input || !draft?.id) return;
+
+  constructiveDropZone = createFileDropZone(zone, {
+    inputEl: input,
+    accept: CONSTRUCTIVE_ACCEPT_EXT,
+    maxBytes: CONSTRUCTIVE_MAX_BYTES,
+    onFile: (file) => uploadConstructiveFromFile(file),
+    onReject: (reason) => {
+      shakeError(zone);
+      if (reason === "too-large") {
+        showError("Файл завеликий (макс. 8 МБ)");
+      } else if (reason === "unsupported") {
+        showError("Непідтримуваний тип файлу");
+      }
+    },
+    onStateChange: (state) => {
+      if (state !== "dragover") {
+        zone.dataset.prevState = state === "idle" ? zone.dataset.prevState || "idle" : state;
+      }
+    }
+  });
+}
+
 function bindDrawerEvents() {
   $("#positionForm")?.addEventListener("input", () => {
     document.dispatchEvent(new CustomEvent("enver-ui-changed"));
@@ -608,7 +706,7 @@ function bindDrawerEvents() {
     });
   });
 
-  $("#pickConstructiveBtn")?.addEventListener("click", () => $("#constructiveFileInput")?.click());
+  bindConstructiveUpload();
 
   $("#generatePositionQrBtn")?.addEventListener("click", () => {
     if (!draft?.id) return;
@@ -633,36 +731,6 @@ function bindDrawerEvents() {
         }
       }).catch(() => {});
     });
-  });
-
-  $("#constructiveFileInput")?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !draft.id) return;
-    const dataBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const raw = String(reader.result || "");
-        resolve(raw.includes(",") ? raw.split(",")[1] : raw);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-    await runSave("Конструктив", {
-      saveFn: () =>
-        api.uploadConstructiveFile(draft.id, {
-          fileName: file.name,
-          mime: file.type,
-          dataBase64
-        }),
-      successMessage: "Файл завантажено",
-      onSuccess: async (res) => {
-        draft = { ...draft, ...res.position, hasConstructiveFile: true };
-        updateHeader();
-        renderDrawerContent();
-        await onSaved();
-      },
-      onError: (err) => showError(err.message)
-    }).catch(() => {});
   });
 
   $("#analyzeConstructiveBtn")?.addEventListener("click", async () => {

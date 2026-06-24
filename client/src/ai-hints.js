@@ -2,10 +2,52 @@ import { canEditOrders, canEditPositions, isOperator } from "./auth.js";
 import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB } from "./constants.js";
 import { activePositions } from "./archive.js";
 import { countAttentionItems } from "./attention.js";
+import { resolveOrderGodmode, resolvePositionGodmode } from "./godmode-ui.js";
+import { isRunnableGodmodeAction } from "@enver/shared/production/godmode-ui-helpers.js";
 import { $ } from "./utils.js";
 
 function countByStatus(positions, status) {
   return positions.filter((p) => p.status === status).length;
+}
+
+/** Підказки з godmode — головна дія по позиції або замовленню. */
+function collectGodmodeHints(state) {
+  const hints = [];
+  const positions = activePositions(state.positions, state.orders).filter((p) => !p.parentId);
+
+  const top = [...positions].sort(
+    (a, b) =>
+      (resolvePositionGodmode(b).attentionScore || 0) -
+      (resolvePositionGodmode(a).attentionScore || 0)
+  )[0];
+
+  if (top) {
+    const gm = resolvePositionGodmode(top);
+    const next = gm.nextAction;
+    if (next?.label && (gm.attentionScore || 0) >= 40 && isRunnableGodmodeAction(next.type)) {
+      hints.push({
+        priority: gm.health === "blocked" ? "high" : "normal",
+        text: `${top.orderNumber} · ${top.item}: ${next.label}`,
+        godmodeAction: { entityType: "position", entityId: top.id, actionType: next.type },
+        source: "godmode"
+      });
+    }
+  }
+
+  for (const order of state.orders || []) {
+    if (order.status === "Завершено") continue;
+    const gm = resolveOrderGodmode(order, state.positions);
+    if (gm.nextAction?.type === "close_order") {
+      hints.push({
+        priority: "normal",
+        text: `Замовлення ${order.orderNumber} готове до закриття.`,
+        godmodeAction: { entityType: "order", entityId: order.id, actionType: "close_order" },
+        source: "godmode"
+      });
+    }
+  }
+
+  return hints;
 }
 
 function overduePositions(positions) {
@@ -169,7 +211,8 @@ export function collectLocalHints(state) {
     });
   }
 
-  return hints.slice(0, 6);
+  const godmodeHints = collectGodmodeHints(state);
+  return [...godmodeHints, ...hints].slice(0, 8);
 }
 
 /** Контекст для API ШІ — компактний знімок екрану. */

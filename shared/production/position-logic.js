@@ -9,7 +9,6 @@ import {
   isStageIdle
 } from "./stages.js";
 import { parseUaDate } from "../dates/ua-date.js";
-import { collectBlockers, collectWarnings, deriveNextAction } from "./next-action.js";
 
 export {
   collectBlockers,
@@ -110,10 +109,7 @@ export function enrichPositionRow(row, { planDate } = {}) {
       )
     : Number(row.overdue_days) || 0;
   const enriched = { ...row, progress, position_status, current_stage, overdue_days };
-  const next_action = deriveNextAction(enriched);
-  const warnings = collectWarnings(enriched);
-  const blockers = collectBlockers(enriched);
-  return { ...enriched, next_action, warnings, blockers };
+  return enriched;
 }
 
 /** Після завершення етапу — передати наступному «Передано», якщо він ще не активний. */
