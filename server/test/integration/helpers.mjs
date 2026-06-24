@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 export function integrationEnabled() {
-  return process.env.CI === "true" || process.env.RUN_INTEGRATION_TESTS === "1";
+  if (process.env.RUN_INTEGRATION_TESTS === "0") return false;
+  if (process.env.RUN_INTEGRATION_TESTS === "1") return true;
+  return Boolean(process.env.DATABASE_URL || process.env.DATABASE_URL_MIGRATIONS);
 }
 
 export function runMigrations() {
