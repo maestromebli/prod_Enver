@@ -29,14 +29,16 @@ import {
   progressBar,
   showFormError
 } from "./utils.js";
-import { canManageProcurement, canViewFinance } from "./auth.js";
+import { canManageProcurement, canReviewConstructive, canViewFinance } from "./auth.js";
 import {
+  loadCncJobsSummary,
   loadFinanceSummary,
   loadProcurementSummary,
   renderConstructivePipelinePanel,
   renderFinancePanel
 } from "./constructive-pipeline-panel.js";
 import { openModelMappingModal } from "./model-mapping-ui.js";
+import { openConstructiveReviewModal } from "./constructive-review-ui.js";
 import {
   bindConstructivePackageBlock,
   loadConstructivePackageDetail,
@@ -58,6 +60,7 @@ let constructiveFiles = [];
 let constructivePackageDetail = null;
 let financeSummary = null;
 let procurementSummary = null;
+let cncJobsSummary = [];
 
 export function setPositionSaveHandler(handler) {
   onSaved = handler;
@@ -333,7 +336,7 @@ function renderDrawerContent() {
       </div>
 
       <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
-        <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, { canManageProcurement: canManageProcurement() })}</div>
+        <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, pipelinePanelOptions())}</div>
       </div>
 
       ${
@@ -603,24 +606,41 @@ function onDrawerTabSelect(panel) {
     });
   }
   if (activePanel === "constructive" && draft?.id) {
-    void loadProcurementSummary(draft.id).then((s) => {
-      procurementSummary = s;
-      const mount = $("#procurementPanelMount");
-      const pipe = $("#constructivePipelineMount");
-      if (mount || pipe) {
+    void Promise.all([loadProcurementSummary(draft.id), loadCncJobsSummary(draft.id)]).then(
+      ([proc, jobs]) => {
+        procurementSummary = proc;
+        cncJobsSummary = jobs || [];
+        const pipe = $("#constructivePipelineMount");
         if (pipe) {
-          pipe.innerHTML = renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, {
-            canManageProcurement: canManageProcurement()
-          });
+          pipe.innerHTML = renderConstructivePipelinePanel(
+            constructivePackageDetail,
+            procurementSummary,
+            pipelinePanelOptions()
+          );
         }
         bindConstructivePipelinePanel();
       }
-    });
+    );
   }
   if (activePanel === "constructive") bindConstructivePipelinePanel();
 }
 
+function pipelinePanelOptions() {
+  return {
+    canManageProcurement: canManageProcurement(),
+    cncJobs: cncJobsSummary
+  };
+}
+
 function bindConstructivePipelinePanel() {
+  $("#openConstructiveReviewBtn")?.addEventListener("click", () => {
+    if (constructivePackageDetail?.package?.id && draft?.id) {
+      openConstructiveReviewModal(draft.id, constructivePackageDetail, {
+        canReview: canReviewConstructive()
+      });
+    }
+  });
+
   $("#openModelMappingBtn")?.addEventListener("click", () => {
     if (constructivePackageDetail?.package?.id && draft?.id) {
       openModelMappingModal(draft.id, constructivePackageDetail);
@@ -642,6 +662,27 @@ function bindConstructivePipelinePanel() {
       }
     } catch (err) {
       if (box) box.textContent = err.message;
+    }
+  });
+
+  $("#advanceProcurementBtn")?.addEventListener("click", async () => {
+    const nextStatus = $("#advanceProcurementBtn")?.dataset?.nextStatus;
+    if (!nextStatus || !draft?.id || !procurementSummary?.id) return;
+    try {
+      procurementSummary = await api.updatePositionProcurement(draft.id, procurementSummary.id, {
+        status: nextStatus
+      });
+      const pipe = $("#constructivePipelineMount");
+      if (pipe) {
+        pipe.innerHTML = renderConstructivePipelinePanel(
+          constructivePackageDetail,
+          procurementSummary,
+          pipelinePanelOptions()
+        );
+      }
+      bindConstructivePipelinePanel();
+    } catch (err) {
+      showFormError(err.message);
     }
   });
 }
@@ -797,7 +838,19 @@ function bindDrawerEvents() {
         if (mount)
           mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail);
         const pipe = $("#constructivePipelineMount");
-        if (pipe) pipe.innerHTML = renderConstructivePipelinePanel(constructivePackageDetail);
+        if (pipe) {
+          if (draft?.id) {
+            [procurementSummary, cncJobsSummary] = await Promise.all([
+              loadProcurementSummary(draft.id),
+              loadCncJobsSummary(draft.id)
+            ]);
+          }
+          pipe.innerHTML = renderConstructivePipelinePanel(
+            constructivePackageDetail,
+            procurementSummary,
+            pipelinePanelOptions()
+          );
+        }
         bindConstructivePackageBlock(draft);
         bindConstructivePipelinePanel();
       }

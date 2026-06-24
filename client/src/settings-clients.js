@@ -14,12 +14,15 @@ export function clientsSectionHtml() {
     clientsInfo?.androidDownloadUrl || `${origin}/downloads/enver-operator-android.apk`;
   const downloadReady = Boolean(clientsInfo?.androidDownloadAvailable);
   const installUrl = clientsInfo?.androidInstallUrl || `${origin}/android-install.html`;
+  const serverBuild = clientsInfo?.androidBuild || "";
 
   return `
     <div class="settings-section">
       <h2>Клієнти для цеху</h2>
       <p class="settings-hint">
         Застосунок для операторів цеху на планшетах Android: повноекранна панель етапів виробництва.
+        Після встановлення інтерфейс оновлюється автоматично з сервера (перезавантаження після деплою,
+        зазвичай до 30 с).
       </p>
 
       <article class="clients-card">
@@ -28,6 +31,7 @@ export function clientsSectionHtml() {
           Завантажте APK, встановіть на планшет і вкажіть адресу сервера ENVER при першому запуску.
           Після входу — повноекранний режим; вихід лише кнопкою «Вийти з повноекранного» і паролем
           <code>1111</code>.
+          ${serverBuild ? `Поточна збірка сервера: <code>${escapeHtml(serverBuild.slice(0, 12))}</code>.` : ""}
         </p>
         ${
           downloadReady

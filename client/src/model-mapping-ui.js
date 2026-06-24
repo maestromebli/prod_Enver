@@ -1,5 +1,5 @@
 import { escapeHtml, $ } from "./utils.js";
-import { api, getStoredToken, apiUrl } from "./api.js";
+import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
 import { toastError, toastSuccess } from "./toast.js";
 
 let mappingViewer = null;
@@ -93,9 +93,7 @@ export async function openModelMappingModal(positionId, detail) {
     if (container) {
       mappingViewer = await createPartViewerLazy(container);
       const token = getStoredToken();
-      const url = apiUrl(
-        `/api/constructive/packages/${detail.package.id}/files/${glbFile.id}${token ? `?access_token=${encodeURIComponent(token)}` : ""}`
-      );
+      const url = constructivePackageFileUrl(positionId, detail.package.id, glbFile.id);
       mappingViewer.loadModel(url, token).catch(() => {});
     }
   }

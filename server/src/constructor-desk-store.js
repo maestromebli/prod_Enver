@@ -14,7 +14,6 @@ const POSITION_SELECT = `
   p.position_status, p.progress, p.ready_date,
   p.constructor_user_id, p.constructor_assigned_at, p.constructor_due_at,
   p.constructor_estimated_hours, p.constructor_workspace_json,
-  p.created_at,
   u.name AS constructor_user_name,
   o.client AS order_client, o.plan_date AS order_plan_date, o.priority AS order_priority
 `;
@@ -50,8 +49,7 @@ function mapDeskRow(row, files = [], commentCount = 0) {
     orderPriority: row.order_priority || "",
     workspace,
     completion,
-    commentCount,
-    createdAt: row.created_at
+    commentCount
   };
 }
 
@@ -106,6 +104,15 @@ export function userCanAccessPositionDesk(user, row) {
   return userName && assignedName && userName === assignedName;
 }
 
+/** Позиція передана конструкторам (етап конструктиву або явне призначення). */
+export function isPositionOnConstructorDesk(row) {
+  if (!row) return false;
+  if (String(row.current_stage || "").trim() === "constructor") return true;
+  if (row.constructor_user_id != null) return true;
+  if (row.constructor_assigned_at) return true;
+  return Boolean(String(row.constructor_name || "").trim());
+}
+
 export async function listDeskPositions(user, { onlyMine = false } = {}) {
   const rows = await all(
     `SELECT ${POSITION_SELECT}
@@ -113,6 +120,12 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
      LEFT JOIN users u ON u.id = p.constructor_user_id
      LEFT JOIN orders o ON o.id = p.order_id
      WHERE p.position_status NOT IN ('Архів', 'Скасовано')
+       AND (
+         p.current_stage = 'constructor'
+         OR p.constructor_user_id IS NOT NULL
+         OR p.constructor_assigned_at IS NOT NULL
+         OR trim(coalesce(p.constructor_name, '')) <> ''
+       )
      ORDER BY p.constructor_due_at NULLS LAST, p.order_number, p.id`
   );
 
@@ -145,6 +158,59 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
   return filtered.map((row) =>
     mapDeskRow(row, filesByPos.get(row.id) || [], commentsByPos.get(row.id) || 0)
   );
+}
+
+function positionHasConstructorAssignment(p) {
+  if (p.constructorUserId != null) return true;
+  if (String(p.constructorUserName || "").trim()) return true;
+  if (
+    Object.prototype.hasOwnProperty.call(p, "constructor") &&
+    String(p.constructor || "").trim()
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function groupDeskPositionsIntoOrders(positions = []) {
+  const byKey = new Map();
+  for (const p of positions) {
+    const key = p.orderId != null ? `id:${p.orderId}` : `num:${p.orderNumber || p.id}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        orderId: p.orderId ?? null,
+        orderNumber: p.orderNumber || "—",
+        object: p.object || "",
+        orderClient: p.orderClient || "",
+        orderPlanDate: p.orderPlanDate || "",
+        orderPriority: p.orderPriority || "",
+        positionCount: 0,
+        assignedCount: 0,
+        maxCompletionPercent: 0,
+        nearestDueAt: null,
+        positions: []
+      });
+    }
+    const entry = byKey.get(key);
+    entry.positions.push(p);
+    entry.positionCount += 1;
+    if (positionHasConstructorAssignment(p)) entry.assignedCount += 1;
+    const pct = p.completion?.percent ?? 0;
+    if (pct > entry.maxCompletionPercent) entry.maxCompletionPercent = pct;
+    if (p.constructorDueAt) {
+      const due = new Date(p.constructorDueAt).getTime();
+      const prev = entry.nearestDueAt ? new Date(entry.nearestDueAt).getTime() : Infinity;
+      if (due < prev) entry.nearestDueAt = p.constructorDueAt;
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    String(a.orderNumber).localeCompare(String(b.orderNumber), "uk")
+  );
+}
+
+export async function listDeskOrders(user, options = {}) {
+  const positions = await listDeskPositions(user, options);
+  return groupDeskPositionsIntoOrders(positions);
 }
 
 export async function getDeskPosition(user, positionId) {

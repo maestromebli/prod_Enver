@@ -53,6 +53,17 @@ body.enver-v3 {
   display: none;
 }
 
+/* Панель оператора з index.html — повна ширина, без tablet-компакту */
+.app-shell--operator .app-shell-main {
+  width: 100%;
+  padding: 12px 20px 28px;
+}
+
+.app-shell--operator .app-shell-content {
+  width: 100%;
+  max-width: none;
+}
+
 .app-shell-sidebar {
   position: sticky;
   top: 0;

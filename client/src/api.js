@@ -171,6 +171,10 @@ export const api = {
 
   getProductionFloor: () => request("/api/production/floor"),
 
+  getConstructorDeskOrders: (params = {}) => {
+    const q = params.mine ? "?mine=1" : "";
+    return request(`/api/constructor-desk/orders${q}`);
+  },
   getConstructorDeskPositions: (params = {}) => {
     const q = params.mine ? "?mine=1" : "";
     return request(`/api/constructor-desk/positions${q}`);
@@ -296,7 +300,8 @@ export const api = {
     request(`/api/positions/${positionId}/constructive-packages/${packageId}/model-mapping`, {
       method: "POST",
       body: JSON.stringify(body)
-    })
+    }),
+  getPositionCncJobs: (positionId) => request(`/api/positions/${positionId}/cnc-jobs`)
 };
 
 export function getPartLabelsUrl(positionId) {
@@ -312,4 +317,12 @@ export function constructiveFileDownloadUrl(positionId, fileId = null) {
     : `/api/positions/${positionId}/constructive-file`;
   const q = token ? `?access_token=${encodeURIComponent(token)}` : "";
   return apiUrl(`${path}${q}`);
+}
+
+export function constructivePackageFileUrl(positionId, packageId, fileId) {
+  const token = getStoredToken();
+  const q = token ? `?access_token=${encodeURIComponent(token)}` : "";
+  return apiUrl(
+    `/api/positions/${positionId}/constructive-packages/${packageId}/files/${fileId}${q}`
+  );
 }

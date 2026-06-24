@@ -49,9 +49,11 @@ export const state = {
     detailTab: "overview"
   },
   constructorDesk: {
+    orders: [],
     positions: [],
     constructors: [],
     detail: null,
+    selectedOrderId: null,
     selectedPositionId: null,
     loading: false,
     onlyMine: false,

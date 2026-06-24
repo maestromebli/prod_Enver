@@ -61,14 +61,71 @@ function dueLabel(dueAt) {
   return formatDateUa(dueAt);
 }
 
-function renderDeskList(positions, constructors) {
+function orderKey(order) {
+  return order.orderId != null ? `id:${order.orderId}` : `num:${order.orderNumber}`;
+}
+
+function findConstructorOrder(orderId) {
+  const id = Number(orderId);
+  return (state.constructorDesk.orders || []).find(
+    (o) => o.orderId === id || String(o.orderNumber) === String(orderId)
+  );
+}
+
+function renderOrdersHero() {
   const isChief = canManageConstructorDesk();
+  return `
+    <div class="cd-hero card">
+      <div>
+        <h2 class="block-title">Замовлення у конструкторах</h2>
+        <p class="settings-hint">${
+          isChief
+            ? "Позиції на етапі конструктиву або з призначеним конструктором."
+            : "Ваші призначені замовлення та позиції."
+        }</p>
+      </div>
+      ${isChief ? `<label class="checkbox-label"><input type="checkbox" id="cdOnlyMineToggle" ${state.constructorDesk.onlyMine ? "checked" : ""} /> Лише мої</label>` : ""}
+    </div>`;
+}
+
+function renderConstructorOrdersList(orders) {
+  const cards = orders
+    .map((order) => {
+      const assigned = order.assignedCount || 0;
+      const total = order.positionCount || 0;
+      const due = order.nearestDueAt ? dueLabel(order.nearestDueAt) : "—";
+      return `
+        <article class="order-card cd-order-card enver-pressable" data-cd-order="${escapeHtml(orderKey(order))}">
+          <h3 class="order-card-title">${escapeHtml(order.orderNumber)}</h3>
+          <p class="order-card-meta order-card-object">${escapeHtml(order.object || "—")}</p>
+          ${order.orderClient ? `<p class="order-card-meta enver-meta">${escapeHtml(order.orderClient)}</p>` : ""}
+          <p class="order-card-stage-line">
+            <strong>${total}</strong> поз. · призначено <strong>${assigned}</strong> · готовність <strong>${order.maxCompletionPercent ?? 0}%</strong>
+          </p>
+          <p class="enver-meta">Найближчий дедлайн: ${due}</p>
+          <button type="button" class="btn btn-sm btn-primary" data-cd-order="${escapeHtml(orderKey(order))}">Відкрити замовлення</button>
+        </article>`;
+    })
+    .join("");
+
+  return `
+    <div class="constructor-desk">
+      ${renderOrdersHero()}
+      <div class="cd-orders-grid">
+        ${cards || '<div class="card enver-empty-state"><p class="enver-meta">Немає замовлень, переданих конструкторам.</p></div>'}
+      </div>
+    </div>`;
+}
+
+function renderConstructorOrderDetail(order) {
+  const isChief = canManageConstructorDesk();
+  const positions = order.positions || [];
   const rows = positions
     .map((p) => {
       const assignCell = isChief
         ? `<select class="cd-assign-select" data-cd-assign-user="${p.id}">
             <option value="">— не призначено —</option>
-            ${constructors
+            ${(state.constructorDesk.constructors || [])
               .map(
                 (u) =>
                   `<option value="${u.id}" ${p.constructorUserId === u.id ? "selected" : ""}>${escapeHtml(u.name)}</option>`
@@ -82,31 +139,29 @@ function renderDeskList(positions, constructors) {
         : `<span>${escapeHtml(p.constructorUserName || p.constructor || "—")}</span>
            <small class="enver-meta">${dueLabel(p.constructorDueAt)}</small>`;
 
-      return `<tr class="cd-row" data-cd-open="${p.id}">
-        <td><strong>${escapeHtml(p.orderNumber)}</strong><br><small>${escapeHtml(p.object || "")}</small></td>
+      return `<tr>
         <td>${escapeHtml(p.item || "—")}<br><small class="enver-meta">${escapeHtml(p.itemType || "")}</small></td>
         <td class="cd-assign-cell">${assignCell}</td>
         <td>${completionBadge(p.completion)} ${p.completion?.ledOk ? "💡" : ""}</td>
         <td>${escapeHtml(p.currentStage || "—")}</td>
-        <td><button type="button" class="btn btn-sm btn-primary" data-cd-open="${p.id}">Відкрити</button></td>
+        <td><button type="button" class="btn btn-sm btn-primary" data-cd-open="${p.id}">Стіл конструктора</button></td>
       </tr>`;
     })
     .join("");
 
   return `
     <div class="constructor-desk">
-      <div class="cd-hero card">
-        <div>
-          <h2 class="block-title">Стіл конструктора</h2>
-          <p class="settings-hint">${isChief ? "Усі замовлення та позиції — призначайте конструкторів і дедлайни." : "Ваші призначені позиції для роботи з конструктивом."}</p>
+      <div class="cd-ws-top">
+        <button type="button" class="btn" id="cdBackToOrders">← Усі замовлення</button>
+        <div class="cd-ws-title">
+          <h2>${escapeHtml(order.orderNumber)}</h2>
+          <p class="enver-meta">${escapeHtml(order.object || "")}${order.orderClient ? ` · ${escapeHtml(order.orderClient)}` : ""}</p>
         </div>
-        ${isChief ? `<label class="checkbox-label"><input type="checkbox" id="cdOnlyMineToggle" ${state.constructorDesk.onlyMine ? "checked" : ""} /> Лише мої</label>` : ""}
       </div>
       <div class="table-wrap card">
         <table class="cd-table">
           <thead>
             <tr>
-              <th>Замовлення</th>
               <th>Позиція</th>
               <th>${isChief ? "Призначення / дедлайн" : "Конструктор"}</th>
               <th>Готовність</th>
@@ -114,7 +169,7 @@ function renderDeskList(positions, constructors) {
               <th></th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="6" class="empty">Позицій немає</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="5" class="empty">Позицій немає</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
@@ -154,7 +209,7 @@ function renderWorkspace(detail, constructors) {
   return `
     <div class="constructor-workspace">
       <div class="cd-ws-top">
-        <button type="button" class="btn" id="cdBackToList">← До списку</button>
+        <button type="button" class="btn" id="cdBackToOrder">← До позицій замовлення</button>
         <div class="cd-ws-title">
           <h2>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</h2>
           <p class="enver-meta">${escapeHtml(p.object || "")} · ${escapeHtml(p.manager || "")}</p>
@@ -271,31 +326,50 @@ export function renderConstructorDeskTab() {
   if (state.constructorDesk.loading) {
     return `<div class="cd-skeleton card" aria-busy="true">Завантаження…</div>`;
   }
+  if (state.constructorDesk.error) {
+    return `<div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">${escapeHtml(state.constructorDesk.error)}</div>`;
+  }
   if (state.constructorDesk.selectedPositionId && state.constructorDesk.detail) {
     return renderWorkspace(state.constructorDesk.detail, state.constructorDesk.constructors || []);
   }
-  return renderDeskList(
-    state.constructorDesk.positions || [],
-    state.constructorDesk.constructors || []
-  );
+  if (state.constructorDesk.selectedOrderId != null) {
+    const order = findConstructorOrder(state.constructorDesk.selectedOrderId);
+    if (order) return renderConstructorOrderDetail(order);
+  }
+  return renderConstructorOrdersList(state.constructorDesk.orders || []);
 }
 
 export async function loadConstructorDesk() {
   state.constructorDesk.loading = true;
   try {
-    const [positions, constructors] = await Promise.all([
-      api.getConstructorDeskPositions(state.constructorDesk.onlyMine ? { mine: true } : {}),
+    const [orders, constructors] = await Promise.all([
+      api.getConstructorDeskOrders(state.constructorDesk.onlyMine ? { mine: true } : {}),
       canManageConstructorDesk() ? api.getConstructorDeskConstructors() : Promise.resolve([])
     ]);
-    state.constructorDesk.positions = positions;
+    state.constructorDesk.orders = orders;
+    state.constructorDesk.positions = orders.flatMap((o) => o.positions || []);
     state.constructorDesk.constructors = constructors;
     state.constructorDesk.error = "";
   } catch (err) {
     state.constructorDesk.error = err.message;
+    state.constructorDesk.orders = [];
     state.constructorDesk.positions = [];
   } finally {
     state.constructorDesk.loading = false;
   }
+}
+
+export function openConstructorOrder(orderKeyValue) {
+  const raw = String(orderKeyValue || "");
+  if (raw.startsWith("id:")) {
+    state.constructorDesk.selectedOrderId = Number(raw.slice(3));
+  } else if (raw.startsWith("num:")) {
+    state.constructorDesk.selectedOrderId = raw.slice(4);
+  } else {
+    state.constructorDesk.selectedOrderId = Number(orderKeyValue) || orderKeyValue;
+  }
+  state.constructorDesk.selectedPositionId = null;
+  state.constructorDesk.detail = null;
 }
 
 export async function openConstructorWorkspace(positionId) {
@@ -303,6 +377,8 @@ export async function openConstructorWorkspace(positionId) {
   try {
     state.constructorDesk.detail = await api.getConstructorDeskPosition(positionId);
     state.constructorDesk.selectedPositionId = positionId;
+    const orderId = state.constructorDesk.detail?.position?.orderId;
+    if (orderId != null) state.constructorDesk.selectedOrderId = orderId;
   } catch (err) {
     toastError(err.message);
   } finally {
@@ -347,6 +423,13 @@ export function bindConstructorDeskActions(onChange = () => {}) {
   actionsBound = true;
 
   document.addEventListener("click", async (e) => {
+    const orderBtn = e.target.closest("[data-cd-order]");
+    if (orderBtn) {
+      openConstructorOrder(orderBtn.dataset.cdOrder);
+      onChange();
+      return;
+    }
+
     const openBtn = e.target.closest("[data-cd-open]");
     if (openBtn) {
       await openConstructorWorkspace(Number(openBtn.dataset.cdOpen));
@@ -354,7 +437,15 @@ export function bindConstructorDeskActions(onChange = () => {}) {
       return;
     }
 
-    if (e.target.closest("#cdBackToList")) {
+    if (e.target.closest("#cdBackToOrders")) {
+      state.constructorDesk.selectedOrderId = null;
+      state.constructorDesk.selectedPositionId = null;
+      state.constructorDesk.detail = null;
+      onChange();
+      return;
+    }
+
+    if (e.target.closest("#cdBackToOrder")) {
       state.constructorDesk.selectedPositionId = null;
       state.constructorDesk.detail = null;
       onChange();
@@ -363,6 +454,9 @@ export function bindConstructorDeskActions(onChange = () => {}) {
 
     if (e.target.closest("#cdOnlyMineToggle")) {
       state.constructorDesk.onlyMine = e.target.checked;
+      state.constructorDesk.selectedOrderId = null;
+      state.constructorDesk.selectedPositionId = null;
+      state.constructorDesk.detail = null;
       await loadConstructorDesk();
       onChange();
       return;
@@ -436,6 +530,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
         });
         toastSuccess("Призначення збережено");
         await openConstructorWorkspace(id);
+        await loadConstructorDesk();
         onChange();
       } catch (err) {
         toastError(err.message);
@@ -516,6 +611,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
       successMessage: "Збережено",
       onSuccess: async () => {
         await openConstructorWorkspace(id);
+        await loadConstructorDesk();
         onChange();
       }
     }).catch(() => {});

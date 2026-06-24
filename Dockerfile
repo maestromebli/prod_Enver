@@ -8,12 +8,15 @@ RUN npm install --prefix client
 
 FROM node:22-alpine AS build
 WORKDIR /app
+ARG APP_BUILD_SHA=dev
+ENV APP_BUILD_SHA=${APP_BUILD_SHA}
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=deps /app/client/node_modules ./client/node_modules
 COPY server ./server
 COPY client ./client
 COPY shared ./shared
-RUN npm run build --prefix client
+COPY scripts/inject-app-build.mjs ./scripts/inject-app-build.mjs
+RUN node scripts/inject-app-build.mjs && npm run build --prefix client
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production

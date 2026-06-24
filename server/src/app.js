@@ -53,11 +53,13 @@ export function createApiApp({ dbConfigured, dbConnected }) {
         ? {
             directives: {
               defaultSrc: ["'self'"],
-              scriptSrc: ["'self'"],
-              styleSrc: ["'self'"],
+              scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
               imgSrc: ["'self'", "data:", "blob:"],
-              connectSrc: ["'self'"],
+              connectSrc: ["'self'", "blob:"],
               fontSrc: ["'self'", "data:"],
+              workerSrc: ["'self'", "blob:"],
+              frameSrc: ["'self'", "blob:"],
               objectSrc: ["'none'"],
               frameAncestors: ["'self'"],
               baseUri: ["'self'"],

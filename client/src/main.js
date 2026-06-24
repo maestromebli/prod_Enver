@@ -450,6 +450,7 @@ async function setTab(tab) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
   if (tab === CONSTRUCTOR_DESK_TAB) {
+    state.constructorDesk.selectedOrderId = null;
     state.constructorDesk.selectedPositionId = null;
     state.constructorDesk.detail = null;
     setLoading(true);

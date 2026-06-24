@@ -2,8 +2,10 @@ import { escapeHtml } from "./utils.js";
 import { api } from "./api.js";
 import {
   packageStatusLabel,
-  procurementStatusLabel
+  procurementStatusLabel,
+  cncJobStatusLabel
 } from "@enver/shared/production/constructive-package.js";
+import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
 
 export function renderFinancePanel(positionId, summary = null) {
   if (!summary) {
@@ -51,6 +53,46 @@ export async function loadFinanceSummary(positionId) {
 
 export async function loadProcurementSummary(positionId) {
   return api.getPositionProcurement(positionId);
+}
+
+export async function loadCncJobsSummary(positionId) {
+  try {
+    return await api.getPositionCncJobs(positionId);
+  } catch {
+    return [];
+  }
+}
+
+export function renderCncQueuePanel(jobs = []) {
+  if (!jobs.length) {
+    return `<section class="cnc-queue-panel"><p class="enver-meta">Черга ЧПК порожня — відправте пакет у GitLab або release CNC.</p></section>`;
+  }
+
+  const active = jobs.filter((j) => !["done", "cancelled"].includes(j.status)).length;
+  const rows = jobs
+    .slice(0, 40)
+    .map(
+      (j) => `
+    <tr class="cnc-status-${escapeHtml(j.status)}">
+      <td>${escapeHtml(j.blockCode || "—")} · ${escapeHtml(j.partNo || "—")}</td>
+      <td>${escapeHtml(j.partName || "—")}</td>
+      <td>${escapeHtml(cncJobStatusLabel(j.status))}</td>
+      <td><code>${escapeHtml(j.barcodeValue?.slice(-10) || "—")}</code></td>
+    </tr>`
+    )
+    .join("");
+
+  return `
+    <section class="cnc-queue-panel">
+      <h3 class="drawer-section-title">Черга ЧПК</h3>
+      <p class="enver-meta">${active} активних · ${jobs.length} загалом</p>
+      <div class="cp-parts-table-wrap">
+        <table class="cp-parts-table">
+          <thead><tr><th>Деталь</th><th>Назва</th><th>Статус</th><th>Код</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
 }
 
 const PROCUREMENT_ADVANCE = {
@@ -106,11 +148,17 @@ export function renderProcurementPanel(procurement = null, { canManage = false }
     </section>`;
 }
 
-export function renderConstructivePipelinePanel(detail, procurement = undefined) {
+export function renderConstructivePipelinePanel(detail, procurement = null, options = {}) {
   const pkg = detail?.package;
   if (!pkg) {
     return `<p class="enver-meta">Завантажте пакет конструктива у вкладці «Ще».</p>`;
   }
+
+  const review = buildConstructiveReviewSummary(detail);
+  const reviewBadge =
+    review.needsReview && detail.parts?.length
+      ? `<span class="cp-review-badge">Потрібна перевірка</span>`
+      : "";
 
   const partsList = (detail.parts || [])
     .slice(0, 50)
@@ -130,19 +178,21 @@ export function renderConstructivePipelinePanel(detail, procurement = undefined)
 
   return `
     <section class="constructive-pipeline-panel">
-      <p class="cp-status-lg">${escapeHtml(packageStatusLabel(pkg.status))} · v${pkg.version}</p>
+      <p class="cp-status-lg">${escapeHtml(packageStatusLabel(pkg.status))} · v${pkg.version} ${reviewBadge}</p>
       <p>${detail.parts?.length || 0} деталей · ${detail.unmappedParts?.length || 0} без 3D</p>
       <div class="cp-actions-inline">
+        <button type="button" class="btn btn-sm btn-primary" id="openConstructiveReviewBtn">Перевірка конструктива</button>
         <button type="button" class="btn btn-sm" id="openModelMappingBtn">Мапінг 3D деталей</button>
         <button type="button" class="btn btn-sm" id="analyzePackageAiBtn">ШІ-аналіз пакета</button>
       </div>
       <div id="packageAiResult" class="package-ai-result" hidden></div>
+      <div id="cncQueuePanelMount">${renderCncQueuePanel(options.cncJobs || [])}</div>
       <div class="cp-parts-table-wrap">
         <table class="cp-parts-table">
           <thead><tr><th>Блок</th><th>№</th><th>Назва</th><th>Матеріал</th><th>Розмір</th><th>Код</th><th>ЧПК</th></tr></thead>
           <tbody>${partsList || "<tr><td colspan='7'>Немає деталей — розберіть пакет</td></tr>"}</tbody>
         </table>
       </div>
-      <div id="procurementPanelMount">${renderProcurementPanel(procurement)}</div>
+      <div id="procurementPanelMount">${renderProcurementPanel(procurement, { canManage: options.canManageProcurement })}</div>
     </section>`;
 }

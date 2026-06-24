@@ -2,6 +2,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "../config.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -23,13 +24,16 @@ router.get("/info", requireAuth, requireAdmin, (req, res) => {
   const base = requestBaseUrl(req);
   const apkPath = androidApkPath();
   const available = fs.existsSync(apkPath);
+  const build = config.buildSha || "latest";
+  const cacheBust = available ? String(fs.statSync(apkPath).mtimeMs) : build;
 
   res.json({
     operatorUrl: `${base}/operator.html`,
     androidInstallUrl: `${base}/android-install.html`,
-    androidDownloadUrl: `${base}/downloads/${ANDROID_APK}`,
+    androidDownloadUrl: `${base}/downloads/${ANDROID_APK}?v=${encodeURIComponent(cacheBust)}`,
     androidDownloadAvailable: available,
     androidFileName: ANDROID_APK,
+    androidBuild: build,
     androidHint: "Завантажте APK і встановіть на планшет Android"
   });
 });
@@ -50,6 +54,8 @@ export function registerDownloadRoutes(app) {
       return;
     }
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.download(filePath, safe);
   });
 }

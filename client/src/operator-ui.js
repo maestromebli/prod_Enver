@@ -1,7 +1,9 @@
 /** Єдиний режим UI оператора: index.html, operator.html, PWA, APK. */
 
+import { isNativeOperatorShell } from "./operator-native.js";
+
 const BUILD_STORAGE_KEY = "enver_app_build";
-const INSTALLED_POLL_MS = 60_000;
+const INSTALLED_POLL_MS = 30_000;
 const BROWSER_POLL_MS = 5 * 60_000;
 const SW_UPDATE_POLL_MS = 60_000;
 
@@ -20,7 +22,7 @@ export function isCuttingOneScreen(stageKey) {
 
 /** PWA на головному екрані, fullscreen або Android WebView (APK). */
 export function isInstalledClient() {
-  if (window.EnverNative || /EnverOperator\/\d/i.test(navigator.userAgent)) return true;
+  if (isNativeOperatorShell()) return true;
   try {
     return (
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -44,10 +46,10 @@ export function initOperatorPwaShell() {
 
 export function setOperatorUiActive(active) {
   document.body?.classList.toggle("view-operator", active);
-  // operator.html: enver-operator-ui задано в розмітці, не знімаємо при виході
-  const isOperatorClient = document.body?.classList.contains("operator-client-mode");
-  if (!isOperatorClient) {
-    document.body?.classList.toggle("enver-operator-ui", active);
+  // operator.html: enver-operator-ui лише в розмітці operator.html (компактний tablet shell).
+  // У менеджерському index.html не додаємо — інакше operator-client.css ламає layout app shell.
+  if (!document.body?.classList.contains("operator-client-mode")) {
+    document.body?.classList.remove("enver-operator-ui");
   }
 }
 
@@ -102,6 +104,11 @@ export async function reloadIfAppBuildChanged() {
   return false;
 }
 
+/** Для Android WebView: виклик з onResume через window.__enverCheckForUpdates. */
+export function checkForAppUpdates() {
+  return reloadIfAppBuildChanged();
+}
+
 function shouldPollBuildNow() {
   return document.visibilityState === "visible" || isInstalledClient();
 }
@@ -116,14 +123,22 @@ export function watchAppBuildUpdates() {
   };
 
   document.addEventListener("visibilitychange", tick);
+  window.addEventListener("focus", tick);
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) tick();
+  });
 
   const pollMs = isInstalledClient() ? INSTALLED_POLL_MS : BROWSER_POLL_MS;
   setInterval(tick, pollMs);
   tick();
+
+  window.__enverCheckForUpdates = checkForAppUpdates;
 }
 
 /** Service worker для operator.html — мережевий кеш JS/CSS і автооновлення після деплою. */
 export function registerOperatorServiceWorker() {
+  // У WebView (APK) SW лише ускладнює кешування — оновлення через polling /api/health.
+  if (isNativeOperatorShell()) return;
   if (!("serviceWorker" in navigator)) return;
 
   let reloadingForSw = false;
@@ -134,7 +149,7 @@ export function registerOperatorServiceWorker() {
   });
 
   navigator.serviceWorker
-    .register("/sw-operator.js")
+    .register("/sw-operator.js", { updateViaCache: "none" })
     .then((reg) => {
       const checkUpdate = () => reg.update().catch(() => {});
       checkUpdate();

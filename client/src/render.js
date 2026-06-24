@@ -164,7 +164,7 @@ const TAB_META = {
   Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
   [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
-  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Призначення, LED, заміри та файли" },
+  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Замовлення на етапі конструктиву" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
   Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
   "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
@@ -183,6 +183,30 @@ function renderPageChrome() {
           [order.client, order.object].filter(Boolean).join(" · ") || "Позиції замовлення";
       }
       return;
+    }
+  }
+  if (state.activeTab === CONSTRUCTOR_DESK_TAB) {
+    if (state.constructorDesk.selectedPositionId && state.constructorDesk.detail?.position) {
+      const p = state.constructorDesk.detail.position;
+      if (title) title.textContent = `Стіл конструктора · ${p.orderNumber}`;
+      if (sub) sub.textContent = [p.item, p.object].filter(Boolean).join(" · ");
+      return;
+    }
+    if (state.constructorDesk.selectedOrderId != null) {
+      const order = state.constructorDesk.orders?.find(
+        (o) =>
+          o.orderId === state.constructorDesk.selectedOrderId ||
+          String(o.orderNumber) === String(state.constructorDesk.selectedOrderId)
+      );
+      if (order) {
+        if (title) title.textContent = order.orderNumber;
+        if (sub) {
+          sub.textContent =
+            [order.orderClient, order.object].filter(Boolean).join(" · ") ||
+            "Позиції у конструкторах";
+        }
+        return;
+      }
     }
   }
   if (title) title.textContent = state.activeTab;
@@ -331,7 +355,7 @@ export function renderHeaderChrome() {
   const gear = document.querySelector("#settingsGearBtn");
   const notifyBtn = document.querySelector("#notifySettingsBtn");
   const logout = document.querySelector("#logoutBtn");
-  const topbar = document.querySelector(".app-shell-main");
+  const appHeader = document.querySelector(".app-shell-header");
   const appRoot = document.querySelector("#appRoot");
   const toolbar = document.querySelector("#mainToolbar");
   const showMainChrome = state.view === "main";
@@ -340,6 +364,7 @@ export function renderHeaderChrome() {
 
   if (appRoot) {
     appRoot.classList.toggle("app-shell--focus", focusMode);
+    appRoot.classList.toggle("app-shell--operator", immersiveOperator);
   }
 
   if (chip) {
@@ -386,8 +411,8 @@ export function renderHeaderChrome() {
     opBtn.hidden = true;
   }
 
-  if (topbar) {
-    topbar.style.display = immersiveOperator ? "none" : "";
+  if (appHeader) {
+    appHeader.style.display = immersiveOperator ? "none" : "";
   }
   if (toolbar) {
     toolbar.style.display = showMainChrome ? "" : "none";

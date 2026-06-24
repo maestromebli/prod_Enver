@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
             textZoom = 100
+            // Завжди тягнути свіжий UI з сервера після деплою.
+            cacheMode = WebSettings.LOAD_NO_CACHE
             val ua = userAgentString.orEmpty()
             if (!ua.contains("EnverOperator/")) {
                 userAgentString = "$ua EnverOperator/1.0"
@@ -85,6 +88,16 @@ class MainActivity : AppCompatActivity() {
 
         val base = serverUrl.trimEnd('/')
         webView.loadUrl("$base/operator.html")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript(
+                "window.__enverCheckForUpdates && window.__enverCheckForUpdates()",
+                null
+            )
+        }
     }
 
     private fun showServerUrlDialog(onSaved: (String) -> Unit) {

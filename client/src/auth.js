@@ -100,6 +100,18 @@ export function canManageProcurement() {
   );
 }
 
+export function canReviewConstructive() {
+  return Boolean(
+    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canReviewConstructive
+  );
+}
+
+export function canApproveConstructive() {
+  return Boolean(
+    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canApproveConstructive
+  );
+}
+
 export function isSupervisorOperatorPanel() {
   if (!state.currentUser?.permissions?.canUseOperatorPanel) return false;
   return state.currentUser.role !== "operator";

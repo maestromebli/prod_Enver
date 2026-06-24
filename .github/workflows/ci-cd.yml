@@ -61,6 +61,7 @@ jobs:
 
       - name: Build APK
         run: |
+          sed -i "s/versionCode = [0-9]*/versionCode = ${{ github.run_number }}/" desktop/android/app/build.gradle.kts
           cd desktop/android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
@@ -105,6 +106,8 @@ jobs:
         with:
           context: .
           push: false
+          build-args: |
+            APP_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -114,6 +117,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            APP_BUILD_SHA=${{ github.sha }}
           tags: |
             ${{ steps.repo.outputs.name }}:latest
             ${{ steps.repo.outputs.name }}:${{ github.sha }}

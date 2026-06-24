@@ -6,9 +6,11 @@ import {
   buildInstanceBarcode,
   computeChecksum
 } from "../src/constructive/part-code.js";
+import { buildConstructiveReviewSummary } from "../../shared/production/constructive-review.js";
 import { packageGodmodeContextFromRow } from "../src/constructive-package-enrich.js";
 import { getPositionNextAction } from "../../shared/production/godmode.js";
 import { mergeParseResults } from "../src/constructive/parsers/index.js";
+import { autoMapManifestNodes } from "../src/constructive/constructive-package-service.js";
 import {
   getConstructivePackageNextAction,
   getConstructivePackageWarnings
@@ -179,5 +181,57 @@ describe("packageGodmodeContextFromRow", () => {
       { packageStatus: "uploaded", hasConstructivePackage: true }
     );
     assert.equal(action.type, "parse_constructive_package");
+  });
+});
+
+describe("autoMapManifestNodes", () => {
+  it("зіставляє деталь за partNo у meshName", () => {
+    const parts = [{ id: 1, blockCode: "B1", partNo: "21", partName: "Бік" }];
+    const nodes = [{ meshName: "B1-21", partNo: "21" }];
+    const mapped = autoMapManifestNodes(parts, nodes);
+    assert.equal(mapped.length, 1);
+    assert.equal(mapped[0].partId, 1);
+  });
+
+  it("mergeParseResults збирає manifestNodes з блоків PDF", () => {
+    const merged = mergeParseResults([
+      {
+        blocks: [{ code: "B1" }],
+        parts: [{ blockCode: "B1", partNo: "3", partName: "Полиця" }],
+        extractionQuality: "partial"
+      }
+    ]);
+    assert.ok(merged.manifestNodes.some((n) => n.meshName === "B1"));
+    assert.ok(merged.manifestNodes.some((n) => n.partNo === "3"));
+  });
+});
+
+describe("buildConstructiveReviewSummary", () => {
+  it("виявляє відсутність PDF і XLS", () => {
+    const summary = buildConstructiveReviewSummary({
+      package: { status: "parsed" },
+      files: [],
+      parts: [{ blockCode: "B1", partNo: "1", partName: "Бік", material: "ДСП" }],
+      materials: [],
+      hardware: []
+    });
+    assert.equal(summary.checks.find((c) => c.key === "pdf")?.ok, false);
+    assert.equal(summary.checks.find((c) => c.key === "xls")?.ok, false);
+    assert.ok(summary.warnings.some((w) => w.includes("PDF")));
+  });
+
+  it("readyForReview коли є parts і файли", () => {
+    const summary = buildConstructiveReviewSummary({
+      package: { status: "parsed" },
+      files: [
+        { kind: "assembly_pdf", originalName: "a.pdf" },
+        { kind: "spec_xls", originalName: "b.xls" }
+      ],
+      parts: [{ blockCode: "B1", partNo: "1", partName: "Бік", material: "ДСП" }],
+      materials: [{ materialName: "ДСП" }],
+      hardware: []
+    });
+    assert.equal(summary.readyForReview, true);
+    assert.equal(summary.counts.parts, 1);
   });
 });

@@ -115,6 +115,22 @@ export function procurementStatusLabel(status) {
   return PROCUREMENT_STATUS_LABELS[status] || status || "—";
 }
 
+export const CNC_JOB_STATUS_LABELS = {
+  waiting: "Очікує",
+  ready: "Готово",
+  sent_to_gitlab: "У GitLab",
+  at_machine: "На верстаті",
+  in_progress: "В роботі",
+  paused: "Пауза",
+  done: "Готово",
+  problem: "Проблема",
+  cancelled: "Скасовано"
+};
+
+export function cncJobStatusLabel(status) {
+  return CNC_JOB_STATUS_LABELS[status] || status || "—";
+}
+
 /** Людські підписи статусів пакета. */
 export const PACKAGE_STATUS_LABELS = {
   uploaded: "Завантажено",

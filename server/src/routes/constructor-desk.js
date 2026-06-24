@@ -7,6 +7,7 @@ import {
   getDeskFileForDownload,
   getDeskPosition,
   listConstructorUsers,
+  listDeskOrders,
   listDeskPositions,
   saveDeskWorkspace,
   suggestTimingForPosition,
@@ -26,6 +27,11 @@ function requireDeskAccess(req, res, next) {
 }
 
 router.use(requireDeskAccess);
+
+router.get("/orders", async (req, res) => {
+  const onlyMine = req.query.mine === "1";
+  res.json(await listDeskOrders(req.user, { onlyMine }));
+});
 
 router.get("/positions", async (req, res) => {
   const onlyMine = req.query.mine === "1";
