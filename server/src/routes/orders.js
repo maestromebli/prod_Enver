@@ -3,7 +3,12 @@ import { all, one, run, withTransaction } from "../db.js";
 import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
-import { ensureOrderRootPosition, syncOrderStatusWorkflow } from "../order-status-sync.js";
+import {
+  createOrderSubPositions,
+  ensureOrderRootPosition,
+  syncOrderStatusWorkflow
+} from "../order-status-sync.js";
+import { normalizeOrderSubItems } from "../order-status-workflow.js";
 const router = Router();
 router.use(requireAuth);
 
@@ -17,6 +22,7 @@ async function archiveOrderPositions(orderId) {
       edging_status = 'Готово',
       drilling_status = 'Готово',
       assembly_status = 'Готово',
+      packaging_status = 'Готово',
       position_status = 'Завершено',
       progress = 100,
       overdue_days = 0
@@ -59,8 +65,13 @@ router.post("/", requireOrderWrite, async (req, res) => {
       { order_id: inserted.id, order_number: data.order_number, object: data.object }
     );
     await logOrderCreate(inserted, auditActor(req));
-    await ensureOrderRootPosition(inserted, { actor: auditActor(req) });
-    await syncOrderStatusWorkflow(inserted, { actor: auditActor(req) });
+    const actor = auditActor(req);
+    const { root } = await ensureOrderRootPosition(inserted, { actor });
+    await syncOrderStatusWorkflow(inserted, { actor });
+    const subItems = normalizeOrderSubItems(req.body);
+    if (subItems.length && root) {
+      await createOrderSubPositions(inserted, root, subItems, { actor });
+    }
     res.status(201).json(mapOrder(inserted));
   } catch (err) {
     if (err.code === PG_UNIQUE_VIOLATION) {

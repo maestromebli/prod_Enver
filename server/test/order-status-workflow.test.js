@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyStageHandoff } from "../src/position-logic.js";
-import { applyOrderStatusPreset, orderStatusStagePreset } from "../src/order-status-workflow.js";
+import {
+  applyOrderStatusPreset,
+  defaultPositionRow,
+  defaultSubPositionRow,
+  normalizeOrderSubItems,
+  orderStatusStagePreset
+} from "../src/order-status-workflow.js";
 
 describe("applyStageHandoff", () => {
   it("після «Готово» на порізці передає крайкування", () => {
@@ -44,5 +50,28 @@ describe("orderStatusStagePreset", () => {
     );
     assert.equal(row.cutting_status, "Передано");
     assert.equal(row.edging_status, "Не розпочато");
+  });
+});
+
+describe("defaultPositionRow", () => {
+  it("містить packaging_status і has_constructive_file для INSERT", () => {
+    const row = defaultPositionRow({ id: 1, order_number: "T-1", object: "Об'єкт" }, 10);
+    assert.equal(row.packaging_status, "Не розпочато");
+    assert.equal(row.has_constructive_file, false);
+
+    const sub = defaultSubPositionRow(
+      { id: 1, order_number: "T-1", object: "ЖК Ліпінка" },
+      { id: 10 },
+      11,
+      "Кухня"
+    );
+    assert.equal(sub.parent_id, 10);
+    assert.equal(sub.item, "Кухня");
+    assert.equal(sub.item_type, "Зона");
+
+    assert.deepEqual(normalizeOrderSubItems({ subItems: ["кухня", "  кухня ", "", "Вітальня"] }), [
+      "кухня",
+      "Вітальня"
+    ]);
   });
 });

@@ -30,6 +30,21 @@ const BASE_COLUMNS = [
   "has_constructive_file"
 ];
 
+/** Дефолти для NOT NULL колонок — щоб INSERT не падав при undefined. */
+const INSERT_DEFAULTS = {
+  parent_id: null,
+  order_id: null,
+  packaging_status: "Не розпочато",
+  cutting_status: "Не розпочато",
+  edging_status: "Не розпочато",
+  drilling_status: "Не розпочато",
+  assembly_status: "Не розпочато",
+  position_status: "Не розпочато",
+  progress: 0,
+  overdue_days: 0,
+  has_constructive_file: false
+};
+
 function insertSql(columns) {
   const names = columns.join(", ");
   const params = columns.map((c) => `@${c}`).join(", ");
@@ -39,7 +54,14 @@ function insertSql(columns) {
 function pickRow(row, columns) {
   const out = {};
   for (const col of columns) {
-    out[col] = row[col];
+    const raw = row[col];
+    if (raw !== undefined && raw !== null) {
+      out[col] = raw;
+    } else if (Object.hasOwn(INSERT_DEFAULTS, col)) {
+      out[col] = INSERT_DEFAULTS[col];
+    } else {
+      out[col] = "";
+    }
   }
   return out;
 }

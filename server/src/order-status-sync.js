@@ -7,6 +7,7 @@ import {
   ORDER_STATUSES_NEED_POSITION,
   applyOrderStatusPreset,
   defaultPositionRow,
+  defaultSubPositionRow,
   orderStatusStagePreset,
   positionStagesChanged
 } from "./order-status-workflow.js";
@@ -65,4 +66,24 @@ export async function syncOrderStatusWorkflow(orderRow, { actor = null } = {}) {
   }
 
   return { created, updated };
+}
+
+/** Створює підпозиції (зони / вироби) під основною позицією замовлення. */
+export async function createOrderSubPositions(orderRow, rootRow, itemNames, { actor = null } = {}) {
+  if (!rootRow?.id || !itemNames?.length) return { created: 0 };
+
+  const planDate = orderRow.plan_date || "";
+  let created = 0;
+
+  for (const itemName of itemNames) {
+    const id = await nextPositionId();
+    const inserted = await insertPositionRow(
+      defaultSubPositionRow(orderRow, rootRow, id, itemName),
+      planDate
+    );
+    await logPositionCreate(inserted, actor);
+    created += 1;
+  }
+
+  return { created };
 }

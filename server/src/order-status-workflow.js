@@ -39,6 +39,7 @@ export function defaultPositionRow(orderRow, id) {
     edging_status: "Не розпочато",
     drilling_status: "Не розпочато",
     assembly_status: "Не розпочато",
+    packaging_status: "Не розпочато",
     assembly_responsible: "",
     ready_date: "",
     install_date: "",
@@ -50,8 +51,36 @@ export function defaultPositionRow(orderRow, id) {
     progress: 0,
     overdue_days: 0,
     problem: "",
-    note: ""
+    note: "",
+    has_constructive_file: false
   };
+}
+
+/** Підпозиція (зона / виріб) під основною позицією замовлення. */
+export function defaultSubPositionRow(orderRow, rootRow, id, itemName) {
+  const name = String(itemName || "").trim();
+  return {
+    ...defaultPositionRow(orderRow, id),
+    parent_id: rootRow.id,
+    item: name,
+    item_type: "Зона"
+  };
+}
+
+/** Нормалізує список підпунктів з тіла запиту (рядки або { item }). */
+export function normalizeOrderSubItems(body) {
+  const raw = body?.subItems ?? body?.subItemNames ?? [];
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const entry of raw) {
+    const name = (typeof entry === "string" ? entry : entry?.item)?.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+    if (out.length >= 40) break;
+  }
+  return out;
 }
 
 export function positionStagesChanged(before, after) {
