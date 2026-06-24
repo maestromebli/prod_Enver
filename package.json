@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
-    "dev": "npm run dev --prefix server",
+    "dev": "npm run migrate --prefix server && npm run dev --prefix server",
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
     "dev:db:down": "docker compose -f docker-compose.dev.yml down",
     "build": "npm run build --prefix client",

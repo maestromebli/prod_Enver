@@ -120,8 +120,11 @@ export function createApiApp({ dbConfigured, dbConnected }) {
     });
     const status = Number.isInteger(err?.status) ? err.status : 500;
     const code = err?.code || (status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR");
-    const message =
+    let message =
       status >= 500 && !err?.expose ? "Внутрішня помилка сервера" : err?.message || "Помилка";
+    if (!config.isProduction && code === "42703") {
+      message = "Схема БД застаріла — запустіть npm run migrate у корені проєкту.";
+    }
     res.status(status).json(apiError(code, message));
   });
 
