@@ -7,6 +7,7 @@ import {
   operatorStages,
   refreshCurrentUser
 } from "./auth.js";
+import { wireAppRenderBus } from "./app-bus.js";
 import {
   confirmKioskBeforeLogout,
   enableOperatorKiosk,
@@ -18,11 +19,13 @@ import {
   loadOperatorData,
   loadOperatorJobDetail,
   openOperatorView,
+  bindOperatorQueueSwipe,
   renderOperatorView
 } from "./operator-panel.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
+  initOperatorPwaShell,
   setOperatorUiActive,
   syncOperatorBuildChip,
   watchAppBuildUpdates
@@ -69,6 +72,7 @@ function renderOperatorClient() {
   setOperatorUiActive(true);
   const content = $("#content");
   if (content) content.innerHTML = renderOperatorView();
+  bindOperatorQueueSwipe();
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
 }
@@ -137,9 +141,7 @@ async function afterOperatorLogin() {
   await enableOperatorKiosk();
 }
 
-window.__enverRender = () => {
-  renderOperatorClient();
-};
+wireAppRenderBus(renderOperatorClient);
 
 bindOperatorActions(() => renderOperatorClient());
 
@@ -203,6 +205,7 @@ async function bootstrap() {
 }
 
 async function startOperatorApp() {
+  initOperatorPwaShell();
   registerOperatorServiceWorker();
   watchAppBuildUpdates();
   if (await reloadIfAppBuildChanged()) return;

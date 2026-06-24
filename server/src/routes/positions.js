@@ -22,19 +22,16 @@ import {
 } from "../operator-sessions.js";
 import { nextPositionId } from "../db/position-id.js";
 import { insertPosition, updatePositionFull } from "../db/position-persistence.js";
-import { saveConstructiveFile, resolveStoredPath } from "../file-storage.js";
 import {
   AI_COUNT_SUBQUERY,
   ACTIVE_SESSION_SUBQUERY,
   enrichAndMapPosition
 } from "../godmode-enrich.js";
-import { canRunNextAction, getPositionNextAction } from "../../../shared/production/godmode.js";
-import { STAGE_STATUS_FIELD as GODMODE_STAGE_FIELD } from "../../../shared/production/stages.js";
-import { recordHistory, SYSTEM_ACTOR } from "../audit.js";
-import fs from "fs";
 import QRCode from "qrcode";
 import { buildOperatorDeepLink } from "../qr-link.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
+import { registerConstructiveRoutes } from "./positions/constructive-routes.js";
+import { registerNextActionRoutes } from "./positions/next-action-routes.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -64,15 +61,6 @@ const POSITION_SELECT = `SELECT p.*,
   ${AI_COUNT_SUBQUERY},
   ${ACTIVE_SESSION_SUBQUERY}
  FROM positions p`;
-
-const HANDOFF_MUTATIONS = {
-  handoff_to_cutting: { checkConstructive: true, target: "cutting", value: "Передано" },
-  handoff_to_edging: { prerequisite: "cutting", target: "edging", value: "Передано" },
-  handoff_to_drilling: { prerequisite: "edging", target: "drilling", value: "Передано" },
-  handoff_to_assembly: { prerequisite: "drilling", target: "assembly", value: "Передано" },
-  handoff_to_packaging: { prerequisite: "assembly", target: "packaging", value: "Передано" },
-  ready_for_install: { prerequisite: "packaging", target: null, value: null }
-};
 
 async function loadRow(id) {
   return one(`${POSITION_SELECT} WHERE p.id = $1`, [id]);
@@ -126,6 +114,10 @@ async function resolveOrderLink(data) {
   return data;
 }
 
+const routeCtx = { loadRow, saveRow, planDateByOrderNumber, mapEnrichedRow };
+registerNextActionRoutes(router, routeCtx);
+registerConstructiveRoutes(router, routeCtx);
+
 router.get("/", async (_req, res) => {
   const planMap = await planDateByOrderNumber();
   const rows = await all(
@@ -177,121 +169,6 @@ router.get("/:id", async (req, res) => {
       now: new Date()
     })
   );
-});
-
-router.post("/:id/run-next-action", requirePositionWrite, async (req, res) => {
-  const id = Number(req.params.id);
-  const beforeRow = await loadRow(id);
-  if (!beforeRow) {
-    res.status(404).json({ error: "Позицію не знайдено" });
-    return;
-  }
-
-  const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(beforeRow.order_number);
-  const enriched = enrichPositionRow(beforeRow, { planDate });
-  const ctx = {
-    planDate,
-    hasAiAnalysis: Number(beforeRow.ai_analysis_count) > 0,
-    hasActiveOperatorSession: Number(beforeRow.active_operator_sessions) > 0
-  };
-  const nextAction = getPositionNextAction(enriched, ctx);
-  const requestedType = req.body?.actionType || nextAction.type;
-
-  if (requestedType !== nextAction.type) {
-    res.status(400).json({
-      error: "Зараз доступна інша дія.",
-      nextAction
-    });
-    return;
-  }
-
-  const permission = canRunNextAction(enriched, nextAction, req.user, ctx);
-  if (!permission.allowed) {
-    res.status(permission.code === "ACTION_REQUIRES_INPUT" ? 422 : 403).json({
-      code: permission.code || "NOT_ALLOWED",
-      error: permission.reason || "Цю дію зараз неможливо виконати."
-    });
-    return;
-  }
-
-  const mutation = HANDOFF_MUTATIONS[requestedType];
-  if (!mutation) {
-    res.status(422).json({
-      code: "ACTION_REQUIRES_INPUT",
-      error: permission.reason || "Для цього потрібно виконати дію в інтерфейсі."
-    });
-    return;
-  }
-
-  const existing = { ...beforeRow };
-  if (mutation.checkConstructive && !existing.has_constructive_file) {
-    res.status(400).json({ error: "Потрібно завантажити конструктив." });
-    return;
-  }
-
-  if (mutation.target) {
-    const field = GODMODE_STAGE_FIELD[mutation.target];
-    if (mutation.prerequisite) {
-      const prereqField = GODMODE_STAGE_FIELD[mutation.prerequisite];
-      const prereqStatus = existing[prereqField];
-      if (prereqStatus !== "Готово" && prereqStatus !== "Не потрібно") {
-        res.status(400).json({
-          error: `Спочатку завершіть етап «${mutation.prerequisite}».`
-        });
-        return;
-      }
-    }
-    if (!existing[field] || existing[field] === "Не розпочато") {
-      existing[field] = mutation.value;
-    }
-  } else if (mutation.prerequisite) {
-    const prereqField = GODMODE_STAGE_FIELD[mutation.prerequisite];
-    const prereqStatus = existing[prereqField];
-    if (prereqStatus !== "Готово" && prereqStatus !== "Не потрібно") {
-      res.status(400).json({ error: "Спочатку завершіть пакування." });
-      return;
-    }
-  }
-
-  await saveRow(id, existing, planDate);
-  const afterRow = await loadRow(id);
-  const stageLabel = mutation.target
-    ? {
-        cutting: "Порізку",
-        edging: "Крайкування",
-        drilling: "Присадку",
-        assembly: "Збірку",
-        packaging: "Пакування"
-      }[mutation.target] || mutation.target
-    : "встановлення";
-
-  await recordHistory({
-    entityType: "position",
-    entityId: id,
-    action: requestedType === "ready_for_install" ? "update" : "auto_handoff",
-    changes: mutation.target
-      ? [
-          {
-            field: mutation.target,
-            label: stageLabel,
-            oldValue: beforeRow[GODMODE_STAGE_FIELD[mutation.target]] || "Не розпочато",
-            newValue: mutation.value
-          }
-        ]
-      : [],
-    meta: {
-      orderNumber: afterRow.order_number,
-      item: afterRow.item,
-      summary:
-        requestedType === "ready_for_install"
-          ? `Позиція #${id} готова до встановлення.`
-          : `Позиція #${id} передана на ${stageLabel.toLowerCase()}.`
-    },
-    actor: auditActor(req) || SYSTEM_ACTOR
-  });
-
-  res.json(mapEnrichedRow(afterRow, planMap));
 });
 
 router.post("/", requirePositionWrite, async (req, res) => {
@@ -448,95 +325,6 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
     autoHandoffs
   );
   res.json(mapEnrichedRow(afterRow, planMap));
-});
-
-router.post("/:id/constructive-file", requirePositionWrite, async (req, res) => {
-  const id = Number(req.params.id);
-  const existing = await loadRow(id);
-  if (!existing) {
-    res.status(404).json({ error: "Позицію не знайдено" });
-    return;
-  }
-
-  const { fileName, mime, dataBase64 } = req.body || {};
-  if (!fileName || !dataBase64) {
-    res.status(400).json({ error: "fileName та dataBase64 обов'язкові" });
-    return;
-  }
-
-  let buffer;
-  try {
-    buffer = Buffer.from(String(dataBase64), "base64");
-  } catch {
-    res.status(400).json({ error: "Некоректні дані файлу" });
-    return;
-  }
-  if (buffer.length > 8 * 1024 * 1024) {
-    res.status(400).json({ error: "Файл завеликий (макс. 8 МБ)" });
-    return;
-  }
-
-  const saved = await saveConstructiveFile(id, {
-    buffer,
-    originalName: fileName,
-    mime: mime || "application/octet-stream"
-  });
-
-  const fileRow = await one(
-    `INSERT INTO position_files (position_id, kind, original_name, storage_path, mime, size_bytes, uploaded_by)
-     VALUES ($1, 'constructive', $2, $3, $4, $5, $6)
-     RETURNING id`,
-    [id, saved.originalName, saved.storagePath, saved.mime, saved.size, auditActor(req)?.id || null]
-  );
-
-  const before = { ...existing };
-  existing.has_constructive_file = true;
-  const handedOff = applyStageHandoff(existing, "constructor", { status: "Передано" });
-
-  const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(existing.order_number);
-  await saveRow(id, handedOff, planDate);
-  const afterRow = await loadRow(id);
-  const autoHandoffs = detectAutoHandoffs(before, afterRow, "constructor");
-  await logStageChangeWithAutoHandoffs(
-    before,
-    afterRow,
-    "constructor",
-    { status: "Передано" },
-    auditActor(req),
-    autoHandoffs
-  );
-
-  res.status(201).json({
-    fileId: fileRow.id,
-    fileName: saved.originalName,
-    position: mapEnrichedRow({ ...afterRow, constructive_file_name: saved.originalName }, planMap)
-  });
-});
-
-router.get("/:id/constructive-file", async (req, res) => {
-  const id = Number(req.params.id);
-  const file = await one(
-    `SELECT * FROM position_files
-     WHERE position_id = $1 AND kind = 'constructive'
-     ORDER BY created_at DESC LIMIT 1`,
-    [id]
-  );
-  if (!file) {
-    res.status(404).json({ error: "Файл не знайдено" });
-    return;
-  }
-  const fullPath = resolveStoredPath(file.storage_path);
-  if (!fs.existsSync(fullPath)) {
-    res.status(404).json({ error: "Файл відсутній на диску" });
-    return;
-  }
-  res.setHeader("Content-Type", file.mime || "application/octet-stream");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${encodeURIComponent(file.original_name)}"`
-  );
-  fs.createReadStream(fullPath).pipe(res);
 });
 
 router.post("/:id/create-tasks", requirePositionWrite, async (req, res) => {

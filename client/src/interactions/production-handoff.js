@@ -48,7 +48,7 @@ export function resolveProductionDrop(position, targetStageKey, user) {
 
   return {
     ok: false,
-    reason: `Неможливо передати з «${stageLabel(current)}» на «${stageLabel(targetStageKey)}»`
+    reason: "Цю позицію ще не можна передати на цей етап."
   };
 }
 

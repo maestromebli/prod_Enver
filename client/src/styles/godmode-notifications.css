@@ -1,5 +1,10 @@
+#notifySettingsBtn {
+  display: none !important;
+}
 .gn-wrap {
   position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
 }
 .gn-bell {
   position: relative;
@@ -20,6 +25,8 @@
   text-align: center;
 }
 .gn-panel {
+  position: fixed;
+  margin: 0;
   width: min(360px, 92vw);
   max-height: min(420px, calc(100dvh - 96px));
   background: var(--surface-elevated, #fff);
@@ -44,6 +51,8 @@
 .gn-panel-foot {
   border-bottom: none;
   border-top: 1px solid var(--border-subtle, #e2e8f0);
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .gn-panel-body {
   overflow: auto;

@@ -169,7 +169,7 @@ function stageIdleDays(row, stageKey, context) {
   const started = ts instanceof Date ? ts : new Date(ts);
   if (Number.isNaN(started.getTime())) return 0;
   const now = context?.now instanceof Date ? context.now : new Date();
-  return Math.floor((now - started) / 86400000);
+  return Math.floor((now.getTime() - started.getTime()) / 86400000);
 }
 
 /** Попередження для позиції. */

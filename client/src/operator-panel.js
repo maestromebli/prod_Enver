@@ -21,6 +21,15 @@ import { isCuttingOneScreen } from "./operator-ui.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
+import { createSwipeActions } from "./interactions/gestures.js";
+
+const PROBLEM_PRESETS = [
+  "Немає матеріалу",
+  "Помилка розміру",
+  "Немає фурнітури",
+  "Пошкодження",
+  "Інше"
+];
 
 const FINISH_MESSAGES = {
   cutting: "Готово. Позицію передано на крайкування.",
@@ -69,6 +78,8 @@ export function openOperatorView(stageKey) {
 }
 
 export async function enterOperatorView(stageKey) {
+  const { ensureOperatorStyles } = await import("./operator-styles.js");
+  await ensureOperatorStyles();
   openOperatorView(stageKey);
   try {
     await loadOperatorData();
@@ -92,20 +103,25 @@ export async function loadOperatorData() {
   const stageKey = state.operatorStage;
   if (!stageKey) return;
 
-  const data = await api.getOperatorQueue(stageKey);
-  state.operatorQueue = data.queue || [];
-  state.operatorLoadError = "";
-  initializeOperatorStageBaseline(stageKey, state.operatorQueue);
-  await emitRoleNotifications(
-    reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue })
-  );
-  state.operatorActiveSession = data.activeSession;
+  state.operatorQueueLoading = true;
+  try {
+    const data = await api.getOperatorQueue(stageKey);
+    state.operatorQueue = data.queue || [];
+    state.operatorLoadError = "";
+    initializeOperatorStageBaseline(stageKey, state.operatorQueue);
+    await emitRoleNotifications(
+      reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue })
+    );
+    state.operatorActiveSession = data.activeSession;
 
-  if (data.activeSession?.position_id) {
-    state.operatorSelectedPositionId = data.activeSession.position_id;
-    await loadOperatorJobDetail(data.activeSession.position_id);
-  } else {
-    state.operatorJobDetail = null;
+    if (data.activeSession?.position_id) {
+      state.operatorSelectedPositionId = data.activeSession.position_id;
+      await loadOperatorJobDetail(data.activeSession.position_id);
+    } else {
+      state.operatorJobDetail = null;
+    }
+  } finally {
+    state.operatorQueueLoading = false;
   }
 }
 
@@ -297,6 +313,14 @@ function renderJobMeta() {
     </section>`;
 }
 
+function operatorQueueSkeleton() {
+  return `<div class="op-queue-skeleton" aria-busy="true">
+    ${Array.from({ length: 4 })
+      .map(() => '<div class="enver-skeleton op-skeleton-card"></div>')
+      .join("")}
+  </div>`;
+}
+
 function renderQueueItem(p, field, freshIds) {
   const status = p[field];
   const active = p.id === state.operatorSelectedPositionId;
@@ -305,8 +329,14 @@ function renderQueueItem(p, field, freshIds) {
   const locked = blocking && p.id !== activeSessionPositionId();
 
   return `
+    <div class="op-queue-swipe enver-swipe-host" data-queue-wrap="${p.id}">
+      <div class="enver-swipe-reveal" aria-hidden="true">
+        <span class="enver-swipe-action enver-swipe-action--right">${working ? "Готово" : "Почати"}</span>
+        <span class="enver-swipe-action enver-swipe-action--left">Проблема</span>
+      </div>
+      <div class="enver-swipe-inner">
     <button type="button"
-      class="op-queue-card ${active ? "is-active" : ""} ${working ? "is-working" : ""} ${locked ? "is-locked" : ""} ${freshIds.has(Number(p.id)) ? "is-fresh" : ""}"
+      class="op-queue-card enver-pressable ${active ? "is-active" : ""} ${working ? "is-working" : ""} ${locked ? "is-locked" : ""} ${freshIds.has(Number(p.id)) ? "is-fresh" : ""}"
       data-select-position="${p.id}" ${locked ? "disabled" : ""}>
       <div class="op-queue-card-top">
         <span class="op-queue-num">#${p.id}</span>
@@ -316,7 +346,9 @@ function renderQueueItem(p, field, freshIds) {
       <span class="op-queue-order">${escapeHtml(p.orderNumber)}</span>
       <span class="op-queue-item">${escapeHtml(p.item)}</span>
       <div class="op-queue-footer">${badge(status)} · ${p.progress || 0}%</div>
-    </button>`;
+    </button>
+      </div>
+    </div>`;
 }
 
 export function renderOperatorView() {
@@ -392,7 +424,16 @@ export function renderOperatorView() {
         <aside class="op-queue-panel">
           <div class="op-panel-head"><h2>Черга</h2><span class="op-count-badge">${state.operatorQueue.length}</span></div>
           ${freshQueueIds.size ? `<button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими (${freshQueueIds.size})</button>` : ""}
-          <div class="op-queue-list">${queueItems || renderSmartEmptyState({ icon: "🎯", title: "Черга порожня", text: "Нових задач на цьому етапі поки немає — перевірте пізніше або оберіть інший етап." })}</div>
+          <div class="op-queue-list">${
+            state.operatorQueueLoading && !state.operatorQueue.length
+              ? operatorQueueSkeleton()
+              : queueItems ||
+                renderSmartEmptyState({
+                  icon: "🎯",
+                  title: "Черга порожня",
+                  text: "Нових задач на цьому етапі поки немає — перевірте пізніше або оберіть інший етап."
+                })
+          }</div>
         </aside>
 
         <main class="op-work-panel">
@@ -417,19 +458,26 @@ export function renderOperatorView() {
           }
 
           <div class="op-action-bar">
-            <button type="button" class="op-action-btn op-action-btn--start" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
-            <button type="button" class="op-action-btn op-action-btn--pause" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>${canResume() ? "Продовжити" : "Пауза"}</button>
-            <button type="button" class="op-action-btn op-action-btn--finish" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>Закінчив</button>
-            <button type="button" class="op-action-btn op-action-btn--problem" id="operatorProblemBtn" ${canReportProblem() ? "" : "disabled"}>Проблема</button>
+            <button type="button" class="op-action-btn op-action-btn--start enver-pressable" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
+            <button type="button" class="op-action-btn op-action-btn--pause enver-pressable" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>${canResume() ? "Продовжити" : "Пауза"}</button>
+            <button type="button" class="op-action-btn op-action-btn--finish enver-pressable" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>Закінчив</button>
+            <button type="button" class="op-action-btn op-action-btn--problem enver-pressable" id="operatorProblemBtn" ${canReportProblem() ? "" : "disabled"}>Проблема</button>
           </div>
-          <form class="op-problem-form" id="operatorProblemForm" hidden>
-            <label for="operatorProblemInput">Опишіть проблему <span aria-hidden="true">*</span></label>
-            <textarea id="operatorProblemInput" rows="3" required placeholder="Що сталося на етапі?"></textarea>
-            <div class="op-problem-form-actions">
-              <button type="button" class="op-btn-ghost" id="operatorProblemCancel">Скасувати</button>
-              <button type="submit" class="op-action-btn op-action-btn--problem" id="operatorProblemSubmit">Надіслати</button>
+          <div class="op-problem-sheet" id="operatorProblemSheet" hidden aria-hidden="true">
+            <button type="button" class="op-problem-sheet-backdrop" id="operatorProblemBackdrop" aria-label="Закрити"></button>
+            <div class="op-problem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="opProblemTitle">
+              <h3 id="opProblemTitle" class="op-problem-sheet-title">Що сталося?</h3>
+              <div class="op-problem-presets">
+                ${PROBLEM_PRESETS.map((label) => `<button type="button" class="op-problem-preset enver-pressable" data-problem-preset="${escapeHtml(label)}">${escapeHtml(label)}</button>`).join("")}
+              </div>
+              <label class="op-problem-custom-label" for="operatorProblemInput">Коментар</label>
+              <textarea id="operatorProblemInput" rows="3" placeholder="Коротко опишіть проблему…"></textarea>
+              <div class="op-problem-sheet-actions">
+                <button type="button" class="op-btn-ghost enver-pressable" id="operatorProblemCancel">Скасувати</button>
+                <button type="button" class="op-action-btn op-action-btn--problem enver-pressable" id="operatorProblemSubmit">Надіслати</button>
+              </div>
             </div>
-          </form>
+          </div>
           ${inWork && isSessionPaused() ? '<p class="op-hint">Завдання на паузі</p>' : ""}
         </main>
       </div>
@@ -439,6 +487,71 @@ export function renderOperatorView() {
 let operatorActionsBound = false;
 let operatorOnChange = () => {};
 let operatorStageSwitchSeq = 0;
+let problemSheetReturnFocus = null;
+const operatorSwipeCleanups = [];
+
+export function isOperatorProblemSheetOpen() {
+  const sheet = document.querySelector("#operatorProblemSheet");
+  return Boolean(sheet && !sheet.hidden);
+}
+
+export function closeOperatorProblemSheet() {
+  closeProblemSheet();
+}
+
+function openProblemSheet() {
+  const sheet = document.querySelector("#operatorProblemSheet");
+  const input = document.querySelector("#operatorProblemInput");
+  if (!sheet) return;
+  problemSheetReturnFocus = document.activeElement;
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+}
+
+function closeProblemSheet() {
+  const sheet = document.querySelector("#operatorProblemSheet");
+  if (!sheet) return;
+  sheet.hidden = true;
+  sheet.setAttribute("aria-hidden", "true");
+  if (problemSheetReturnFocus?.focus) {
+    problemSheetReturnFocus.focus();
+    problemSheetReturnFocus = null;
+  }
+}
+
+export function bindOperatorQueueSwipe() {
+  operatorSwipeCleanups.forEach((fn) => fn());
+  operatorSwipeCleanups.length = 0;
+  if (!window.matchMedia("(pointer: coarse)").matches) return;
+
+  document.querySelectorAll(".op-queue-swipe").forEach((wrap) => {
+    const id = Number(wrap.dataset.queueWrap);
+    const ctl = createSwipeActions(wrap, {
+      onSwipeRight: async () => {
+        state.operatorSelectedPositionId = id;
+        await loadOperatorJobDetail(id);
+        if (canStart()) {
+          document.querySelector("#operatorStartBtn")?.click();
+        } else if (canFinish()) {
+          document.querySelector("#operatorFinishBtn")?.click();
+        }
+        operatorOnChange();
+      },
+      onSwipeLeft: () => {
+        state.operatorSelectedPositionId = id;
+        void loadOperatorJobDetail(id).then(() => {
+          openProblemSheet();
+          operatorOnChange();
+        });
+      }
+    });
+    operatorSwipeCleanups.push(() => ctl.destroy());
+  });
+}
 
 export function bindOperatorActions(onChange) {
   operatorOnChange = onChange;
@@ -479,6 +592,7 @@ export function bindOperatorActions(onChange) {
     }
     const posBtn = e.target.closest("[data-select-position]");
     if (posBtn) {
+      if (posBtn.closest(".op-queue-swipe")?.dataset.swipeHandled) return;
       if (
         activeSessionPositionId() &&
         Number(posBtn.dataset.selectPosition) !== activeSessionPositionId()
@@ -502,7 +616,9 @@ export function bindOperatorActions(onChange) {
     });
 
     if (e.target.closest("#operatorStartBtn") && canStart()) {
+      const btn = document.querySelector("#operatorStartBtn");
       await runSave("Завдання", {
+        submitEl: btn,
         saveFn: () => api.operatorStart(payload()),
         successMessage: "Роботу розпочато",
         onSuccess: async () => {
@@ -512,8 +628,10 @@ export function bindOperatorActions(onChange) {
       }).catch(() => {});
     }
     if (e.target.closest("#operatorPauseBtn")) {
+      const btn = document.querySelector("#operatorPauseBtn");
       if (canResume()) {
         await runSave("Завдання", {
+          submitEl: btn,
           saveFn: () => api.operatorResume(payload()),
           onSuccess: async () => {
             await loadOperatorData();
@@ -522,6 +640,7 @@ export function bindOperatorActions(onChange) {
         }).catch(() => {});
       } else if (canPause()) {
         await runSave("Завдання", {
+          submitEl: btn,
           saveFn: () => api.operatorPause(payload()),
           onSuccess: async () => {
             await loadOperatorData();
@@ -540,11 +659,17 @@ export function bindOperatorActions(onChange) {
     }
     if (e.target.closest("#operatorFinishBtn") && canFinish()) {
       const stageKey = state.operatorStage;
+      const finishedId = workPosition()?.id;
+      const card = document.querySelector(`[data-queue-wrap="${finishedId}"]`);
+      const btn = document.querySelector("#operatorFinishBtn");
+      if (card) card.classList.add("enver-card-exit");
       await runSave("Завдання", {
+        submitEl: btn,
         saveFn: () => api.operatorFinish(payload()),
-        successMessage: finishSuccessMessage(stageKey),
+        successMessage: `Задачу завершено. ${finishSuccessMessage(stageKey)}`,
         onSuccess: async () => {
           state.operatorSelectedPositionId = null;
+          await new Promise((r) => setTimeout(r, card ? 220 : 0));
           await loadOperatorData();
           operatorOnChange();
         }
@@ -552,32 +677,44 @@ export function bindOperatorActions(onChange) {
     }
 
     if (e.target.closest("#operatorProblemBtn") && canReportProblem()) {
-      const form = document.querySelector("#operatorProblemForm");
+      openProblemSheet();
+      return;
+    }
+
+    if (
+      e.target.closest("#operatorProblemBackdrop") ||
+      e.target.closest("#operatorProblemCancel")
+    ) {
+      closeProblemSheet();
+      return;
+    }
+
+    if (e.target.closest("[data-problem-preset]")) {
+      const preset = e.target.closest("[data-problem-preset]").dataset.problemPreset;
       const input = document.querySelector("#operatorProblemInput");
-      if (form && input) {
-        form.hidden = false;
-        input.value = "";
+      if (input && preset !== "Інше") {
+        input.value = preset;
+        void submitOperatorProblem();
+      } else if (input) {
         input.focus();
       }
       return;
     }
 
-    if (e.target.closest("#operatorProblemCancel")) {
-      const form = document.querySelector("#operatorProblemForm");
-      if (form) form.hidden = true;
+    if (e.target.closest("#operatorProblemSubmit")) {
+      e.preventDefault();
+      void submitOperatorProblem();
       return;
     }
   });
 
-  document.addEventListener("submit", async (e) => {
-    if (e.target?.id !== "operatorProblemForm") return;
-    e.preventDefault();
+  async function submitOperatorProblem() {
     if (!canReportProblem()) return;
-
     const comment = document.querySelector("#operatorProblemInput")?.value?.trim();
     if (!comment) return;
-
+    const btn = document.querySelector("#operatorProblemSubmit");
     await runSave("Проблема", {
+      submitEl: btn,
       saveFn: () =>
         api.operatorReportProblem({
           userId: state.currentUser.id,
@@ -587,12 +724,12 @@ export function bindOperatorActions(onChange) {
         }),
       successMessage: "Проблему зафіксовано — менеджер отримає сповіщення",
       onSuccess: async () => {
-        document.querySelector("#operatorProblemForm")?.setAttribute("hidden", "");
+        closeProblemSheet();
         await loadOperatorData();
         operatorOnChange();
       }
     }).catch(() => {});
-  });
+  }
 }
 
 export function shouldShowOperatorByDefault() {

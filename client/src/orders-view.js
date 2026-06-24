@@ -5,6 +5,8 @@ import {
   renderAttentionBadge,
   sortOrdersByAttention
 } from "./godmode-ui.js";
+import { createSwipeActions } from "./interactions/gestures.js";
+import { openOrderDetailDrawer, shouldUseOrderDrawer } from "./order-detail-drawer.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
@@ -53,7 +55,7 @@ function orderCardBadges(attn) {
 
 function progressBarHtml(value) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
-  return `<div class="enver-progress order-card-progress" aria-label="${v}% готово">
+  return `<div class="enver-progress order-card-progress enver-status-animate" aria-label="${v}% готово">
     <div class="enver-progress-track"><div class="enver-progress-fill" style="width:${v}%"></div></div>
     <span class="enver-progress-label">${v}%</span>
   </div>`;
@@ -123,6 +125,7 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
       const cardClass = orderCardClass(attn, order);
       const posCount = positionsForOrder(order, allPositions).filter((p) => !p.parentId).length;
       const nextLabel = attn.nextAction?.label;
+      const swipeRightLabel = nextLabel ? escapeHtml(nextLabel.slice(0, 24)) : "Дія";
       const healthBadge = gm ? renderHealthBadge(gm.health) : "";
       const attentionBadge = gm ? renderAttentionBadge(gm.attentionScore) : "";
       const nextLine = nextLabel
@@ -130,7 +133,12 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
         : "";
 
       return `
-        <article class="order-card enver-interactive enver-pressable ${cardClass}" data-order-card="${order.id}" tabindex="0">
+        <article class="order-card enver-interactive enver-pressable enver-swipe-host ${cardClass}" data-order-card="${order.id}" tabindex="0">
+          <div class="enver-swipe-reveal" aria-hidden="true">
+            <span class="enver-swipe-action enver-swipe-action--right">${swipeRightLabel}</span>
+            <span class="enver-swipe-action enver-swipe-action--left">Деталі</span>
+          </div>
+          <div class="enver-swipe-inner">
           <div class="order-card-status-row">
             <h3 class="order-card-title enver-card-title">${escapeHtml(order.orderNumber)}</h3>
             ${healthBadge}${attentionBadge}${statusPill(order, attn)}
@@ -148,6 +156,7 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
             ${order.planDate ? `<span class="order-card-plan">${escapeHtml(order.planDate)}</span>` : ""}
           </div>
           ${orderCardActions(order, attn)}
+          </div>
         </article>`;
     })
     .join("");
@@ -255,15 +264,26 @@ export function renderOrderDetailHeader(order, positions, { canEditOrder = false
     </div>`;
 }
 
-function openOrder(orderId, { onOrderClick, orders }) {
-  const order = orders.find((o) => o.id === Number(orderId));
-  if (order && onOrderClick) onOrderClick(order);
+function openOrder(orderId, handlers) {
+  const order = handlers.orders?.find((o) => o.id === Number(orderId));
+  if (!order) return;
+  if (shouldUseOrderDrawer()) {
+    openOrderDetailDrawer(order.id);
+    return;
+  }
+  if (handlers.onOrderClick) handlers.onOrderClick(order);
 }
 
+const swipeCleanups = [];
+
 function bindOrderCards(root, handlers) {
+  swipeCleanups.forEach((fn) => fn());
+  swipeCleanups.length = 0;
+
   root?.querySelectorAll("[data-order-card]").forEach((card) => {
     const open = () => openOrder(card.dataset.orderCard, handlers);
     card.addEventListener("click", (e) => {
+      if (card.dataset.swipeHandled) return;
       if (e.target.closest("[data-order-cta], [data-order-detail]")) return;
       open();
     });
@@ -288,12 +308,30 @@ function bindOrderCards(root, handlers) {
       const orderId = Number(btn.dataset.orderCta);
       const order = handlers.orders?.find((o) => o.id === orderId);
       if (handlers.onOrderCta && order) {
-        await handlers.onOrderCta(order);
+        await handlers.onOrderCta(order, btn);
         return;
       }
       openOrder(orderId, handlers);
     });
   });
+
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    root?.querySelectorAll("[data-order-card]").forEach((card) => {
+      const orderId = Number(card.dataset.orderCard);
+      const order = handlers.orders?.find((o) => o.id === orderId);
+      const ctl = createSwipeActions(card, {
+        onSwipeRight: async () => {
+          if (handlers.onOrderCta && order) {
+            await handlers.onOrderCta(order);
+            return;
+          }
+          openOrder(orderId, handlers);
+        },
+        onSwipeLeft: () => openOrder(orderId, handlers)
+      });
+      swipeCleanups.push(() => ctl.destroy());
+    });
+  }
 }
 
 function bindOrdersList(root, handlers) {
@@ -321,7 +359,7 @@ export function bindOrdersGrid(root, handlers) {
   if (mode === "list") {
     bindOrdersList(root, handlers);
   } else {
-    bindOrderCards(root, handlers);
+    bindOrderCards(root, { ...handlers, allPositions: handlers.positions });
   }
 }
 

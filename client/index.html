@@ -4,27 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ENVER — Виробничий контроль замовлень</title>
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("enver_theme");
-          var theme =
-            t === "dark" || t === "light"
-              ? t
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
-          document.documentElement.setAttribute("data-theme", theme);
-          document.documentElement.style.colorScheme = theme;
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/src/theme-init.js"></script>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-family='Arial' font-weight='700' font-size='14'%3EE%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/src/styles/tokens.css" />
     <link rel="stylesheet" href="/src/styles/enver-design-system.css" />
+    <link rel="stylesheet" href="/src/styles/tokens-bridge.css" />
     <link rel="stylesheet" href="/src/styles/interactions.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/design-system.css" />
@@ -35,8 +22,6 @@
     <link rel="stylesheet" href="/src/styles/position.css" />
     <link rel="stylesheet" href="/src/styles/history.css" />
     <link rel="stylesheet" href="/src/styles/settings.css" />
-    <link rel="stylesheet" href="/src/styles/operator.css" />
-    <link rel="stylesheet" href="/src/styles/operator-client.css" />
     <link rel="stylesheet" href="/src/styles/production-floor.css" />
     <link rel="stylesheet" href="/src/styles/toast.css" />
     <link rel="stylesheet" href="/src/styles/login.css" />
@@ -247,16 +232,6 @@
                 >
                   <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" />
                 </svg>
-              </button>
-              <button
-                type="button"
-                class="btn-icon"
-                id="notifySettingsBtn"
-                title="Сповіщення"
-                aria-label="Налаштування сповіщень"
-                hidden
-              >
-                🔔
               </button>
               <button
                 type="button"

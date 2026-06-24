@@ -14,19 +14,26 @@
     "pack:production-module": "node scripts/pack-production-module.mjs",
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
     "start": "npm run build --prefix client && npm run start --prefix server",
-    "test": "npm run test --prefix server",
+    "test": "npm run test --prefix server && npm run test:client",
+    "test:client": "node --test client/test/*.test.js",
+    "test:e2e": "playwright test -c e2e/playwright.config.js",
+    "typecheck": "tsc -p shared/tsconfig.json && tsc -p server/tsconfig.json",
     "migrate": "npm run migrate --prefix server",
     "seed": "npm run migrate --prefix server",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "validate": "npm run format:check && npm run lint && npm test"
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@playwright/test": "^1.51.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.0",
     "concurrently": "^9.1.2",
     "eslint": "^9.18.0",
     "globals": "^15.14.0",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "typescript": "^5.8.2"
   }
 }

@@ -9,7 +9,7 @@ import {
 } from "./auth.js";
 import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB, OVERVIEW_TAB } from "./constants.js";
 import { historyTab } from "./history.js";
-import { renderOperatorView } from "./operator-panel.js";
+import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
 import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
@@ -331,9 +331,7 @@ export function renderHeaderChrome() {
     chip.hidden = !user;
     if (user) chip.textContent = user.name;
   }
-  const notifyBtn = document.querySelector("#notifySettingsBtn");
   if (gear) gear.hidden = !canViewSettings();
-  if (notifyBtn) notifyBtn.hidden = !user || canViewSettings();
   if (logout) logout.hidden = !user;
 
   if (user && state.view === "main") {
@@ -412,6 +410,7 @@ export function renderApp(options = {}) {
   }
   if (state.view === "operator") {
     document.querySelector("#content").innerHTML = renderOperatorView();
+    bindOperatorQueueSwipe();
     syncOperatorBuildChip("operatorBuildChipInline");
     window.scrollTo(0, 0);
     return;
@@ -431,6 +430,7 @@ export function renderApp(options = {}) {
     if (!state.selectedOrderId) {
       bindOrdersGrid(document.querySelector("#content"), {
         orders: state.orders,
+        positions: state.positions,
         onOrderClick: (order) => {
           state.selectedOrderId = order.id;
           state.ordersView.detailTab = "overview";
@@ -438,18 +438,24 @@ export function renderApp(options = {}) {
           renderApp();
           window.scrollTo({ top: 0, behavior: "smooth" });
         },
-        onOrderCta: async (order) => {
+        onOrderCta: async (order, triggerEl) => {
           const { executePrimaryOrderAction } = await import("./godmode-ui.js");
           const { upsertPosition, upsertOrder, refreshAppData } = await import("./data-sync.js");
           const { openPositionDrawer } = await import("./positions.js");
           const { toastSuccess, toastError } = await import("./toast.js");
           const { humanizeUserMessage } = await import("./utils.js");
+          const { runSave } = await import("./save-flow.js");
 
           try {
-            const result = await executePrimaryOrderAction(order, state.positions, {
-              api,
-              upsertPosition,
-              upsertOrder
+            const result = await runSave("Дія", {
+              submitEl: triggerEl,
+              silent: true,
+              saveFn: () =>
+                executePrimaryOrderAction(order, state.positions, {
+                  api,
+                  upsertPosition,
+                  upsertOrder
+                })
             });
 
             if (result.action === "handoff" || result.action === "close_order") {

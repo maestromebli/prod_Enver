@@ -7,7 +7,7 @@
     "dev": "DOTENV_CONFIG_PATH=../.env NODE_ENV=development node -r dotenv/config src/index.js",
     "start": "DOTENV_CONFIG_PATH=../.env NODE_ENV=production node -r dotenv/config src/index.js",
     "migrate": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/migrate.mjs",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js test/integration/*.test.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -17,6 +17,7 @@
     "helmet": "^8.2.0",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
+    "redis": "^4.7.0",
     "vite": "^6.4.2"
   }
 }

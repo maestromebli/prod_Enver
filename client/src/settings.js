@@ -384,7 +384,6 @@ export function renderSettingsView() {
     <div class="settings-page${stickyBar ? " enver-screen--sticky-mobile" : ""}">
       <div class="settings-top">
         <button type="button" class="btn" id="settingsBackBtn">← Назад</button>
-        <h1>Налаштування</h1>
       </div>
       <div class="settings-nav">
         ${nav

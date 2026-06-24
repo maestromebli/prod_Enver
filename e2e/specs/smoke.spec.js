@@ -1,0 +1,44 @@
+import { expect, test } from "@playwright/test";
+
+const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || "admin";
+
+async function login(page) {
+  await page.goto("/");
+  const modal = page.locator("#loginModal");
+  if (await modal.isVisible()) {
+    await page.locator("#loginInput").fill("admin");
+    await page.locator("#loginPassword").fill(adminPassword);
+    await page.locator("#loginForm button[type='submit']").click();
+    await expect(modal).toBeHidden({ timeout: 15_000 });
+  }
+  await expect(page.locator("#appRoot")).toBeVisible();
+}
+
+test.describe("ENVER smoke", () => {
+  test("login і головна вкладка Замовлення", async ({ page }) => {
+    await login(page);
+    await expect(page.locator("#pageTitle")).toContainText("Замовлення");
+    await expect(page.locator("#tabs .tab-btn.active")).toContainText("Замовлення");
+  });
+
+  test("налаштування → сповіщення без перекриття панелі", async ({ page }) => {
+    await login(page);
+    const gear = page.locator("#settingsGearBtn");
+    if (await gear.isVisible()) {
+      await gear.click();
+      await expect(page.locator("#pageTitle")).toContainText("Налаштування", { timeout: 10_000 });
+      await page.locator('[data-settings-section="notifications"]').click();
+      await expect(page.locator(".settings-section--notify")).toBeVisible();
+      const panel = page.locator("#godmodeNotifyPanel:not([hidden])");
+      await expect(panel).toHaveCount(0);
+    }
+  });
+});
+
+test.describe("operator entry", () => {
+  test("operator.html завантажується", async ({ page }) => {
+    await page.goto("/operator.html");
+    await expect(page.locator("body.enver-operator-ui")).toBeVisible();
+    await expect(page.locator("#loginModal, #appRoot").first()).toBeVisible();
+  });
+});

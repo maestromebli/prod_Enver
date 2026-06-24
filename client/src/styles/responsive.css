@@ -131,22 +131,6 @@ body {
   .flow-step:nth-child(3n)::after {
     display: none;
   }
-
-  .settings-top {
-    flex-wrap: wrap;
-  }
-
-  .settings-nav {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    padding-bottom: 4px;
-  }
-
-  .settings-nav-btn {
-    flex: 1 1 auto;
-    white-space: normal;
-    text-align: center;
-  }
 }
 
 /* Мобільні (до 767px) */
@@ -426,10 +410,6 @@ body {
   .modal-footer #deleteOrderBtn {
     margin-right: 0 !important;
     order: -1;
-  }
-
-  .settings-top h1 {
-    font-size: 20px;
   }
 
   .settings-section-header {

@@ -13,6 +13,7 @@ import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
 import { NOTIFICATION_TASK_STATUSES, stageClientField } from "@enver/shared/production/stages.js";
+import { bindProductionBoard, renderProductionBoard } from "./production-board.js";
 
 let floorCache = null;
 
@@ -21,9 +22,27 @@ export function getProductionFloorCache() {
 }
 
 export async function loadProductionFloor() {
-  floorCache = await api.getProductionFloor();
-  state.productionFloor = floorCache;
-  return floorCache;
+  state.productionFloorLoading = true;
+  try {
+    floorCache = await api.getProductionFloor();
+    state.productionFloor = floorCache;
+    return floorCache;
+  } finally {
+    state.productionFloorLoading = false;
+  }
+}
+
+function productionFloorSkeleton() {
+  return `
+    <div class="pf-skeleton" aria-busy="true" aria-label="Завантаження цеху">
+      <div class="enver-skeleton pf-skeleton-hero"></div>
+      <div class="pf-skeleton-board">
+        ${Array.from({ length: 5 })
+          .map(() => '<div class="enver-skeleton pf-skeleton-col"></div>')
+          .join("")}
+      </div>
+      <div class="enver-skeleton pf-skeleton-block"></div>
+    </div>`;
 }
 
 function stageStatusLabel(status) {
@@ -180,6 +199,9 @@ function renderProblems(list) {
 }
 
 export function renderProductionFloorTab(data = floorCache) {
+  if (state.productionFloorLoading && !data) {
+    return `<div class="production-floor">${productionFloorSkeleton()}</div>`;
+  }
   const d = data || { stages: [], activeSessions: [], problemPositions: [] };
   const freshByStage = countNewTasksByStage(d.stages);
   const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
@@ -206,6 +228,8 @@ export function renderProductionFloorTab(data = floorCache) {
         ${renderPipelineStrip(d.stages, freshByStage)}
       </section>
 
+      ${renderProductionBoard()}
+
       <section class="pf-section">
         <h2 class="pf-section-title">Етапи</h2>
         <div class="pf-stage-grid">${renderStageCards(d.stages, freshByStage)}</div>
@@ -225,7 +249,18 @@ export function renderProductionFloorTab(data = floorCache) {
 }
 
 export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
-  document.querySelector("#pfRefreshBtn")?.addEventListener("click", () => onRefresh?.());
+  bindProductionBoard(document.querySelector("#pfProductionBoard"), { onRefresh, onOpenPosition });
+
+  document.querySelector("#pfRefreshBtn")?.addEventListener("click", async () => {
+    const el = document.querySelector("#pfRefreshBtn");
+    const { setSubmitLoading } = await import("./save-flow.js");
+    setSubmitLoading(el, true);
+    try {
+      await onRefresh?.();
+    } finally {
+      setSubmitLoading(el, false);
+    }
+  });
   document.querySelector("#pfMarkSeenBtn")?.addEventListener("click", () => {
     markProductionTasksSeenForCurrentRole(state.positions);
     onRefresh?.();

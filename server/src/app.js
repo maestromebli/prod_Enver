@@ -18,6 +18,11 @@ import notificationsRouter from "./routes/notifications.js";
 import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
 import { apiFormatMiddleware } from "./http/api-format-middleware.js";
+import { requestIdMiddleware } from "./middleware/request-id.js";
+import { metricsMiddleware, metricsSnapshot } from "./metrics.js";
+import { createLogger } from "./logger.js";
+
+const log = createLogger("api");
 
 function buildCorsOptions() {
   if (!config.isProduction) return undefined;
@@ -34,9 +39,26 @@ function buildCorsOptions() {
 export function createApiApp({ dbConfigured, dbConnected }) {
   const app = express();
 
+  app.use(requestIdMiddleware);
+  app.use(metricsMiddleware);
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: config.isProduction
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'"],
+              imgSrc: ["'self'", "data:", "blob:"],
+              connectSrc: ["'self'"],
+              fontSrc: ["'self'", "data:"],
+              objectSrc: ["'none'"],
+              frameAncestors: ["'self'"],
+              baseUri: ["'self'"],
+              formAction: ["'self'"]
+            }
+          }
+        : false,
       crossOriginEmbedderPolicy: false
     })
   );
@@ -59,6 +81,10 @@ export function createApiApp({ dbConfigured, dbConnected }) {
     });
   });
 
+  app.get("/api/metrics", (_req, res) => {
+    res.json({ ok: true, data: metricsSnapshot() });
+  });
+
   app.use("/api/orders", ordersRouter);
   app.use("/api/positions", positionsRouter);
   app.use("/api/kpis", kpisRouter);
@@ -75,8 +101,12 @@ export function createApiApp({ dbConfigured, dbConnected }) {
 
   registerDownloadRoutes(app);
 
-  app.use((err, _req, res, _next) => {
-    console.error(err);
+  app.use((err, req, res, _next) => {
+    log.error("unhandled", {
+      requestId: req.requestId,
+      message: err?.message,
+      stack: config.isProduction ? undefined : err?.stack
+    });
     const status = Number.isInteger(err?.status) ? err.status : 500;
     const code = err?.code || (status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR");
     const message =

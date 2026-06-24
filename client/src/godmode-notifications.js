@@ -11,6 +11,7 @@ let pollTimer = null;
 let eventSource = null;
 let panelOpen = false;
 let panelRepositionBound = false;
+let notifyActionsBound = false;
 
 function levelClass(level) {
   if (level === "blocker") return "gn-item--blocker";
@@ -61,32 +62,59 @@ export function renderGodmodeNotifyPanel() {
     <div class="gn-panel-body">${renderPanelItems(items)}</div>
     <footer class="gn-panel-foot">
       <button type="button" class="btn btn-sm btn-ghost" id="godmodeNotifyOpenAttention">Потребує уваги</button>
+      <button type="button" class="btn btn-sm btn-ghost" id="godmodeNotifyOpenSettings">Налаштування</button>
     </footer>
   </div>`;
 }
 
+function ensurePanelOnBody() {
+  const panel = document.querySelector("#godmodeNotifyPanel");
+  if (panel && panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
+}
+
+function dedupeGodmodeNotifyChrome(root = document) {
+  root.querySelector("#notifySettingsBtn")?.remove();
+  const bells = [...document.querySelectorAll("#godmodeNotifyBtn")];
+  if (bells.length > 1) {
+    bells.slice(1).forEach((btn) => btn.closest(".gn-wrap")?.remove());
+  }
+  const wraps = [...document.querySelectorAll(".gn-wrap")];
+  if (wraps.length > 1) {
+    wraps.slice(1).forEach((wrap) => wrap.remove());
+  }
+}
+
 export function mountGodmodeNotifyChrome(root = document) {
   const actions = root.querySelector("#headerActions");
-  if (!actions || root.querySelector("#godmodeNotifyBtn")) return;
+  if (!actions) return;
+
+  dedupeGodmodeNotifyChrome(root);
+  ensurePanelOnBody();
+
+  if (root.querySelector("#godmodeNotifyBtn")) {
+    updateGodmodeNotifyBadge();
+    return;
+  }
 
   const wrap = document.createElement("div");
   wrap.className = "gn-wrap";
-  wrap.innerHTML = `${renderGodmodeNotifyButton()}${renderGodmodeNotifyPanel()}`;
+  wrap.innerHTML = renderGodmodeNotifyButton();
 
-  const settingsBtn = root.querySelector("#notifySettingsBtn");
-  if (settingsBtn) settingsBtn.before(wrap);
-  else actions.prepend(wrap);
+  const anchor = root.querySelector("#settingsGearBtn") || root.querySelector("#logoutBtn");
+  if (anchor) anchor.before(wrap);
+  else actions.appendChild(wrap);
+
+  if (!document.querySelector("#godmodeNotifyPanel")) {
+    const host = document.createElement("div");
+    host.innerHTML = renderGodmodeNotifyPanel();
+    const panel = host.firstElementChild;
+    if (panel) document.body.appendChild(panel);
+  }
 
   updateGodmodeNotifyBadge();
-}
-
-function clearPanelPositionStyles(panel) {
-  panel.style.position = "";
-  panel.style.top = "";
-  panel.style.left = "";
-  panel.style.right = "";
-  panel.style.width = "";
-  panel.style.zIndex = "";
+  bindGodmodeNotifyActions();
 }
 
 function positionGodmodeNotifyPanel() {
@@ -103,7 +131,7 @@ function positionGodmodeNotifyPanel() {
     left = Math.max(pad, window.innerWidth - pad - panelWidth);
   }
 
-  const top = Math.min(rect.bottom + PANEL_GAP, window.innerHeight - pad);
+  const top = rect.bottom + PANEL_GAP;
   panel.style.position = "fixed";
   panel.style.top = `${top}px`;
   panel.style.left = `${left}px`;
@@ -126,24 +154,16 @@ function detachPanelRepositionListeners() {
   window.removeEventListener("scroll", positionGodmodeNotifyPanel, true);
 }
 
-function dockGodmodeNotifyPanel() {
-  const panel = document.querySelector("#godmodeNotifyPanel");
-  const wrap = document.querySelector(".gn-wrap");
-  if (!panel || !wrap || panel.parentElement === wrap) return;
-  wrap.appendChild(panel);
-  clearPanelPositionStyles(panel);
-}
-
-function openGodmodeNotifyPanel(root = document) {
+function openGodmodeNotifyPanel() {
   if (state.view !== "main") return;
-  const panel = root.querySelector("#godmodeNotifyPanel");
+  ensurePanelOnBody();
+  const panel = document.querySelector("#godmodeNotifyPanel");
   if (!panel) return;
 
   panelOpen = true;
-  panel.hidden = false;
   panel.classList.add("gn-panel--open");
-  document.body.appendChild(panel);
   positionGodmodeNotifyPanel();
+  panel.hidden = false;
   attachPanelRepositionListeners();
   void fetchGodmodeNotifications();
   bindPanelItems(panel.querySelector(".gn-panel-body"));
@@ -242,25 +262,41 @@ function bindPanelItems(container) {
   });
 }
 
-export function bindGodmodeNotifyActions(root = document) {
-  root.querySelector("#godmodeNotifyBtn")?.addEventListener("click", () => {
-    if (panelOpen) closeGodmodeNotifyPanel();
-    else openGodmodeNotifyPanel(root);
-  });
-
-  root.querySelector("#godmodeNotifyClose")?.addEventListener("click", closeGodmodeNotifyPanel);
-
-  root.querySelector("#godmodeNotifyOpenAttention")?.addEventListener("click", () => {
-    closeGodmodeNotifyPanel();
-    state.activeTab = ATTENTION_TAB;
-    window.__enverRender?.({ contentOnly: true });
-  });
+export function bindGodmodeNotifyActions() {
+  if (notifyActionsBound) return;
+  notifyActionsBound = true;
 
   document.addEventListener("click", (e) => {
+    if (e.target.closest("#godmodeNotifyClose")) {
+      closeGodmodeNotifyPanel();
+      return;
+    }
+    if (e.target.closest("#godmodeNotifyOpenAttention")) {
+      closeGodmodeNotifyPanel();
+      state.activeTab = ATTENTION_TAB;
+      window.__enverRender?.({ contentOnly: true });
+      return;
+    }
+    if (e.target.closest("#godmodeNotifyOpenSettings")) {
+      closeGodmodeNotifyPanel();
+      void import("./settings.js").then(({ openNotificationSettings }) => {
+        openNotificationSettings();
+        window.__enverRender?.();
+      });
+      return;
+    }
+    if (e.target.closest("#godmodeNotifyBtn")) {
+      if (panelOpen) closeGodmodeNotifyPanel();
+      else openGodmodeNotifyPanel();
+      return;
+    }
     if (!panelOpen) return;
-    if (e.target.closest("#godmodeNotifyBtn")) return;
     if (e.target.closest("#godmodeNotifyPanel")) return;
     closeGodmodeNotifyPanel();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && panelOpen) closeGodmodeNotifyPanel();
   });
 }
 
@@ -271,13 +307,13 @@ export function closeGodmodeNotifyPanel() {
   if (panel) {
     panel.hidden = true;
     panel.classList.remove("gn-panel--open");
-    dockGodmodeNotifyPanel();
   }
 }
 
 /** Закриває панель і ховає дзвіночок поза головним екраном. */
 export function syncGodmodeNotifyForView(view = state.view) {
   if (view !== "main") closeGodmodeNotifyPanel();
+  else dedupeGodmodeNotifyChrome();
   const gnWrap = document.querySelector(".gn-wrap");
   if (gnWrap) gnWrap.hidden = view !== "main";
 }

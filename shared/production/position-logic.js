@@ -94,10 +94,11 @@ export function computeOverdueDays(row, planDateStr) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   plan.setHours(0, 0, 0, 0);
-  const diff = Math.floor((today - plan) / 86400000);
+  const diff = Math.floor((today.getTime() - plan.getTime()) / 86400000);
   return diff > 0 ? diff : 0;
 }
 
+/** @param {Record<string, unknown>} row @param {{ planDate?: string }} [options] */
 export function enrichPositionRow(row, { planDate } = {}) {
   const progress = computeProgress(row);
   const position_status = derivePositionStatus({ ...row, progress });

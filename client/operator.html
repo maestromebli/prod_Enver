@@ -10,28 +10,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ENVER Оператор" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#0f2a44" />
+    <meta name="theme-color" content="#245c3b" />
     <title>ENVER — Панель оператора</title>
     <link rel="manifest" href="/manifest-operator.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("enver_theme");
-          var theme =
-            t === "dark" || t === "light"
-              ? t
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
-          document.documentElement.setAttribute("data-theme", theme);
-          document.documentElement.style.colorScheme = theme;
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/src/theme-init.js"></script>
     <link rel="icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/src/styles/tokens.css" />
-    <link rel="stylesheet" href="/src/styles/enver-design-system.css" />
+    <link rel="stylesheet" href="/src/styles/interactions.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/theme-dark.css" />
     <link rel="stylesheet" href="/src/styles/modal.css" />

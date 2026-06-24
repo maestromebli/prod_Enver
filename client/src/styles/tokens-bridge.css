@@ -1,0 +1,21 @@
+/**
+ * Міст між legacy tokens (design-system.css, main.css) і enver-design-system.
+ * Підключати після enver-design-system.css.
+ */
+:root {
+  --accent: var(--enver-primary, #245c3b);
+  --accent-soft: var(--enver-primary-soft, rgba(36, 92, 59, 0.12));
+  --header-accent: var(--enver-primary-dark, #1a4530);
+  --navy: var(--enver-primary-dark, #1a4530);
+  --navy-2: var(--enver-primary, #245c3b);
+  --blue: var(--enver-accent, #0071e3);
+  --muted: var(--enver-text-muted, #6e6e73);
+  --border: var(--enver-border, #e2e8f0);
+  --border-soft: color-mix(in srgb, var(--enver-border, #e2e8f0) 65%, transparent);
+  --white: var(--enver-surface, #fff);
+  --surface-elevated: var(--enver-surface-elevated, #fff);
+  --surface-muted: var(--enver-surface-muted, #f8fafc);
+  --text-muted: var(--enver-text-muted, #64748b);
+  --danger: #c41e3a;
+  --enver-danger: var(--danger);
+}

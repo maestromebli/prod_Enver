@@ -1,20 +1,25 @@
-const buckets = new Map();
+import { cleanupMemoryBuckets, incrementRateLimit } from "./rate-limit-store.js";
 
-/** Простий rate limit по IP для login. */
+/** Rate limit по IP для login (memory або Redis через REDIS_URL). */
 export function rateLimitLogin(maxAttempts = 12, windowMs = 60_000) {
-  return (req, res, next) => {
-    const key = req.ip || req.socket?.remoteAddress || "unknown";
-    const now = Date.now();
-    let bucket = buckets.get(key);
-    if (!bucket || now - bucket.start > windowMs) {
-      bucket = { start: now, count: 0 };
-      buckets.set(key, bucket);
+  return async (req, res, next) => {
+    cleanupMemoryBuckets(windowMs);
+    const key = `login:${req.ip || req.socket?.remoteAddress || "unknown"}`;
+    try {
+      const count = await incrementRateLimit(key, windowMs);
+      if (count > maxAttempts) {
+        res.status(429).json({
+          ok: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Забагато спроб входу. Спробуйте через хвилину."
+          }
+        });
+        return;
+      }
+      next();
+    } catch (err) {
+      next(err);
     }
-    bucket.count += 1;
-    if (bucket.count > maxAttempts) {
-      res.status(429).json({ error: "Забагато спроб входу. Спробуйте через хвилину." });
-      return;
-    }
-    next();
   };
 }

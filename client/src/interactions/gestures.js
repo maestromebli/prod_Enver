@@ -14,7 +14,6 @@ export function createSwipeActions(el, options = {}) {
   let tracking = false;
   let locked = null;
   let pointerId = null;
-  let revealed = false;
 
   const reveal = el.querySelector(".enver-swipe-reveal");
   const inner = el.querySelector(".enver-swipe-inner") || el;
@@ -22,7 +21,6 @@ export function createSwipeActions(el, options = {}) {
   const resetTransform = () => {
     inner.style.transform = "";
     el.classList.remove("is-swiping");
-    revealed = false;
   };
 
   const onPointerDown = (e) => {
@@ -66,14 +64,21 @@ export function createSwipeActions(el, options = {}) {
       /* ignore */
     }
 
+    const markHandled = () => {
+      el.dataset.swipeHandled = "1";
+      setTimeout(() => {
+        delete el.dataset.swipeHandled;
+      }, 360);
+    };
+
     if (dx > threshold && options.onSwipeRight) {
-      revealed = true;
+      markHandled();
       options.onSwipeRight();
       setTimeout(resetTransform, 120);
       return;
     }
     if (dx < -threshold && options.onSwipeLeft) {
-      revealed = true;
+      markHandled();
       options.onSwipeLeft();
       setTimeout(resetTransform, 120);
       return;

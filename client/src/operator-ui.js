@@ -32,6 +32,16 @@ export function isInstalledClient() {
   }
 }
 
+/** Класи для PWA/APK: safe-area, компактна шапка, enver-тема. */
+export function initOperatorPwaShell() {
+  const root = document.documentElement;
+  if (!root) return;
+  if (isInstalledClient()) {
+    root.classList.add("operator-pwa-capable");
+  }
+  root.classList.toggle("enver-operator-installed", isInstalledClient());
+}
+
 export function setOperatorUiActive(active) {
   document.body?.classList.toggle("view-operator", active);
   // operator.html: enver-operator-ui задано в розмітці, не знімаємо при виході

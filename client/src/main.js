@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import {
   canViewSettings,
+  canEditOrders,
   initAuthFromStorage,
   isOperator,
   loadStoredUser,
@@ -62,6 +63,7 @@ import {
   restoreScrollPosition,
   schedulePersistUiState
 } from "./ui-persistence.js";
+import { wireAppRenderBus } from "./app-bus.js";
 import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.js";
 import { initTheme } from "./theme.js";
 import { hideAiAssistant, initAiAssistant } from "./ai-assistant.js";
@@ -71,6 +73,9 @@ import {
   startGodmodeNotificationPolling,
   stopGodmodeNotificationPolling
 } from "./godmode-notifications.js";
+import { initOrderDetailDrawer } from "./order-detail-drawer.js";
+import { initCommandPalette } from "./command-palette.js";
+import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
 import "./styles/brand-logo.css";
@@ -352,7 +357,7 @@ function scheduleContentRender() {
   contentRenderTimer = setTimeout(() => renderApp({ contentOnly: true }), CONTENT_RENDER_DELAY_MS);
 }
 
-window.__enverRender = renderApp;
+wireAppRenderBus(renderApp);
 window.__enverOpenPosition = async (id) => {
   const { openPositionDrawer } = await import("./positions.js");
   const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
@@ -531,10 +536,37 @@ async function openNotificationSettingsView() {
 
 initOrderModal();
 initPositionDrawer();
+initOrderDetailDrawer();
 initInstallScheduleModal();
 initSettingsUi(renderApp);
 bindSettingsActions(renderApp);
 bindOperatorActions(renderApp);
+
+initCommandPalette({
+  openNewOrder: () => {
+    if (state.currentUser) openOrderModal();
+  },
+  focusSearch: () => $("#searchInput")?.focus(),
+  setTab: (tab) => void setTab(tab),
+  openSettings: () => void openSettingsView(),
+  openOperatorPanel: async () => {
+    const { enterOperatorView } = await import("./operator-panel.js");
+    const { operatorStages } = await import("./auth.js");
+    const stages = operatorStages();
+    await enterOperatorView(stages[0] || "cutting");
+  },
+  hint: hintToast
+});
+
+initKeyboardShortcuts({
+  openNewOrder: () => {
+    if (state.currentUser && canEditOrders()) openOrderModal();
+  },
+  focusSearch: () => $("#searchInput")?.focus(),
+  onEscape: () => {
+    document.querySelector(".modal-backdrop.open")?.classList.remove("open");
+  }
+});
 
 async function reloadAfterSave() {
   try {
@@ -583,7 +615,6 @@ $("#resetBtn")?.addEventListener("click", () => {
 });
 
 $("#settingsGearBtn")?.addEventListener("click", () => openSettingsView());
-$("#notifySettingsBtn")?.addEventListener("click", () => openNotificationSettingsView());
 
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-open-notify-settings]")) {

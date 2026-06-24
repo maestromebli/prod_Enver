@@ -15,6 +15,8 @@ export { showOptimisticUpdate } from "./optimistic-ui.js";
 
 export { createFileDropZone, createDraggableBoard } from "./drag-drop.js";
 
+export { createSwipeActions, createLongPress } from "./gestures.js";
+
 /**
  * Блокує кнопку під час async-дії з візуальним pending state.
  * @param {HTMLButtonElement | null} btn

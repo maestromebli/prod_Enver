@@ -139,7 +139,11 @@ function showError(message) {
 async function renderPositionQr(positionId, stageKey) {
   const box = $("#positionQrBox");
   if (!box || !positionId) return;
-  box.innerHTML = '<p class="enver-muted">Генерація QR…</p>';
+  box.innerHTML = `
+    <div class="qr-skeleton" aria-busy="true">
+      <div class="enver-skeleton" style="width:120px;height:120px;margin:0 auto 12px"></div>
+      <div class="enver-skeleton" style="height:14px;width:80%;margin:0 auto"></div>
+    </div>`;
   try {
     const token = getStoredToken();
     const stage = stageKey || draft?.currentStage || "cutting";
@@ -735,10 +739,22 @@ function bindDrawerEvents() {
 
   $("#analyzeConstructiveBtn")?.addEventListener("click", async () => {
     if (!draft.id) return;
+    const analyzeBtn = $("#analyzeConstructiveBtn");
     const box = $("#constructiveAnalysis");
-    if (box) box.innerHTML = '<p class="history-muted">Аналіз ШІ…</p>';
+    if (box) {
+      box.innerHTML = `
+        <div class="ai-skeleton" aria-busy="true">
+          <div class="enver-skeleton" style="height:16px;width:70%;margin-bottom:10px"></div>
+          <div class="enver-skeleton" style="height:12px;width:90%;margin-bottom:8px"></div>
+          <div class="enver-skeleton enver-skeleton-card" style="height:88px"></div>
+        </div>`;
+    }
     try {
-      const result = await api.analyzeConstructive(draft.id);
+      const result = await runSave("ШІ-аналіз", {
+        submitEl: analyzeBtn,
+        saveFn: () => api.analyzeConstructive(draft.id),
+        successMessage: "Аналіз завершено"
+      });
       if (box) {
         box.innerHTML = renderAiAnalysisResult(result);
         $("#createTasksBtn")?.addEventListener("click", async () => {
@@ -751,6 +767,7 @@ function bindDrawerEvents() {
             return;
           }
           await runSave("Задачі", {
+            submitEl: $("#createTasksBtn"),
             saveFn: () => api.createProductionTasks(draft.id, stages),
             successMessage: "Виробничі задачі створено",
             onSuccess: async (pos) => {
