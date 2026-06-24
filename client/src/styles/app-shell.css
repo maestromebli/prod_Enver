@@ -530,6 +530,87 @@ body.enver-v3 {
   letter-spacing: 0.03em;
 }
 
+.orders-list-expand {
+  width: 36px;
+  padding-left: 8px !important;
+  padding-right: 4px !important;
+}
+
+.orders-list-expand .btn-tree,
+.btn-order-pos-toggle {
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.orders-list-positions-row td {
+  padding: 0 12px 12px 44px !important;
+  background: color-mix(in srgb, var(--enver-primary) 4%, transparent);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.orders-inline-pos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.orders-inline-pos {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8125rem;
+}
+
+.orders-inline-pos--sub {
+  margin-left: 20px;
+}
+
+.orders-inline-pos-name {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--enver-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.orders-inline-pos-name:hover {
+  color: var(--enver-primary-strong, var(--enver-primary));
+}
+
+.orders-inline-pos-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--v3-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.orders-inline-pos-empty {
+  margin: 4px 0;
+  font-size: 0.8125rem;
+}
+
+.order-card-foot .btn-order-pos-toggle {
+  margin-left: auto;
+}
+
+.order-card-positions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .orders-list-row {
   cursor: pointer;
 }
@@ -602,8 +683,9 @@ body.enver-v3 {
 
 .order-card-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 14px;
   padding-top: 12px;

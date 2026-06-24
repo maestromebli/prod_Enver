@@ -330,18 +330,26 @@
                 <label for="orderClient">Клієнт</label>
                 <input id="orderClient" name="client" placeholder="Ім'я або компанія" />
               </div>
-              <div class="form-field order-sub-items-block" id="orderSubItemsBlock" hidden>
-                <label for="orderSubItemsText">Вироби / зони</label>
-                <textarea
-                  id="orderSubItemsText"
-                  rows="3"
-                  placeholder="Кожен рядок — окрема позиція&#10;напр. кухня, вітальня, шафа"
-                ></textarea>
+              <div class="form-field order-single-position-block" id="orderSinglePositionBlock" hidden>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="orderCreateSinglePosition" />
+                  Одна позиція (назва = об'єкт)
+                </label>
+                <p class="form-hint">Для однопозиційних замовлень без окремих зон.</p>
               </div>
             </div>
             <details class="order-form-more" id="orderFormMore">
               <summary>Додаткові поля</summary>
               <div class="order-form-stack">
+                <div class="form-field order-sub-items-block" id="orderSubItemsBlock" hidden>
+                  <label for="orderSubItemsText">Вироби / зони (необов'язково)</label>
+                  <textarea
+                    id="orderSubItemsText"
+                    rows="3"
+                    placeholder="Кожен рядок — окрема зона&#10;напр. кухня, вітальня, шафа"
+                  ></textarea>
+                  <p class="form-hint">Якщо залишити порожнім — позиції можна додати пізніше в картці замовлення.</p>
+                </div>
                 <div class="form-field" id="orderStatusField" hidden>
                   <label for="orderStatus">Статус</label>
                   <select id="orderStatus" name="status"></select>

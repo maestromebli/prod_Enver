@@ -31,7 +31,7 @@ function syncOrderModalChrome(order = null) {
   if (!order) {
     title.textContent = "Нове замовлення";
     if (subtitle) {
-      subtitle.textContent = "Мінімум: номер і об'єкт";
+      subtitle.textContent = "Мінімум: номер і об'єкт. Позиції — за бажанням.";
       subtitle.hidden = false;
     }
     if (submit) submit.textContent = "Створити";
@@ -66,12 +66,16 @@ function syncOrderFormMoreOpen(order = null) {
 
 function syncSubItemsBlock(isNew) {
   const block = $("#orderSubItemsBlock");
+  const singleBlock = $("#orderSinglePositionBlock");
   const statusField = $("#orderStatusField");
   if (block) block.hidden = !isNew;
+  if (singleBlock) singleBlock.hidden = !isNew;
   if (statusField) statusField.hidden = isNew;
   if (isNew) {
     const ta = $("#orderSubItemsText");
     if (ta && !ta.value.trim()) ta.value = "";
+    const single = $("#orderCreateSinglePosition");
+    if (single) single.checked = false;
   }
 }
 
@@ -99,6 +103,7 @@ export function openOrderModal(order = null) {
   $("#orderPlanDate").value = order?.planDate ?? "";
   $("#orderComment").value = order?.comment ?? "";
   $("#orderSubItemsText").value = "";
+  $("#orderCreateSinglePosition").checked = false;
 
   fillSelect("#orderStatus", statuses, order?.status || statuses[0] || "");
   fillSelect("#orderPriority", priorities, order?.priority || "Звичайний");
@@ -116,6 +121,7 @@ export function closeOrderModal() {
   modal().setAttribute("aria-hidden", "true");
   $("#orderForm").reset();
   $("#orderSubItemsText").value = "";
+  $("#orderCreateSinglePosition").checked = false;
   showError("");
 }
 
@@ -135,6 +141,7 @@ function readForm() {
   };
   if (isNew) {
     body.subItems = readSubItemsFromDom();
+    body.createRootPosition = Boolean($("#orderCreateSinglePosition")?.checked);
   }
   return body;
 }
@@ -148,7 +155,8 @@ export function captureOrderModalState() {
   return {
     id: $("#orderId").value || null,
     ...readForm(),
-    subItems: readSubItemsFromDom()
+    subItems: readSubItemsFromDom(),
+    createRootPosition: Boolean($("#orderCreateSinglePosition")?.checked)
   };
 }
 
@@ -169,6 +177,9 @@ export function restoreOrderModalState(saved) {
     $("#orderId").value = "";
     if (Array.isArray(saved.subItems) && saved.subItems.length) {
       $("#orderSubItemsText").value = saved.subItems.join("\n");
+    }
+    if (saved.createRootPosition) {
+      $("#orderCreateSinglePosition").checked = true;
     }
   }
   syncOrderModalChrome(order);

@@ -431,6 +431,11 @@ export function renderApp(options = {}) {
       bindOrdersGrid(document.querySelector("#content"), {
         orders: state.orders,
         positions: state.positions,
+        onOpenPosition: async (id) => {
+          const { openPositionDrawer } = await import("./positions.js");
+          const position = state.positions.find((p) => p.id === id);
+          if (position) openPositionDrawer(position);
+        },
         onOrderClick: (order) => {
           state.selectedOrderId = order.id;
           state.ordersView.detailTab = "overview";

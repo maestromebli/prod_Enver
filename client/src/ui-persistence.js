@@ -40,6 +40,7 @@ export function captureUiState() {
     },
     historyEntityFilter: state.historyEntityFilter ?? "",
     expandedPositionIds: [...state.expandedPositionIds],
+    expandedOrderIds: [...state.expandedOrderIds],
     installCalendar: {
       displayMode: state.installCalendar.displayMode,
       view: state.installCalendar.view,
@@ -132,6 +133,12 @@ export function applyUiState(snapshot) {
   if (Array.isArray(snapshot.expandedPositionIds)) {
     state.expandedPositionIds = new Set(
       snapshot.expandedPositionIds.map(Number).filter((id) => Number.isFinite(id))
+    );
+  }
+
+  if (Array.isArray(snapshot.expandedOrderIds)) {
+    state.expandedOrderIds = new Set(
+      snapshot.expandedOrderIds.map(Number).filter((id) => Number.isFinite(id))
     );
   }
 

@@ -13,6 +13,8 @@ export const state = {
   loading: false,
   /** id основних позицій, у яких розгорнуті підпозиції */
   expandedPositionIds: new Set(),
+  /** id замовлень з розгорнутим списком позицій у реєстрі */
+  expandedOrderIds: new Set(),
   /** main | settings | operator */
   view: "main",
   /** Куди повернутись після закриття обмежених налаштувань (напр. сповіщення з панелі оператора). */

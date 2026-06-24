@@ -163,10 +163,18 @@ export function collectLocalHints(state) {
   if (state.activeTab === "Замовлення" && state.selectedOrderId && canEditPositions()) {
     const order = state.orders.find((o) => o.id === state.selectedOrderId);
     const related = positions.filter((p) => p.orderId === state.selectedOrderId);
-    if (related.length === 0) {
+    const needsPosition = [
+      "У конструктиві",
+      "Передано у виробництво",
+      "У виробництві",
+      "Частково готово",
+      "Готово до встановлення",
+      "На встановленні"
+    ].includes(order?.status);
+    if (related.length === 0 && needsPosition) {
       hints.push({
         priority: "high",
-        text: `У замовленні ${order?.orderNumber || ""} ще немає позицій — додайте основну позицію.`,
+        text: `У замовленні ${order?.orderNumber || ""} ще немає позицій — додайте позицію або увімкніть «Одна позиція» при створенні.`,
         source: "local"
       });
     }

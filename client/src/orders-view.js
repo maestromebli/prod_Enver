@@ -7,11 +7,74 @@ import {
 } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { openOrderDetailDrawer, shouldUseOrderDrawer } from "./order-detail-drawer.js";
+import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tree.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
 
 const DISPLAY_LABELS = { cards: "Картки", list: "Список" };
+
+function toggleOrderExpanded(orderId) {
+  const id = Number(orderId);
+  if (state.expandedOrderIds.has(id)) {
+    state.expandedOrderIds.delete(id);
+  } else {
+    state.expandedOrderIds.add(id);
+  }
+}
+
+function orderPositionsToggleBtn(order, related, expanded) {
+  if (!related.length) {
+    return '<span class="btn-tree-spacer" aria-hidden="true"></span>';
+  }
+  const label = expanded ? "Згорнути позиції" : "Показати позиції";
+  const icon = expanded ? "−" : "+";
+  return `<button type="button" class="btn-tree btn-order-pos-toggle" data-toggle-order-positions="${order.id}" title="${label}" aria-label="${label}" aria-expanded="${expanded}">${icon}</button>`;
+}
+
+function renderOrderPositionsInline(order, allPositions) {
+  const related = positionsForOrder(order, allPositions);
+  if (!related.length) {
+    return '<p class="orders-inline-pos-empty enver-meta">Позицій ще немає</p>';
+  }
+
+  const rows = buildVisiblePositionRows(allPositions, related, state.expandedPositionIds);
+  return rows
+    .map((row) => {
+      const { position: p, depth, isSub, childCount } = row;
+      const expanded = state.expandedPositionIds.has(p.id);
+      const subToggle =
+        !isSub && childCount > 0
+          ? `<button type="button" class="btn-tree" data-toggle-position="${p.id}" title="${expanded ? "Згорнути" : "Підпозиції"}">${expanded ? "▼" : "▶"}</button>`
+          : '<span class="btn-tree-spacer" aria-hidden="true"></span>';
+      const stage = p.currentStage ? stageLabel(p.currentStage) : "—";
+      const subClass = depth > 0 ? " orders-inline-pos--sub" : "";
+
+      return `<div class="orders-inline-pos${subClass}">
+        ${subToggle}
+        <button type="button" class="orders-inline-pos-name" data-open-position="${p.id}">${escapeHtml(p.item || "—")}</button>
+        <span class="orders-inline-pos-stage stage-pill stage-pill--compact">${escapeHtml(stage)}</span>
+        <span class="orders-inline-pos-pct">${p.progress ?? 0}%</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function orderPositionsPanelHtml(order, allPositions, expanded) {
+  if (!expanded) return "";
+  return `<div class="order-card-positions" data-order-positions-panel="${order.id}">
+    <div class="orders-inline-pos-list">${renderOrderPositionsInline(order, allPositions)}</div>
+  </div>`;
+}
+
+function orderListPositionsRow(order, allPositions, expanded, colspan) {
+  if (!expanded) return "";
+  return `<tr class="orders-list-positions-row" data-order-positions-for="${order.id}">
+    <td colspan="${colspan}">
+      <div class="orders-inline-pos-list">${renderOrderPositionsInline(order, allPositions)}</div>
+    </td>
+  </tr>`;
+}
 
 function priorityClass(priority) {
   const p = String(priority || "").toLowerCase();
@@ -154,7 +217,9 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
             ${badge(order.status || "—")}
             ${posCount ? `<span class="order-card-plan">${posCount} поз.</span>` : ""}
             ${order.planDate ? `<span class="order-card-plan">${escapeHtml(order.planDate)}</span>` : ""}
+            ${orderPositionsToggleBtn(order, positionsForOrder(order, allPositions), state.expandedOrderIds.has(order.id))}
           </div>
+          ${orderPositionsPanelHtml(order, allPositions, state.expandedOrderIds.has(order.id))}
           ${orderCardActions(order, attn)}
           </div>
         </article>`;
@@ -165,17 +230,21 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
 }
 
 function renderOrdersList(orders, rootPositions, allPositions) {
+  const colspan = 10;
   const rows = orders.length
     ? orders
-        .map((order) => {
+        .flatMap((order) => {
           const main = mainPositionForOrder(order, rootPositions);
           const progress = main?.progress ?? 0;
           const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
           const priClass = priorityClass(order.priority);
           const attn = orderAttentionFromGodmode(order, allPositions);
           const rowClass = attn.attentionCount > 0 ? "orders-list-row--attention" : "";
+          const related = positionsForOrder(order, allPositions);
+          const expanded = state.expandedOrderIds.has(order.id);
 
-          return `<tr class="orders-list-row row-clickable ${rowClass}" data-order-list-row="${order.id}" tabindex="0">
+          const mainRow = `<tr class="orders-list-row row-clickable ${rowClass}" data-order-list-row="${order.id}" tabindex="0">
+            <td class="orders-list-expand">${orderPositionsToggleBtn(order, related, expanded)}</td>
             <td><strong>${escapeHtml(order.orderNumber || "—")}</strong></td>
             <td class="left">${escapeHtml(order.client || "—")}</td>
             <td class="left">${escapeHtml(order.object || "—")}</td>
@@ -186,9 +255,11 @@ function renderOrdersList(orders, rootPositions, allPositions) {
             <td>${escapeHtml(order.planDate || "—")}</td>
             <td>${priClass ? `<span class="priority-dot ${priClass}" title="${escapeHtml(order.priority || "")}"></span> ` : ""}${escapeHtml(order.priority || "—")}</td>
           </tr>`;
+
+          return [mainRow, orderListPositionsRow(order, allPositions, expanded, colspan)];
         })
         .join("")
-    : `<tr><td colspan="9"><div class="enver-empty-state">
+    : `<tr><td colspan="${colspan}"><div class="enver-empty-state">
         <span class="enver-empty-state-icon" aria-hidden="true">📋</span>
         <h3 class="enver-empty-state-title">Поки немає замовлень</h3>
         <p class="enver-empty-state-text">Створіть перше замовлення, щоб запустити виробничий workflow.</p>
@@ -199,6 +270,7 @@ function renderOrdersList(orders, rootPositions, allPositions) {
       <table class="orders-list-table">
         <thead>
           <tr>
+            <th class="orders-list-expand" aria-label="Позиції"></th>
             <th>Номер</th>
             <th class="left">Клієнт</th>
             <th class="left">Об'єкт</th>
@@ -276,6 +348,31 @@ function openOrder(orderId, handlers) {
 
 const swipeCleanups = [];
 
+function bindOrderPositionsInline(root, handlers) {
+  root?.querySelectorAll("[data-toggle-order-positions]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleOrderExpanded(btn.dataset.toggleOrderPositions);
+      window.__enverRender?.({ contentOnly: true });
+    });
+  });
+
+  root?.querySelectorAll("[data-toggle-position]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePositionExpanded(Number(btn.dataset.togglePosition));
+      window.__enverRender?.({ contentOnly: true });
+    });
+  });
+
+  root?.querySelectorAll("[data-open-position]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handlers.onOpenPosition?.(Number(btn.dataset.openPosition));
+    });
+  });
+}
+
 function bindOrderCards(root, handlers) {
   swipeCleanups.forEach((fn) => fn());
   swipeCleanups.length = 0;
@@ -284,7 +381,7 @@ function bindOrderCards(root, handlers) {
     const open = () => openOrder(card.dataset.orderCard, handlers);
     card.addEventListener("click", (e) => {
       if (card.dataset.swipeHandled) return;
-      if (e.target.closest("[data-order-cta], [data-order-detail]")) return;
+      if (e.target.closest("[data-order-cta], [data-order-detail], [data-toggle-order-positions], [data-toggle-position], [data-open-position]")) return;
       open();
     });
     card.addEventListener("keydown", (e) => {
@@ -332,12 +429,24 @@ function bindOrderCards(root, handlers) {
       swipeCleanups.push(() => ctl.destroy());
     });
   }
+
+  bindOrderPositionsInline(root, handlers);
 }
 
 function bindOrdersList(root, handlers) {
+  bindOrderPositionsInline(root, handlers);
   root?.querySelectorAll("[data-order-list-row]").forEach((row) => {
     const open = () => openOrder(row.dataset.orderListRow, handlers);
-    row.addEventListener("click", open);
+    row.addEventListener("click", (e) => {
+      if (
+        e.target.closest(
+          "[data-toggle-order-positions], [data-toggle-position], [data-open-position]"
+        )
+      ) {
+        return;
+      }
+      open();
+    });
     row.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();

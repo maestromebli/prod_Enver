@@ -196,12 +196,14 @@ router.post("/", requireOrderWrite, async (req, res) => {
     );
     await logOrderCreate(inserted, auditActor(req));
     const actor = auditActor(req);
-    const { root } = await ensureOrderRootPosition(inserted, { actor });
-    await syncOrderStatusWorkflow(inserted, { actor });
     const subItems = normalizeOrderSubItems(req.body);
-    if (subItems.length && root) {
+    if (subItems.length) {
+      const { root } = await ensureOrderRootPosition(inserted, { actor });
       await createOrderSubPositions(inserted, root, subItems, { actor });
+    } else if (req.body?.createRootPosition === true) {
+      await ensureOrderRootPosition(inserted, { actor });
     }
+    await syncOrderStatusWorkflow(inserted, { actor });
     res.status(201).json(mapOrder(inserted));
   } catch (err) {
     if (err.code === PG_UNIQUE_VIOLATION) {
