@@ -6,6 +6,11 @@ import {
 import { enrichPositionRow } from "./position-logic.js";
 import { mapOrder, mapPosition } from "./mappers.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "./stage-timestamps.js";
+import {
+  buildAiNotifications,
+  buildGlobalAiNotifications,
+  mergeAiNotifications
+} from "./ai/ai-notifications.js";
 
 export function godmodeContextFromRow(row, extra = {}) {
   return {
@@ -59,6 +64,18 @@ export async function buildNotificationsPayload({ orders, positions, users, now 
   });
   return buildNotifications({ orders, positions: enriched, users, now: at });
 }
+
+export async function buildNotificationsPayloadWithAi({ orders, positions, users, now }) {
+  const base = await buildNotificationsPayload({ orders, positions, users, now });
+  const aiPos = buildAiNotifications({ positions, now });
+  const aiGlobal = await buildGlobalAiNotifications({ now });
+  return mergeAiNotifications(base, [...aiPos, ...aiGlobal]);
+}
+
+export const LATEST_AI_SUMMARY_SUBQUERY = `(SELECT ca.summary_json FROM constructive_analyses ca
+  JOIN position_files pf ON pf.id = ca.position_file_id
+  WHERE pf.position_id = p.id
+  ORDER BY ca.created_at DESC LIMIT 1) AS latest_ai_summary_json`;
 
 export const AI_COUNT_SUBQUERY = `(SELECT COUNT(*)::int FROM constructive_analyses ca
   JOIN position_files pf ON pf.id = ca.position_file_id

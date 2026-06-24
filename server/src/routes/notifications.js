@@ -4,8 +4,10 @@ import { requireAuth } from "../middleware/auth.js";
 import {
   AI_COUNT_SUBQUERY,
   ACTIVE_SESSION_SUBQUERY,
-  buildNotificationsPayload
+  buildNotificationsPayloadWithAi,
+  LATEST_AI_SUMMARY_SUBQUERY
 } from "../godmode-enrich.js";
+import { filterNotificationsForRole } from "../ai/ai-notifications.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -15,6 +17,7 @@ const POSITION_SELECT = `SELECT p.*,
    WHERE pf.position_id = p.id AND pf.kind = 'constructive'
    ORDER BY pf.created_at DESC LIMIT 1) AS constructive_file_name,
   ${AI_COUNT_SUBQUERY},
+  ${LATEST_AI_SUMMARY_SUBQUERY},
   ${ACTIVE_SESSION_SUBQUERY}
  FROM positions p`;
 
@@ -25,7 +28,7 @@ async function loadNotificationsPayload() {
   const rows = await all(`${POSITION_SELECT} WHERE p.parent_id IS NULL ORDER BY p.id`);
   const planMap = new Map(orders.map((o) => [o.order_number, o.plan_date]));
 
-  return buildNotificationsPayload({
+  return buildNotificationsPayloadWithAi({
     orders,
     positions: rows.map((r) => ({ ...r, plan_date: planMap.get(r.order_number) })),
     users: [],
@@ -33,8 +36,10 @@ async function loadNotificationsPayload() {
   });
 }
 
-router.get("/", async (_req, res) => {
-  res.json(await loadNotificationsPayload());
+router.get("/", async (req, res) => {
+  const items = await loadNotificationsPayload();
+  const role = req.user?.role || "manager";
+  res.json(filterNotificationsForRole(items, role));
 });
 
 router.get("/stream", async (req, res) => {
@@ -51,7 +56,10 @@ router.get("/stream", async (req, res) => {
   const push = async () => {
     if (closed) return;
     try {
-      const items = await loadNotificationsPayload();
+      const items = filterNotificationsForRole(
+        await loadNotificationsPayload(),
+        req.user?.role || "manager"
+      );
       res.write(
         `event: notifications\ndata: ${JSON.stringify({ items, at: new Date().toISOString() })}\n\n`
       );

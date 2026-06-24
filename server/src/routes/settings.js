@@ -12,6 +12,7 @@ function aiSettingsResponse(updated, { keyUpdated = false } = {}) {
     openaiModel: updated.openaiModel,
     hasApiKey: Boolean(updated.dbApiKey),
     hasEnvKey: Boolean(updated.envApiKey),
+    useLearningMemory: updated.useLearningMemory !== false,
     keyUpdated,
     openaiApiKeyMasked: maskSecret(updated.dbApiKey || updated.envApiKey),
     message: keyUpdated ? "API ключ збережено в базі" : "Налаштування збережено"
@@ -26,6 +27,7 @@ router.get("/ai", async (_req, res) => {
       openaiModel: ai.openaiModel,
       hasApiKey: Boolean(ai.dbApiKey),
       hasEnvKey: Boolean(ai.envApiKey),
+      useLearningMemory: ai.useLearningMemory !== false,
       openaiApiKeyMasked: maskSecret(ai.dbApiKey || ai.envApiKey)
     });
   } catch (err) {
@@ -70,7 +72,11 @@ router.put("/ai", async (req, res) => {
     await setSetting("ai", {
       enabled: enabled !== undefined ? Boolean(enabled) : current.enabled !== false,
       openaiModel: openaiModel?.trim() || current.openaiModel,
-      openaiApiKey: dbKey
+      openaiApiKey: dbKey,
+      useLearningMemory:
+        req.body?.useLearningMemory !== undefined
+          ? Boolean(req.body.useLearningMemory)
+          : current.useLearningMemory !== false
     });
 
     const updated = await getAiSettings();

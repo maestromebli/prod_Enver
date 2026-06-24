@@ -2,8 +2,14 @@ import { all, one, run } from "./db.js";
 import { getAiSettings } from "./app-settings.js";
 import { readStoredFile } from "./file-storage.js";
 import { parseJsonObject } from "./json-utils.js";
+import { attachQualityToAnalysis } from "./ai/analysis-quality.js";
+import { extractTextFromBuffer, MAX_TEXT_CHARS } from "./ai/file-extraction.js";
+import { normalizeAnalysisResult } from "./ai/normalize-analysis.js";
+import { callOpenAiChat } from "./ai/openai-client.js";
+import { parseRawAnalysisContent } from "./ai/validate-analysis.js";
+import { getRelevantLearningContext } from "./ai/ai-learning.js";
 
-const MAX_TEXT_CHARS = 120_000;
+export { extractTextFromBuffer };
 
 export async function getRecentAiFeedback(limit = 5) {
   const rows = await all(
@@ -16,42 +22,41 @@ export async function getRecentAiFeedback(limit = 5) {
   return rows;
 }
 
-export async function extractTextFromBuffer(buffer, mime, originalName) {
-  const name = String(originalName || "").toLowerCase();
-  const type = String(mime || "").toLowerCase();
-
-  if (
-    type.includes("text") ||
-    name.endsWith(".txt") ||
-    name.endsWith(".xml") ||
-    name.endsWith(".csv")
-  ) {
-    return buffer.toString("utf8").slice(0, MAX_TEXT_CHARS);
+function buildExtractionHint(meta) {
+  const parts = [];
+  if (meta.extractedFiles?.length) {
+    parts.push(`Файли в архіві: ${meta.extractedFiles.join(", ")}`);
   }
-
-  if (name.endsWith(".zip")) {
-    return `[ZIP архів: ${originalName}, ${buffer.length} байт — для детального розбору завантажте розпакований XML/TXT]`;
+  if (meta.text?.length > 0) {
+    const preview = meta.text.replace(/\s+/g, " ").slice(0, 200);
+    parts.push(`Прочитано: ${preview}${meta.text.length > 200 ? "…" : ""}`);
   }
-
-  if (type.includes("pdf") || name.endsWith(".pdf")) {
-    const raw = buffer.toString("latin1");
-    const chunks = raw.match(/\(([^)]{4,200})\)/g) || [];
-    const text = chunks
-      .map((c) => c.slice(1, -1))
-      .join(" ")
-      .replace(/\\n/g, " ")
-      .slice(0, MAX_TEXT_CHARS);
-    return text || `[PDF: ${originalName}, ${buffer.length} байт]`;
-  }
-
-  return `[Файл: ${originalName}, тип ${mime || "unknown"}, ${buffer.length} байт]`;
+  return parts.join(". ");
 }
 
-function buildPrompt({ orderNumber, item, text, feedback }) {
+function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learningContext }) {
   const examples =
     feedback.length > 0
-      ? `\n\nПриклади корекцій від адміністратора (врахуй стиль і термінологію):\n${feedback
+      ? `\n\nПриклади корекцій від адміністратора (врахуй стиль і термінологію, але не як абсолютну істину):\n${feedback
           .map((f, i) => `${i + 1}. [${f.rating}] ${f.correction_text}`)
+          .join("\n")}`
+      : "";
+
+  const extractionNote =
+    extractionMeta.extractionQuality !== "good"
+      ? `\n\nУВАГА: файл прочитано частково (якість: ${extractionMeta.extractionQuality}). ${
+          extractionMeta.warnings?.join("; ") || ""
+        }`
+      : "";
+
+  const learningBlock = learningContext?.summary
+    ? `\n\nДосвід ENVER зі схожих замовлень (підказка, не абсолютна істина):\n${learningContext.summary}`
+    : "";
+
+  const rulesBlock =
+    learningContext?.rules?.length > 0
+      ? `\n\nПравила ENVER:\n${learningContext.rules
+          .map((r, i) => `${i + 1}. ${r.rule_text || r.title}`)
           .join("\n")}`
       : "";
 
@@ -62,7 +67,7 @@ function buildPrompt({ orderNumber, item, text, feedback }) {
 {
   "summary": "короткий опис замовлення/виробу",
   "materials": ["матеріал1"],
-  "panels": [{"name":"...", "qty":0, "size":"..."}],
+  "panels": [{"name":"...", "qty":0, "size":"...", "material":"...", "edge":"...", "notes":"..."}],
   "warnings": ["попередження"],
   "suggestedTasks": [
     {"stage": "cutting", "needed": true, "reason": "...", "confidence": 0.92}
@@ -78,18 +83,59 @@ function buildPrompt({ orderNumber, item, text, feedback }) {
   }
 }
 
-Для suggestedTasks використовуй stage: cutting, edging, drilling, assembly, packaging.
+Правила:
+- Якщо інформації немає у файлі — не вигадуй, пиши в missingInfo.
+- Якщо впевненість нижче 0.8 — додай warning або missingInfo про ручну перевірку.
+- Якщо файл прочитано частково — попередь у warnings.
+- Для suggestedTasks використовуй ТІЛЬКИ: cutting, edging, drilling, assembly, packaging.
+- Не створюй задачі без причини (reason обов'язковий).
+- operatorNotes — коротко і практично для оператора.
+- warnings — попередження; критичні проблеми теж у warnings.
+- confidence — число 0..1, чесно.
+- Досвід ENVER враховуй як підказку; якщо суперечить файлу — додай warning.
+- Якщо досвід лише припущення — confidence не вище 0.75.
+- Не використовуй markdown. Поверни тільки JSON.
+- Усі тексти для користувача — українською.
+
 Текст/вміст файлу:
-${text.slice(0, MAX_TEXT_CHARS)}${examples}`;
+${text.slice(0, MAX_TEXT_CHARS)}${extractionNote}${learningBlock}${rulesBlock}${examples}`;
+}
+
+function flattenAnalysisResponse({
+  id,
+  createdAt,
+  analysis,
+  extractedTextMeta,
+  learningContext,
+  model,
+  tokens,
+  durationMs
+}) {
+  const { quality, ...rest } = analysis;
+  return {
+    id,
+    createdAt,
+    analysis,
+    quality,
+    extractedTextMeta,
+    learningContext: learningContext || { examples: [], rules: [], summary: "" },
+    model,
+    tokens,
+    durationMs,
+    ...rest
+  };
 }
 
 export async function analyzeConstructiveFile({
   positionFileId,
   orderNumber,
   item,
+  itemType = "",
+  material = "",
   storagePath,
   mime,
-  originalName
+  originalName,
+  learningContext = null
 }) {
   const ai = await getAiSettings();
   if (!ai.enabled) {
@@ -104,55 +150,112 @@ export async function analyzeConstructiveFile({
   }
 
   const buffer = await readStoredFile(storagePath);
-  const text = await extractTextFromBuffer(buffer, mime, originalName);
-  const feedback = await getRecentAiFeedback(5);
-  const prompt = buildPrompt({ orderNumber, item, text, feedback });
+  const extractedTextMeta = await extractTextFromBuffer(buffer, mime, originalName);
+  const ctx =
+    learningContext ||
+    (await getRelevantLearningContext({
+      itemName: item,
+      itemType,
+      material,
+      extractedText: extractedTextMeta.text
+    }));
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ai.openaiApiKey.trim()}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: ai.openaiModel,
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: "Ти експерт з меблевого виробництва. Відповідай українською." },
-        { role: "user", content: prompt }
-      ]
-    })
+  const feedback = await getRecentAiFeedback(5);
+  const prompt = buildPrompt({
+    orderNumber,
+    item,
+    text: extractedTextMeta.text,
+    feedback,
+    extractionMeta: extractedTextMeta,
+    learningContext: ctx
   });
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
-    const err = new Error(`OpenAI: ${response.status} ${errBody.slice(0, 200)}`);
-    err.status = 502;
-    throw err;
+  const { content, tokens, model, durationMs, raw } = await callOpenAiChat({
+    apiKey: ai.openaiApiKey,
+    model: ai.openaiModel,
+    messages: [
+      {
+        role: "system",
+        content:
+          "Ти експерт з меблевого виробництва. Відповідай українською. Повертай лише JSON без markdown."
+      },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.2
+  });
+
+  const { raw: parsedRaw } = parseRawAnalysisContent(content);
+  let analysis = normalizeAnalysisResult(parsedRaw);
+
+  if (extractedTextMeta.warnings?.length) {
+    analysis.warnings = [...new Set([...analysis.warnings, ...extractedTextMeta.warnings])];
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "{}";
-  let summary;
-  try {
-    const cleaned = content
-      .replace(/^```json\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-    summary = JSON.parse(cleaned);
-  } catch {
-    summary = { summary: content, materials: [], panels: [], warnings: [], suggestedTasks: [] };
-  }
+  attachQualityToAnalysis(analysis, extractedTextMeta, ctx);
 
-  const tokens = data.usage?.total_tokens || 0;
+  const storedPayload = {
+    ...analysis,
+    _meta: {
+      extractedTextMeta: {
+        sourceType: extractedTextMeta.sourceType,
+        extractionQuality: extractedTextMeta.extractionQuality,
+        warnings: extractedTextMeta.warnings,
+        extractedFiles: extractedTextMeta.extractedFiles,
+        readPreview: buildExtractionHint(extractedTextMeta)
+      },
+      learningContext: ctx,
+      durationMs,
+      debug: process.env.NODE_ENV !== "production" ? { rawOpenAi: raw } : undefined
+    }
+  };
+
   const row = await one(
     `INSERT INTO constructive_analyses (position_file_id, summary_json, model, tokens)
      VALUES ($1, $2, $3, $4)
      RETURNING id, created_at`,
-    [positionFileId, JSON.stringify(summary), ai.openaiModel, tokens]
+    [positionFileId, JSON.stringify(storedPayload), model, tokens]
   );
 
-  return { id: row.id, createdAt: row.created_at, ...summary, model: ai.openaiModel, tokens };
+  return flattenAnalysisResponse({
+    id: row.id,
+    createdAt: row.created_at,
+    analysis,
+    extractedTextMeta: {
+      ...extractedTextMeta,
+      readPreview: buildExtractionHint(extractedTextMeta)
+    },
+    learningContext: ctx,
+    model,
+    tokens,
+    durationMs
+  });
+}
+
+function mapStoredAnalysis(row) {
+  const parsed = parseJsonObject(row.summary_json);
+  const meta = parsed._meta || {};
+  const { _meta, quality: storedQuality, ...rest } = parsed;
+  const analysis = normalizeAnalysisResult(rest);
+  if (storedQuality) {
+    analysis.quality = storedQuality;
+  } else if (meta.extractedTextMeta) {
+    attachQualityToAnalysis(analysis, meta.extractedTextMeta, meta.learningContext || {});
+  }
+
+  return {
+    ...flattenAnalysisResponse({
+      id: row.id,
+      createdAt: row.created_at,
+      analysis,
+      extractedTextMeta: meta.extractedTextMeta || null,
+      learningContext: meta.learningContext || { examples: [], rules: [], summary: "" },
+      model: row.model,
+      tokens: row.tokens,
+      durationMs: meta.durationMs || null
+    }),
+    fileId: row.file_id,
+    fileName: row.original_name
+  };
 }
 
 export async function listAnalysesForPosition(positionId) {
@@ -165,15 +268,7 @@ export async function listAnalysesForPosition(positionId) {
      ORDER BY ca.created_at DESC`,
     [positionId]
   );
-  return rows.map((r) => ({
-    id: r.id,
-    fileId: r.file_id,
-    fileName: r.original_name,
-    model: r.model,
-    tokens: r.tokens,
-    createdAt: r.created_at,
-    ...parseJsonObject(r.summary_json)
-  }));
+  return rows.map((r) => mapStoredAnalysis(r));
 }
 
 export async function listRecentAnalyses(limit = 20) {
@@ -198,10 +293,57 @@ export async function listRecentAnalyses(limit = 20) {
   }));
 }
 
-export async function saveAiFeedback({ analysisId, rating, correctionText, userId }) {
+export async function saveAiFeedback({
+  analysisId,
+  rating,
+  correctionText,
+  correctedTasks,
+  correctedMaterials,
+  correctedWarnings,
+  userId,
+  learningMeta = {}
+}) {
   await run(
-    `INSERT INTO ai_feedback (constructive_analysis_id, rating, correction_text, user_id)
-     VALUES ($1, $2, $3, $4)`,
-    [analysisId, rating || "", correctionText || "", userId || null]
+    `INSERT INTO ai_feedback (
+      constructive_analysis_id, rating, correction_text, user_id,
+      corrected_tasks_json, corrected_materials_json, corrected_warnings_json
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      analysisId,
+      rating || "",
+      correctionText || "",
+      userId || null,
+      JSON.stringify(Array.isArray(correctedTasks) ? correctedTasks : []),
+      JSON.stringify(Array.isArray(correctedMaterials) ? correctedMaterials : []),
+      JSON.stringify(Array.isArray(correctedWarnings) ? correctedWarnings : [])
+    ]
   );
+
+  if (learningMeta.saveEvent !== false) {
+    const { saveLearningEvent } = await import("./ai/ai-memory.js");
+    await saveLearningEvent(
+      {
+        eventType: learningMeta.eventType || "constructive_analysis_feedback",
+        entityType: learningMeta.entityType || "constructive_analysis",
+        entityId: analysisId,
+        orderNumber: learningMeta.orderNumber || "",
+        itemName: learningMeta.itemName || "",
+        itemType: learningMeta.itemType || "",
+        material: learningMeta.material || "",
+        source: learningMeta.source || "ai_analysis",
+        inputSummary: learningMeta.inputSummary || "",
+        aiOutput: learningMeta.aiOutput || {},
+        correctedOutput: {
+          suggestedTasks: correctedTasks,
+          materials: correctedMaterials,
+          warnings: correctedWarnings
+        },
+        correctionText,
+        rating,
+        confidenceBefore: learningMeta.confidenceBefore,
+        tags: learningMeta.tags
+      },
+      userId
+    ).catch((err) => console.error("[ai feedback learning]", err.message));
+  }
 }

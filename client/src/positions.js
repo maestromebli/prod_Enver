@@ -12,7 +12,7 @@ import {
   getStageStatus,
   stageStatusClass
 } from "./workflows.js";
-import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
+import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import {
   $,
@@ -38,24 +38,7 @@ export function setPositionSaveHandler(handler) {
   onSaved = handler;
 }
 
-function normalizeSuggestedTasks(result) {
-  const raw = result?.suggestedTasks || [];
-  return raw.map((t) => {
-    if (typeof t === "string") {
-      const map = {
-        порізка: "cutting",
-        крайкування: "edging",
-        кромкування: "edging",
-        присадка: "drilling",
-        збірка: "assembly",
-        пакування: "packaging"
-      };
-      const key = map[t.toLowerCase()] || t;
-      return { stage: key, needed: true, reason: "", confidence: 0.7 };
-    }
-    return t;
-  });
-}
+import { renderAiAnalysisResult, bindAiAnalysisEvents } from "./ai-analysis-ui.js";
 
 function renderConstructiveUploadBlock(p) {
   if (!p.id) {
@@ -90,41 +73,6 @@ function renderConstructiveUploadBlock(p) {
         <button type="button" class="btn btn-primary constructive-analyze-cta enver-pressable" id="analyzeConstructiveBtn" ${p.hasConstructiveFile ? "" : "disabled"}>Запустити ШІ-аналіз</button>
       </div>
       <div id="constructiveAnalysis" class="constructive-analysis"></div>
-    </div>`;
-}
-
-function renderAiAnalysisResult(result) {
-  const tasks = normalizeSuggestedTasks(result).filter((t) => t.needed !== false);
-  const highConf = tasks.every((t) => (t.confidence ?? 0.8) >= 0.8);
-  const missing = result.missingInfo || [];
-
-  const taskRows = tasks
-    .map((t) => {
-      const conf = Math.round((t.confidence ?? 0.8) * 100);
-      const checked = (t.confidence ?? 0.8) >= 0.8 ? "checked" : "";
-      return `<label class="ai-task-row">
-        <input type="checkbox" data-task-stage value="${escapeHtml(t.stage)}" ${checked} />
-        <span><strong>${escapeHtml(stageLabel(t.stage))}</strong> — ${escapeHtml(t.reason || "рекомендовано")} (${conf}%)</span>
-      </label>`;
-    })
-    .join("");
-
-  return `
-    <div class="analysis-card">
-      <p><strong>${escapeHtml(result.summary || "—")}</strong></p>
-      ${result.estimatedComplexity ? `<p>Складність: ${escapeHtml(result.estimatedComplexity)}</p>` : ""}
-      ${result.materials?.length ? `<p>Матеріали: ${result.materials.map(escapeHtml).join(", ")}</p>` : ""}
-      ${result.warnings?.length ? `<p class="form-error visible">${result.warnings.map(escapeHtml).join("; ")}</p>` : ""}
-      ${missing.length ? `<p class="form-error visible">Бракує даних: ${missing.map(escapeHtml).join("; ")}</p>` : ""}
-      ${tasks.length ? `<div class="ai-task-list">${taskRows}</div>` : ""}
-      ${
-        tasks.length
-          ? `<div class="constructive-actions" style="margin-top:10px">
-        <button type="button" class="btn btn-sm btn-primary" id="createTasksBtn">${highConf ? "Створити всі рекомендовані задачі" : "Створити тільки обрані"}</button>
-        <button type="button" class="btn btn-sm" id="rejectAiTasksBtn">Відхилити</button>
-      </div>`
-          : ""
-      }
     </div>`;
 }
 
@@ -757,30 +705,24 @@ function bindDrawerEvents() {
       });
       if (box) {
         box.innerHTML = renderAiAnalysisResult(result);
-        $("#createTasksBtn")?.addEventListener("click", async () => {
-          const stages = [];
-          document
-            .querySelectorAll("[data-task-stage]:checked")
-            .forEach((cb) => stages.push(cb.value));
-          if (!stages.length) {
-            showError("Оберіть хоча б один етап");
-            return;
+        bindAiAnalysisEvents(box, {
+          positionId: draft.id,
+          showError,
+          onRepeat: () => $("#analyzeConstructiveBtn")?.click(),
+          onTasksCreated: async (stages, submitEl) => {
+            await runSave("Задачі", {
+              submitEl,
+              saveFn: () => api.createProductionTasks(draft.id, stages),
+              successMessage: "Виробничі задачі створено",
+              onSuccess: async (pos) => {
+                draft = { ...draft, ...pos };
+                updateHeader();
+                renderDrawerContent();
+                await onSaved();
+              },
+              onError: (err) => showError(err.message)
+            }).catch(() => {});
           }
-          await runSave("Задачі", {
-            submitEl: $("#createTasksBtn"),
-            saveFn: () => api.createProductionTasks(draft.id, stages),
-            successMessage: "Виробничі задачі створено",
-            onSuccess: async (pos) => {
-              draft = { ...draft, ...pos };
-              updateHeader();
-              renderDrawerContent();
-              await onSaved();
-            },
-            onError: (err) => showError(err.message)
-          }).catch(() => {});
-        });
-        $("#rejectAiTasksBtn")?.addEventListener("click", () => {
-          if (box) box.innerHTML = '<p class="history-muted">Рекомендації відхилено.</p>';
         });
       }
     } catch (err) {

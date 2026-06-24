@@ -27,7 +27,8 @@ export async function getAiSettings() {
     dbApiKey: dbKey,
     envApiKey: envKey,
     openaiModel: raw.openaiModel || process.env.OPENAI_MODEL || "gpt-4o-mini",
-    enabled: raw.enabled !== false
+    enabled: raw.enabled !== false,
+    useLearningMemory: raw.useLearningMemory !== false
   };
 }
 

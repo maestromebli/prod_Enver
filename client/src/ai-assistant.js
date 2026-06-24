@@ -45,14 +45,106 @@ function renderMessages() {
     return `<p class="ai-assistant-muted">Задайте питання про замовлення, етапи або інтерфейс ENVER.</p>`;
   }
   return chatHistory
-    .map(
-      (m) => `
+    .map((m) => {
+      const actions =
+        m.actions?.length > 0
+          ? `<div class="ai-chat-actions">${m.actions
+              .map(
+                (a, i) =>
+                  `<button type="button" class="btn btn-sm ai-chat-action-btn" data-msg-idx="${chatHistory.indexOf(m)}" data-action-idx="${i}">${escapeHtml(a.label)}</button>`
+              )
+              .join("")}</div>`
+          : "";
+      const warnings =
+        m.warnings?.length > 0
+          ? `<ul class="ai-chat-warnings">${m.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`
+          : "";
+      return `
     <div class="ai-chat-msg ai-chat-msg--${m.role}">
       <div class="ai-chat-bubble">${escapeHtml(m.content)}</div>
-    </div>
-  `
-    )
+      ${warnings}
+      ${actions}
+    </div>`;
+    })
     .join("");
+}
+
+async function executeAssistantAction(action) {
+  if (!action) return;
+  const { type, payload, requiresConfirmation } = action;
+  if (requiresConfirmation) {
+    const ok = window.confirm(`Підтвердити дію: ${action.label}?`);
+    if (!ok) return;
+  }
+
+  if (type === "open_tab" && onNavigate) {
+    onNavigate(payload.tab);
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_attention" && onNavigate) {
+    onNavigate("Потребує уваги");
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_production_floor" && onNavigate) {
+    const { PRODUCTION_FLOOR_TAB } = await import("./constants.js");
+    onNavigate(PRODUCTION_FLOOR_TAB);
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_install_calendar" && onNavigate) {
+    onNavigate("Встановлення");
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_settings_ai") {
+    const { openSettings } = await import("./settings.js");
+    openSettings?.("ai");
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_order" && payload.orderId) {
+    const { state } = await import("./state.js");
+    state.selectedOrderId = payload.orderId;
+    if (onNavigate) onNavigate("Замовлення");
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "open_position" && payload.positionId) {
+    const { openPositionDrawer } = await import("./positions.js");
+    openPositionDrawer(payload.positionId);
+    panelOpen = false;
+    renderPanel();
+    return;
+  }
+  if (type === "run_position_action" && payload.positionId) {
+    const { executeGodmodeAction } = await import("./godmode-ui.js");
+    await executeGodmodeAction({
+      entityType: "position",
+      entityId: payload.positionId,
+      actionType: payload.actionType
+    });
+    const { toastSuccess } = await import("./toast.js");
+    toastSuccess("Дію виконано");
+    return;
+  }
+  if (type === "run_order_action" && payload.orderId) {
+    const { executeGodmodeAction } = await import("./godmode-ui.js");
+    await executeGodmodeAction({
+      entityType: "order",
+      entityId: payload.orderId,
+      actionType: payload.actionType
+    });
+    const { toastSuccess } = await import("./toast.js");
+    toastSuccess("Дію виконано");
+  }
 }
 
 function renderPanel() {
@@ -194,6 +286,14 @@ function bindPanelEvents() {
     input.value = "";
     void sendChat(text);
   });
+
+  document.querySelectorAll(".ai-chat-action-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const msg = chatHistory[Number(btn.dataset.msgIdx)];
+      const action = msg?.actions?.[Number(btn.dataset.actionIdx)];
+      void executeAssistantAction(action);
+    });
+  });
 }
 
 async function refreshHints({ withAi = false } = {}) {
@@ -241,7 +341,9 @@ async function sendChat(message) {
     });
     chatHistory.push({
       role: "assistant",
-      content: result.reply || "Не вдалося отримати відповідь."
+      content: result.reply || "Не вдалося отримати відповідь.",
+      actions: result.actions || [],
+      warnings: result.warnings || []
     });
   } catch (err) {
     chatHistory.push({

@@ -394,6 +394,14 @@ router.post("/report-problem", requireOperatorSelf, async (req, res) => {
     );
   }
 
+  const { recordOperatorProblemLearning } = await import("../ai/ai-task-learning.js");
+  await recordOperatorProblemLearning({
+    positionRow: afterRow,
+    stageKey,
+    comment: text,
+    userId: auditActor(req)?.id
+  }).catch((err) => console.error("[ai operator learning]", err.message));
+
   res.json({ position: await mapOperatorPosition(afterRow) });
 });
 

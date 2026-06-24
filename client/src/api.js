@@ -161,6 +161,13 @@ export const api = {
   getAiStatus: () => request("/api/ai/status"),
   aiAssist: (body) => request("/api/ai/assist", { method: "POST", body: JSON.stringify(body) }),
 
+  getAiLearningSummary: () => request("/api/ai/learning/summary"),
+  getAiRules: () => request("/api/ai/rules"),
+  createAiRule: (body) => request("/api/ai/rules", { method: "POST", body: JSON.stringify(body) }),
+  updateAiRule: (id, body) =>
+    request(`/api/ai/rules/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteAiRule: (id) => request(`/api/ai/rules/${id}`, { method: "DELETE" }),
+
   getProductionFloor: () => request("/api/production/floor"),
 
   getNotifications: () => request("/api/notifications"),

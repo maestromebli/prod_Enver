@@ -1,5 +1,8 @@
 import { getAiSettings } from "./app-settings.js";
 import { getRecentAiFeedback } from "./constructive-ai.js";
+import { callOpenAiChat } from "./ai/openai-client.js";
+import { buildActionsPromptBlock, validateAssistantActions } from "./ai/assistant-actions.js";
+import { parseAiJsonContent } from "./ai/validate-analysis.js";
 
 function assertAiReady(ai) {
   if (!ai.enabled) {
@@ -28,13 +31,16 @@ function formatContext(ctx = {}) {
     );
   }
 
+  if (ctx.selectedOrderId) {
+    lines.push(`Обране замовлення id: ${ctx.selectedOrderId}`);
+  }
   if (ctx.selectedOrderNumber) {
     lines.push(`Обране замовлення: ${ctx.selectedOrderNumber}`);
   }
   if (ctx.selectedPosition) {
     const p = ctx.selectedPosition;
     lines.push(
-      `Обрана позиція: ${p.orderNumber || "—"} / ${p.item || "—"}, статус ${p.status || "—"}, прогрес ${p.progress ?? "—"}%`
+      `Обрана позиція id: ${p.id ?? "—"}, ${p.orderNumber || "—"} / ${p.item || "—"}, статус ${p.status || "—"}, прогрес ${p.progress ?? "—"}%`
     );
   }
   if (ctx.operatorStage) {
@@ -104,50 +110,33 @@ ${hist}
 
 Питання користувача: ${message}
 
-Відповідай українською, коротко й по суті. Пояснюй кроки в інтерфейсі ENVER. Якщо не вистачає даних — скажи, що перевірити.`;
+Правила:
+- Не вигадуй замовлення, позиції, клієнтів, дати або статуси.
+- Якщо даних немає в контексті — скажи, що потрібно відкрити відповідний екран.
+- Дії пропонуй тільки з дозволеного списку.
+- Не обіцяй виконати дію, якщо немає action.
+- Не показуй технічні деталі користувачу.
+- Усі зміни тільки через safe endpoint і підтвердження людини.
+
+${buildActionsPromptBlock()}`;
 }
 
 async function callOpenAi({ ai, system, user, temperature = 0.3 }) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ai.openaiApiKey.trim()}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: ai.openaiModel,
-      temperature,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ]
-    })
+  const { content, tokens } = await callOpenAiChat({
+    apiKey: ai.openaiApiKey,
+    model: ai.openaiModel,
+    temperature,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user }
+    ]
   });
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
-    const err = new Error(`OpenAI: ${response.status} ${errBody.slice(0, 200)}`);
-    err.status = 502;
-    throw err;
-  }
-
-  const data = await response.json();
-  return {
-    content: data.choices?.[0]?.message?.content || "",
-    tokens: data.usage?.total_tokens || 0
-  };
+  return { content, tokens };
 }
 
 function parseJsonContent(content, fallback) {
-  try {
-    const cleaned = String(content)
-      .replace(/^```json\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-    return JSON.parse(cleaned);
-  } catch {
-    return fallback;
-  }
+  const parsed = parseAiJsonContent(content);
+  return parsed.ok ? parsed.data : fallback;
 }
 
 export async function getAiAvailability() {
@@ -155,7 +144,8 @@ export async function getAiAvailability() {
   return {
     enabled: ai.enabled,
     hasApiKey: Boolean(ai.openaiApiKey?.trim()),
-    model: ai.openaiModel
+    model: ai.openaiModel,
+    useLearningMemory: ai.useLearningMemory !== false
   };
 }
 
@@ -200,13 +190,34 @@ export async function chatWithAssistant({ message, context, history = [] }) {
   const prompt = buildChatPrompt(context, message, history);
   const { content, tokens } = await callOpenAi({
     ai,
-    system: "Ти дружній помічник ENVER. Відповідай українською, структуровано, без зайвої води.",
+    system:
+      "Ти дружній помічник ENVER. Відповідай українською. Для chat повертай JSON з reply, actions, warnings.",
     user: prompt,
-    temperature: 0.4
+    temperature: 0.35
   });
+
+  const parsed = parseJsonContent(content, null);
+  if (parsed?.reply) {
+    const actions = validateAssistantActions(parsed.actions);
+    const warnings = Array.isArray(parsed.warnings)
+      ? parsed.warnings
+          .map((w) => String(w).trim())
+          .filter(Boolean)
+          .slice(0, 5)
+      : [];
+    return {
+      reply: String(parsed.reply).trim(),
+      actions,
+      warnings,
+      aiPowered: true,
+      tokens
+    };
+  }
 
   return {
     reply: content.trim(),
+    actions: [],
+    warnings: [],
     aiPowered: true,
     tokens
   };

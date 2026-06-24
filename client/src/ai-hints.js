@@ -24,6 +24,14 @@ function collectGodmodeHints(state) {
   if (top) {
     const gm = resolvePositionGodmode(top);
     const next = gm.nextAction;
+    if (next?.type?.startsWith("handoff_") && isRunnableGodmodeAction(next.type)) {
+      hints.push({
+        priority: "normal",
+        text: `${top.orderNumber} · ${top.item}: можна передати на наступний етап — ${next.label}`,
+        godmodeAction: { entityType: "position", entityId: top.id, actionType: next.type },
+        source: "godmode"
+      });
+    }
     if (next?.label && (gm.attentionScore || 0) >= 40 && isRunnableGodmodeAction(next.type)) {
       hints.push({
         priority: gm.health === "blocked" ? "high" : "normal",
@@ -212,6 +220,48 @@ export function collectLocalHints(state) {
   }
 
   const godmodeHints = collectGodmodeHints(state);
+
+  if (state.view === "main" && canEditPositions()) {
+    const pendingAiTasks = positions.filter(
+      (p) => !p.parentId && p.godmode?.nextAction?.type === "create_tasks_from_ai"
+    );
+    if (pendingAiTasks.length > 0) {
+      hints.push({
+        priority: "normal",
+        text: "AI-аналіз готовий, але задачі не створені — перевірте рекомендації в позиції.",
+        action: "Позиції",
+        source: "local"
+      });
+    }
+
+    const packagingReadyNoInstall = positions.filter((p) => {
+      if (p.parentId) return false;
+      return (p.packagingStatus === "Готово" || p.packaging_status === "Готово") && !p.installDate;
+    });
+    if (packagingReadyNoInstall.length > 0) {
+      hints.push({
+        priority: "normal",
+        text: `${packagingReadyNoInstall.length} позицій: пакування готове, монтаж ще не заплановано.`,
+        action: "Встановлення",
+        source: "local"
+      });
+    }
+
+    const installBeforePackaging = positions.filter((p) => {
+      if (p.parentId || !p.installDate) return false;
+      const pkg = p.packagingStatus || p.packaging_status;
+      return pkg && pkg !== "Готово" && pkg !== "Не розпочато";
+    });
+    if (installBeforePackaging.length > 0) {
+      hints.push({
+        priority: "high",
+        text: "Монтаж призначено до завершення пакування — перевірте дати.",
+        action: "Встановлення",
+        source: "local"
+      });
+    }
+  }
+
   return [...godmodeHints, ...hints].slice(0, 8);
 }
 
@@ -250,7 +300,21 @@ export function buildAssistantContext(state) {
 
   if (state.selectedOrderId) {
     const order = state.orders.find((o) => o.id === state.selectedOrderId);
-    if (order) ctx.selectedOrderNumber = order.orderNumber;
+    if (order) {
+      ctx.selectedOrderId = order.id;
+      ctx.selectedOrderNumber = order.orderNumber;
+    }
+  }
+
+  const selectedPos = state.positions?.find((p) => p.id === state.selectedPositionId);
+  if (selectedPos) {
+    ctx.selectedPosition = {
+      id: selectedPos.id,
+      orderNumber: selectedPos.orderNumber,
+      item: selectedPos.item,
+      status: selectedPos.status,
+      progress: selectedPos.progress
+    };
   }
 
   if (state.operatorStage) {

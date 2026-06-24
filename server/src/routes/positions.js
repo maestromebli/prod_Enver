@@ -355,6 +355,16 @@ router.post("/:id/create-tasks", requirePositionWrite, async (req, res) => {
   await saveRow(id, existing, planDate);
   const afterRow = await loadRow(id);
   await logPositionUpdate(before, afterRow, auditActor(req));
+
+  const { recordTaskCorrectionLearning } = await import("../ai/ai-task-learning.js");
+  await recordTaskCorrectionLearning({
+    positionId: id,
+    positionRow: afterRow,
+    selectedStages: valid,
+    userId: auditActor(req)?.id,
+    source: "ai_analysis"
+  }).catch((err) => console.error("[ai task learning]", err.message));
+
   res.json(mapEnrichedRow(afterRow, planMap));
 });
 

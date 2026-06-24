@@ -21,10 +21,13 @@ let aiSettings = {
   openaiModel: "gpt-4o-mini",
   hasApiKey: false,
   hasEnvKey: false,
-  openaiApiKeyMasked: ""
+  openaiApiKeyMasked: "",
+  useLearningMemory: true
 };
 let aiSettingsLoadError = "";
 let recentAiAnalyses = [];
+let aiLearningSummary = null;
+let aiRules = [];
 
 function mergeAiSettings(data) {
   if (!data || typeof data !== "object") return;
@@ -33,6 +36,7 @@ function mergeAiSettings(data) {
     openaiModel: data.openaiModel || aiSettings.openaiModel || "gpt-4o-mini",
     hasApiKey: Boolean(data.hasApiKey),
     hasEnvKey: Boolean(data.hasEnvKey),
+    useLearningMemory: data.useLearningMemory !== false,
     openaiApiKeyMasked: data.openaiApiKeyMasked || aiSettings.openaiApiKeyMasked || ""
   };
   if (aiSettings.hasApiKey || aiSettings.hasEnvKey) {
@@ -63,6 +67,15 @@ export async function loadSettingsData() {
         recentAiAnalyses = await api.getRecentAiAnalyses();
       } catch {
         recentAiAnalyses = [];
+      }
+      try {
+        [aiLearningSummary, aiRules] = await Promise.all([
+          api.getAiLearningSummary(),
+          api.getAiRules()
+        ]);
+      } catch {
+        aiLearningSummary = null;
+        aiRules = [];
       }
     }
   } catch (err) {
@@ -250,6 +263,11 @@ function aiSectionHtml() {
           Увімкнути ШІ-аналіз
         </label>
 
+        <label class="checkbox-label ai-enable-row">
+          <input type="checkbox" id="aiUseLearning" ${aiSettings.useLearningMemory !== false ? "checked" : ""} />
+          Використовувати досвід ENVER у підказках
+        </label>
+
         <div class="form-field">
           <label for="aiApiKey">API ключ OpenAI</label>
           <p class="field-hint">Отримайте на <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com/api-keys</a></p>
@@ -286,6 +304,48 @@ function aiSectionHtml() {
         </div>
         <p class="form-error" id="aiSettingsError" role="alert"></p>
       </form>
+
+      <div class="ai-feedback-card ai-learning-admin">
+        <h3>Навчання AI</h3>
+        ${
+          aiLearningSummary?.stats
+            ? `<ul class="ai-learning-stats">
+            <li>Оцінених: ${aiLearningSummary.stats.ratedGood + aiLearningSummary.stats.ratedPartial + aiLearningSummary.stats.ratedBad}</li>
+            <li>Корекцій: ${aiLearningSummary.stats.corrections}</li>
+            <li>Подій: ${aiLearningSummary.stats.totalEvents}</li>
+          </ul>`
+            : ""
+        }
+        ${
+          aiLearningSummary?.patterns?.length
+            ? `<div class="ai-learning-patterns"><h4>Часті уроки</h4><ul>${aiLearningSummary.patterns
+                .map((p) => `<li>${escapeHtml(p.message)} (${p.count}×)</li>`)
+                .join("")}</ul></div>`
+            : '<p class="settings-hint">Патерни зʼявляться після кількох корекцій команди.</p>'
+        }
+        <h4>Правила ENVER</h4>
+        ${
+          aiRules.length
+            ? `<ul class="ai-rules-list">${aiRules
+                .map(
+                  (r) =>
+                    `<li class="ai-rule-item ${r.enabled ? "" : "ai-rule-item--off"}">
+                  <strong>${escapeHtml(r.title || "Правило")}</strong>
+                  <p>${escapeHtml(r.rule_text)}</p>
+                  <small>${escapeHtml(r.applies_to || "усі вироби")}</small>
+                  <button type="button" class="btn btn-sm ai-rule-toggle" data-rule-id="${r.id}" data-enabled="${r.enabled ? "0" : "1"}">${r.enabled ? "Вимкнути" : "Увімкнути"}</button>
+                </li>`
+                )
+                .join("")}</ul>`
+            : '<p class="settings-hint">Правил ще немає.</p>'
+        }
+        <form class="ai-rule-form" id="aiRuleForm">
+          <input type="text" name="title" placeholder="Назва правила" required />
+          <textarea name="ruleText" rows="2" placeholder="Текст правила для AI" required></textarea>
+          <input type="text" name="appliesTo" placeholder="Застосовується до (шафа, кухня…)" />
+          <button type="submit" class="btn btn-sm btn-primary">Додати правило</button>
+        </form>
+      </div>
 
       <div class="ai-feedback-card">
         <h3>Історія аналізів і навчання</h3>
@@ -559,8 +619,27 @@ export function bindSettingsActions(onChange) {
       const rating = feedbackForm.querySelector('[name="rating"]')?.value || "";
       const correctionText = feedbackForm.querySelector('[name="correction"]')?.value?.trim() || "";
       runSettingsSave("Відгук ШІ", {
-        saveFn: () => api.submitAiFeedback({ analysisId, rating, correctionText }),
+        saveFn: () =>
+          api.submitAiFeedback({ analysisId, rating, correctionText, rememberCorrection: true }),
         successMessage: "Відгук збережено",
+        onSuccess: async () => {
+          await loadSettingsData();
+          settingsOnChange();
+        }
+      }).catch(() => {});
+      return;
+    }
+    if (e.target?.id === "aiRuleForm") {
+      e.preventDefault();
+      const form = e.target;
+      runSettingsSave("Правило AI", {
+        saveFn: () =>
+          api.createAiRule({
+            title: form.title?.value?.trim(),
+            ruleText: form.ruleText?.value?.trim(),
+            appliesTo: form.appliesTo?.value?.trim()
+          }),
+        successMessage: "Правило додано",
         onSuccess: async () => {
           await loadSettingsData();
           settingsOnChange();
@@ -668,6 +747,21 @@ export function bindSettingsActions(onChange) {
       return;
     }
 
+    if (e.target.closest(".ai-rule-toggle")) {
+      const btn = e.target.closest(".ai-rule-toggle");
+      const id = Number(btn.dataset.ruleId);
+      const enabled = btn.dataset.enabled === "1";
+      runSettingsSave("Правило AI", {
+        saveFn: () => api.updateAiRule(id, { enabled }),
+        successMessage: enabled ? "Правило увімкнено" : "Правило вимкнено",
+        onSuccess: async () => {
+          await loadSettingsData();
+          settingsOnChange();
+        }
+      }).catch(() => {});
+      return;
+    }
+
     if (e.target.closest("#testAiSettingsBtn")) {
       const errEl = document.querySelector("#aiSettingsError");
       if (errEl) {
@@ -716,7 +810,8 @@ function saveAiSettingsFromDom() {
   const rawKey = document.querySelector("#aiApiKey")?.value?.trim() ?? "";
   const body = {
     enabled: document.querySelector("#aiEnabled")?.checked,
-    openaiModel: document.querySelector("#aiModel")?.value?.trim()
+    openaiModel: document.querySelector("#aiModel")?.value?.trim(),
+    useLearningMemory: document.querySelector("#aiUseLearning")?.checked !== false
   };
 
   if (rawKey) {
