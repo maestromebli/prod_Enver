@@ -15,6 +15,12 @@ import productionRouter from "./routes/production.js";
 import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
 import aiRouter from "./routes/ai.js";
 import notificationsRouter from "./routes/notifications.js";
+import partsRouter from "./routes/parts.js";
+import constructorDeskRouter from "./routes/constructor-desk.js";
+import constructivePackageRouter, {
+  registerConstructivePackagePositionRoutes,
+  packageFilesRouter
+} from "./routes/constructive-packages.js";
 import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
 import { apiFormatMiddleware } from "./http/api-format-middleware.js";
@@ -63,7 +69,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
     })
   );
   app.use(cors(buildCorsOptions()));
-  app.use(express.json({ limit: "6mb" }));
+  app.use(express.json({ limit: "700mb" }));
   app.use("/api", apiFormatMiddleware);
 
   app.get("/api/health", (_req, res) => {
@@ -95,9 +101,12 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/settings", settingsRouter);
   app.use("/api/operator", operatorRouter);
   app.use("/api/production", productionRouter);
+  app.use("/api/constructor-desk", constructorDeskRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/ai", aiRouter);
   app.use("/api/notifications", notificationsRouter);
+  app.use("/api/parts", partsRouter);
+  app.use("/api/constructive/packages", packageFilesRouter);
 
   registerDownloadRoutes(app);
 

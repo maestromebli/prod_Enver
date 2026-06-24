@@ -73,6 +73,33 @@ export function canViewProductionFloor() {
   return Boolean(state.currentUser?.permissions?.canViewProductionFloor);
 }
 
+export function canManageConstructorDesk() {
+  return Boolean(state.currentUser?.permissions?.canManageConstructorDesk);
+}
+
+export function canWorkConstructorDesk() {
+  return Boolean(
+    state.currentUser?.permissions?.canWorkConstructorDesk ||
+    state.currentUser?.permissions?.canManageConstructorDesk
+  );
+}
+
+export function canViewConstructorDesk() {
+  return canWorkConstructorDesk();
+}
+
+export function canViewFinance() {
+  return Boolean(
+    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canViewFinance
+  );
+}
+
+export function canManageProcurement() {
+  return Boolean(
+    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canManageProcurement
+  );
+}
+
 export function isSupervisorOperatorPanel() {
   if (!state.currentUser?.permissions?.canUseOperatorPanel) return false;
   return state.currentUser.role !== "operator";

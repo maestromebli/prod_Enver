@@ -25,6 +25,7 @@ describe("auth permissions", () => {
   it("isQueryTokenAllowed — лише безпечні GET шляхи", () => {
     assert.equal(isQueryTokenAllowed("GET", "/api/notifications/stream"), true);
     assert.equal(isQueryTokenAllowed("GET", "/api/positions/42/constructive-file"), true);
+    assert.equal(isQueryTokenAllowed("GET", "/api/positions/42/constructive-file/7"), true);
     assert.equal(isQueryTokenAllowed("GET", "/api/positions"), false);
     assert.equal(isQueryTokenAllowed("POST", "/api/notifications/stream"), false);
     assert.equal(isQueryTokenAllowed("GET", "/api/orders"), false);

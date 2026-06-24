@@ -12,3 +12,6 @@ server/data/*.db-*
 .DS_Store
 *.log
 .env
+
+# Локальні завантаження (dev)
+/data/

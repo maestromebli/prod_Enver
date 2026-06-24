@@ -1,15 +1,67 @@
-import fs from "fs";
 import { one } from "../../db.js";
 import { logStageChangeWithAutoHandoffs } from "../../audit.js";
 import { auditActor, requirePositionAccess, requirePositionWrite } from "../../middleware/auth.js";
 import { applyStageHandoff, detectAutoHandoffs } from "../../position-logic.js";
-import { saveConstructiveFile, resolveStoredPath } from "../../file-storage.js";
+import { saveConstructiveFile } from "../../file-storage.js";
+import {
+  CONSTRUCTIVE_MAX_BYTES,
+  getConstructiveFileForDownload,
+  isConstructiveExtension,
+  listConstructiveFiles,
+  pipeConstructiveFile
+} from "../../constructive-files-service.js";
+
+function maxSizeLabelMb() {
+  return Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
+}
+
+async function streamConstructiveDownload(res, positionId, fileId = null) {
+  const payload = await getConstructiveFileForDownload(positionId, fileId);
+  if (!payload) {
+    res.status(404).json({ error: "Файл не знайдено" });
+    return;
+  }
+  pipeConstructiveFile(res, payload.fullPath, payload.row);
+}
 
 /** Реєструє маршрути завантаження / скачування конструктиву. */
 export function registerConstructiveRoutes(
   router,
   { loadRow, saveRow, planDateByOrderNumber, mapEnrichedRow }
 ) {
+  router.get("/:id/constructive-files", requirePositionAccess, async (req, res) => {
+    const id = Number(req.params.id);
+    const existing = await loadRow(id);
+    if (!existing) {
+      res.status(404).json({ error: "Позицію не знайдено" });
+      return;
+    }
+    res.json(await listConstructiveFiles(id));
+  });
+
+  router.get("/:id/constructive-file/:fileId", requirePositionAccess, async (req, res) => {
+    const id = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
+    if (!fileId) {
+      res.status(400).json({ error: "Некоректний ідентифікатор файлу" });
+      return;
+    }
+    try {
+      await streamConstructiveDownload(res, id, fileId);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Помилка завантаження файлу" });
+    }
+  });
+
+  router.get("/:id/constructive-file", requirePositionAccess, async (req, res) => {
+    const id = Number(req.params.id);
+    try {
+      await streamConstructiveDownload(res, id);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "Помилка завантаження файлу" });
+    }
+  });
+
   router.post("/:id/constructive-file", requirePositionWrite, async (req, res) => {
     const id = Number(req.params.id);
     const existing = await loadRow(id);
@@ -23,6 +75,10 @@ export function registerConstructiveRoutes(
       res.status(400).json({ error: "fileName та dataBase64 обов'язкові" });
       return;
     }
+    if (!isConstructiveExtension(fileName)) {
+      res.status(400).json({ error: "Непідтримуваний тип файлу" });
+      return;
+    }
 
     let buffer;
     try {
@@ -31,8 +87,8 @@ export function registerConstructiveRoutes(
       res.status(400).json({ error: "Некоректні дані файлу" });
       return;
     }
-    if (buffer.length > 8 * 1024 * 1024) {
-      res.status(400).json({ error: "Файл завеликий (макс. 8 МБ)" });
+    if (buffer.length > CONSTRUCTIVE_MAX_BYTES) {
+      res.status(400).json({ error: `Файл завеликий (макс. ${maxSizeLabelMb()} МБ)` });
       return;
     }
 
@@ -73,35 +129,13 @@ export function registerConstructiveRoutes(
       autoHandoffs
     );
 
+    const files = await listConstructiveFiles(id);
+
     res.status(201).json({
       fileId: fileRow.id,
       fileName: saved.originalName,
-      position: mapEnrichedRow({ ...afterRow, constructive_file_name: saved.originalName }, planMap)
+      files,
+      position: mapEnrichedRow(afterRow, planMap)
     });
-  });
-
-  router.get("/:id/constructive-file", requirePositionAccess, async (req, res) => {
-    const id = Number(req.params.id);
-    const file = await one(
-      `SELECT * FROM position_files
-       WHERE position_id = $1 AND kind = 'constructive'
-       ORDER BY created_at DESC LIMIT 1`,
-      [id]
-    );
-    if (!file) {
-      res.status(404).json({ error: "Файл не знайдено" });
-      return;
-    }
-    const fullPath = resolveStoredPath(file.storage_path);
-    if (!fs.existsSync(fullPath)) {
-      res.status(404).json({ error: "Файл відсутній на диску" });
-      return;
-    }
-    res.setHeader("Content-Type", file.mime || "application/octet-stream");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${encodeURIComponent(file.original_name)}"`
-    );
-    fs.createReadStream(fullPath).pipe(res);
   });
 }

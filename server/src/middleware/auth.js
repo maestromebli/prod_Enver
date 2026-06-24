@@ -4,7 +4,9 @@ import { STAGE_STATUS_FIELD } from "../roles.js";
 /** GET-ендпоінти, де дозволено access_token у query (SSE, завантаження файлів). */
 const QUERY_TOKEN_PATHS = [
   /^\/api\/notifications\/stream$/,
-  /^\/api\/positions\/\d+\/constructive-file$/
+  /^\/api\/positions\/\d+\/constructive-file$/,
+  /^\/api\/positions\/\d+\/constructive-file\/\d+$/,
+  /^\/api\/constructor-desk\/positions\/\d+\/files\/\d+$/
 ];
 
 function allowQueryToken(method, path) {
@@ -30,7 +32,12 @@ export function canAccessPositions(user) {
   if (!user) return false;
   const p = user.permissions || {};
   return Boolean(
-    p.canEditPositions || p.canUseOperatorPanel || p.canViewProductionFloor || p.canEditOrders
+    p.canEditPositions ||
+    p.canUseOperatorPanel ||
+    p.canViewProductionFloor ||
+    p.canEditOrders ||
+    p.canWorkConstructorDesk ||
+    p.canManageConstructorDesk
   );
 }
 

@@ -110,6 +110,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body)
     }),
+  getConstructiveFiles: (id) => request(`/api/positions/${id}/constructive-files`),
   createProductionTasks: (id, stages) =>
     request(`/api/positions/${id}/create-tasks`, {
       method: "POST",
@@ -170,6 +171,35 @@ export const api = {
 
   getProductionFloor: () => request("/api/production/floor"),
 
+  getConstructorDeskPositions: (params = {}) => {
+    const q = params.mine ? "?mine=1" : "";
+    return request(`/api/constructor-desk/positions${q}`);
+  },
+  getConstructorDeskConstructors: () => request("/api/constructor-desk/constructors"),
+  getConstructorDeskPosition: (id) => request(`/api/constructor-desk/positions/${id}`),
+  assignConstructorDesk: (id, body) =>
+    request(`/api/constructor-desk/positions/${id}/assign`, {
+      method: "PUT",
+      body: JSON.stringify(body)
+    }),
+  saveConstructorDeskWorkspace: (id, body) =>
+    request(`/api/constructor-desk/positions/${id}/workspace`, {
+      method: "PUT",
+      body: JSON.stringify(body)
+    }),
+  addConstructorDeskComment: (id, body) =>
+    request(`/api/constructor-desk/positions/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  uploadConstructorDeskFile: (id, body) =>
+    request(`/api/constructor-desk/positions/${id}/files`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  suggestConstructorTiming: (id) =>
+    request(`/api/constructor-desk/positions/${id}/suggest-timing`, { method: "POST" }),
+
   getNotifications: () => request("/api/notifications"),
   getPositionQrUrl: (id, stage) =>
     request(`/api/positions/${id}/qr?format=json&stage=${encodeURIComponent(stage || "cutting")}`),
@@ -210,5 +240,76 @@ export const api = {
     return request(`/api/history${qs ? `?${qs}` : ""}`);
   },
 
-  getHealth: () => request("/api/health")
+  getHealth: () => request("/api/health"),
+
+  scanPart: (barcode, station = "") => {
+    const q = station ? `?station=${encodeURIComponent(station)}` : "";
+    return request(`/api/parts/scan/${encodeURIComponent(barcode)}${q}`);
+  },
+  partCncStart: (partId, body) =>
+    request(`/api/parts/${partId}/cnc/start`, { method: "POST", body: JSON.stringify(body) }),
+  partCncFinish: (partId, body) =>
+    request(`/api/parts/${partId}/cnc/finish`, { method: "POST", body: JSON.stringify(body) }),
+  partCncProblem: (partId, body) =>
+    request(`/api/parts/${partId}/cnc/problem`, { method: "POST", body: JSON.stringify(body) }),
+
+  getConstructivePackages: (positionId) =>
+    request(`/api/positions/${positionId}/constructive-packages`),
+  getConstructivePackageLatest: (positionId) =>
+    request(`/api/positions/${positionId}/constructive-packages/latest`),
+  uploadConstructivePackage: (positionId, files) =>
+    request(`/api/positions/${positionId}/constructive-packages`, {
+      method: "POST",
+      body: JSON.stringify({ files })
+    }),
+  parseConstructivePackage: (positionId, packageId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/parse`, {
+      method: "POST"
+    }),
+  approveConstructivePackage: (positionId, packageId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/approve`, {
+      method: "POST"
+    }),
+  rejectConstructivePackage: (positionId, packageId, reason) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason })
+    }),
+  createProcurementFromPackage: (positionId, packageId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/procurement`, {
+      method: "POST"
+    }),
+  sendToGitlab: (positionId) =>
+    request(`/api/positions/${positionId}/send-to-gitlab`, { method: "POST" }),
+  getPositionFinance: (positionId) => request(`/api/positions/${positionId}/finance`),
+  getPositionProcurement: (positionId) => request(`/api/positions/${positionId}/procurement`),
+  updatePositionProcurement: (positionId, requestId, body) =>
+    request(`/api/positions/${positionId}/procurement/${requestId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body)
+    }),
+  analyzeConstructivePackageAi: (positionId, packageId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/analyze-ai`, {
+      method: "POST"
+    }),
+  saveModelMapping: (positionId, packageId, body) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/model-mapping`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    })
 };
+
+export function getPartLabelsUrl(positionId) {
+  const token = getStoredToken();
+  const q = token ? `?access_token=${encodeURIComponent(token)}` : "";
+  return apiUrl(`/api/positions/${positionId}/part-labels${q}`);
+}
+
+export function constructiveFileDownloadUrl(positionId, fileId = null) {
+  const token = getStoredToken();
+  const path = fileId
+    ? `/api/positions/${positionId}/constructive-file/${fileId}`
+    : `/api/positions/${positionId}/constructive-file`;
+  const q = token ? `?access_token=${encodeURIComponent(token)}` : "";
+  return apiUrl(`${path}${q}`);
+}

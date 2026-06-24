@@ -11,11 +11,13 @@ import {
   buildGlobalAiNotifications,
   mergeAiNotifications
 } from "./ai/ai-notifications.js";
+import { packageGodmodeContextFromRow } from "./constructive-package-enrich.js";
 
 export function godmodeContextFromRow(row, extra = {}) {
   return {
     hasAiAnalysis: Number(row?.ai_analysis_count ?? row?.aiAnalysisCount) > 0,
     planDate: row?.plan_date ?? row?.planDate ?? extra.planDate,
+    ...packageGodmodeContextFromRow(row || {}),
     ...extra
   };
 }

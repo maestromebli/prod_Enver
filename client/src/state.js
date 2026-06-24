@@ -29,6 +29,8 @@ export const state = {
   operatorJobDetail: null,
   operatorLoadError: "",
   operatorQueueLoading: false,
+  /** queue | scan — режим панелі оператора */
+  operatorViewMode: "queue",
   /** Зведення цеху з /api/production/floor */
   productionFloor: null,
   productionFloorLoading: false,
@@ -45,5 +47,14 @@ export const state = {
     displayMode: "cards",
     /** overview | positions | production | constructive | install | history */
     detailTab: "overview"
+  },
+  constructorDesk: {
+    positions: [],
+    constructors: [],
+    detail: null,
+    selectedPositionId: null,
+    loading: false,
+    onlyMine: false,
+    error: ""
   }
 };

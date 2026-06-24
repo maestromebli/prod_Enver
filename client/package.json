@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@enver/shared": "file:../shared"
+    "@enver/shared": "file:../shared",
+    "@zxing/browser": "^0.1.5",
+    "three": "^0.175.0"
   },
   "devDependencies": {
     "vite": "^6.3.5"

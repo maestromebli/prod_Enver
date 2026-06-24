@@ -17,6 +17,10 @@ import {
   getNextStatus,
   stageLabel
 } from "./stages.js";
+import {
+  getConstructivePackageNextAction,
+  getConstructivePackageWarnings
+} from "./constructive-godmode.js";
 
 const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly", "packaging"];
 
@@ -194,14 +198,22 @@ export function getPositionWarnings(position, context = {}) {
       title: "Немає конструктива",
       message: "Завантажте файл конструктива для запуску виробництва."
     });
-  } else if (!hasAiAnalysis(row, context)) {
+  } else if (
+    !context?.packageStatus &&
+    !context?.hasConstructivePackage &&
+    !hasAiAnalysis(row, context)
+  ) {
     warnings.push({
       type: "ai_not_run",
       level: "warning",
       title: "ШІ-аналіз не виконано",
       message: "Запустіть ШІ-аналіз конструктива для рекомендацій по задачах."
     });
-  } else if (!tasksCreated(row, context)) {
+  } else if (
+    !context?.packageStatus &&
+    !context?.hasConstructivePackage &&
+    !tasksCreated(row, context)
+  ) {
     warnings.push({
       type: "tasks_not_created",
       level: "warning",
@@ -272,6 +284,8 @@ export function getPositionWarnings(position, context = {}) {
       message: problem || `Проблема на етапі «${stageLabel(currentKey)}».`
     });
   }
+
+  warnings.push(...getConstructivePackageWarnings(context));
 
   return warnings;
 }
@@ -430,6 +444,16 @@ export function getPositionNextAction(position, context = {}) {
       allowed: true,
       stageKey: "constructor"
     });
+  }
+
+  const packageAction = getConstructivePackageNextAction(context);
+  if (
+    packageAction &&
+    context?.packageStatus &&
+    context.packageStatus !== "released_to_cnc" &&
+    context.packageStatus !== "archived"
+  ) {
+    return makeAction({ ...packageAction, stageKey: packageAction.stageKey || "constructor" });
   }
 
   if (!hasAiAnalysis(row, context)) {

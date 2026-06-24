@@ -16,6 +16,14 @@ export const DEFAULT_PERMISSIONS = {
     canEditPositions: true,
     canUseOperatorPanel: true,
     canViewProductionFloor: true,
+    canManageConstructorDesk: true,
+    canWorkConstructorDesk: true,
+    canReviewConstructive: true,
+    canApproveConstructive: true,
+    canReleaseToCnc: true,
+    canSendToGitlab: true,
+    canViewFinance: true,
+    canManageProcurement: true,
     stages: ALL_STAGE_KEYS
   },
   manager: {
@@ -26,6 +34,14 @@ export const DEFAULT_PERMISSIONS = {
     canEditPositions: true,
     canUseOperatorPanel: false,
     canViewProductionFloor: false,
+    canManageConstructorDesk: false,
+    canWorkConstructorDesk: true,
+    canReviewConstructive: false,
+    canApproveConstructive: false,
+    canReleaseToCnc: false,
+    canSendToGitlab: false,
+    canViewFinance: true,
+    canManageProcurement: true,
     stages: []
   },
   production: {
@@ -36,6 +52,14 @@ export const DEFAULT_PERMISSIONS = {
     canEditPositions: true,
     canUseOperatorPanel: true,
     canViewProductionFloor: true,
+    canManageConstructorDesk: true,
+    canWorkConstructorDesk: true,
+    canReviewConstructive: true,
+    canApproveConstructive: true,
+    canReleaseToCnc: true,
+    canSendToGitlab: true,
+    canViewFinance: true,
+    canManageProcurement: true,
     stages: ALL_STAGE_KEYS
   },
   operator: {
@@ -46,6 +70,14 @@ export const DEFAULT_PERMISSIONS = {
     canEditPositions: false,
     canUseOperatorPanel: true,
     canViewProductionFloor: false,
+    canManageConstructorDesk: false,
+    canWorkConstructorDesk: false,
+    canReviewConstructive: false,
+    canApproveConstructive: false,
+    canReleaseToCnc: false,
+    canSendToGitlab: false,
+    canViewFinance: false,
+    canManageProcurement: false,
     stages: []
   }
 };

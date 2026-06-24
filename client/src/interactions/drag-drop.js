@@ -22,7 +22,7 @@ export function createFileDropZone(zoneEl, options) {
   if (!zoneEl) return { destroy() {} };
 
   const accept = (options.accept || []).map((e) => e.toLowerCase());
-  const maxBytes = options.maxBytes ?? 8 * 1024 * 1024;
+  const maxBytes = options.maxBytes ?? 500 * 1024 * 1024;
   let dragDepth = 0;
   let destroyed = false;
 

@@ -1,4 +1,5 @@
 import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
+import { constructiveFilesSummary } from "@enver/shared/production/constructive-files.js";
 import { api } from "./api.js";
 import { canEditOrders, canEditPositions } from "./auth.js";
 import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tree.js";
@@ -221,11 +222,19 @@ function renderConstructiveSection(related) {
       const ok = p.hasConstructiveFile;
       const statusClass = ok ? "enver-badge-success" : "enver-badge-warning";
       const statusText = ok ? "Завантажено" : "Потрібен файл";
+      const meta = ok
+        ? escapeHtml(
+            constructiveFilesSummary({
+              fileCount: p.constructiveFileCount,
+              latestName: p.constructiveFileName
+            }) || "файл"
+          )
+        : "PDF, ZIP, XML, DWG, XLS, B3D";
       return `
         <button type="button" class="order-constructive-row" data-open-position="${p.id}">
           <div>
             <strong>${escapeHtml(p.item || "—")}</strong>
-            <span class="enver-meta">${ok ? escapeHtml(p.constructiveFileName || "файл") : "PDF, ZIP, XML, DWG"}</span>
+            <span class="enver-meta">${meta}</span>
           </div>
           <span class="enver-badge ${statusClass}">${statusText}</span>
         </button>`;

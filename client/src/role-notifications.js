@@ -15,6 +15,7 @@ const ALLOWED_WINDOWS = [12, 24, 48, 72, 168];
 
 let lastScopeSnapshot = null;
 let lastSoundAt = 0;
+let notificationsReady = false;
 
 function scopeKey() {
   const user = state.currentUser;
@@ -237,6 +238,48 @@ export function markOperatorStageSeen(stageKey, queue = state.operatorQueue) {
   setNum(operatorSeenKey(stageKey), maxCreatedAt(queue));
 }
 
+export function primeRoleNotifications(snapshot = reminderSnapshot()) {
+  lastScopeSnapshot = { ...snapshot };
+}
+
+export function setRoleNotificationsReady(ready = true) {
+  notificationsReady = ready;
+  if (ready) {
+    primeRoleNotifications(reminderSnapshot());
+  }
+}
+
+export function getDesktopPermissionStatus() {
+  if (typeof Notification === "undefined") return "unsupported";
+  return Notification.permission;
+}
+
+export function desktopPermissionLabel(status = getDesktopPermissionStatus()) {
+  if (status === "granted") return "Дозвіл надано";
+  if (status === "denied") return "Заборонено в браузері";
+  if (status === "unsupported") return "Браузер не підтримує";
+  return "Ще не запитували";
+}
+
+export function markAllRoleNotificationsSeen({
+  orders = state.orders,
+  positions = state.positions,
+  operatorStage = state.operatorStage,
+  operatorQueue = state.operatorQueue
+} = {}) {
+  markOrdersSeenForCurrentRole(orders);
+  markProductionTasksSeenForCurrentRole(positions);
+  markAttentionSeenForCurrentRole(positions, orders);
+  if (operatorStage) {
+    markOperatorStageSeen(operatorStage, operatorQueue);
+  }
+  primeRoleNotifications(reminderSnapshot({ orders, positions, operatorStage, operatorQueue }));
+}
+
+export function playNotificationTestSound() {
+  playReminderTone();
+}
+
 export function reminderSnapshot({
   orders = state.orders,
   positions = state.positions,
@@ -303,8 +346,15 @@ export async function ensureDesktopPermissionIfEnabled() {
   }
 }
 
-export async function emitRoleNotifications(snapshot = reminderSnapshot()) {
+export async function emitRoleNotifications(
+  snapshot = reminderSnapshot(),
+  { silent = false } = {}
+) {
   if (!state.currentUser) return;
+  if (!notificationsReady) {
+    primeRoleNotifications(snapshot);
+    return;
+  }
   if (!lastScopeSnapshot || lastScopeSnapshot.scope !== snapshot.scope) {
     lastScopeSnapshot = { ...snapshot };
     return;
@@ -319,11 +369,11 @@ export async function emitRoleNotifications(snapshot = reminderSnapshot()) {
   if (!hasIncrease) return;
 
   const cfg = getNotificationConfigForCurrentRole();
-  if (cfg.soundEnabled && shouldPlaySound()) {
+  if (!silent && cfg.soundEnabled && shouldPlaySound()) {
     playReminderTone();
   }
 
-  if (!cfg.desktopEnabled || typeof Notification === "undefined") return;
+  if (silent || !cfg.desktopEnabled || typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
   const body = composeDesktopBody(snapshot);
   if (!body) return;

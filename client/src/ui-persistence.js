@@ -8,15 +8,32 @@ import { capturePositionDrawerState, restorePositionDrawerState } from "./positi
 import { state } from "./state.js";
 import { $ } from "./utils.js";
 
-const STORAGE_KEY = "enver_ui_state";
-const VERSION = 3;
+const STORAGE_KEYS = {
+  main: "enver_ui_state",
+  operator: "enver_operator_ui_state"
+};
+const VERSION = 4;
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
 const VALID_ORDERS_DISPLAY = new Set(["cards", "list"]);
 
 let saveTimer = null;
+let persistenceScope = "main";
 let scrollRestoreY = null;
+let operatorScrollRestore = null;
+
+function storageKey() {
+  return STORAGE_KEYS[persistenceScope] || STORAGE_KEYS.main;
+}
+
+function captureOperatorScroll() {
+  return {
+    queue: document.querySelector(".op-queue-list")?.scrollTop ?? 0,
+    work: document.querySelector(".op-work-panel")?.scrollTop ?? 0,
+    content: document.querySelector(".operator-client-content")?.scrollTop ?? 0
+  };
+}
 
 function captureOverlays() {
   return {
@@ -27,6 +44,15 @@ function captureOverlays() {
 }
 
 export function captureUiState() {
+  if (persistenceScope === "operator") {
+    return {
+      v: VERSION,
+      operatorStage: state.operatorStage,
+      operatorSelectedPositionId: state.operatorSelectedPositionId,
+      operatorScroll: captureOperatorScroll()
+    };
+  }
+
   return {
     v: VERSION,
     view: state.view,
@@ -54,13 +80,14 @@ export function captureUiState() {
     operatorStage: state.operatorStage,
     operatorSelectedPositionId: state.operatorSelectedPositionId,
     scrollY: window.scrollY,
+    operatorScroll: captureOperatorScroll(),
     overlays: captureOverlays()
   };
 }
 
 export function loadPersistedUiState() {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey());
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data?.v !== VERSION) return null;
@@ -72,15 +99,16 @@ export function loadPersistedUiState() {
 
 export function persistUiState() {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(captureUiState()));
+    sessionStorage.setItem(storageKey(), JSON.stringify(captureUiState()));
   } catch {
     /* ignore quota */
   }
 }
 
 export function clearPersistedUiState() {
-  sessionStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(storageKey());
   scrollRestoreY = null;
+  operatorScrollRestore = null;
 }
 
 export function schedulePersistUiState() {
@@ -103,9 +131,27 @@ function applyFilters(filters = {}) {
   }
 }
 
+function rememberScroll(snapshot) {
+  if (typeof snapshot.scrollY === "number" && snapshot.scrollY >= 0) {
+    scrollRestoreY = snapshot.scrollY;
+  }
+  if (snapshot.operatorScroll && typeof snapshot.operatorScroll === "object") {
+    operatorScrollRestore = { ...snapshot.operatorScroll };
+  }
+}
+
 /** Застосовує збережений стан до `state` і фільтрів у DOM. Повертає true, якщо були збережені дані. */
 export function applyUiState(snapshot) {
   if (!snapshot) return false;
+
+  if (persistenceScope === "operator") {
+    if (snapshot.operatorStage) state.operatorStage = snapshot.operatorStage;
+    if (snapshot.operatorSelectedPositionId != null) {
+      state.operatorSelectedPositionId = snapshot.operatorSelectedPositionId;
+    }
+    rememberScroll(snapshot);
+    return true;
+  }
 
   if (VALID_VIEWS.has(snapshot.view)) state.view = snapshot.view;
   if (TABS.includes(snapshot.activeTab)) state.activeTab = snapshot.activeTab;
@@ -167,10 +213,7 @@ export function applyUiState(snapshot) {
     state.operatorSelectedPositionId = snapshot.operatorSelectedPositionId;
   }
 
-  if (typeof snapshot.scrollY === "number" && snapshot.scrollY >= 0) {
-    scrollRestoreY = snapshot.scrollY;
-  }
-
+  rememberScroll(snapshot);
   return true;
 }
 
@@ -179,23 +222,51 @@ export async function restoreOverlays(snapshot) {
   if (!overlays) return;
 
   if (overlays.order) restoreOrderModalState(overlays.order);
-  if (overlays.position) restorePositionDrawerState(overlays.position);
+  if (overlays.position) void restorePositionDrawerState(overlays.position);
   if (overlays.installSchedule) restoreInstallScheduleOverlay(overlays.installSchedule);
 }
 
-export function restoreScrollPosition() {
-  if (scrollRestoreY == null) return;
-  const y = scrollRestoreY;
-  scrollRestoreY = null;
-  requestAnimationFrame(() => {
-    window.scrollTo(0, y);
-  });
+function applyOperatorScroll(snapshot) {
+  if (!snapshot) return;
+  const queue = document.querySelector(".op-queue-list");
+  const work = document.querySelector(".op-work-panel");
+  const content = document.querySelector(".operator-client-content");
+  if (queue && typeof snapshot.queue === "number") queue.scrollTop = snapshot.queue;
+  if (work && typeof snapshot.work === "number") work.scrollTop = snapshot.work;
+  if (content && typeof snapshot.content === "number") content.scrollTop = snapshot.content;
 }
 
-export function initUiPersistence() {
-  window.addEventListener("pagehide", persistUiState);
-  window.addEventListener("beforeunload", persistUiState);
-  document.addEventListener("enver-ui-changed", schedulePersistUiState);
+function restoreScrollWithRetries(applyScroll, isDone = () => true) {
+  let attempts = 0;
+  const maxAttempts = 6;
+  const tryRestore = () => {
+    applyScroll();
+    attempts += 1;
+    if (attempts < maxAttempts && !isDone()) {
+      requestAnimationFrame(tryRestore);
+    }
+  };
+  requestAnimationFrame(tryRestore);
+}
+
+export function restoreScrollPosition() {
+  const operatorSnapshot = operatorScrollRestore;
+  const windowY = scrollRestoreY;
+  scrollRestoreY = null;
+  operatorScrollRestore = null;
+
+  if (windowY != null) {
+    restoreScrollWithRetries(
+      () => window.scrollTo(0, windowY),
+      () => Math.abs(window.scrollY - windowY) <= 2
+    );
+  }
+  if (operatorSnapshot) {
+    restoreScrollWithRetries(() => applyOperatorScroll(operatorSnapshot));
+  }
+}
+
+function bindScrollPersistence() {
   window.addEventListener(
     "scroll",
     () => {
@@ -203,6 +274,22 @@ export function initUiPersistence() {
     },
     { passive: true }
   );
+
+  document.addEventListener(
+    "scroll",
+    () => {
+      schedulePersistUiState();
+    },
+    { passive: true, capture: true }
+  );
+}
+
+export function initUiPersistence({ scope = "main" } = {}) {
+  persistenceScope = scope === "operator" ? "operator" : "main";
+  window.addEventListener("pagehide", persistUiState);
+  window.addEventListener("beforeunload", persistUiState);
+  document.addEventListener("enver-ui-changed", schedulePersistUiState);
+  bindScrollPersistence();
 }
 
 export function notifyUiChanged() {

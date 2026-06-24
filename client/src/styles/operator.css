@@ -1260,3 +1260,22 @@ body.view-operator .app {
   max-height: min(92vh, 720px);
   overflow: auto;
 }
+
+.op-constructive-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.op-constructive-file {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--op-border, rgba(255, 255, 255, 0.12));
+  background: var(--op-surface-2, rgba(255, 255, 255, 0.04));
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  word-break: break-word;
+}

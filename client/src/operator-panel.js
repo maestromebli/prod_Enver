@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, constructiveFileDownloadUrl } from "./api.js";
 import {
   hasOperatorAccess,
   isOperator,
@@ -22,6 +22,8 @@ import { runSave } from "./save-flow.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
+import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
+import { bindPartScanView, renderPartScanView } from "./part-scan.js";
 
 const PROBLEM_PRESETS = [
   "Немає матеріалу",
@@ -71,13 +73,15 @@ const STAGE_THEME = {
   }
 };
 
-export function openOperatorView(stageKey) {
+export function openOperatorView(stageKey, { preserveSelection = false } = {}) {
   state.view = "operator";
   state.operatorStage = stageKey;
-  state.operatorSelectedPositionId = null;
+  if (!preserveSelection) {
+    state.operatorSelectedPositionId = null;
+  }
 }
 
-export async function enterOperatorView(stageKey) {
+export async function enterOperatorView(stageKey, { preserveScroll = false } = {}) {
   const { ensureOperatorStyles } = await import("./operator-styles.js");
   await ensureOperatorStyles();
   openOperatorView(stageKey);
@@ -87,8 +91,10 @@ export async function enterOperatorView(stageKey) {
     state.operatorQueue = [];
     state.operatorLoadError = err?.message || "Не вдалося завантажити чергу";
   }
-  window.__enverRender?.();
-  window.scrollTo(0, 0);
+  window.__enverRender?.({ preserveScroll });
+  if (!preserveScroll) {
+    window.scrollTo(0, 0);
+  }
 }
 
 export function closeOperatorView() {
@@ -110,7 +116,8 @@ export async function loadOperatorData() {
     state.operatorLoadError = "";
     initializeOperatorStageBaseline(stageKey, state.operatorQueue);
     await emitRoleNotifications(
-      reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue })
+      reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue }),
+      { silent: true }
     );
     state.operatorActiveSession = data.activeSession;
 
@@ -304,11 +311,31 @@ function renderOperatorNextAction(pos, field) {
 
 function renderJobMeta() {
   const job = state.operatorJobDetail;
-  if (!job?.constructiveFileName) return "";
+  const positionId = job?.position?.id;
+  const files = job?.constructiveFiles?.length
+    ? job.constructiveFiles
+    : job?.constructiveFileName
+      ? [{ id: null, fileName: job.constructiveFileName, sizeBytes: 0 }]
+      : [];
+  if (!files.length) return "";
+
+  const list = files
+    .map((f) => {
+      const href =
+        f.id && positionId
+          ? constructiveFileDownloadUrl(positionId, f.id)
+          : positionId
+            ? constructiveFileDownloadUrl(positionId)
+            : "#";
+      const size = f.sizeBytes > 0 ? ` · ${formatConstructiveSize(f.sizeBytes)}` : "";
+      return `<a class="op-constructive-file" href="${href}" download>${escapeHtml(f.fileName)}${escapeHtml(size)}</a>`;
+    })
+    .join("");
+
   return `
     <section class="op-meta-card" aria-label="Конструктив">
-      <span class="op-meta-label">Файл конструктива</span>
-      <strong>${escapeHtml(job.constructiveFileName)}</strong>
+      <span class="op-meta-label">Файли конструктива (${files.length})</span>
+      <div class="op-constructive-files">${list}</div>
       ${job.material ? `<span class="op-meta-chip">${escapeHtml(job.material)}</span>` : ""}
     </section>`;
 }
@@ -352,6 +379,9 @@ function renderQueueItem(p, field, freshIds) {
 }
 
 export function renderOperatorView() {
+  if (state.operatorViewMode === "scan") {
+    return renderPartScanView();
+  }
   const stages = operatorStages();
   const stageKey = state.operatorStage || stages[0];
   const stage = OPERATOR_STAGES.find((s) => s.key === stageKey);
@@ -400,6 +430,8 @@ export function renderOperatorView() {
           <div class="op-avatar">${escapeHtml(userInitials(state.currentUser?.name))}</div>
           <strong>${escapeHtml(state.currentUser?.name || "Оператор")}</strong>
           <div class="op-header-actions">
+            <button type="button" class="op-btn-ghost" id="operatorScanBtn" title="Сканування деталі">📷</button>
+            <button type="button" class="op-btn-ghost" id="operatorNotifySettingsBtn" title="Сповіщення">🔔</button>
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Назад</button>' : ""}
             ${isOperator() ? '<button type="button" class="op-btn-ghost op-btn-ghost-danger" id="operatorLogoutBtn">Вийти</button>' : ""}
           </div>
@@ -561,6 +593,18 @@ export function bindOperatorActions(onChange) {
   document.addEventListener("click", async (e) => {
     if (!e.target.closest(".operator-shell")) return;
 
+    if (e.target.closest("#operatorScanBtn")) {
+      state.operatorViewMode = state.operatorViewMode === "scan" ? "queue" : "scan";
+      operatorOnChange();
+      if (state.operatorViewMode === "scan") bindPartScanView();
+      return;
+    }
+    if (e.target.closest("#operatorNotifySettingsBtn")) {
+      const { navigateToNotificationSettings } = await import("./settings.js");
+      navigateToNotificationSettings({ returnView: "operator" });
+      operatorOnChange();
+      return;
+    }
     if (e.target.closest("#operatorBackBtn")) {
       state.view = "main";
       operatorOnChange();

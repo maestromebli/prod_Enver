@@ -12,6 +12,18 @@ import { normalizeOrderSubItems } from "../order-status-workflow.js";
 import { attachGodmodeToOrder, enrichAndMapPosition } from "../godmode-enrich.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { canRunNextAction } from "../../../shared/production/godmode.js";
+import {
+  CONSTRUCTIVE_FILE_COUNT_SUBQUERY,
+  CONSTRUCTIVE_FILE_NAME_SUBQUERY
+} from "../constructive-files-service.js";
+import {
+  HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY,
+  PACKAGE_ID_SUBQUERY,
+  PACKAGE_PARTS_COUNT_SUBQUERY,
+  PACKAGE_STATUS_SUBQUERY,
+  PACKAGE_VERSION_SUBQUERY,
+  UNMAPPED_PARTS_SUBQUERY
+} from "../constructive-package-enrich.js";
 const router = Router();
 router.use(requireAuth);
 
@@ -19,6 +31,14 @@ const PG_UNIQUE_VIOLATION = "23505";
 const ORDER_DONE_STATUS = "Завершено";
 
 const ORDER_POSITIONS_SELECT = `SELECT p.*,
+  ${CONSTRUCTIVE_FILE_NAME_SUBQUERY},
+  ${CONSTRUCTIVE_FILE_COUNT_SUBQUERY},
+  ${PACKAGE_STATUS_SUBQUERY},
+  ${PACKAGE_ID_SUBQUERY},
+  ${PACKAGE_VERSION_SUBQUERY},
+  ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
+  ${UNMAPPED_PARTS_SUBQUERY},
+  ${PACKAGE_PARTS_COUNT_SUBQUERY},
   (SELECT COUNT(*)::int FROM constructive_analyses ca
    JOIN position_files pf ON pf.id = ca.position_file_id
    WHERE pf.position_id = p.id) AS ai_analysis_count,

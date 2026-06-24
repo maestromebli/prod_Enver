@@ -203,12 +203,13 @@ export function renderProductionFloorTab(data = floorCache) {
     return `<div class="production-floor">${productionFloorSkeleton()}</div>`;
   }
   const d = data || { stages: [], activeSessions: [], problemPositions: [] };
+  const syncingClass = state.productionFloorLoading && data ? " production-floor--syncing" : "";
   const freshByStage = countNewTasksByStage(d.stages);
   const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
   const godmodeBuckets = buildFloorGodmodeBuckets(state.positions);
   const godmodeSections = renderFloorGodmodeSection(godmodeBuckets);
   return `
-    <div class="production-floor">
+    <div class="production-floor${syncingClass}">
       <div class="card pf-hero">
         <div class="block-title">Цех зараз</div>
         <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів і проблемні позиції. «Панель етапу» — огляд без кнопок оператора.</p>

@@ -16,12 +16,13 @@ import {
 import { markNativeOperatorShell } from "./operator-native.js";
 import {
   bindOperatorActions,
+  bindOperatorQueueSwipe,
   loadOperatorData,
   loadOperatorJobDetail,
   openOperatorView,
-  bindOperatorQueueSwipe,
   renderOperatorView
 } from "./operator-panel.js";
+import { bindPartScanView } from "./part-scan.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
@@ -33,11 +34,19 @@ import {
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { toastError } from "./toast.js";
+import {
+  applyUiState,
+  clearPersistedUiState,
+  initUiPersistence,
+  loadPersistedUiState,
+  persistUiState,
+  restoreScrollPosition
+} from "./ui-persistence.js";
+import { setAppLoading } from "./loading-ui.js";
 import { $ } from "./utils.js";
 
-function setLoading(visible) {
-  const el = $("#loadingOverlay");
-  if (el) el.classList.toggle("visible", visible);
+function setLoading(visible, options) {
+  setAppLoading(visible, options);
 }
 
 function showLoginModal(show) {
@@ -73,12 +82,13 @@ function renderOperatorClient() {
   const content = $("#content");
   if (content) content.innerHTML = renderOperatorView();
   bindOperatorQueueSwipe();
+  if (state.operatorViewMode === "scan") bindPartScanView();
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
 }
 
-async function refreshOperatorData() {
-  setLoading(true);
+async function refreshOperatorData({ silent = false } = {}) {
+  if (!silent) setLoading(true);
   try {
     await loadOperatorData();
     renderOperatorClient();
@@ -87,7 +97,7 @@ async function refreshOperatorData() {
     const content = $("#content");
     if (content) content.innerHTML = `<div class="note">${err.message}</div>`;
   } finally {
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 }
 
@@ -97,7 +107,7 @@ async function syncOperatorBuildLabel() {
   await syncOperatorBuildChip("operatorBuildChipInline");
 }
 
-async function afterOperatorLogin() {
+async function afterOperatorLogin({ restoreNavigation = false } = {}) {
   if (!hasOperatorAccess()) {
     logout();
     throw new Error("Цей обліковий запис не має доступу до панелі оператора");
@@ -109,15 +119,26 @@ async function afterOperatorLogin() {
   const deepStage = params.get("stage");
   const deepPosition = Number(params.get("position")) || null;
 
-  if (deepStage && stages.includes(deepStage)) {
+  if (restoreNavigation && state.operatorStage && stages.includes(state.operatorStage)) {
+    openOperatorView(state.operatorStage, { preserveSelection: true });
+  } else if (deepStage && stages.includes(deepStage)) {
     openOperatorView(deepStage);
   } else {
     openOperatorView(stages[0] || "cutting");
   }
 
-  await refreshOperatorData();
+  await refreshOperatorData({ silent: restoreNavigation });
 
-  if (deepPosition) {
+  const savedPositionId = restoreNavigation ? state.operatorSelectedPositionId : null;
+
+  if (restoreNavigation && savedPositionId) {
+    const inQueue = state.operatorQueue.some((p) => p.id === savedPositionId);
+    await loadOperatorJobDetail(savedPositionId);
+    renderOperatorClient();
+    if (!inQueue) {
+      toastError("Позиція не в черзі цього етапу — перегляньте деталі");
+    }
+  } else if (deepPosition) {
     const inQueue = state.operatorQueue.some((p) => p.id === deepPosition);
     state.operatorSelectedPositionId = deepPosition;
     await loadOperatorJobDetail(deepPosition);
@@ -127,7 +148,12 @@ async function afterOperatorLogin() {
     }
     document
       .querySelector(".op-work-panel")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ?.scrollIntoView({ behavior: "instant", block: "start" });
+  }
+
+  if (restoreNavigation) {
+    restoreScrollPosition();
+    persistUiState();
   }
 
   if (deepStage || deepPosition) {
@@ -148,6 +174,7 @@ bindOperatorActions(() => renderOperatorClient());
 $("#logoutBtn")?.addEventListener("click", async () => {
   const ok = await confirmKioskBeforeLogout();
   if (!ok) return;
+  clearPersistedUiState();
   logout();
   state.view = "main";
   setOperatorUiActive(false);
@@ -172,6 +199,7 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
   setLoginSubmitting(true);
   try {
     await login(loginName, password);
+    clearPersistedUiState();
     await afterOperatorLogin();
   } catch (ex) {
     err.textContent = ex.message;
@@ -184,6 +212,7 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
 initAuthFromStorage();
 markNativeOperatorShell();
 initOperatorKioskEarly();
+initUiPersistence({ scope: "operator" });
 
 async function bootstrap() {
   const hasToken = Boolean(localStorage.getItem("enver_token"));
@@ -193,8 +222,10 @@ async function bootstrap() {
       showLoginModal(true);
       return;
     }
+    const persisted = loadPersistedUiState();
+    const restoreNavigation = applyUiState(persisted);
     try {
-      await afterOperatorLogin();
+      await afterOperatorLogin({ restoreNavigation });
     } catch (err) {
       toastError(err.message);
       showLoginModal(true);

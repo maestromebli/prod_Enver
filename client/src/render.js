@@ -3,18 +3,25 @@ import {
   canEditOrders,
   canEditPositions,
   canViewProductionFloor,
+  canViewConstructorDesk,
   canViewSettings,
   hasOperatorAccess,
   isOperator
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB, OVERVIEW_TAB } from "./constants.js";
+import {
+  PRODUCTION_FLOOR_TAB,
+  TABS,
+  ATTENTION_TAB,
+  OVERVIEW_TAB,
+  CONSTRUCTOR_DESK_TAB
+} from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
 import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
 import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
-import { bindSettingsActions, renderSettingsView } from "./settings.js";
+import { bindSettingsActions, getSettingsHeaderMeta, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import { filteredPositions } from "./filters.js";
 import {
@@ -28,6 +35,7 @@ import {
   loadProductionFloor,
   renderProductionFloorTab
 } from "./production-floor.js";
+import { renderConstructorDeskTab } from "./constructor-desk.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { activePositions } from "./archive.js";
@@ -144,7 +152,11 @@ function positionsTable(data, title = "Позиції замовлення", sho
 }
 
 function visibleTabs() {
-  return TABS.filter((tab) => tab !== PRODUCTION_FLOOR_TAB || canViewProductionFloor());
+  return TABS.filter((tab) => {
+    if (tab === PRODUCTION_FLOOR_TAB) return canViewProductionFloor();
+    if (tab === CONSTRUCTOR_DESK_TAB) return canViewConstructorDesk();
+    return true;
+  });
 }
 
 const TAB_META = {
@@ -152,6 +164,7 @@ const TAB_META = {
   Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
   [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
+  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Призначення, LED, заміри та файли" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
   Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
   "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
@@ -305,6 +318,7 @@ function renderContent() {
   }
   if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
+  if (tab === CONSTRUCTOR_DESK_TAB) return renderConstructorDeskTab();
   if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Історія змін") return historyTab();
@@ -315,6 +329,7 @@ export function renderHeaderChrome() {
   const user = state.currentUser;
   const chip = document.querySelector("#userChip");
   const gear = document.querySelector("#settingsGearBtn");
+  const notifyBtn = document.querySelector("#notifySettingsBtn");
   const logout = document.querySelector("#logoutBtn");
   const topbar = document.querySelector(".app-shell-main");
   const appRoot = document.querySelector("#appRoot");
@@ -331,7 +346,8 @@ export function renderHeaderChrome() {
     chip.hidden = !user;
     if (user) chip.textContent = user.name;
   }
-  if (gear) gear.hidden = !canViewSettings();
+  if (gear) gear.hidden = !user || !canViewSettings();
+  if (notifyBtn) notifyBtn.hidden = !user;
   if (logout) logout.hidden = !user;
 
   if (user && state.view === "main") {
@@ -341,10 +357,11 @@ export function renderHeaderChrome() {
   syncGodmodeNotifyForView(state.view);
 
   if (state.view === "settings") {
+    const meta = getSettingsHeaderMeta();
     const title = document.querySelector("#pageTitle");
     const sub = document.querySelector("#pageSubtitle");
-    if (title) title.textContent = "Налаштування";
-    if (sub) sub.textContent = "Користувачі, доступи та параметри";
+    if (title) title.textContent = meta.title;
+    if (sub) sub.textContent = meta.subtitle;
   }
 
   let opBtn = document.querySelector("#productionOperatorBtn");
@@ -412,7 +429,9 @@ export function renderApp(options = {}) {
     document.querySelector("#content").innerHTML = renderOperatorView();
     bindOperatorQueueSwipe();
     syncOperatorBuildChip("operatorBuildChipInline");
-    window.scrollTo(0, 0);
+    if (!options.preserveScroll) {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
@@ -441,7 +460,7 @@ export function renderApp(options = {}) {
           state.ordersView.detailTab = "overview";
           notifyUiChanged();
           renderApp();
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          window.scrollTo({ top: 0, behavior: "instant" });
         },
         onOrderCta: async (order, triggerEl) => {
           const { executePrimaryOrderAction } = await import("./godmode-ui.js");
@@ -480,7 +499,7 @@ export function renderApp(options = {}) {
             state.ordersView.detailTab = result.tab || "overview";
             notifyUiChanged();
             renderApp();
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            window.scrollTo({ top: 0, behavior: "instant" });
           } catch (err) {
             toastError(humanizeUserMessage(err?.message || "Не вдалося виконати дію"));
           }
@@ -494,7 +513,7 @@ export function renderApp(options = {}) {
           state.ordersView.detailTab = "overview";
           notifyUiChanged();
           renderApp();
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          window.scrollTo({ top: 0, behavior: "instant" });
         },
         onRefresh: async (opts) => {
           try {
@@ -535,7 +554,7 @@ export function renderApp(options = {}) {
         state.activeTab = "Замовлення";
         notifyUiChanged();
         renderApp();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: "instant" });
       },
       onAfterAction: () => renderApp({ contentOnly: true })
     });

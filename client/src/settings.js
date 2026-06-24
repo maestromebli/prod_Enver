@@ -13,6 +13,7 @@ import { runSave } from "./save-flow.js";
 import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
 import { closeGodmodeNotifyPanel } from "./godmode-notifications.js";
+import { notifyUiChanged } from "./ui-persistence.js";
 
 let users = [];
 let permissions = {};
@@ -92,23 +93,46 @@ export async function refreshAiSettingsFromServer() {
   aiSettingsLoadError = "";
 }
 
+const SETTINGS_SECTION_META = {
+  users: { title: "Налаштування", subtitle: "Користувачі та облікові записи" },
+  access: { title: "Налаштування", subtitle: "Ролі та доступи" },
+  directories: { title: "Налаштування", subtitle: "Довідники системи" },
+  clients: { title: "Налаштування", subtitle: "Посилання для клієнтів" },
+  notifications: { title: "Сповіщення", subtitle: "Звук, лічильники нових і дозволи браузера" },
+  ai: { title: "Налаштування", subtitle: "ШІ та навчання ENVER" }
+};
+
+export function getSettingsHeaderMeta(section = state.settingsSection) {
+  return SETTINGS_SECTION_META[section] || SETTINGS_SECTION_META.users;
+}
+
+export function navigateToNotificationSettings({ returnView } = {}) {
+  if (!state.currentUser) return;
+  closeGodmodeNotifyPanel();
+  if (returnView !== undefined) {
+    state.settingsReturnView = returnView;
+  } else if (state.view !== "settings") {
+    state.settingsReturnView = state.view;
+  }
+  state.view = "settings";
+  state.settingsSection = "notifications";
+  notifyUiChanged();
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+
 export function openSettings(section = "users") {
   if (!canViewSettings()) return;
   closeGodmodeNotifyPanel();
   state.settingsReturnView = null;
   state.view = "settings";
   state.settingsSection = section;
+  notifyUiChanged();
+  window.scrollTo({ top: 0, behavior: "auto" });
 }
 
-/** Сповіщення — доступні всім авторизованим (навіть без повних налаштувань). */
+/** @deprecated Використовуйте navigateToNotificationSettings */
 export function openNotificationSettings() {
-  if (!state.currentUser) return;
-  closeGodmodeNotifyPanel();
-  if (state.view !== "settings") {
-    state.settingsReturnView = state.view;
-  }
-  state.view = "settings";
-  state.settingsSection = "notifications";
+  navigateToNotificationSettings();
 }
 
 export function closeSettings() {
@@ -197,6 +221,8 @@ function accessSectionHtml() {
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canEditPositions" ${p.canEditPositions ? "checked" : ""} /> Позиції</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canUseOperatorPanel" ${p.canUseOperatorPanel ? "checked" : ""} /> Панель оператора (огляд)</label>
           <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canViewProductionFloor" ${p.canViewProductionFloor ? "checked" : ""} /> Вкладка «Цех зараз»</label>
+          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canManageConstructorDesk" ${p.canManageConstructorDesk ? "checked" : ""} /> Стіл конструктора (керування)</label>
+          <label class="checkbox-label"><input type="checkbox" data-perm-role="${role.id}" data-perm-key="canWorkConstructorDesk" ${p.canWorkConstructorDesk ? "checked" : ""} /> Робоча сторінка конструктора</label>
         </div>
         <div class="access-stages">
           <div class="access-stages-title">Етапи</div>

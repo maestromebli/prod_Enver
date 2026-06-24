@@ -2,7 +2,12 @@ import { api, getStoredToken } from "./api.js";
 import { ATTENTION_TAB } from "./constants.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
-import { emitRoleNotifications, reminderSnapshot } from "./role-notifications.js";
+import {
+  emitRoleNotifications,
+  primeRoleNotifications,
+  reminderSnapshot,
+  setRoleNotificationsReady
+} from "./role-notifications.js";
 
 const POLL_MS = 45_000;
 const PANEL_GAP = 8;
@@ -12,6 +17,7 @@ let eventSource = null;
 let panelOpen = false;
 let panelRepositionBound = false;
 let notifyActionsBound = false;
+let godmodeNotifySeeded = false;
 
 function levelClass(level) {
   if (level === "blocker") return "gn-item--blocker";
@@ -62,7 +68,7 @@ export function renderGodmodeNotifyPanel() {
     <div class="gn-panel-body">${renderPanelItems(items)}</div>
     <footer class="gn-panel-foot">
       <button type="button" class="btn btn-sm btn-ghost" id="godmodeNotifyOpenAttention">Потребує уваги</button>
-      <button type="button" class="btn btn-sm btn-ghost" id="godmodeNotifyOpenSettings">Налаштування</button>
+      <button type="button" class="btn btn-sm btn-ghost" id="godmodeNotifyOpenSettings">Налаштування сповіщень</button>
     </footer>
   </div>`;
 }
@@ -205,12 +211,16 @@ async function fetchGodmodeNotifications() {
 
 function applyNotificationItems(items) {
   if (!Array.isArray(items)) return;
-  const prevCount = godmodeNotificationCount();
+  const prevCount = godmodeNotifySeeded ? godmodeNotificationCount() : 0;
   state.godmodeNotifications = {
     items,
     fetchedAt: new Date().toISOString()
   };
   updateGodmodeNotifyBadge();
+  if (!godmodeNotifySeeded) {
+    godmodeNotifySeeded = true;
+    return;
+  }
   const nextCount = godmodeNotificationCount();
   if (nextCount > prevCount) {
     void emitRoleNotifications({
@@ -279,8 +289,8 @@ export function bindGodmodeNotifyActions() {
     }
     if (e.target.closest("#godmodeNotifyOpenSettings")) {
       closeGodmodeNotifyPanel();
-      void import("./settings.js").then(({ openNotificationSettings }) => {
-        openNotificationSettings();
+      void import("./settings.js").then(({ navigateToNotificationSettings }) => {
+        navigateToNotificationSettings();
         window.__enverRender?.();
       });
       return;
@@ -321,7 +331,11 @@ export function syncGodmodeNotifyForView(view = state.view) {
 export function startGodmodeNotificationPolling() {
   stopGodmodeNotificationPolling();
   if (!state.currentUser) return;
-  void fetchGodmodeNotifications();
+  godmodeNotifySeeded = false;
+  void fetchGodmodeNotifications().then(() => {
+    primeRoleNotifications(reminderSnapshot());
+    setRoleNotificationsReady(true);
+  });
   if (!startGodmodeNotificationStream()) {
     pollTimer = setInterval(() => void fetchGodmodeNotifications(), POLL_MS);
   }

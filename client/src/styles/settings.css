@@ -519,6 +519,96 @@
   font-size: 14px;
 }
 
+.notify-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 16px 0 12px;
+}
+
+.notify-counter-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notify-counter-card--active {
+  border-color: var(--blue, #2563eb);
+  background: #eff6ff;
+}
+
+.notify-counter-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+.notify-counter-card--active .notify-counter-value {
+  color: var(--blue, #2563eb);
+}
+
+.notify-counter-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.notify-counter-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.notify-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.notify-channel-fieldset {
+  border: 1px solid var(--border-soft, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px 10px;
+  margin: 0;
+}
+
+.notify-channel-fieldset legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.notify-help-details {
+  margin-top: 8px;
+}
+
+.notify-help-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.notify-help-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.notify-help-list li + li {
+  margin-top: 6px;
+}
+
+.settings-section--notify .settings-notify-form {
+  max-width: 520px;
+}
+
 .ai-feedback-card {
   margin-top: 24px;
   padding-top: 20px;

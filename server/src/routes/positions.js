@@ -32,6 +32,21 @@ import { buildOperatorDeepLink } from "../qr-link.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { registerConstructiveRoutes } from "./positions/constructive-routes.js";
 import { registerNextActionRoutes } from "./positions/next-action-routes.js";
+import constructivePackageRouter, {
+  registerConstructivePackagePositionRoutes
+} from "./constructive-packages.js";
+import {
+  CONSTRUCTIVE_FILE_COUNT_SUBQUERY,
+  CONSTRUCTIVE_FILE_NAME_SUBQUERY
+} from "../constructive-files-service.js";
+import {
+  HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY,
+  PACKAGE_ID_SUBQUERY,
+  PACKAGE_PARTS_COUNT_SUBQUERY,
+  PACKAGE_STATUS_SUBQUERY,
+  PACKAGE_VERSION_SUBQUERY,
+  UNMAPPED_PARTS_SUBQUERY
+} from "../constructive-package-enrich.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -55,9 +70,14 @@ function mapEnrichedRow(row, planMap, extraContext = {}) {
 }
 
 const POSITION_SELECT = `SELECT p.*,
-  (SELECT pf.original_name FROM position_files pf
-   WHERE pf.position_id = p.id AND pf.kind = 'constructive'
-   ORDER BY pf.created_at DESC LIMIT 1) AS constructive_file_name,
+  ${CONSTRUCTIVE_FILE_NAME_SUBQUERY},
+  ${CONSTRUCTIVE_FILE_COUNT_SUBQUERY},
+  ${PACKAGE_STATUS_SUBQUERY},
+  ${PACKAGE_ID_SUBQUERY},
+  ${PACKAGE_VERSION_SUBQUERY},
+  ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
+  ${UNMAPPED_PARTS_SUBQUERY},
+  ${PACKAGE_PARTS_COUNT_SUBQUERY},
   ${AI_COUNT_SUBQUERY},
   ${ACTIVE_SESSION_SUBQUERY}
  FROM positions p`;
@@ -117,6 +137,8 @@ async function resolveOrderLink(data) {
 const routeCtx = { loadRow, saveRow, planDateByOrderNumber, mapEnrichedRow };
 registerNextActionRoutes(router, routeCtx);
 registerConstructiveRoutes(router, routeCtx);
+router.use("/:id/constructive-packages", constructivePackageRouter);
+registerConstructivePackagePositionRoutes(router);
 
 router.get("/", async (_req, res) => {
   const planMap = await planDateByOrderNumber();

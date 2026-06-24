@@ -262,6 +262,41 @@
   gap: 12px;
 }
 
+.constructive-files-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.constructive-file-item {
+  margin: 0;
+}
+
+.constructive-file-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background: var(--surface-raised, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.constructive-file-link:hover {
+  border-color: var(--accent, #2563eb);
+}
+
+.constructive-file-name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
 .constructive-upload-zone {
   position: relative;
   border: 2px dashed var(--enver-border, var(--border));

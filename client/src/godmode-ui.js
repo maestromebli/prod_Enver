@@ -26,7 +26,12 @@ export function resolveOrderGodmode(order, positions = []) {
 
 export function resolvePositionGodmode(position) {
   if (position?.godmode) return position.godmode;
-  return buildPositionGodmode(position, { planDate: position.planDate });
+  return buildPositionGodmode(position, {
+    planDate: position.planDate,
+    hasConstructivePackage: position.hasConstructivePackage,
+    packageStatus: position.constructivePackageStatus || null,
+    unmappedPartsCount: position.unmappedPartsCount || 0
+  });
 }
 
 export function renderHealthBadge(health) {
@@ -317,7 +322,7 @@ export async function buildGodmodeActionDeps(overrides = {}) {
       state.ordersView.detailTab = tab;
       state.activeTab = "Замовлення";
       window.__enverRender?.();
-      window.scrollTo?.({ top: 0, behavior: "smooth" });
+      window.scrollTo?.({ top: 0, behavior: "instant" });
     },
     getPositions: () => state.positions,
     getOrders: () => state.orders,

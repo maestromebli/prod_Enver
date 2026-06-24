@@ -11,7 +11,8 @@ import {
   refreshCurrentUser,
   shouldShowProductionFloorByDefault
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB, CONSTRUCTOR_DESK_TAB } from "./constants.js";
+import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-desk.js";
 import { loadProductionFloor } from "./production-floor.js";
 import { toastError } from "./toast.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
@@ -39,15 +40,16 @@ import {
   bindSettingsActions,
   initSettingsUi,
   loadSettingsData,
-  openNotificationSettings,
+  navigateToNotificationSettings,
   openSettings
 } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
 import { watchAppBuildUpdates } from "./operator-ui.js";
 import {
-  emitRoleNotifications,
   initializeRoleNotificationBaselines,
+  primeRoleNotifications,
   reminderSnapshot,
+  setRoleNotificationsReady,
   markOrdersSeenForCurrentRole,
   markAttentionSeenForCurrentRole,
   markProductionTasksSeenForCurrentRole
@@ -80,14 +82,14 @@ import { $ } from "./utils.js";
 import "./styles/app-shell.css";
 import "./styles/brand-logo.css";
 
+import { setAppLoading } from "./loading-ui.js";
+
 let contentRenderTimer = null;
 const CONTENT_RENDER_DELAY_MS = 180;
+let bootstrapping = true;
 
-function setLoading(visible) {
-  const overlay = $("#loadingOverlay");
-  const content = $("#content");
-  overlay?.classList.toggle("visible", visible);
-  content?.classList.toggle("enver-content-loading", visible);
+function setLoading(visible, options) {
+  setAppLoading(visible, options);
   state.loading = visible;
 }
 
@@ -373,14 +375,15 @@ window.__enverOpenPosition = async (id) => {
   openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
 };
 
-async function loadData({ silent = false } = {}) {
-  if (!silent) setLoading(true);
+async function loadData({ silent = false, preserveScroll = false } = {}) {
+  const blocking = bootstrapping && !silent;
+  if (!silent) setLoading(true, { blocking });
   try {
     await refreshAppData({ includeDirectories: true });
     initializeRoleNotificationBaselines();
-    await emitRoleNotifications(reminderSnapshot());
+    primeRoleNotifications(reminderSnapshot());
     renderResponsibleOptions();
-    renderApp(silent ? { contentOnly: true } : undefined);
+    renderApp(silent ? { contentOnly: true, preserveScroll } : { preserveScroll });
   } catch (err) {
     $("#content").innerHTML = `
       <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">
@@ -389,13 +392,16 @@ async function loadData({ silent = false } = {}) {
     `;
   } finally {
     if (!silent) setLoading(false);
+    bootstrapping = false;
   }
 }
 
 async function prepareViewData() {
   if (
     state.view === "main" &&
-    (state.activeTab === PRODUCTION_FLOOR_TAB || state.activeTab === ATTENTION_TAB)
+    (state.activeTab === PRODUCTION_FLOOR_TAB ||
+      state.activeTab === ATTENTION_TAB ||
+      state.activeTab === CONSTRUCTOR_DESK_TAB)
   ) {
     try {
       await loadProductionFloor();
@@ -410,6 +416,13 @@ async function prepareViewData() {
       if (state.settingsSection === "directories") {
         state.directories = await api.getDirectories();
       }
+    }
+  }
+  if (state.activeTab === CONSTRUCTOR_DESK_TAB && state.view === "main") {
+    try {
+      await loadConstructorDesk();
+    } catch (err) {
+      toastError(err.message);
     }
   }
   if (state.activeTab === "Історія змін") {
@@ -436,29 +449,34 @@ async function setTab(tab) {
   if (tab === PRODUCTION_FLOOR_TAB) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
-  if (tab === ATTENTION_TAB || tab === PRODUCTION_FLOOR_TAB) {
+  if (tab === CONSTRUCTOR_DESK_TAB) {
+    state.constructorDesk.selectedPositionId = null;
+    state.constructorDesk.detail = null;
     setLoading(true);
     try {
-      await loadProductionFloor();
+      await loadConstructorDesk();
     } catch (err) {
       toastError(err.message);
     } finally {
       setLoading(false);
     }
   }
+  if (tab === ATTENTION_TAB || tab === PRODUCTION_FLOOR_TAB) {
+    try {
+      await loadProductionFloor();
+    } catch (err) {
+      toastError(err.message);
+    }
+  }
   if (tab === "Історія змін") {
-    setLoading(true);
     try {
       await loadGlobalHistory();
     } catch (err) {
       state.history = [];
       toastError(`Не вдалося завантажити історію: ${err.message}`);
-    } finally {
-      setLoading(false);
     }
   }
-  renderApp();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  renderApp({ contentOnly: true });
 }
 
 function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) {
@@ -515,23 +533,21 @@ async function openSettingsView() {
   }
 
   initSettingsUi(renderApp);
-  setLoading(true);
   try {
     await loadSettingsData();
     openSettings(state.settingsSection || "users");
     renderApp();
   } catch (err) {
     toastError(err.message || "Не вдалося відкрити налаштування");
-  } finally {
-    setLoading(false);
   }
 }
 
 async function openNotificationSettingsView() {
   if (!state.currentUser) return;
-  openNotificationSettings();
+  navigateToNotificationSettings();
   initSettingsUi(renderApp);
   renderApp();
+  persistUiState();
 }
 
 initOrderModal();
@@ -540,6 +556,7 @@ initOrderDetailDrawer();
 initInstallScheduleModal();
 initSettingsUi(renderApp);
 bindSettingsActions(renderApp);
+bindConstructorDeskActions(renderApp);
 bindOperatorActions(renderApp);
 
 initCommandPalette({
@@ -570,6 +587,7 @@ initKeyboardShortcuts({
 
 async function reloadAfterSave() {
   try {
+    setLoading(true);
     await loadData({ silent: true });
     if (state.activeTab === "Історія змін") {
       try {
@@ -585,6 +603,8 @@ async function reloadAfterSave() {
     }
   } catch (err) {
     toastError(err.message);
+  } finally {
+    setLoading(false);
   }
 }
 
@@ -615,6 +635,7 @@ $("#resetBtn")?.addEventListener("click", () => {
 });
 
 $("#settingsGearBtn")?.addEventListener("click", () => openSettingsView());
+$("#notifySettingsBtn")?.addEventListener("click", () => openNotificationSettingsView());
 
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-open-notify-settings]")) {
@@ -625,6 +646,7 @@ document.addEventListener("click", (e) => {
 $("#logoutBtn")?.addEventListener("click", () => {
   logout();
   stopGodmodeNotificationPolling();
+  setRoleNotificationsReady(false);
   clearPersistedUiState();
   hideAiAssistant();
   state.view = "main";
@@ -706,10 +728,17 @@ async function bootstrap() {
     const persisted = loadPersistedUiState();
     const restoreNavigation = applyUiState(persisted);
 
-    await loadData();
-    await afterAuth({ restoreNavigation });
+    if (restoreNavigation) {
+      showLoginModal(false);
+      await afterAuth({ restoreNavigation });
+    }
+
+    await loadData({ silent: restoreNavigation, preserveScroll: restoreNavigation });
+    if (!restoreNavigation) {
+      await afterAuth();
+    }
     await prepareViewData();
-    renderApp();
+    renderApp({ preserveScroll: restoreNavigation });
     await restoreOverlays(persisted);
     restoreScrollPosition();
     persistUiState();
