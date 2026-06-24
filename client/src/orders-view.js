@@ -11,6 +11,7 @@ import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tre
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
+import { notifyUiChanged } from "./ui-persistence.js";
 
 const DISPLAY_LABELS = { cards: "Картки", list: "Список" };
 
@@ -24,12 +25,10 @@ function toggleOrderExpanded(orderId) {
 }
 
 function orderPositionsToggleBtn(order, related, expanded) {
-  if (!related.length) {
-    return '<span class="btn-tree-spacer" aria-hidden="true"></span>';
-  }
   const label = expanded ? "Згорнути позиції" : "Показати позиції";
   const icon = expanded ? "−" : "+";
-  return `<button type="button" class="btn-tree btn-order-pos-toggle" data-toggle-order-positions="${order.id}" title="${label}" aria-label="${label}" aria-expanded="${expanded}">${icon}</button>`;
+  const countHint = related.length ? ` (${related.filter((p) => !p.parentId).length})` : "";
+  return `<button type="button" class="btn-tree btn-order-pos-toggle" data-toggle-order-positions="${order.id}" title="${label}${countHint}" aria-label="${label}" aria-expanded="${expanded}">${icon}</button>`;
 }
 
 function renderOrderPositionsInline(order, allPositions) {
@@ -353,6 +352,7 @@ function bindOrderPositionsInline(root, handlers) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       toggleOrderExpanded(btn.dataset.toggleOrderPositions);
+      notifyUiChanged();
       window.__enverRender?.({ contentOnly: true });
     });
   });
@@ -361,6 +361,7 @@ function bindOrderPositionsInline(root, handlers) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       togglePositionExpanded(Number(btn.dataset.togglePosition));
+      notifyUiChanged();
       window.__enverRender?.({ contentOnly: true });
     });
   });
@@ -381,7 +382,12 @@ function bindOrderCards(root, handlers) {
     const open = () => openOrder(card.dataset.orderCard, handlers);
     card.addEventListener("click", (e) => {
       if (card.dataset.swipeHandled) return;
-      if (e.target.closest("[data-order-cta], [data-order-detail], [data-toggle-order-positions], [data-toggle-position], [data-open-position]")) return;
+      if (
+        e.target.closest(
+          "[data-order-cta], [data-order-detail], [data-toggle-order-positions], [data-toggle-position], [data-open-position]"
+        )
+      )
+        return;
       open();
     });
     card.addEventListener("keydown", (e) => {

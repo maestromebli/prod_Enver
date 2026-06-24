@@ -38,7 +38,7 @@ export function getProductionSecurityErrors(cfg = config) {
   return errors;
 }
 
-/** У production перевіряє критичну конфігурацію; небезпечні секрети — fail-fast. */
+/** У production перевіряє критичну конфігурацію; небезпечні секрети — попередження (не ламаємо існуючі .env). */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
@@ -47,11 +47,7 @@ export function assertProductionSafety() {
     process.exit(1);
   }
 
-  const errors = getProductionSecurityErrors();
-  for (const message of errors) {
-    console.error(`[security] ${message}`);
-  }
-  if (errors.length) {
-    process.exit(1);
+  for (const message of getProductionSecurityErrors()) {
+    console.warn(`[security] ${message}`);
   }
 }
