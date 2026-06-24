@@ -27,7 +27,7 @@ export function registerNextActionRoutes(
     }
 
     const planMap = await planDateByOrderNumber();
-    const planDate = planMap.get(beforeRow.order_number);
+    const planDate = planMap.forRow(beforeRow);
     const enriched = enrichPositionRow(beforeRow, { planDate });
     const ctx = {
       planDate,

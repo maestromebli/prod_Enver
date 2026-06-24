@@ -3,6 +3,7 @@ import { logPositionCreate } from "./audit.js";
 import { enrichPositionRow } from "./position-logic.js";
 import { nextPositionId } from "./db/position-id.js";
 import { insertPosition, updatePositionStagesFromOrderSync } from "./db/position-persistence.js";
+import { enqueueOrderPositionsForConstructorDesk } from "./constructor-desk-queue.js";
 import {
   ORDER_STATUSES_NEED_POSITION,
   applyOrderStatusPreset,
@@ -86,4 +87,16 @@ export async function createOrderSubPositions(orderRow, rootRow, itemNames, { ac
   }
 
   return { created };
+}
+
+/** Після створення замовлення: root + підпозиції (за потреби) і черга конструктора. */
+export async function bootstrapOrderPositions(orderRow, { subItems = [], actor = null } = {}) {
+  const { root } = await ensureOrderRootPosition(orderRow, { actor });
+  if (subItems.length) {
+    await createOrderSubPositions(orderRow, root, subItems, { actor });
+  }
+  const queued = await enqueueOrderPositionsForConstructorDesk(orderRow, {
+    planDate: orderRow.plan_date || ""
+  });
+  return { root, queuedCount: queued.length };
 }

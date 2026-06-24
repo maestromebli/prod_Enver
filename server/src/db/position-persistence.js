@@ -27,7 +27,8 @@ const BASE_COLUMNS = [
   "overdue_days",
   "problem",
   "note",
-  "has_constructive_file"
+  "has_constructive_file",
+  "current_stage"
 ];
 
 /** Дефолти для NOT NULL колонок — щоб INSERT не падав при undefined. */
@@ -42,7 +43,8 @@ const INSERT_DEFAULTS = {
   position_status: "Не розпочато",
   progress: 0,
   overdue_days: 0,
-  has_constructive_file: false
+  has_constructive_file: false,
+  current_stage: "constructor"
 };
 
 function insertSql(columns) {

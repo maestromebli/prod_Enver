@@ -3,11 +3,7 @@ import { all, one, run, withTransaction } from "../db.js";
 import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
-import {
-  createOrderSubPositions,
-  ensureOrderRootPosition,
-  syncOrderStatusWorkflow
-} from "../order-status-sync.js";
+import { bootstrapOrderPositions, syncOrderStatusWorkflow } from "../order-status-sync.js";
 import { normalizeOrderSubItems } from "../order-status-workflow.js";
 import { attachGodmodeToOrder, enrichAndMapPosition } from "../godmode-enrich.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
@@ -217,12 +213,7 @@ router.post("/", requireOrderWrite, async (req, res) => {
     await logOrderCreate(inserted, auditActor(req));
     const actor = auditActor(req);
     const subItems = normalizeOrderSubItems(req.body);
-    if (subItems.length) {
-      const { root } = await ensureOrderRootPosition(inserted, { actor });
-      await createOrderSubPositions(inserted, root, subItems, { actor });
-    } else if (req.body?.createRootPosition === true) {
-      await ensureOrderRootPosition(inserted, { actor });
-    }
+    await bootstrapOrderPositions(inserted, { subItems, actor });
     await syncOrderStatusWorkflow(inserted, { actor });
     res.status(201).json(mapOrder(inserted));
   } catch (err) {

@@ -25,6 +25,13 @@ import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
 import { bindPartScanView, renderPartScanView } from "./part-scan.js";
 
+async function afterOperatorMutation(result, onChange) {
+  const { propagatePositionMutation } = await import("./data-sync.js");
+  propagatePositionMutation(result);
+  await loadOperatorData();
+  onChange?.();
+}
+
 const PROBLEM_PRESETS = [
   "Немає матеріалу",
   "Помилка розміру",
@@ -607,6 +614,8 @@ export function bindOperatorActions(onChange) {
     }
     if (e.target.closest("#operatorBackBtn")) {
       state.view = "main";
+      const { refreshAppData } = await import("./data-sync.js");
+      await refreshAppData({ syncViews: true });
       operatorOnChange();
       return;
     }
@@ -665,10 +674,7 @@ export function bindOperatorActions(onChange) {
         submitEl: btn,
         saveFn: () => api.operatorStart(payload()),
         successMessage: "Роботу розпочато",
-        onSuccess: async () => {
-          await loadOperatorData();
-          operatorOnChange();
-        }
+        onSuccess: (result) => afterOperatorMutation(result, operatorOnChange)
       }).catch(() => {});
     }
     if (e.target.closest("#operatorPauseBtn")) {
@@ -677,19 +683,13 @@ export function bindOperatorActions(onChange) {
         await runSave("Завдання", {
           submitEl: btn,
           saveFn: () => api.operatorResume(payload()),
-          onSuccess: async () => {
-            await loadOperatorData();
-            operatorOnChange();
-          }
+          onSuccess: (result) => afterOperatorMutation(result, operatorOnChange)
         }).catch(() => {});
       } else if (canPause()) {
         await runSave("Завдання", {
           submitEl: btn,
           saveFn: () => api.operatorPause(payload()),
-          onSuccess: async () => {
-            await loadOperatorData();
-            operatorOnChange();
-          }
+          onSuccess: (result) => afterOperatorMutation(result, operatorOnChange)
         }).catch(() => {});
       }
     }
@@ -711,11 +711,10 @@ export function bindOperatorActions(onChange) {
         submitEl: btn,
         saveFn: () => api.operatorFinish(payload()),
         successMessage: `Задачу завершено. ${finishSuccessMessage(stageKey)}`,
-        onSuccess: async () => {
+        onSuccess: async (result) => {
           state.operatorSelectedPositionId = null;
           await new Promise((r) => setTimeout(r, card ? 220 : 0));
-          await loadOperatorData();
-          operatorOnChange();
+          await afterOperatorMutation(result, operatorOnChange);
         }
       }).catch(() => {});
     }
@@ -767,10 +766,9 @@ export function bindOperatorActions(onChange) {
           comment
         }),
       successMessage: "Проблему зафіксовано — менеджер отримає сповіщення",
-      onSuccess: async () => {
+      onSuccess: (result) => {
         closeProblemSheet();
-        await loadOperatorData();
-        operatorOnChange();
+        return afterOperatorMutation(result, operatorOnChange);
       }
     }).catch(() => {});
   }

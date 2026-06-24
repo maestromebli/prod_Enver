@@ -379,7 +379,7 @@ async function loadData({ silent = false, preserveScroll = false } = {}) {
   const blocking = bootstrapping && !silent;
   if (!silent) setLoading(true, { blocking });
   try {
-    await refreshAppData({ includeDirectories: true });
+    await refreshAppData({ includeDirectories: true, syncViews: true });
     initializeRoleNotificationBaselines();
     primeRoleNotifications(reminderSnapshot());
     renderResponsibleOptions();
@@ -436,10 +436,22 @@ async function prepareViewData() {
 }
 
 async function setTab(tab) {
+  const prevTab = state.activeTab;
   if (tab !== "Замовлення") {
     state.selectedOrderId = null;
   }
   state.activeTab = tab;
+  if (
+    state.constructorDesk.stale &&
+    prevTab !== tab &&
+    (tab === "Замовлення" || tab === "Позиції")
+  ) {
+    try {
+      await refreshAppData({ syncViews: false });
+    } catch (err) {
+      toastError(err.message);
+    }
+  }
   if (tab === "Замовлення") {
     markOrdersSeenForCurrentRole(state.orders);
   }

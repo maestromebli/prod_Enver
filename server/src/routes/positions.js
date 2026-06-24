@@ -52,16 +52,28 @@ const router = Router();
 router.use(requireAuth);
 
 async function planDateByOrderNumber() {
-  const rows = await all("SELECT order_number, plan_date FROM orders");
-  const map = new Map();
+  const rows = await all("SELECT id, order_number, plan_date FROM orders");
+  const byId = new Map();
+  const byNumber = new Map();
   for (const o of rows) {
-    map.set(o.order_number, o.plan_date);
+    byId.set(o.id, o.plan_date);
+    byNumber.set(o.order_number, o.plan_date);
   }
-  return map;
+  return {
+    byId,
+    byNumber,
+    get(orderNumber) {
+      return byNumber.get(orderNumber);
+    },
+    forRow(row) {
+      if (row?.order_id != null && byId.has(row.order_id)) return byId.get(row.order_id);
+      return byNumber.get(row?.order_number);
+    }
+  };
 }
 
 function mapEnrichedRow(row, planMap, extraContext = {}) {
-  const planDate = planMap.get(row.order_number);
+  const planDate = planMap.forRow(row);
   return enrichAndMapPosition(row, planDate, {
     hasAiAnalysis: Number(row.ai_analysis_count) > 0,
     hasActiveOperatorSession: Number(row.active_operator_sessions) > 0,
@@ -229,7 +241,7 @@ router.post("/", requirePositionWrite, async (req, res) => {
 
   const id = await nextPositionId();
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(raw.order_number);
+  const planDate = planMap.forRow(raw);
   const enriched = enrichPositionRow({ ...raw, id }, { planDate });
 
   await insertPosition(enriched);
@@ -268,7 +280,7 @@ router.put("/:id", requirePositionWrite, async (req, res) => {
   }
 
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(raw.order_number);
+  const planDate = planMap.forRow(raw);
   const saved = await saveRow(id, raw, planDate);
   await closeSessionsAfterStageStatusChanges(existing, raw, id);
   await logPositionUpdate(existing, await loadRow(id), auditActor(req));
@@ -326,7 +338,7 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
   }
 
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(existing.order_number);
+  const planDate = planMap.forRow(existing);
   const handedOff = applyStageHandoff(existing, stageKey, {
     status,
     constructor,
@@ -373,7 +385,7 @@ router.post("/:id/create-tasks", requirePositionWrite, async (req, res) => {
   }
 
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(existing.order_number);
+  const planDate = planMap.forRow(existing);
   await saveRow(id, existing, planDate);
   const afterRow = await loadRow(id);
   await logPositionUpdate(before, afterRow, auditActor(req));
@@ -432,7 +444,7 @@ router.patch("/:id/install", requirePositionWrite, async (req, res) => {
   }
 
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.get(existing.order_number);
+  const planDate = planMap.forRow(existing);
   await saveRow(id, existing, planDate);
   const afterRow = await loadRow(id);
   await logPositionUpdate(beforeRow, afterRow, auditActor(req));

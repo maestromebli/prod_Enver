@@ -31,7 +31,8 @@ function syncOrderModalChrome(order = null) {
   if (!order) {
     title.textContent = "Нове замовлення";
     if (subtitle) {
-      subtitle.textContent = "Мінімум: номер і об'єкт. Позиції — за бажанням.";
+      subtitle.textContent =
+        "Мінімум: номер і об'єкт. Кожен рядок позицій — окреме завдання для конструктора.";
       subtitle.hidden = false;
     }
     if (submit) submit.textContent = "Створити";

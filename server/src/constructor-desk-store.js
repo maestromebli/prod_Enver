@@ -7,13 +7,14 @@ import {
   validateWorkspacePayload,
   workspaceCompletion
 } from "./constructor-desk-service.js";
+import { syncOrderStatusAfterConstructorAssignment } from "./constructor-desk-queue.js";
 
 const POSITION_SELECT = `
   p.id, p.parent_id, p.order_id, p.order_number, p.object, p.item, p.item_type,
   p.manager, p.constructor_name, p.has_constructive_file, p.current_stage,
   p.position_status, p.progress, p.ready_date,
   p.constructor_user_id, p.constructor_assigned_at, p.constructor_due_at,
-  p.constructor_estimated_hours, p.constructor_workspace_json,
+  p.constructor_estimated_hours, p.constructor_workspace_json, p.constructor_desk_queued_at,
   u.name AS constructor_user_name,
   o.client AS order_client, o.plan_date AS order_plan_date, o.priority AS order_priority
 `;
@@ -40,6 +41,7 @@ function mapDeskRow(row, files = [], commentCount = 0) {
     constructorDueAt: row.constructor_due_at,
     constructorEstimatedHours:
       row.constructor_estimated_hours != null ? Number(row.constructor_estimated_hours) : null,
+    constructorDeskQueuedAt: row.constructor_desk_queued_at,
     hasConstructiveFile: Boolean(row.has_constructive_file),
     currentStage: row.current_stage,
     positionStatus: row.position_status,
@@ -108,6 +110,7 @@ export function userCanAccessPositionDesk(user, row) {
 export function isPositionOnConstructorDesk(row) {
   if (!row) return false;
   if (String(row.current_stage || "").trim() === "constructor") return true;
+  if (row.constructor_desk_queued_at) return true;
   if (row.constructor_user_id != null) return true;
   if (row.constructor_assigned_at) return true;
   return Boolean(String(row.constructor_name || "").trim());
@@ -122,11 +125,12 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
      WHERE p.position_status NOT IN ('Архів', 'Скасовано')
        AND (
          p.current_stage = 'constructor'
+         OR p.constructor_desk_queued_at IS NOT NULL
          OR p.constructor_user_id IS NOT NULL
          OR p.constructor_assigned_at IS NOT NULL
          OR trim(coalesce(p.constructor_name, '')) <> ''
        )
-     ORDER BY p.constructor_due_at NULLS LAST, p.order_number, p.id`
+     ORDER BY p.constructor_desk_queued_at NULLS LAST, p.constructor_due_at NULLS LAST, p.order_number, p.id`
   );
 
   const filtered = rows.filter((row) => {
@@ -186,6 +190,7 @@ export function groupDeskPositionsIntoOrders(positions = []) {
         orderPriority: p.orderPriority || "",
         positionCount: 0,
         assignedCount: 0,
+        pendingCount: 0,
         maxCompletionPercent: 0,
         nearestDueAt: null,
         positions: []
@@ -195,6 +200,7 @@ export function groupDeskPositionsIntoOrders(positions = []) {
     entry.positions.push(p);
     entry.positionCount += 1;
     if (positionHasConstructorAssignment(p)) entry.assignedCount += 1;
+    else entry.pendingCount += 1;
     const pct = p.completion?.percent ?? 0;
     if (pct > entry.maxCompletionPercent) entry.maxCompletionPercent = pct;
     if (p.constructorDueAt) {
@@ -276,7 +282,10 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
     `UPDATE positions SET
       constructor_user_id = $2,
       constructor_name = $3,
-      constructor_assigned_at = CASE WHEN $2 IS NOT NULL OR $3 <> '' THEN COALESCE(constructor_assigned_at, now()) ELSE constructor_assigned_at END,
+      constructor_assigned_at = CASE
+        WHEN $2 IS NOT NULL THEN COALESCE(constructor_assigned_at, now())
+        ELSE constructor_assigned_at
+      END,
       constructor_due_at = $4,
       constructor_estimated_hours = $5
      WHERE id = $1`,
@@ -289,7 +298,21 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
     ]
   );
 
-  return getDeskPosition(user, positionId);
+  let orderStatusSync = { updated: false };
+  if (constructorUserId) {
+    const posRow = await one(`SELECT order_id FROM positions WHERE id = $1`, [positionId]);
+    if (posRow?.order_id) {
+      const orderRow = await one(`SELECT * FROM orders WHERE id = $1`, [posRow.order_id]);
+      if (orderRow) {
+        orderStatusSync = await syncOrderStatusAfterConstructorAssignment(orderRow, {
+          actor: user
+        });
+      }
+    }
+  }
+
+  const detail = await getDeskPosition(user, positionId);
+  return { ...detail, orderStatusSync };
 }
 
 export async function saveDeskWorkspace(user, positionId, body = {}) {

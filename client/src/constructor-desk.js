@@ -1,4 +1,5 @@
 import { api, getStoredToken } from "./api.js";
+import { refreshAppData } from "./data-sync.js";
 import { canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
@@ -93,12 +94,18 @@ function renderConstructorOrdersList(orders) {
     .map((order) => {
       const assigned = order.assignedCount || 0;
       const total = order.positionCount || 0;
+      const pending = order.pendingCount || 0;
       const due = order.nearestDueAt ? dueLabel(order.nearestDueAt) : "—";
+      const pendingBadge =
+        pending > 0
+          ? `<span class="badge orange cd-pending-badge">Очікує призначення: ${pending}</span>`
+          : "";
       return `
         <article class="order-card cd-order-card enver-pressable" data-cd-order="${escapeHtml(orderKey(order))}">
           <h3 class="order-card-title">${escapeHtml(order.orderNumber)}</h3>
           <p class="order-card-meta order-card-object">${escapeHtml(order.object || "—")}</p>
           ${order.orderClient ? `<p class="order-card-meta enver-meta">${escapeHtml(order.orderClient)}</p>` : ""}
+          ${pendingBadge}
           <p class="order-card-stage-line">
             <strong>${total}</strong> поз. · призначено <strong>${assigned}</strong> · готовність <strong>${order.maxCompletionPercent ?? 0}%</strong>
           </p>
@@ -350,6 +357,7 @@ export async function loadConstructorDesk() {
     state.constructorDesk.positions = orders.flatMap((o) => o.positions || []);
     state.constructorDesk.constructors = constructors;
     state.constructorDesk.error = "";
+    state.constructorDesk.stale = false;
   } catch (err) {
     state.constructorDesk.error = err.message;
     state.constructorDesk.orders = [];
@@ -418,6 +426,11 @@ async function fileToBase64(file) {
 
 let actionsBound = false;
 
+async function syncDeskWithOrders(onChange) {
+  await refreshAppData({ syncViews: true });
+  onChange?.();
+}
+
 export function bindConstructorDeskActions(onChange = () => {}) {
   if (actionsBound) return;
   actionsBound = true;
@@ -469,14 +482,17 @@ export function bindConstructorDeskActions(onChange = () => {}) {
       const due = document.querySelector(`[data-cd-due="${id}"]`)?.value;
       const hours = document.querySelector(`[data-cd-hours="${id}"]`)?.value;
       try {
-        await api.assignConstructorDesk(id, {
+        const res = await api.assignConstructorDesk(id, {
           constructorUserId: userId ? Number(userId) : null,
           constructorDueAt: due ? new Date(due).toISOString() : null,
           constructorEstimatedHours: hours ? Number(hours) : null
         });
-        toastSuccess("Призначення збережено");
-        await loadConstructorDesk();
-        onChange();
+        toastSuccess(
+          res?.orderStatusSync?.updated
+            ? "Призначення збережено · замовлення переведено в «У конструктиві»"
+            : "Призначення збережено"
+        );
+        await syncDeskWithOrders(onChange);
       } catch (err) {
         toastError(err.message);
       }
@@ -519,7 +535,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
     if (e.target.closest("#cdWsSaveAssign")) {
       const id = state.constructorDesk.selectedPositionId;
       try {
-        await api.assignConstructorDesk(id, {
+        const res = await api.assignConstructorDesk(id, {
           constructorUserId: Number(document.getElementById("cdWsAssignUser")?.value) || null,
           constructorDueAt: document.getElementById("cdWsDue")?.value
             ? new Date(document.getElementById("cdWsDue").value).toISOString()
@@ -528,10 +544,13 @@ export function bindConstructorDeskActions(onChange = () => {}) {
             ? Number(document.getElementById("cdWsHours").value)
             : null
         });
-        toastSuccess("Призначення збережено");
+        toastSuccess(
+          res?.orderStatusSync?.updated
+            ? "Призначення збережено · замовлення переведено в «У конструктиві»"
+            : "Призначення збережено"
+        );
         await openConstructorWorkspace(id);
-        await loadConstructorDesk();
-        onChange();
+        await syncDeskWithOrders(onChange);
       } catch (err) {
         toastError(err.message);
       }
@@ -560,7 +579,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
         });
         toastSuccess("Файл завантажено");
         await openConstructorWorkspace(positionId);
-        onChange();
+        await syncDeskWithOrders(onChange);
       } catch (err) {
         toastError(err.message);
       }
@@ -611,8 +630,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
       successMessage: "Збережено",
       onSuccess: async () => {
         await openConstructorWorkspace(id);
-        await loadConstructorDesk();
-        onChange();
+        await syncDeskWithOrders(onChange);
       }
     }).catch(() => {});
   });

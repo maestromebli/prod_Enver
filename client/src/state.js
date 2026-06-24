@@ -57,6 +57,7 @@ export const state = {
     selectedPositionId: null,
     loading: false,
     onlyMine: false,
-    error: ""
+    error: "",
+    stale: false
   }
 };

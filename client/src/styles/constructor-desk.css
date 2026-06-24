@@ -9,6 +9,16 @@
   cursor: pointer;
 }
 
+.cd-pending-badge {
+  display: inline-block;
+  margin: 4px 0 8px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  background: rgba(200, 120, 0, 0.15);
+  color: #a65c00;
+}
+
 .cd-order-card .btn {
   margin-top: 10px;
 }

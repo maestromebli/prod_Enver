@@ -8,6 +8,7 @@ import {
 describe("constructor desk store", () => {
   it("isPositionOnConstructorDesk — етап constructor або призначення", () => {
     assert.equal(isPositionOnConstructorDesk({ current_stage: "constructor" }), true);
+    assert.equal(isPositionOnConstructorDesk({ constructor_desk_queued_at: "2026-01-01" }), true);
     assert.equal(isPositionOnConstructorDesk({ constructor_user_id: 3 }), true);
     assert.equal(isPositionOnConstructorDesk({ constructor_name: "Іван" }), true);
     assert.equal(isPositionOnConstructorDesk({ current_stage: "cutting" }), false);
@@ -41,6 +42,7 @@ describe("constructor desk store", () => {
     assert.equal(orders[0].orderNumber, "E-10");
     assert.equal(orders[0].positionCount, 2);
     assert.equal(orders[0].assignedCount, 1);
+    assert.equal(orders[0].pendingCount, 1);
     assert.equal(orders[0].maxCompletionPercent, 80);
   });
 });

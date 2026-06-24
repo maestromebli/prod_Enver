@@ -19,7 +19,6 @@ const HEALTH_LABELS = {
 };
 
 export function resolveOrderGodmode(order, positions = []) {
-  if (order?.godmode) return order.godmode;
   const related = positionsForOrder(order, positions);
   return buildOrderGodmode(order, related, { planDate: order.planDate });
 }
@@ -348,7 +347,7 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       const result = await executePrimaryOrderAction(order, positions, deps);
       if (result.action === "close_order" || result.action === "handoff") {
         deps.toastSuccess?.(result.message || "Готово");
-        await deps.refreshAppData?.({ includeDirectories: false });
+        await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
         window.__enverRender?.({ contentOnly: true });
       } else if (result.action === "open_position") {
         const position = deps.getPositions?.().find((p) => p.id === result.positionId);
@@ -372,7 +371,7 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
     if (effectiveAction && HANDOFF_ACTION_TYPES.has(effectiveAction)) {
       await runOptimisticHandoff(positionId, effectiveAction, deps);
       deps.toastSuccess?.("Дію виконано");
-      await deps.refreshAppData?.({ includeDirectories: false });
+      await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
       window.__enverRender?.({ contentOnly: true });
       return { action: "handoff" };
     }
