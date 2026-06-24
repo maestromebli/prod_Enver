@@ -14,6 +14,7 @@ import operatorRouter from "./routes/operator.js";
 import productionRouter from "./routes/production.js";
 import clientsRouter, { registerDownloadRoutes } from "./routes/clients.js";
 import aiRouter from "./routes/ai.js";
+import notificationsRouter from "./routes/notifications.js";
 import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
 import { apiFormatMiddleware } from "./http/api-format-middleware.js";
@@ -70,6 +71,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/production", productionRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/ai", aiRouter);
+  app.use("/api/notifications", notificationsRouter);
 
   registerDownloadRoutes(app);
 

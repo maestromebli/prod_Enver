@@ -462,7 +462,7 @@ body.enver-v3 {
 
 .orders-mode-btn.active {
   background: var(--white);
-  color: var(--blue);
+  color: var(--enver-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
@@ -509,7 +509,7 @@ body.enver-v3 {
 }
 
 .orders-list-row:hover {
-  background: rgba(0, 113, 227, 0.04);
+  background: color-mix(in srgb, var(--enver-primary) 6%, transparent);
 }
 
 .stage-pill--compact {
@@ -549,8 +549,8 @@ body.enver-v3 {
 }
 
 .order-card:hover {
-  transform: translateY(-3px) scale(1.01);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  box-shadow: var(--enver-shadow-md);
 }
 
 .order-card-head {

@@ -1,0 +1,518 @@
+import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
+import { api } from "./api.js";
+import { canEditOrders, canEditPositions } from "./auth.js";
+import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tree.js";
+import { quickAdvancePosition } from "./positions.js";
+import { runSave } from "./save-flow.js";
+import { state } from "./state.js";
+import { badge, escapeHtml, progressRing } from "./utils.js";
+import {
+  renderNextActionBanner,
+  renderOrderGodmodeSummary,
+  renderSmartEmptyState,
+  resolvePositionGodmode
+} from "./godmode-ui.js";
+import { formatHistoryTime, renderChangesList } from "./history.js";
+import { STAGES, getStageStatus } from "./workflows.js";
+
+const DETAIL_TABS = [
+  { key: "overview", label: "Огляд" },
+  { key: "positions", label: "Позиції" },
+  { key: "production", label: "Виробництво" },
+  { key: "constructive", label: "Конструктив" },
+  { key: "install", label: "Монтаж" },
+  { key: "history", label: "Історія" }
+];
+
+function orderProgress(positions) {
+  if (!positions.length) return 0;
+  const sum = positions.reduce((acc, p) => acc + (p.progress ?? 0), 0);
+  return Math.round(sum / positions.length);
+}
+
+function metaLine(parts) {
+  const items = parts.filter(Boolean);
+  return items.length ? `<p class="order-hero-meta">${items.join(" · ")}</p>` : "";
+}
+
+function renderOrderHero(order, related) {
+  const progress = orderProgress(related);
+  const canEdit = canEditOrders();
+  const extras = [
+    order.manager ? `Менеджер: ${escapeHtml(order.manager)}` : "",
+    order.planDate ? `План ${escapeHtml(order.planDate)}` : "",
+    order.startDate ? `Запуск ${escapeHtml(order.startDate)}` : "",
+    order.priority && order.priority !== "Звичайний" ? escapeHtml(order.priority) : ""
+  ].filter(Boolean);
+
+  return `
+    <header class="order-hero card">
+      <button type="button" class="order-hero-back" data-orders-back>← Замовлення</button>
+      <div class="order-hero-main">
+        <div class="order-hero-text">
+          <h2 class="order-hero-title enver-page-title">${escapeHtml(order.orderNumber)}</h2>
+          <p class="order-hero-object">${escapeHtml(order.object || "—")}</p>
+          ${order.client ? `<p class="order-hero-client enver-meta">${escapeHtml(order.client)}</p>` : ""}
+          <div class="order-hero-tags">
+            ${badge(order.status || "—")}
+            <span class="stage-pill">${escapeHtml(related.length ? `${related.length} поз.` : "Без позицій")}</span>
+          </div>
+          ${extras.length ? metaLine(extras) : ""}
+          ${order.comment?.trim() ? `<p class="order-hero-comment">${escapeHtml(order.comment)}</p>` : ""}
+        </div>
+        ${progressRing(progress, { size: 64 })}
+      </div>
+      ${canEdit ? `<button type="button" class="order-hero-edit btn btn-sm" data-edit-order="${order.id}">Редагувати</button>` : ""}
+    </header>`;
+}
+
+function renderDetailTabs(activeTab) {
+  const buttons = DETAIL_TABS.map(
+    (t) =>
+      `<button type="button" class="enver-segmented-btn ${activeTab === t.key ? "active" : ""}" data-order-detail-tab="${t.key}" role="tab" aria-selected="${activeTab === t.key}">${t.label}</button>`
+  ).join("");
+  return `<nav class="enver-segmented order-detail-tabs" role="tablist" aria-label="Розділи замовлення">${buttons}</nav>`;
+}
+
+function stepDotClass(position, stage) {
+  const status = getStageStatus(position, stage);
+  if (status === "Проблема") return "step-dot--problem";
+  if (STAGE_STATUS_DONE.has(status)) return "step-dot--done";
+  if (position.currentStage === stage.key) return "step-dot--current";
+  if (status !== "Не розпочато") return "step-dot--active";
+  return "";
+}
+
+function renderStepTrack(position, { canEdit, labeled = false }) {
+  const stages = PIPELINE_STAGES;
+  const dots = stages
+    .map((stage, i) => {
+      const status = getStageStatus(position, stage);
+      const cls = stepDotClass(position, stage);
+      const clickable = canEdit
+        ? `data-step-jump="${stage.key}" data-position-id="${position.id}"`
+        : "";
+      const label = labeled ? `<span class="step-label">${escapeHtml(stage.label)}</span>` : "";
+      const sep = i < stages.length - 1 ? '<span class="step-line" aria-hidden="true"></span>' : "";
+      return `<div class="step-node">
+        <button type="button" class="step-dot ${cls}" ${clickable} title="${escapeHtml(stage.label)}: ${escapeHtml(status)}" aria-label="${escapeHtml(stage.label)}"></button>
+        ${label}
+      </div>${sep}`;
+    })
+    .join("");
+  return `<div class="step-track ${labeled ? "step-track--labeled" : ""}" role="list" aria-label="Етапи">${dots}</div>`;
+}
+
+function canAdvancePosition(position) {
+  const stage = STAGES.find((s) => s.key === position.currentStage);
+  if (!stage) return false;
+  const status = getStageStatus(position, stage);
+  return status !== "Готово" && status !== "Не потрібно";
+}
+
+function renderPositionRow(row, { canEdit }) {
+  const { position: p, depth, isSub, childCount } = row;
+  const indent = depth > 0 ? `style="--order-pos-depth:${depth}"` : "";
+  const currentLabel = stageLabel(p.currentStage || "constructor");
+  const showAdvance = canEdit && canAdvancePosition(p);
+  const problem = p.problem?.trim();
+
+  const toggleBtn =
+    !isSub && childCount > 0
+      ? `<button type="button" class="pos-row-toggle" data-toggle-position="${p.id}" aria-label="Підпозиції">${state.expandedPositionIds.has(p.id) ? "▾" : "▸"}</button>`
+      : "";
+
+  return `
+    <article class="pos-row ${isSub ? "pos-row--sub" : ""}" ${indent} data-position-row="${p.id}">
+      <div class="pos-row-top">
+        ${toggleBtn}
+        <button type="button" class="pos-row-name" data-open-position="${p.id}">
+          ${escapeHtml(p.item || "—")}
+          ${problem ? '<span class="pos-row-warn" title="Є проблема">!</span>' : ""}
+        </button>
+        <span class="pos-row-stage">${escapeHtml(currentLabel)}</span>
+        <span class="pos-row-pct">${p.progress ?? 0}%</span>
+        ${
+          showAdvance
+            ? `<button type="button" class="pos-row-next" data-quick-advance="${p.id}" data-stage="${p.currentStage}" title="Наступний крок">→</button>`
+            : `<span class="pos-row-next-spacer"></span>`
+        }
+      </div>
+      ${renderStepTrack(p, { canEdit })}
+    </article>`;
+}
+
+function renderInlineAdd(canEdit) {
+  if (!canEdit) return "";
+  return `
+    <form class="order-inline-add" id="orderInlineAddForm">
+      <input type="text" id="orderInlineAddInput" placeholder="Назва виробу або зони" autocomplete="off" aria-label="Назва нової позиції" />
+      <button type="submit" class="btn btn-primary btn-sm">Додати</button>
+    </form>`;
+}
+
+function renderPositionsSection(order, allPositions, related) {
+  const canEdit = canEditPositions();
+  const sortedRelated = [...related].sort((a, b) => {
+    const ga = resolvePositionGodmode(a).attentionScore;
+    const gb = resolvePositionGodmode(b).attentionScore;
+    return gb - ga;
+  });
+  const rows = buildVisiblePositionRows(allPositions, sortedRelated, state.expandedPositionIds);
+  const body = rows.length
+    ? rows.map((row) => renderPositionRow(row, { canEdit })).join("")
+    : renderSmartEmptyState({
+        icon: "📦",
+        title: "Позицій ще немає",
+        text: canEdit
+          ? "Додайте першу позицію нижче — кожен рядок стане окремим виробом у workflow."
+          : "Позиції зʼявляться, коли менеджер додасть їх до замовлення."
+      });
+
+  return `
+    <section class="order-positions card" role="tabpanel">
+      <h3 class="order-positions-title enver-section-title">Позиції</h3>
+      <div class="order-positions-list">${body}</div>
+      ${renderInlineAdd(canEdit)}
+    </section>`;
+}
+
+function renderProductionSection(related) {
+  const roots = related.filter((p) => !p.parentId);
+  if (!roots.length) {
+    return renderSmartEmptyState({
+      icon: "⚙️",
+      title: "Виробництво ще не запущено",
+      text: "Додайте позиції та завантажте конструктив, щоб побачити потік етапів."
+    });
+  }
+
+  const cards = roots
+    .map((p) => {
+      const gm = resolvePositionGodmode(p);
+      return `
+        <article class="order-prod-card">
+          <div class="order-prod-head">
+            <strong>${escapeHtml(p.item || "—")}</strong>
+            <span>${p.progress ?? 0}% · ${escapeHtml(stageLabel(p.currentStage || "constructor"))}</span>
+          </div>
+          ${renderStepTrack(p, { canEdit: canEditPositions(), labeled: true })}
+          ${gm.nextAction?.label ? `<p class="order-prod-next">Далі: ${escapeHtml(gm.nextAction.label)}</p>` : ""}
+        </article>`;
+    })
+    .join("");
+
+  return `<section class="order-production card" role="tabpanel"><div class="order-production-list">${cards}</div></section>`;
+}
+
+function renderConstructiveSection(related) {
+  const roots = related.filter((p) => !p.parentId);
+  if (!roots.length) {
+    return renderSmartEmptyState({
+      icon: "📐",
+      title: "Немає позицій",
+      text: "Спочатку додайте позицію до замовлення."
+    });
+  }
+
+  const rows = roots
+    .map((p) => {
+      const ok = p.hasConstructiveFile;
+      const statusClass = ok ? "enver-badge-success" : "enver-badge-warning";
+      const statusText = ok ? "Завантажено" : "Потрібен файл";
+      return `
+        <button type="button" class="order-constructive-row" data-open-position="${p.id}">
+          <div>
+            <strong>${escapeHtml(p.item || "—")}</strong>
+            <span class="enver-meta">${ok ? escapeHtml(p.constructiveFileName || "файл") : "PDF, ZIP, XML, DWG"}</span>
+          </div>
+          <span class="enver-badge ${statusClass}">${statusText}</span>
+        </button>`;
+    })
+    .join("");
+
+  return `<section class="order-constructive card" role="tabpanel"><div class="order-constructive-list">${rows}</div></section>`;
+}
+
+function renderInstallSection(order, related) {
+  const installDate = order.installDate || order.install_date;
+  const roots = related.filter((p) => !p.parentId);
+  const readyCount = roots.filter((p) => {
+    const s = p.positionStatus || p.position_status || "";
+    return s.includes("встановлення") || s.includes("монтаж") || (p.progress ?? 0) >= 100;
+  }).length;
+
+  return `
+    <section class="order-install card" role="tabpanel">
+      <div class="order-install-summary">
+        <div class="order-install-stat">
+          <span class="enver-kpi-value">${readyCount}</span>
+          <span class="enver-kpi-label">Готово до монтажу</span>
+        </div>
+        <div class="order-install-stat">
+          <span class="enver-kpi-value">${installDate ? escapeHtml(installDate) : "—"}</span>
+          <span class="enver-kpi-label">Дата монтажу</span>
+        </div>
+      </div>
+      ${
+        !installDate && readyCount > 0
+          ? `<p class="order-install-hint">Позиції готові — можна запланувати монтаж на вкладці «Встановлення».</p>`
+          : !installDate
+            ? `<p class="order-install-hint enver-meta">Монтаж можна запланувати після завершення пакування.</p>`
+            : ""
+      }
+      ${
+        roots.length
+          ? `<ul class="order-install-positions">${roots
+              .map(
+                (p) =>
+                  `<li><strong>${escapeHtml(p.item || "—")}</strong> — ${escapeHtml(p.positionStatus || "—")} (${p.progress ?? 0}%)</li>`
+              )
+              .join("")}</ul>`
+          : ""
+      }
+    </section>`;
+}
+
+function renderHistorySection(order) {
+  const entries = (state.history || []).filter(
+    (e) =>
+      e.orderId === order.id ||
+      e.orderNumber === order.orderNumber ||
+      (e.entityType === "order" && e.entityId === order.id)
+  );
+
+  if (!entries.length) {
+    return renderSmartEmptyState({
+      icon: "🕐",
+      title: "Історія порожня",
+      text: "Зміни по цьому замовленню зʼявляться тут автоматично."
+    });
+  }
+
+  const rows = entries
+    .slice(0, 40)
+    .map(
+      (e) => `
+      <article class="order-history-row">
+        <time>${escapeHtml(formatHistoryTime(e.createdAt))}</time>
+        <span class="enver-badge enver-badge-info">${escapeHtml(e.actionLabel || e.action)}</span>
+        <p>${escapeHtml(e.summary || "—")}</p>
+        ${renderChangesList(e.changes)}
+      </article>`
+    )
+    .join("");
+
+  return `<section class="order-history card" role="tabpanel"><div class="order-history-list">${rows}</div></section>`;
+}
+
+function renderNextActionBannerSection(related) {
+  const root = related.find((p) => !p.parentId) || related[0];
+  if (!root) return "";
+  const gm = resolvePositionGodmode(root);
+  return renderNextActionBanner(gm, { positionId: root.id });
+}
+
+function renderTabContent(tab, order, allPositions, related) {
+  switch (tab) {
+    case "positions":
+      return renderPositionsSection(order, allPositions, related);
+    case "production":
+      return renderProductionSection(related);
+    case "constructive":
+      return renderConstructiveSection(related);
+    case "install":
+      return renderInstallSection(order, related);
+    case "history":
+      return renderHistorySection(order);
+    case "overview":
+    default:
+      return `${renderOrderGodmodeSummary(order, allPositions)}${renderNextActionBannerSection(related)}`;
+  }
+}
+
+export function renderOrderDetailView(order, allPositions, related) {
+  const tab = state.ordersView.detailTab || "overview";
+  const hero = renderOrderHero(order, related);
+  const tabs = renderDetailTabs(tab);
+  const panel = renderTabContent(tab, order, allPositions, related);
+  const positionsQuick =
+    tab === "overview" && related.length
+      ? `<section class="order-overview-positions card">
+          <h3 class="enver-section-title">Позиції (${related.filter((p) => !p.parentId).length})</h3>
+          <p class="enver-meta">Перейдіть на вкладку «Позиції» для повного керування.</p>
+        </section>`
+      : "";
+
+  return `<div class="orders-view orders-view--detail">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div></div>`;
+}
+
+async function patchPositionStage(positionId, stageKey, payload, onRefresh) {
+  const stage = STAGES.find((s) => s.key === stageKey);
+  const stageName = stage?.label || stageKey;
+
+  await runSave(`Етап «${stageName}»`, {
+    saveFn: async () => {
+      const updated = await api.patchPositionStage(positionId, stageKey, payload);
+      const idx = state.positions.findIndex((p) => p.id === positionId);
+      if (idx >= 0) state.positions[idx] = updated;
+      return updated;
+    },
+    successMessage: `«${stageName}»: ${payload.status}`,
+    onSuccess: async () => {
+      await onRefresh?.();
+    }
+  }).catch(() => {});
+}
+
+async function movePositionToStage(position, targetStageKey, onRefresh) {
+  const stage = STAGES.find((s) => s.key === targetStageKey);
+  if (!stage) return;
+
+  if (stage.type === "constructor") {
+    if (!position.hasConstructiveFile) {
+      const { toastError } = await import("./toast.js");
+      toastError("Спочатку завантажте конструктив у позиції");
+      return;
+    }
+    await patchPositionStage(
+      position.id,
+      targetStageKey,
+      stagePatchPayload(position, stage, "Передано"),
+      onRefresh
+    );
+    return;
+  }
+
+  await patchPositionStage(
+    position.id,
+    targetStageKey,
+    stagePatchPayload(position, stage, "В роботі"),
+    onRefresh
+  );
+}
+
+function stagePatchPayload(position, stage, status) {
+  if (stage.type === "constructor") {
+    return { status, constructor: position.constructor };
+  }
+  return { status, assemblyResponsible: position.assemblyResponsible };
+}
+
+function rootForOrder(order, related) {
+  return related.find((p) => !p.parentId);
+}
+
+async function inlineAddPosition(order, itemName, related, onRefresh) {
+  const name = itemName.trim();
+  if (!name) return;
+
+  const root = rootForOrder(order, related);
+  const body = {
+    item: name,
+    orderNumber: order.orderNumber,
+    orderId: order.id,
+    object: order.object,
+    manager: order.manager,
+    itemType: "Зона"
+  };
+
+  if (root) {
+    body.parentId = root.id;
+  }
+
+  await runSave("Позиція", {
+    saveFn: () => api.createPosition(body),
+    successMessage: `«${name}» додано`,
+    onSuccess: async () => {
+      await onRefresh?.();
+    }
+  }).catch(() => {});
+}
+
+function bindStepTrack(root, onRefresh) {
+  root.querySelectorAll("[data-step-jump]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const positionId = Number(btn.dataset.positionId);
+      const targetStageKey = btn.dataset.stepJump;
+      const position = state.positions.find((p) => p.id === positionId);
+      if (!position || position.currentStage === targetStageKey) return;
+      await movePositionToStage(position, targetStageKey, onRefresh);
+    });
+  });
+}
+
+function bindQuickAdvance(root, onRefresh) {
+  root.querySelectorAll("[data-quick-advance]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.quickAdvance);
+      const stageKey = btn.dataset.stage;
+      await quickAdvancePosition(id, stageKey);
+      await onRefresh?.();
+    });
+  });
+}
+
+export function bindOrderDetail(root, handlers = {}) {
+  const { onBack, onRefresh, onOpenPosition, onEditOrder } = handlers;
+
+  root.querySelector("[data-orders-back]")?.addEventListener("click", onBack);
+
+  root.querySelectorAll("[data-order-detail-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.ordersView.detailTab = btn.dataset.orderDetailTab;
+      onRefresh?.({ contentOnly: true });
+    });
+  });
+
+  root.querySelectorAll("[data-edit-order]").forEach((btn) => {
+    btn.addEventListener("click", () => onEditOrder?.(Number(btn.dataset.editOrder)));
+  });
+
+  root.querySelectorAll("[data-open-position]").forEach((btn) => {
+    btn.addEventListener("click", () => onOpenPosition?.(Number(btn.dataset.openPosition)));
+  });
+
+  root.querySelectorAll("[data-toggle-position]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePositionExpanded(Number(btn.dataset.togglePosition));
+      onRefresh?.({ contentOnly: true });
+    });
+  });
+
+  const refresh = () => onRefresh?.({ contentOnly: true });
+  bindStepTrack(root, refresh);
+  bindQuickAdvance(root, refresh);
+
+  root.querySelectorAll("[data-run-next-action]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const positionId = Number(btn.dataset.runNextAction);
+      const actionType = btn.dataset.actionType;
+      await runSave("Наступна дія", {
+        saveFn: () => api.runPositionNextAction(positionId, actionType),
+        successMessage: "Дію виконано",
+        onSuccess: async (updated) => {
+          const idx = state.positions.findIndex((p) => p.id === positionId);
+          if (idx >= 0) state.positions[idx] = updated;
+          await onRefresh?.();
+        }
+      }).catch(() => {});
+    });
+  });
+
+  const inlineForm = root.querySelector("#orderInlineAddForm");
+  const inlineInput = root.querySelector("#orderInlineAddInput");
+  inlineForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const order = state.orders.find((o) => o.id === state.selectedOrderId);
+    if (!order) return;
+    const related = state.positions.filter(
+      (p) => p.orderId === order.id || p.orderNumber === order.orderNumber
+    );
+    const name = inlineInput?.value || "";
+    await inlineAddPosition(order, name, related, onRefresh);
+    if (inlineInput) inlineInput.value = "";
+  });
+}

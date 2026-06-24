@@ -16,6 +16,7 @@ import { markNativeOperatorShell } from "./operator-native.js";
 import {
   bindOperatorActions,
   loadOperatorData,
+  loadOperatorJobDetail,
   openOperatorView,
   renderOperatorView
 } from "./operator-panel.js";
@@ -100,8 +101,24 @@ async function afterOperatorLogin() {
   showLoginModal(false);
   showAppShell(true);
   const stages = operatorStages();
-  openOperatorView(stages[0] || "cutting");
+  const params = new URLSearchParams(window.location.search);
+  const deepStage = params.get("stage");
+  const deepPosition = Number(params.get("position")) || null;
+
+  if (deepStage && stages.includes(deepStage)) {
+    openOperatorView(deepStage);
+  } else {
+    openOperatorView(stages[0] || "cutting");
+  }
+
   await refreshOperatorData();
+
+  if (deepPosition) {
+    state.operatorSelectedPositionId = deepPosition;
+    await loadOperatorJobDetail(deepPosition);
+    renderOperatorClient();
+  }
+
   await syncOperatorBuildLabel();
   await enableOperatorKiosk();
 }

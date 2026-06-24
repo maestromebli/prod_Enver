@@ -43,7 +43,8 @@ const STAGE_LABELS = {
   cutting: "Порізка",
   edging: "Крайкування",
   drilling: "Присадка",
-  assembly: "Збірка"
+  assembly: "Збірка",
+  packaging: "Пакування"
 };
 
 const STAGE_PATCH_TO_FIELD = {
@@ -57,8 +58,11 @@ const ACTION_LABELS = {
   create: "Створено",
   update: "Оновлено",
   delete: "Видалено",
-  stage_change: "Етап змінено"
+  stage_change: "Етап змінено",
+  auto_handoff: "Автопередача"
 };
+
+export const SYSTEM_ACTOR = { id: null, name: "Система" };
 
 export function diffFields(before, after, fieldMap) {
   const changes = [];
@@ -244,6 +248,56 @@ export async function logStageChange(beforeRow, afterRow, stageKey, patch = {}, 
     },
     actor
   });
+}
+
+export async function logAutoHandoff(
+  beforeRow,
+  afterRow,
+  handoff,
+  triggerStageKey,
+  actor = SYSTEM_ACTOR
+) {
+  const after = mapPosition(afterRow);
+  const stageLabelText = STAGE_LABELS[handoff.stageKey] || handoff.stageKey;
+  const triggerLabel = STAGE_LABELS[triggerStageKey] || triggerStageKey;
+  const isHuman = actor?.id != null;
+  const summary = isHuman
+    ? `Оператор завершив «${triggerLabel}» — позиція автоматично передана на «${stageLabelText}».`
+    : `Автопередача: «${stageLabelText}» ${handoff.from} → ${handoff.to} (після «${triggerLabel}»)`;
+
+  await recordHistory({
+    entityType: "position",
+    entityId: after.id,
+    action: "auto_handoff",
+    changes: [
+      {
+        field: handoff.stageKey,
+        label: stageLabelText,
+        oldValue: handoff.from,
+        newValue: handoff.to
+      }
+    ],
+    meta: {
+      orderNumber: after.orderNumber,
+      item: after.item,
+      summary
+    },
+    actor
+  });
+}
+
+export async function logStageChangeWithAutoHandoffs(
+  beforeRow,
+  afterRow,
+  stageKey,
+  patch = {},
+  actor = null,
+  handoffs = []
+) {
+  await logStageChange(beforeRow, afterRow, stageKey, patch, actor);
+  for (const handoff of handoffs) {
+    await logAutoHandoff(beforeRow, afterRow, handoff, stageKey, actor || SYSTEM_ACTOR);
+  }
 }
 
 export function mapHistory(row) {

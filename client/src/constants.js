@@ -3,4 +3,12 @@ import { PRODUCTION_FLOOR_TAB } from "./users-constants.js";
 export { PRODUCTION_FLOOR_TAB };
 
 /** Спрощена навігація ENVER v3 */
-export const TABS = ["Замовлення", PRODUCTION_FLOOR_TAB, "Встановлення", "Позиції", "Історія змін"];
+export const ATTENTION_TAB = "Потребує уваги";
+export const TABS = [
+  "Замовлення",
+  ATTENTION_TAB,
+  PRODUCTION_FLOOR_TAB,
+  "Встановлення",
+  "Позиції",
+  "Історія змін"
+];

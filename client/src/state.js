@@ -33,8 +33,11 @@ export const state = {
     anchor: null,
     installerFilter: ""
   },
+  godmodeNotifications: { items: [], fetchedAt: null },
   ordersView: {
     /** cards | list */
-    displayMode: "cards"
+    displayMode: "cards",
+    /** overview | positions | production | constructive | install | history */
+    detailTab: "overview"
   }
 };

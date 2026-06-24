@@ -1,0 +1,119 @@
+.godmode-health {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.godmode-health--ok {
+  background: var(--enver-success-soft, #e8f8ee);
+  color: var(--enver-success, #248a3d);
+}
+.godmode-health--warning {
+  background: var(--enver-warning-soft, #fff4e5);
+  color: var(--enver-warning, #b45309);
+}
+.godmode-health--blocked {
+  background: var(--enver-danger-soft, #fdecec);
+  color: var(--enver-danger, #c41e3a);
+}
+.godmode-health--overdue {
+  background: #fdecec;
+  color: #9a3412;
+}
+.godmode-attention {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #fff4e5;
+  color: #b45309;
+}
+.godmode-summary {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+}
+.godmode-summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.godmode-summary-progress {
+  font-weight: 700;
+}
+.godmode-summary-stage {
+  color: var(--text-muted, #666);
+  font-size: 0.9rem;
+}
+.godmode-next-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--enver-primary-soft, linear-gradient(135deg, #eef6ff, #f8fbff));
+  border: 1px solid var(--enver-border, #dbeafe);
+  margin-top: 10px;
+}
+.godmode-next-banner--blocked {
+  background: var(--enver-danger-soft, #fef2f2);
+  border-color: #fecaca;
+}
+.godmode-next-kicker {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.godmode-next-label {
+  display: block;
+  font-size: 1rem;
+}
+.godmode-next-desc,
+.godmode-next-reason {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+.godmode-next-reason {
+  color: #b45309;
+}
+.godmode-warnings,
+.godmode-blockers {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.godmode-warning,
+.godmode-blocker {
+  padding: 6px 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.godmode-blocker strong {
+  color: var(--enver-danger, #c41e3a);
+}
+.pf-godmode-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.pf-godmode-row span {
+  flex: 1;
+  color: #64748b;
+  font-size: 0.85rem;
+}

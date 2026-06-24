@@ -11,7 +11,8 @@ const ACTION_BADGE = {
   create: "green",
   update: "blue",
   delete: "red",
-  stage_change: "yellow"
+  stage_change: "yellow",
+  auto_handoff: "purple"
 };
 
 export function formatHistoryTime(value) {

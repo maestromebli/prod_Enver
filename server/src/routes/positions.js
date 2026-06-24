@@ -5,10 +5,15 @@ import {
   logPositionCreate,
   logPositionDelete,
   logPositionUpdate,
-  logStageChange
+  logStageChangeWithAutoHandoffs
 } from "../audit.js";
 import { auditActor, requireAuth, requirePositionWrite } from "../middleware/auth.js";
-import { STAGE_PATCH_MAP, applyStageHandoff, enrichPositionRow } from "../position-logic.js";
+import {
+  STAGE_PATCH_MAP,
+  applyStageHandoff,
+  detectAutoHandoffs,
+  enrichPositionRow
+} from "../position-logic.js";
 import { STAGE_STATUS_FIELD } from "../roles.js";
 import {
   closeOperatorSessionsForStage,
@@ -18,7 +23,18 @@ import {
 import { nextPositionId } from "../db/position-id.js";
 import { insertPosition, updatePositionFull } from "../db/position-persistence.js";
 import { saveConstructiveFile, resolveStoredPath } from "../file-storage.js";
+import {
+  AI_COUNT_SUBQUERY,
+  ACTIVE_SESSION_SUBQUERY,
+  enrichAndMapPosition
+} from "../godmode-enrich.js";
+import { canRunNextAction, getPositionNextAction } from "../../../shared/production/godmode.js";
+import { STAGE_STATUS_FIELD as GODMODE_STAGE_FIELD } from "../../../shared/production/stages.js";
+import { recordHistory, SYSTEM_ACTOR } from "../audit.js";
 import fs from "fs";
+import QRCode from "qrcode";
+import { buildOperatorDeepLink } from "../qr-link.js";
+import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -32,16 +48,31 @@ async function planDateByOrderNumber() {
   return map;
 }
 
-function mapEnrichedRow(row, planMap) {
+function mapEnrichedRow(row, planMap, extraContext = {}) {
   const planDate = planMap.get(row.order_number);
-  return mapPosition(enrichPositionRow(row, { planDate }));
+  return enrichAndMapPosition(row, planDate, {
+    hasAiAnalysis: Number(row.ai_analysis_count) > 0,
+    hasActiveOperatorSession: Number(row.active_operator_sessions) > 0,
+    ...extraContext
+  });
 }
 
 const POSITION_SELECT = `SELECT p.*,
   (SELECT pf.original_name FROM position_files pf
    WHERE pf.position_id = p.id AND pf.kind = 'constructive'
-   ORDER BY pf.created_at DESC LIMIT 1) AS constructive_file_name
+   ORDER BY pf.created_at DESC LIMIT 1) AS constructive_file_name,
+  ${AI_COUNT_SUBQUERY},
+  ${ACTIVE_SESSION_SUBQUERY}
  FROM positions p`;
+
+const HANDOFF_MUTATIONS = {
+  handoff_to_cutting: { checkConstructive: true, target: "cutting", value: "Передано" },
+  handoff_to_edging: { prerequisite: "cutting", target: "edging", value: "Передано" },
+  handoff_to_drilling: { prerequisite: "edging", target: "drilling", value: "Передано" },
+  handoff_to_assembly: { prerequisite: "drilling", target: "assembly", value: "Передано" },
+  handoff_to_packaging: { prerequisite: "assembly", target: "packaging", value: "Передано" },
+  ready_for_install: { prerequisite: "packaging", target: null, value: null }
+};
 
 async function loadRow(id) {
   return one(`${POSITION_SELECT} WHERE p.id = $1`, [id]);
@@ -101,7 +132,35 @@ router.get("/", async (_req, res) => {
     `${POSITION_SELECT}
      ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`
   );
-  res.json(rows.map((row) => mapEnrichedRow(row, planMap)));
+  const tsMap = await loadStageTimestampsMap(rows.map((r) => r.id));
+  const now = new Date();
+  res.json(
+    rows.map((row) =>
+      mapEnrichedRow(row, planMap, {
+        stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
+        now
+      })
+    )
+  );
+});
+
+router.get("/:id/qr", async (req, res) => {
+  const id = Number(req.params.id);
+  const row = await loadRow(id);
+  if (!row) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+  const stageKey = String(req.query.stage || row.current_stage || "cutting");
+  const url = buildOperatorDeepLink({ positionId: id, stageKey, req });
+
+  if (req.query.format === "json") {
+    res.json({ url, positionId: id, stageKey, orderNumber: row.order_number, item: row.item });
+    return;
+  }
+
+  const svg = await QRCode.toString(url, { type: "svg", margin: 1, width: 256 });
+  res.type("image/svg+xml").send(svg);
 });
 
 router.get("/:id", async (req, res) => {
@@ -111,7 +170,128 @@ router.get("/:id", async (req, res) => {
     return;
   }
   const planMap = await planDateByOrderNumber();
-  res.json(mapEnrichedRow(row, planMap));
+  const tsMap = await loadStageTimestampsMap([row.id]);
+  res.json(
+    mapEnrichedRow(row, planMap, {
+      stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
+      now: new Date()
+    })
+  );
+});
+
+router.post("/:id/run-next-action", requirePositionWrite, async (req, res) => {
+  const id = Number(req.params.id);
+  const beforeRow = await loadRow(id);
+  if (!beforeRow) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  const planMap = await planDateByOrderNumber();
+  const planDate = planMap.get(beforeRow.order_number);
+  const enriched = enrichPositionRow(beforeRow, { planDate });
+  const ctx = {
+    planDate,
+    hasAiAnalysis: Number(beforeRow.ai_analysis_count) > 0,
+    hasActiveOperatorSession: Number(beforeRow.active_operator_sessions) > 0
+  };
+  const nextAction = getPositionNextAction(enriched, ctx);
+  const requestedType = req.body?.actionType || nextAction.type;
+
+  if (requestedType !== nextAction.type) {
+    res.status(400).json({
+      error: "Зараз доступна інша дія.",
+      nextAction
+    });
+    return;
+  }
+
+  const permission = canRunNextAction(enriched, nextAction, req.user, ctx);
+  if (!permission.allowed) {
+    res.status(permission.code === "ACTION_REQUIRES_INPUT" ? 422 : 403).json({
+      code: permission.code || "NOT_ALLOWED",
+      error: permission.reason || "Цю дію зараз неможливо виконати."
+    });
+    return;
+  }
+
+  const mutation = HANDOFF_MUTATIONS[requestedType];
+  if (!mutation) {
+    res.status(422).json({
+      code: "ACTION_REQUIRES_INPUT",
+      error: permission.reason || "Для цього потрібно виконати дію в інтерфейсі."
+    });
+    return;
+  }
+
+  const existing = { ...beforeRow };
+  if (mutation.checkConstructive && !existing.has_constructive_file) {
+    res.status(400).json({ error: "Потрібно завантажити конструктив." });
+    return;
+  }
+
+  if (mutation.target) {
+    const field = GODMODE_STAGE_FIELD[mutation.target];
+    if (mutation.prerequisite) {
+      const prereqField = GODMODE_STAGE_FIELD[mutation.prerequisite];
+      const prereqStatus = existing[prereqField];
+      if (prereqStatus !== "Готово" && prereqStatus !== "Не потрібно") {
+        res.status(400).json({
+          error: `Спочатку завершіть етап «${mutation.prerequisite}».`
+        });
+        return;
+      }
+    }
+    if (!existing[field] || existing[field] === "Не розпочато") {
+      existing[field] = mutation.value;
+    }
+  } else if (mutation.prerequisite) {
+    const prereqField = GODMODE_STAGE_FIELD[mutation.prerequisite];
+    const prereqStatus = existing[prereqField];
+    if (prereqStatus !== "Готово" && prereqStatus !== "Не потрібно") {
+      res.status(400).json({ error: "Спочатку завершіть пакування." });
+      return;
+    }
+  }
+
+  await saveRow(id, existing, planDate);
+  const afterRow = await loadRow(id);
+  const stageLabel = mutation.target
+    ? {
+        cutting: "Порізку",
+        edging: "Крайкування",
+        drilling: "Присадку",
+        assembly: "Збірку",
+        packaging: "Пакування"
+      }[mutation.target] || mutation.target
+    : "встановлення";
+
+  await recordHistory({
+    entityType: "position",
+    entityId: id,
+    action: requestedType === "ready_for_install" ? "update" : "auto_handoff",
+    changes: mutation.target
+      ? [
+          {
+            field: mutation.target,
+            label: stageLabel,
+            oldValue: beforeRow[GODMODE_STAGE_FIELD[mutation.target]] || "Не розпочато",
+            newValue: mutation.value
+          }
+        ]
+      : [],
+    meta: {
+      orderNumber: afterRow.order_number,
+      item: afterRow.item,
+      summary:
+        requestedType === "ready_for_install"
+          ? `Позиція #${id} готова до встановлення.`
+          : `Позиція #${id} передана на ${stageLabel.toLowerCase()}.`
+    },
+    actor: auditActor(req) || SYSTEM_ACTOR
+  });
+
+  res.json(mapEnrichedRow(afterRow, planMap));
 });
 
 router.post("/", requirePositionWrite, async (req, res) => {
@@ -258,7 +438,15 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
   if (config.type !== "constructor" && status && !OPERATOR_ACTIVE_STATUSES.has(status)) {
     await closeOperatorSessionsForStage(id, stageKey);
   }
-  await logStageChange(beforeRow, afterRow, stageKey, { status, constructor }, auditActor(req));
+  const autoHandoffs = detectAutoHandoffs(beforeRow, afterRow, stageKey);
+  await logStageChangeWithAutoHandoffs(
+    beforeRow,
+    afterRow,
+    stageKey,
+    { status, constructor },
+    auditActor(req),
+    autoHandoffs
+  );
   res.json(mapEnrichedRow(afterRow, planMap));
 });
 
@@ -309,7 +497,15 @@ router.post("/:id/constructive-file", requirePositionWrite, async (req, res) => 
   const planDate = planMap.get(existing.order_number);
   await saveRow(id, handedOff, planDate);
   const afterRow = await loadRow(id);
-  await logStageChange(before, afterRow, "constructor", { status: "Передано" }, auditActor(req));
+  const autoHandoffs = detectAutoHandoffs(before, afterRow, "constructor");
+  await logStageChangeWithAutoHandoffs(
+    before,
+    afterRow,
+    "constructor",
+    { status: "Передано" },
+    auditActor(req),
+    autoHandoffs
+  );
 
   res.status(201).json({
     fileId: fileRow.id,
@@ -428,6 +624,13 @@ router.delete("/:id", requirePositionWrite, async (req, res) => {
   const existing = await loadRow(id);
   if (!existing) {
     res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+  const activeSessions = Number(existing.active_operator_sessions) || 0;
+  if (activeSessions > 0) {
+    res.status(409).json({
+      error: "Неможливо видалити позицію — оператор працює над нею."
+    });
     return;
   }
   await logPositionDelete(existing, auditActor(req));

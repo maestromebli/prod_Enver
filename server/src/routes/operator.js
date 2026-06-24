@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { all, one, run } from "../db.js";
 import { STAGE_STATUS_FIELD } from "../roles.js";
-import { mapPosition } from "../mappers.js";
-import { enrichPositionRow, applyStageHandoff } from "../position-logic.js";
-import { logStageChange } from "../audit.js";
+import { enrichPositionRow, applyStageHandoff, detectAutoHandoffs } from "../position-logic.js";
+import { logStageChange, logStageChangeWithAutoHandoffs } from "../audit.js";
 import {
   reconcileOperatorSessionsForUser,
   reconcileStaleStageStatuses,
@@ -12,6 +11,12 @@ import {
 } from "../operator-sessions.js";
 import { updatePositionStages } from "../db/position-persistence.js";
 import { OPERATOR_QUEUE_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
+import {
+  AI_COUNT_SUBQUERY,
+  ACTIVE_SESSION_SUBQUERY,
+  enrichAndMapPosition
+} from "../godmode-enrich.js";
+import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { getOperatorJobDetails } from "../folder-sync.js";
 import {
   auditActor,
@@ -32,13 +37,30 @@ router.use((req, res, next) => {
 });
 
 async function getPosition(id) {
-  return one("SELECT * FROM positions WHERE id = $1", [id]);
+  return one(
+    `SELECT p.*, ${AI_COUNT_SUBQUERY}, ${ACTIVE_SESSION_SUBQUERY}
+     FROM positions p WHERE p.id = $1`,
+    [id]
+  );
+}
+
+async function mapOperatorPosition(row) {
+  if (!row) return null;
+  const order = row.order_id
+    ? await one("SELECT plan_date FROM orders WHERE id = $1", [row.order_id])
+    : null;
+  const tsMap = await loadStageTimestampsMap([row.id]);
+  return enrichAndMapPosition(row, order?.plan_date, {
+    hasAiAnalysis: Number(row.ai_analysis_count) > 0,
+    stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
+    now: new Date()
+  });
 }
 
 async function savePosition(id, row) {
   const enriched = enrichPositionRow(row);
   await updatePositionStages({ ...enriched, id });
-  return mapPosition(await getPosition(id));
+  return mapOperatorPosition(await getPosition(id));
 }
 
 router.get("/queue/:stageKey", async (req, res) => {
@@ -72,7 +94,7 @@ router.get("/queue/:stageKey", async (req, res) => {
        p.overdue_days DESC,
        p.id`
   );
-  const queue = rows.map((r) => mapPosition(enrichPositionRow(r, { planDate: r.plan_date })));
+  const queue = await Promise.all(rows.map((r) => mapOperatorPosition(r)));
 
   let activeSession = await one(
     `SELECT os.*, p.order_number, p.item, p.object,
@@ -177,7 +199,7 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
 
   res.json({
     sessionId: session.id,
-    position: mapPosition(await getPosition(positionId))
+    position: await mapOperatorPosition(await getPosition(positionId))
   });
 });
 
@@ -219,15 +241,18 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
   );
 
   await savePosition(positionId, handedOff);
-  await logStageChange(
+  const afterRow = await getPosition(positionId);
+  const autoHandoffs = detectAutoHandoffs(before, afterRow, stageKey);
+  await logStageChangeWithAutoHandoffs(
     before,
-    await getPosition(positionId),
+    afterRow,
     stageKey,
     { status: "Готово" },
-    auditActor(req)
+    auditActor(req),
+    autoHandoffs
   );
 
-  res.json({ position: mapPosition(await getPosition(positionId)) });
+  res.json({ position: await mapOperatorPosition(afterRow) });
 });
 
 router.post("/pause", requireOperatorSelf, async (req, res) => {
@@ -274,7 +299,7 @@ router.post("/pause", requireOperatorSelf, async (req, res) => {
     auditActor(req)
   );
 
-  res.json({ position: mapPosition(await getPosition(positionId)) });
+  res.json({ position: await mapOperatorPosition(await getPosition(positionId)) });
 });
 
 router.post("/resume", requireOperatorSelf, async (req, res) => {
@@ -319,7 +344,7 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
     auditActor(req)
   );
 
-  res.json({ position: mapPosition(await getPosition(positionId)) });
+  res.json({ position: await mapOperatorPosition(await getPosition(positionId)) });
 });
 
 export default router;

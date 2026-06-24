@@ -24,6 +24,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-family='Arial' font-weight='700' font-size='14'%3EE%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/enver-design-system.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/design-system.css" />
     <link rel="stylesheet" href="/src/styles/dashboard.css" />
@@ -41,9 +42,23 @@
     <link rel="stylesheet" href="/src/styles/brand-logo.css" />
     <link rel="stylesheet" href="/src/styles/responsive.css" />
     <link rel="stylesheet" href="/src/styles/install-calendar.css" />
+    <link rel="stylesheet" href="/src/styles/order-detail.css" />
+    <link rel="stylesheet" href="/src/styles/ai-assistant.css" />
+    <link rel="stylesheet" href="/src/styles/attention.css" />
+    <link rel="stylesheet" href="/src/styles/godmode.css" />
+    <link rel="stylesheet" href="/src/styles/godmode-notifications.css" />
   </head>
   <body class="enver-v3">
-    <div class="loading-overlay" id="loadingOverlay">Завантаження даних…</div>
+    <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="false">
+      <div class="enver-loading-inner">
+        <div class="enver-loading-skeletons" aria-hidden="true">
+          <div class="enver-skeleton enver-skeleton-card"></div>
+          <div class="enver-skeleton enver-skeleton-card"></div>
+          <div class="enver-skeleton enver-skeleton-card"></div>
+        </div>
+        <p class="enver-loading-text">Завантаження даних…</p>
+      </div>
+    </div>
 
     <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
       <div
@@ -321,16 +336,12 @@
           <div class="modal-body modal-body--order">
             <p class="form-error" id="orderFormError"></p>
             <input type="hidden" id="orderId" name="id" />
-            <div class="form-grid order-form-grid">
+            <div class="order-form-stack">
               <div class="form-field">
-                <label for="orderNumber">Номер</label>
-                <input id="orderNumber" name="orderNumber" required placeholder="Напр. 2026-014" />
+                <label for="orderNumber">Номер замовлення</label>
+                <input id="orderNumber" name="orderNumber" required placeholder="2026-014" />
               </div>
               <div class="form-field">
-                <label for="orderStatus">Статус</label>
-                <select id="orderStatus" name="status"></select>
-              </div>
-              <div class="form-field span-2">
                 <label for="orderObject">Об'єкт / адреса</label>
                 <input
                   id="orderObject"
@@ -343,34 +354,31 @@
                 <label for="orderClient">Клієнт</label>
                 <input id="orderClient" name="client" placeholder="Ім'я або компанія" />
               </div>
-              <div class="form-field">
-                <label for="orderManager">Менеджер</label>
-                <input
-                  id="orderManager"
-                  name="manager"
-                  list="managersList"
-                  placeholder="Хто веде"
-                />
-                <datalist id="managersList"></datalist>
+              <div class="form-field order-sub-items-block" id="orderSubItemsBlock" hidden>
+                <label for="orderSubItemsText">Вироби / зони</label>
+                <textarea
+                  id="orderSubItemsText"
+                  rows="3"
+                  placeholder="Кожен рядок — окрема позиція&#10;напр. кухня, вітальня, шафа"
+                ></textarea>
               </div>
             </div>
-            <div class="form-field span-2 order-sub-items-block" id="orderSubItemsBlock" hidden>
-              <label>Підпункти / зони</label>
-              <p class="order-sub-items-hint">
-                Кожен рядок — окремий виріб або зона з власними етапами (напр. вітальня, кухня,
-                шафа).
-              </p>
-              <div id="orderSubItemsList" class="order-sub-items-list"></div>
-              <button type="button" class="btn btn-sm" id="orderAddSubItem">
-                + Додати підпункт
-              </button>
-            </div>
             <details class="order-form-more" id="orderFormMore">
-              <summary>Додатково</summary>
-              <div class="form-grid order-form-grid">
+              <summary>Додаткові поля</summary>
+              <div class="order-form-stack">
+                <div class="form-field" id="orderStatusField" hidden>
+                  <label for="orderStatus">Статус</label>
+                  <select id="orderStatus" name="status"></select>
+                </div>
                 <div class="form-field">
-                  <label for="orderStartDate">Запуск</label>
-                  <input id="orderStartDate" name="startDate" placeholder="дд.мм.рррр" />
+                  <label for="orderManager">Менеджер</label>
+                  <input
+                    id="orderManager"
+                    name="manager"
+                    list="managersList"
+                    placeholder="Хто веде"
+                  />
+                  <datalist id="managersList"></datalist>
                 </div>
                 <div class="form-field">
                   <label for="orderPlanDate">План завершення</label>
@@ -380,7 +388,11 @@
                   <label for="orderPriority">Пріоритет</label>
                   <select id="orderPriority" name="priority"></select>
                 </div>
-                <div class="form-field span-2">
+                <div class="form-field">
+                  <label for="orderStartDate">Запуск</label>
+                  <input id="orderStartDate" name="startDate" placeholder="дд.мм.рррр" />
+                </div>
+                <div class="form-field">
                   <label for="orderComment">Коментар</label>
                   <textarea
                     id="orderComment"
@@ -402,7 +414,7 @@
               Видалити
             </button>
             <button type="button" class="btn" id="cancelOrderBtn">Скасувати</button>
-            <button type="submit" class="btn btn-primary">Зберегти</button>
+            <button type="submit" class="btn btn-primary" id="orderSubmitBtn">Створити</button>
           </div>
         </form>
       </div>

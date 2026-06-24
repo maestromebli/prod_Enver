@@ -1,5 +1,7 @@
 import { state } from "./state.js";
 import { NOTIFICATION_TASK_STATUSES, STAGE_CLIENT_FIELD } from "@enver/shared/production/stages.js";
+import { activePositions } from "./archive.js";
+import { countAttentionItems } from "./attention.js";
 const SOUND_COOLDOWN_MS = 2500;
 
 const DEFAULT_CONFIG_BY_ROLE = {
@@ -83,6 +85,14 @@ function productionSeenKey() {
   return `enver_seen_production_tasks_at:${scopeKey()}`;
 }
 
+function attentionSeenKey() {
+  return `enver_seen_attention_at:${scopeKey()}`;
+}
+
+function attentionAlertCount(positions = state.positions, orders = state.orders) {
+  return countAttentionItems(activePositions(positions, orders), orders);
+}
+
 function operatorSeenKey(stageKey) {
   return `enver_seen_operator_tasks_at:${scopeKey()}:${stageKey || "cutting"}`;
 }
@@ -148,6 +158,7 @@ export function initializeRoleNotificationBaselines() {
   getNotificationConfigForCurrentRole();
   ensureBaseline(ordersSeenKey(), maxCreatedAt(state.orders));
   ensureBaseline(productionSeenKey(), maxCreatedAt(productionTaskPositions(state.positions)));
+  ensureBaseline(attentionSeenKey(), attentionAlertCount());
 }
 
 export function initializeOperatorStageBaseline(stageKey, queue = state.operatorQueue) {
@@ -200,6 +211,19 @@ export function countNewOperatorQueueForStage(stageKey, queue = state.operatorQu
   return newOperatorQueueIdsForStage(stageKey, queue).size;
 }
 
+export function countNewAttentionAlerts(positions = state.positions, orders = state.orders) {
+  const current = attentionAlertCount(positions, orders);
+  const seen = getNum(attentionSeenKey());
+  return Math.max(0, current - seen);
+}
+
+export function markAttentionSeenForCurrentRole(
+  positions = state.positions,
+  orders = state.orders
+) {
+  setNum(attentionSeenKey(), attentionAlertCount(positions, orders));
+}
+
 export function markOrdersSeenForCurrentRole(orders = state.orders) {
   setNum(ordersSeenKey(), maxCreatedAt(orders));
 }
@@ -223,7 +247,8 @@ export function reminderSnapshot({
     scope: scopeKey(),
     newOrders: countNewOrdersForCurrentRole(orders),
     newProduction: countNewProductionTasksForCurrentRole(positions),
-    newOperator: operatorStage ? countNewOperatorQueueForStage(operatorStage, operatorQueue) : 0
+    newOperator: operatorStage ? countNewOperatorQueueForStage(operatorStage, operatorQueue) : 0,
+    attentionAlerts: countNewAttentionAlerts(positions, orders)
   };
 }
 
@@ -261,6 +286,7 @@ function composeDesktopBody(snapshot) {
   if (snapshot.newOrders > 0) parts.push(`замовлень: ${snapshot.newOrders}`);
   if (snapshot.newProduction > 0) parts.push(`виробничих задач: ${snapshot.newProduction}`);
   if (snapshot.newOperator > 0) parts.push(`операторських задач: ${snapshot.newOperator}`);
+  if (snapshot.attentionAlerts > 0) parts.push(`потребує уваги: ${snapshot.attentionAlerts}`);
   return parts.join(" · ");
 }
 
@@ -287,7 +313,8 @@ export async function emitRoleNotifications(snapshot = reminderSnapshot()) {
   const hasIncrease =
     snapshot.newOrders > lastScopeSnapshot.newOrders ||
     snapshot.newProduction > lastScopeSnapshot.newProduction ||
-    snapshot.newOperator > lastScopeSnapshot.newOperator;
+    snapshot.newOperator > lastScopeSnapshot.newOperator ||
+    snapshot.attentionAlerts > lastScopeSnapshot.attentionAlerts;
   lastScopeSnapshot = { ...snapshot };
   if (!hasIncrease) return;
 

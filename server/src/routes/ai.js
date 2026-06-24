@@ -7,6 +7,7 @@ import {
   listRecentAnalyses,
   saveAiFeedback
 } from "../constructive-ai.js";
+import { chatWithAssistant, fetchAssistantHints, getAiAvailability } from "../ai-assistant.js";
 import { auditActor } from "../middleware/auth.js";
 
 const router = Router();
@@ -51,6 +52,33 @@ router.get("/analyses/:positionId", async (req, res) => {
 router.get("/recent", requireAdmin, async (_req, res) => {
   const analyses = await listRecentAnalyses(25);
   res.json(analyses);
+});
+
+router.get("/status", async (_req, res) => {
+  const status = await getAiAvailability();
+  res.json({ ...status, available: status.enabled && status.hasApiKey });
+});
+
+router.post("/assist", async (req, res) => {
+  const { mode = "hints", message, context, history } = req.body || {};
+
+  if (mode === "chat") {
+    const text = String(message || "").trim();
+    if (!text) {
+      res.status(400).json({ error: "message обов'язковий для режиму chat" });
+      return;
+    }
+    const result = await chatWithAssistant({
+      message: text,
+      context: context || {},
+      history: Array.isArray(history) ? history : []
+    });
+    res.json(result);
+    return;
+  }
+
+  const result = await fetchAssistantHints(context || {});
+  res.json(result);
 });
 
 router.post("/feedback", requireAdmin, async (req, res) => {

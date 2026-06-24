@@ -31,6 +31,7 @@
     </script>
     <link rel="icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/enver-design-system.css" />
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/theme-dark.css" />
     <link rel="stylesheet" href="/src/styles/modal.css" />
@@ -41,7 +42,14 @@
     <link rel="stylesheet" href="/src/styles/brand-logo.css" />
   </head>
   <body class="enver-operator-ui operator-client-mode">
-    <div class="loading-overlay" id="loadingOverlay">Завантаження…</div>
+    <div class="loading-overlay" id="loadingOverlay" aria-live="polite">
+      <div class="enver-loading-inner">
+        <div class="enver-loading-skeletons" aria-hidden="true">
+          <div class="enver-skeleton enver-skeleton-card"></div>
+        </div>
+        <p class="enver-loading-text">Завантаження…</p>
+      </div>
+    </div>
 
     <div class="modal-backdrop login-modal" id="loginModal" aria-hidden="true">
       <div class="modal login-card" role="dialog" aria-labelledby="loginTitle">

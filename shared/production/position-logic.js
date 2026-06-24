@@ -9,6 +9,14 @@ import {
   isStageIdle
 } from "./stages.js";
 import { parseUaDate } from "../dates/ua-date.js";
+import { collectBlockers, collectWarnings, deriveNextAction } from "./next-action.js";
+
+export {
+  collectBlockers,
+  collectWarnings,
+  deriveNextAction,
+  detectAutoHandoffs
+} from "./next-action.js";
 
 export { PRODUCTION_PROGRESS_WEIGHTS, STAGE_PATCH_MAP, STAGE_STATUS_DONE };
 
@@ -23,7 +31,7 @@ export function stageScore(status, { isConstructor = false, hasConstructor = fal
 }
 
 export function hasConstructive(row) {
-  return Boolean(row.has_constructive_file);
+  return Boolean(row.has_constructive_file ?? row.hasConstructiveFile);
 }
 
 export function computeProgress(row) {
@@ -101,7 +109,11 @@ export function enrichPositionRow(row, { planDate } = {}) {
         Number(row.overdue_days) || 0
       )
     : Number(row.overdue_days) || 0;
-  return { ...row, progress, position_status, current_stage, overdue_days };
+  const enriched = { ...row, progress, position_status, current_stage, overdue_days };
+  const next_action = deriveNextAction(enriched);
+  const warnings = collectWarnings(enriched);
+  const blockers = collectBlockers(enriched);
+  return { ...enriched, next_action, warnings, blockers };
 }
 
 /** Після завершення етапу — передати наступному «Передано», якщо він ще не активний. */

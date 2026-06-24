@@ -81,6 +81,111 @@
   gap: 14px;
 }
 
+.pf-section--pipeline {
+  margin-bottom: 8px;
+}
+
+.pf-pipeline-hint {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+}
+
+.pf-pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.pf-pipe-col {
+  flex: 1 1 120px;
+  min-width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px solid var(--enver-border, var(--border, #e2e8f0));
+  border-radius: var(--enver-radius-md, 12px);
+  background: var(--enver-surface, var(--surface, #fff));
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.pf-pipe-col:hover {
+  border-color: var(--enver-primary, #245c3b);
+  box-shadow: var(--enver-shadow-sm, 0 1px 2px rgba(20, 30, 20, 0.06));
+  transform: translateY(-1px);
+}
+
+.pf-pipe-col.is-fresh {
+  border-color: var(--enver-warning, #b7791f);
+  box-shadow: 0 0 0 1px var(--enver-warning-soft, #fff4da);
+}
+
+.pf-pipe-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--enver-text, var(--text));
+}
+
+.pf-pipe-count {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--enver-primary, #245c3b);
+}
+
+.pf-pipe-sub {
+  font-size: 0.6875rem;
+  color: var(--enver-text-muted, var(--text-muted, #64748b));
+  line-height: 1.35;
+}
+
+.pf-pipe-sub em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--enver-text, var(--text));
+}
+
+.pf-pipe-warn {
+  color: var(--enver-warning, #b7791f);
+}
+
+.pf-pipe-alert {
+  color: var(--enver-danger, #b42318);
+}
+
+.pf-pipe-fresh {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: var(--enver-warning-soft, #fff4da);
+  color: var(--enver-warning, #b7791f);
+}
+
+.pf-pipe-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--enver-text-soft, #8a9186);
+}
+
 .pf-stage-card {
   padding: 16px;
   border-radius: 12px;

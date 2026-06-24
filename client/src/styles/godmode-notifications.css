@@ -1,0 +1,102 @@
+.gn-wrap {
+  position: relative;
+}
+.gn-bell {
+  position: relative;
+}
+.gn-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--enver-danger, #c41e3a);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.gn-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, 92vw);
+  max-height: 420px;
+  background: var(--surface-elevated, #fff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.15);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+}
+.gn-panel-head,
+.gn-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+}
+.gn-panel-foot {
+  border-bottom: none;
+  border-top: 1px solid var(--border-subtle, #e2e8f0);
+}
+.gn-panel-body {
+  overflow: auto;
+  padding: 8px;
+}
+.gn-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.gn-item:hover {
+  background: var(--surface-muted, #f8fafc);
+}
+.gn-item strong {
+  font-size: 0.85rem;
+}
+.gn-item span {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+.gn-item--blocker strong {
+  color: var(--enver-danger, #c41e3a);
+}
+.gn-item--warning strong {
+  color: var(--enver-warning, #b45309);
+}
+.gn-empty {
+  padding: 16px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+}
+.qr-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--border-subtle, #cbd5e1);
+  border-radius: 10px;
+  text-align: center;
+}
+.qr-box img {
+  max-width: 180px;
+  height: auto;
+}
+.qr-box-url {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  word-break: break-all;
+  margin-top: 8px;
+}

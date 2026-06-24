@@ -7,17 +7,13 @@ import {
   hasOperatorAccess,
   isOperator
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, TABS } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody } from "./render-positions.js";
-import {
-  bindOrdersGrid,
-  bindOrderDetailBack,
-  renderOrderDetailHeader,
-  renderOrdersGrid
-} from "./orders-view.js";
+import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
+import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import { filteredPositions } from "./filters.js";
@@ -37,6 +33,9 @@ import { escapeHtml } from "./utils.js";
 import { activePositions } from "./archive.js";
 import { positionsForOrder } from "./workflows.js";
 import { notifyUiChanged } from "./ui-persistence.js";
+import { notifyAiContextChanged } from "./ai-assistant.js";
+import { attentionTabBadgeCount, bindAttentionTab, renderAttentionTab } from "./attention-view.js";
+import { mountGodmodeNotifyChrome, updateGodmodeNotifyBadge } from "./godmode-notifications.js";
 
 export { filteredPositions };
 
@@ -131,6 +130,7 @@ function visibleTabs() {
 
 const TAB_META = {
   Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
+  [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
   Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
@@ -160,6 +160,7 @@ export function renderTabs() {
   const tour = getTourStep();
   const newOrders = countNewOrdersForCurrentRole();
   const newTasks = countNewProductionTasksForCurrentRole();
+  const attentionCount = attentionTabBadgeCount();
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
   document.querySelector("#tabs").innerHTML = visibleTabs()
     .map((tab) => {
@@ -173,6 +174,7 @@ export function renderTabs() {
         <span class="app-shell-nav-icon" aria-hidden="true">${meta.icon}</span>
         <span class="app-shell-nav-label">${escapeHtml(tab)}</span>
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
+        ${tab === ATTENTION_TAB ? tabBadge(attentionCount) : ""}
         ${tab === PRODUCTION_FLOOR_TAB ? tabBadge(newTasks) : ""}
       </button>
     `;
@@ -236,11 +238,6 @@ export function renderToolbarActions() {
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
     );
   }
-  if (state.activeTab === "Замовлення" && state.selectedOrderId && canEditPositions()) {
-    parts.push(
-      `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
-    );
-  }
   if (state.activeTab === "Позиції" && canEditPositions()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
@@ -269,11 +266,12 @@ function renderOrderDetail() {
     return renderOrdersGrid(state.orders, state.positions);
   }
   const related = positionsForOrder(order, activePositions(state.positions, state.orders));
-  const header = renderOrderDetailHeader(order, state.positions, {
-    canEditOrder: canEditOrders()
-  });
-  const table = positionsTable(related, "Позиції замовлення", true);
-  return `<div class="orders-view orders-view--detail">${header}${table}</div>`;
+  for (const p of related) {
+    if (!p.parentId && related.some((c) => c.parentId === p.id)) {
+      state.expandedPositionIds.add(p.id);
+    }
+  }
+  return renderOrderDetailView(order, state.positions, related);
 }
 
 function renderContent() {
@@ -284,6 +282,7 @@ function renderContent() {
     if (state.selectedOrderId) return renderOrderDetail();
     return renderOrdersGrid(state.orders, state.positions);
   }
+  if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
@@ -315,6 +314,11 @@ export function renderHeaderChrome() {
   if (gear) gear.hidden = !canViewSettings();
   if (notifyBtn) notifyBtn.hidden = !user || canViewSettings();
   if (logout) logout.hidden = !user;
+
+  if (user && state.view === "main") {
+    mountGodmodeNotifyChrome();
+    updateGodmodeNotifyBadge();
+  }
 
   let opBtn = document.querySelector("#productionOperatorBtn");
   if (hasOperatorAccess() && !isOperator()) {
@@ -402,13 +406,54 @@ export function renderApp(options = {}) {
         }
       });
     } else {
-      bindOrderDetailBack(document.querySelector("#content"), () => {
-        state.selectedOrderId = null;
+      const content = document.querySelector("#content");
+      bindOrderDetail(content, {
+        onBack: () => {
+          state.selectedOrderId = null;
+          state.ordersView.detailTab = "overview";
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+        onRefresh: async (opts) => {
+          try {
+            const { refreshAppData } = await import("./data-sync.js");
+            await refreshAppData({ includeDirectories: false });
+          } catch {
+            /* локальний стан уже оновлено */
+          }
+          renderApp(opts);
+        },
+        onOpenPosition: async (id) => {
+          const { openPositionDrawer } = await import("./positions.js");
+          const position = state.positions.find((p) => p.id === id);
+          if (position) openPositionDrawer(position);
+        },
+        onEditOrder: async (id) => {
+          const { openOrderModal } = await import("./orders.js");
+          const order = state.orders.find((o) => o.id === id);
+          if (order) openOrderModal(order);
+        }
+      });
+    }
+  }
+
+  if (state.activeTab === ATTENTION_TAB) {
+    bindAttentionTab(document.querySelector("#content"), {
+      onOpenPosition: async (id) => {
+        const { openPositionDrawer } = await import("./positions.js");
+        const position = state.positions.find((p) => p.id === id);
+        if (position) openPositionDrawer(position);
+      },
+      onOpenOrder: (orderId) => {
+        state.selectedOrderId = orderId;
+        state.ordersView.detailTab = "overview";
+        state.activeTab = "Замовлення";
         notifyUiChanged();
         renderApp();
         window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-    }
+      }
+    });
   }
 
   if (state.activeTab === PRODUCTION_FLOOR_TAB && canViewProductionFloor()) {
@@ -437,4 +482,6 @@ export function renderApp(options = {}) {
       }
     });
   }
+
+  notifyAiContextChanged();
 }

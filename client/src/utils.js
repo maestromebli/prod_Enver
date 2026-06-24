@@ -37,7 +37,8 @@ export function statusClass(status) {
 
 export function badge(status) {
   const text = escapeHtml(status || "—");
-  return `<span class="badge ${statusClass(status)}">${text}</span>`;
+  const cls = statusClass(status);
+  return `<span class="badge enver-badge enver-badge-${cls === "green" ? "success" : cls === "red" ? "danger" : cls === "yellow" || cls === "orange" ? "warning" : cls === "blue" ? "info" : "neutral"} ${cls}">${text}</span>`;
 }
 
 export function progressBar(value) {

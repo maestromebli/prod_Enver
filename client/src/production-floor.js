@@ -4,6 +4,11 @@ import {
   markProductionTasksSeenForCurrentRole,
   newProductionTaskIdsForCurrentRole
 } from "./role-notifications.js";
+import {
+  buildFloorGodmodeBuckets,
+  renderFloorGodmodeSection,
+  renderSmartEmptyState
+} from "./godmode-ui.js";
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
@@ -37,6 +42,30 @@ function countNewTasksByStage(stages = []) {
   return counters;
 }
 
+function renderPipelineStrip(stages, freshByStage = {}) {
+  if (!stages?.length) return "";
+  const items = stages
+    .map((s, i) => {
+      const total = (s.handed || 0) + (s.inWork || 0) + (s.paused || 0);
+      const fresh = freshByStage[s.key] || 0;
+      const arrow =
+        i < stages.length - 1 ? '<span class="pf-pipe-arrow" aria-hidden="true">→</span>' : "";
+      return `
+        <button type="button" class="pf-pipe-col ${fresh > 0 ? "is-fresh" : ""}" data-pf-stage="${escapeHtml(s.key)}" data-open-operator-stage="${escapeHtml(s.key)}">
+          <span class="pf-pipe-label">${escapeHtml(s.label)}</span>
+          <span class="pf-pipe-count">${total}</span>
+          <span class="pf-pipe-sub">
+            <em>${s.inWork || 0}</em> в роботі
+            ${s.problem ? ` · <strong class="pf-pipe-warn">${s.problem}</strong> пробл.` : ""}
+            ${s.overdue ? ` · <strong class="pf-pipe-alert">${s.overdue}</strong> простр.` : ""}
+          </span>
+          ${fresh > 0 ? `<span class="pf-pipe-fresh">+${fresh}</span>` : ""}
+        </button>${arrow}`;
+    })
+    .join("");
+  return `<div class="pf-pipeline" role="navigation" aria-label="Потік виробництва">${items}</div>`;
+}
+
 function renderStageCards(stages, freshByStage = {}) {
   return (stages || [])
     .map((s) => {
@@ -64,7 +93,11 @@ function renderStageCards(stages, freshByStage = {}) {
 
 function renderSessions(sessions) {
   if (!sessions?.length) {
-    return '<p class="pf-empty">Зараз немає відкритих сесій операторів.</p>';
+    return renderSmartEmptyState({
+      icon: "👷",
+      title: "Операторів у роботі немає",
+      text: "Коли оператор почне завдання, сесія зʼявиться тут."
+    });
   }
   return `
     <div class="pf-sessions">
@@ -91,7 +124,11 @@ function renderSessions(sessions) {
 
 function renderProblems(list) {
   if (!list?.length) {
-    return '<p class="pf-empty">Позицій з проблемою немає.</p>';
+    return renderSmartEmptyState({
+      icon: "✓",
+      title: "Проблем немає",
+      text: "Усі позиції без блокерів — виробництво йде за планом."
+    });
   }
   return `
     <div class="table-wrap">
@@ -123,6 +160,8 @@ export function renderProductionFloorTab(data = floorCache) {
   const d = data || { stages: [], activeSessions: [], problemPositions: [] };
   const freshByStage = countNewTasksByStage(d.stages);
   const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
+  const godmodeBuckets = buildFloorGodmodeBuckets(state.positions);
+  const godmodeSections = renderFloorGodmodeSection(godmodeBuckets);
   return `
     <div class="production-floor">
       <div class="card pf-hero">
@@ -135,6 +174,14 @@ export function renderProductionFloorTab(data = floorCache) {
         </div>
         <button type="button" class="btn btn-sm" id="pfRefreshBtn">Оновити</button>
       </div>
+
+      ${godmodeSections}
+
+      <section class="pf-section pf-section--pipeline">
+        <h2 class="pf-section-title enver-section-title">Потік виробництва</h2>
+        <p class="pf-pipeline-hint enver-meta">Конструктив → Порізка → Крайкування → Присадка → Збірка → Пакування → Монтаж</p>
+        ${renderPipelineStrip(d.stages, freshByStage)}
+      </section>
 
       <section class="pf-section">
         <h2 class="pf-section-title">Етапи</h2>

@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, apiUrl, getStoredToken } from "./api.js";
 import { runSave } from "./save-flow.js";
 import { loadPositionHistory, renderDrawerHistory } from "./history.js";
 import { expandPosition, getParentPosition } from "./position-tree.js";
@@ -12,6 +12,7 @@ import {
   getStageStatus,
   stageStatusClass
 } from "./workflows.js";
+import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
 
 let onSaved = () => {};
@@ -22,12 +23,88 @@ export function setPositionSaveHandler(handler) {
   onSaved = handler;
 }
 
+function normalizeSuggestedTasks(result) {
+  const raw = result?.suggestedTasks || [];
+  return raw.map((t) => {
+    if (typeof t === "string") {
+      const map = {
+        порізка: "cutting",
+        крайкування: "edging",
+        кромкування: "edging",
+        присадка: "drilling",
+        збірка: "assembly",
+        пакування: "packaging"
+      };
+      const key = map[t.toLowerCase()] || t;
+      return { stage: key, needed: true, reason: "", confidence: 0.7 };
+    }
+    return t;
+  });
+}
+
+function renderAiAnalysisResult(result) {
+  const tasks = normalizeSuggestedTasks(result).filter((t) => t.needed !== false);
+  const highConf = tasks.every((t) => (t.confidence ?? 0.8) >= 0.8);
+  const missing = result.missingInfo || [];
+
+  const taskRows = tasks
+    .map((t) => {
+      const conf = Math.round((t.confidence ?? 0.8) * 100);
+      const checked = (t.confidence ?? 0.8) >= 0.8 ? "checked" : "";
+      return `<label class="ai-task-row">
+        <input type="checkbox" data-task-stage value="${escapeHtml(t.stage)}" ${checked} />
+        <span><strong>${escapeHtml(stageLabel(t.stage))}</strong> — ${escapeHtml(t.reason || "рекомендовано")} (${conf}%)</span>
+      </label>`;
+    })
+    .join("");
+
+  return `
+    <div class="analysis-card">
+      <p><strong>${escapeHtml(result.summary || "—")}</strong></p>
+      ${result.estimatedComplexity ? `<p>Складність: ${escapeHtml(result.estimatedComplexity)}</p>` : ""}
+      ${result.materials?.length ? `<p>Матеріали: ${result.materials.map(escapeHtml).join(", ")}</p>` : ""}
+      ${result.warnings?.length ? `<p class="form-error visible">${result.warnings.map(escapeHtml).join("; ")}</p>` : ""}
+      ${missing.length ? `<p class="form-error visible">Бракує даних: ${missing.map(escapeHtml).join("; ")}</p>` : ""}
+      ${tasks.length ? `<div class="ai-task-list">${taskRows}</div>` : ""}
+      ${
+        tasks.length
+          ? `<div class="constructive-actions" style="margin-top:10px">
+        <button type="button" class="btn btn-sm btn-primary" id="createTasksBtn">${highConf ? "Створити всі рекомендовані задачі" : "Створити тільки обрані"}</button>
+        <button type="button" class="btn btn-sm" id="rejectAiTasksBtn">Відхилити</button>
+      </div>`
+          : ""
+      }
+    </div>`;
+}
+
 function backdrop() {
   return $("#positionDrawer");
 }
 
 function showError(message) {
   showFormError("#positionFormError", message);
+}
+
+async function renderPositionQr(positionId, stageKey) {
+  const box = $("#positionQrBox");
+  if (!box || !positionId) return;
+  box.innerHTML = '<p class="history-muted">Генерація QR…</p>';
+  try {
+    const token = getStoredToken();
+    const res = await fetch(
+      apiUrl(`/api/positions/${positionId}/qr?stage=${encodeURIComponent(stageKey || "cutting")}`),
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    if (!res.ok) throw new Error("Не вдалося згенерувати QR");
+    const svg = await res.text();
+    const meta = await api.getPositionQrUrl(
+      positionId,
+      stageKey || draft?.currentStage || "cutting"
+    );
+    box.innerHTML = `${svg}<p class="qr-box-url">${escapeHtml(meta.url)}</p>`;
+  } catch (err) {
+    box.innerHTML = `<p class="form-error visible">${escapeHtml(err.message)}</p>`;
+  }
 }
 
 function listOptions(key) {
@@ -44,39 +121,59 @@ function applyOrderDefaults(orderNumber) {
 }
 
 function renderPipeline() {
-  return STAGES.map((stage) => {
+  const currentKey = draft.currentStage || "constructor";
+  const currentStage = STAGES.find((s) => s.key === currentKey) || STAGES[0];
+  const currentStatus = getStageStatus(draft, currentStage);
+  const next = getNextStatus(currentStatus);
+  const canAdvance = currentStatus !== "Готово" && currentStatus !== "Не потрібно";
+
+  const track = PIPELINE_STAGES.map((stage) => {
     const status = getStageStatus(draft, stage);
-    const next = getNextStatus(status);
-    const cls = stageStatusClass(status);
+    let dotCls = "step-dot";
+    if (status === "Проблема") dotCls += " step-dot--problem";
+    else if (STAGE_STATUS_DONE.has(status)) dotCls += " step-dot--done";
+    else if (stage.key === currentKey) dotCls += " step-dot--current";
+    else if (status !== "Не розпочато") dotCls += " step-dot--active";
+    return `<button type="button" class="${dotCls}" data-pipeline-jump="${stage.key}" title="${escapeHtml(stage.label)}: ${escapeHtml(status)}"></button>`;
+  }).join('<span class="step-line" aria-hidden="true"></span>');
 
-    const advanceBtn =
-      status !== "Готово" && status !== "Не потрібно"
-        ? `<button type="button" class="btn btn-success btn-sm" data-pipeline-advance="${stage.key}" data-next="${escapeHtml(next)}">
-            → ${escapeHtml(next)}
-          </button>`
-        : "";
+  const manualSteps = STAGES.filter((s) => s.field)
+    .map((stage) => {
+      const status = getStageStatus(draft, stage);
+      const cls = stageStatusClass(status);
+      return `
+        <div class="pipeline-manual-row ${cls}">
+          <span class="pipeline-manual-label">${escapeHtml(stage.label)}</span>
+          <select class="pipeline-select" data-pipeline-status="${stage.key}" aria-label="${escapeHtml(stage.label)}">
+            ${STAGE_STATUSES.map(
+              (s) =>
+                `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
+            ).join("")}
+          </select>
+        </div>`;
+    })
+    .join("");
 
-    const statusSelect = `
-      <select class="pipeline-select" data-pipeline-status="${stage.key}" aria-label="Статус ${escapeHtml(stage.label)}">
-        ${STAGE_STATUSES.map(
-          (s) =>
-            `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
-        ).join("")}
-      </select>
-    `;
-
-    return `
-      <div class="pipeline-step ${cls}" data-stage="${stage.key}">
-        <div class="pipeline-icon">${stage.icon}</div>
-        <div class="pipeline-label">${escapeHtml(stage.label)}</div>
-        <div class="pipeline-status">${badge(status)}</div>
-        <div class="pipeline-actions">
-          ${statusSelect}
-          ${advanceBtn}
+  return `
+    <div class="pipeline-compact">
+      <div class="pipeline-compact-now">
+        <span class="pipeline-compact-icon">${currentStage.icon}</span>
+        <div class="pipeline-compact-text">
+          <strong>${escapeHtml(currentStage.label)}</strong>
+          <span>${badge(currentStatus)}</span>
         </div>
+        ${
+          canAdvance
+            ? `<button type="button" class="btn btn-primary btn-sm" data-pipeline-advance="${currentStage.key}" data-next="${escapeHtml(next)}">Далі → ${escapeHtml(next)}</button>`
+            : ""
+        }
       </div>
-    `;
-  }).join("");
+      <div class="step-track step-track--drawer">${track}</div>
+      <details class="pipeline-manual">
+        <summary>Змінити етап вручну</summary>
+        <div class="pipeline-manual-grid">${manualSteps}</div>
+      </details>
+    </div>`;
 }
 
 function renderDrawerContent() {
@@ -91,45 +188,22 @@ function renderDrawerContent() {
   $("#positionDrawerBody").innerHTML = `
     <p class="form-error" id="positionFormError"></p>
 
-    <div class="drawer-section constructive-block">
-      <h3>Конструктив</h3>
-      <p class="field-hint">${p.hasConstructiveFile ? `Файл: <strong>${escapeHtml(p.constructiveFileName || "завантажено")}</strong>` : "Завантажте файл конструктива (PDF, ZIP, XML, TXT)"}</p>
-      ${
-        p.id
-          ? `
-        <div class="constructive-actions">
-          <input type="file" id="constructiveFileInput" accept=".pdf,.zip,.xml,.txt,.dwg,.dxf" hidden />
-          <button type="button" class="btn btn-sm" id="pickConstructiveBtn">Завантажити файл</button>
-          <button type="button" class="btn btn-sm" id="analyzeConstructiveBtn" ${p.hasConstructiveFile ? "" : "disabled"}>Проаналізувати ШІ</button>
-        </div>
-        <div id="constructiveAnalysis" class="constructive-analysis"></div>
-        <div class="create-tasks-block">
-          <p class="field-hint">Створити виробничі задачі (статус «Передано»):</p>
-          <div class="stage-checkboxes" id="createTasksStages">
-            ${["cutting", "edging", "drilling", "assembly", "packaging"]
-              .map(
-                (key) =>
-                  `<label class="checkbox-label"><input type="checkbox" data-task-stage value="${key}" checked /> ${escapeHtml(STAGES.find((s) => s.key === key)?.label || key)}</label>`
-              )
-              .join("")}
-          </div>
-          <button type="button" class="btn btn-primary btn-sm" id="createTasksBtn">Створити задачі</button>
-        </div>`
-          : `<p class="field-hint">Збережіть позицію, щоб завантажити конструктив.</p>`
-      }
-    </div>
-
-    <div class="drawer-section">
-      <h3>Етапи виробництва</h3>
+    <div class="drawer-section drawer-section--pipeline">
       <div class="pipeline" id="positionPipeline">${renderPipeline()}</div>
     </div>
+    ${
+      p.id
+        ? `<div class="drawer-section" id="positionQrSection">
+      <button type="button" class="btn btn-sm" id="generatePositionQrBtn">QR для цеху</button>
+      <div id="positionQrBox" class="qr-box" aria-live="polite"></div>
+    </div>`
+        : ""
+    }
 
     <div class="drawer-tabs">
-      <button type="button" class="drawer-tab ${activePanel === "general" ? "active" : ""}" data-panel="general">Загальне</button>
-      <button type="button" class="drawer-tab ${activePanel === "stages" ? "active" : ""}" data-panel="stages">Деталі етапів</button>
+      <button type="button" class="drawer-tab ${activePanel === "general" ? "active" : ""}" data-panel="general">Основне</button>
       <button type="button" class="drawer-tab ${activePanel === "install" ? "active" : ""}" data-panel="install">Монтаж</button>
-      <button type="button" class="drawer-tab ${activePanel === "issues" ? "active" : ""}" data-panel="issues">Проблеми</button>
-      <button type="button" class="drawer-tab ${activePanel === "history" ? "active" : ""}" data-panel="history">Історія</button>
+      <button type="button" class="drawer-tab ${activePanel === "more" ? "active" : ""}" data-panel="more">Ще</button>
     </div>
 
     <form id="positionForm">
@@ -143,71 +217,25 @@ function renderDrawerContent() {
         }
         <div class="form-grid">
           <div class="form-field span-2">
-            <label for="posItem">${p.parentId ? "Назва підпозиції / зони *" : "Виріб / зона *"}</label>
+            <label for="posItem">${p.parentId ? "Назва зони *" : "Виріб / зона *"}</label>
             <input id="posItem" value="${escapeHtml(p.item)}" required />
           </div>
-          <div class="form-field">
+          ${
+            p.parentId
+              ? ""
+              : `<div class="form-field span-2">
             <label for="posOrderNumber">Замовлення *</label>
-            <select id="posOrderNumber" required ${p.parentId ? "disabled" : ""}>
+            <select id="posOrderNumber" required>
               <option value="">— оберіть —</option>
               ${orderOptions}
               ${p.orderNumber && !state.orders.some((o) => o.orderNumber === p.orderNumber) ? `<option value="${escapeHtml(p.orderNumber)}" selected>${escapeHtml(p.orderNumber)}</option>` : ""}
             </select>
-          </div>
-          <div class="form-field">
-            <label for="posItemType">Тип виробу</label>
-            <input id="posItemType" value="${escapeHtml(p.itemType)}" placeholder="Кухня, шафа, зона…" />
-          </div>
-          <div class="form-field span-2">
-            <label for="posObject">Об'єкт / адреса</label>
-            <input id="posObject" value="${escapeHtml(p.object)}" />
-          </div>
-          <div class="form-field">
-            <label for="posManager">Менеджер</label>
-            <input id="posManager" list="posManagersList" value="${escapeHtml(p.manager)}" />
-            <datalist id="posManagersList"></datalist>
-          </div>
-          <div class="form-field">
-            <label for="posPositionStatus">Статус позиції</label>
-            <select id="posPositionStatus"></select>
-          </div>
-          <div class="form-field">
-            <label for="posReadyDate">Дата готовності</label>
-            <input id="posReadyDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.readyDate)}" />
-          </div>
-          <div class="form-field">
-            <label for="posOverdue">Прострочка, днів</label>
-            <input id="posOverdue" type="number" value="${p.overdueDays ?? 0}" />
-          </div>
-        </div>
-      </div>
-
-      <div class="drawer-panel ${activePanel === "stages" ? "active" : ""}" data-panel="stages">
-        <div class="form-grid">
+          </div>`
+          }
           <div class="form-field">
             <label for="posConstructor">Конструктор</label>
             <input id="posConstructor" list="constructorsList" value="${escapeHtml(p.constructor)}" />
             <datalist id="constructorsList"></datalist>
-          </div>
-          <div class="form-field">
-            <label for="posCutting">Порізка</label>
-            <select id="posCutting"></select>
-          </div>
-          <div class="form-field">
-            <label for="posEdging">Крайкування</label>
-            <select id="posEdging"></select>
-          </div>
-          <div class="form-field">
-            <label for="posDrilling">Присадка</label>
-            <select id="posDrilling"></select>
-          </div>
-          <div class="form-field">
-            <label for="posAssembly">Збірка</label>
-            <select id="posAssembly"></select>
-          </div>
-          <div class="form-field">
-            <label for="posPackaging">Пакування</label>
-            <select id="posPackaging"></select>
           </div>
           <div class="form-field">
             <label for="posAssembler">Збирач</label>
@@ -227,7 +255,7 @@ function renderDrawerContent() {
             <label for="posInstallEndDate">Кінець монтажу</label>
             <input id="posInstallEndDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.installEndDate || p.installDate || "")}" />
           </div>
-          <div class="form-field">
+          <div class="form-field span-2">
             <label for="posInstaller">Монтажник</label>
             <input id="posInstaller" list="installersList" value="${escapeHtml(p.installResponsible)}" />
             <datalist id="installersList"></datalist>
@@ -235,39 +263,49 @@ function renderDrawerContent() {
         </div>
       </div>
 
-      <div class="drawer-panel ${activePanel === "issues" ? "active" : ""}" data-panel="issues">
-        <div class="form-grid">
+      <div class="drawer-panel ${activePanel === "more" ? "active" : ""}" data-panel="more">
+        <details class="drawer-more-block" ${p.hasConstructiveFile ? "open" : ""}>
+          <summary>Конструктив</summary>
+          <p class="field-hint">${p.hasConstructiveFile ? `Файл: <strong>${escapeHtml(p.constructiveFileName || "завантажено")}</strong>` : "PDF, ZIP, XML, TXT"}</p>
+          ${
+            p.id
+              ? `<div class="constructive-actions">
+            <input type="file" id="constructiveFileInput" accept=".pdf,.zip,.xml,.txt,.dwg,.dxf" hidden />
+            <button type="button" class="btn btn-sm" id="pickConstructiveBtn">Завантажити</button>
+            <button type="button" class="btn btn-sm" id="analyzeConstructiveBtn" ${p.hasConstructiveFile ? "" : "disabled"}>ШІ-аналіз</button>
+          </div>
+          <div id="constructiveAnalysis" class="constructive-analysis"></div>`
+              : `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`
+          }
+        </details>
+        <div class="form-grid" style="margin-top:12px">
           <div class="form-field span-2">
-            <label for="posProblem">Проблема / стоп-фактор</label>
-            <textarea id="posProblem">${escapeHtml(p.problem)}</textarea>
+            <label for="posProblem">Проблема</label>
+            <textarea id="posProblem" rows="2">${escapeHtml(p.problem)}</textarea>
           </div>
           <div class="form-field span-2">
             <label for="posNote">Примітка</label>
-            <textarea id="posNote">${escapeHtml(p.note)}</textarea>
+            <textarea id="posNote" rows="2">${escapeHtml(p.note)}</textarea>
+          </div>
+          <div class="form-field">
+            <label for="posReadyDate">Дата готовності</label>
+            <input id="posReadyDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.readyDate)}" />
+          </div>
+          <div class="form-field">
+            <label for="posPositionStatus">Статус</label>
+            <select id="posPositionStatus"></select>
           </div>
         </div>
-      </div>
-
-      <div class="drawer-panel ${activePanel === "history" ? "active" : ""}" data-panel="history">
-        <div id="positionHistoryPanel" class="position-history-panel">
-          <p class="history-muted">Завантаження…</p>
+        <div id="positionHistoryPanel" class="position-history-panel" style="margin-top:14px">
+          <p class="history-muted">Завантаження історії…</p>
         </div>
       </div>
     </form>
   `;
 
   fillSelect($("#posPositionStatus"), POSITION_STATUSES, p.positionStatus);
-  fillSelect($("#posCutting"), STAGE_STATUSES, p.cuttingStatus);
-  fillSelect($("#posEdging"), STAGE_STATUSES, p.edgingStatus);
-  fillSelect($("#posDrilling"), STAGE_STATUSES, p.drillingStatus);
-  fillSelect($("#posAssembly"), STAGE_STATUSES, p.assemblyStatus);
-  fillSelect($("#posPackaging"), STAGE_STATUSES, p.packagingStatus || "Не розпочато");
+  if (p.orderNumber && $("#posOrderNumber")) $("#posOrderNumber").value = p.orderNumber;
 
-  if (p.orderNumber) $("#posOrderNumber").value = p.orderNumber;
-
-  $("#posManagersList").innerHTML = listOptions("Менеджери")
-    .map((x) => `<option value="${escapeHtml(x)}"></option>`)
-    .join("");
   $("#constructorsList").innerHTML = listOptions("Конструктори")
     .map((x) => `<option value="${escapeHtml(x)}"></option>`)
     .join("");
@@ -279,7 +317,7 @@ function renderDrawerContent() {
     .join("");
 
   bindDrawerEvents();
-  if (activePanel === "history") refreshDrawerHistory();
+  if (activePanel === "more") refreshDrawerHistory();
 }
 
 async function refreshDrawerHistory() {
@@ -312,34 +350,41 @@ function updateHeader() {
   $("#positionDrawerProgressLabel").textContent = `${draft.progress ?? 0}% готово`;
 }
 
+function pipelineStatus(key, field) {
+  const sel = document.querySelector(`.pipeline-select[data-pipeline-status="${key}"]`);
+  return sel?.value ?? draft[field] ?? "Не розпочато";
+}
+
 function readForm() {
-  const orderNumber = draft.parentId ? draft.orderNumber : $("#posOrderNumber").value.trim();
+  const orderNumber = draft.parentId
+    ? draft.orderNumber
+    : $("#posOrderNumber")?.value.trim() || draft.orderNumber;
   const order = state.orders.find((o) => o.orderNumber === orderNumber);
   return {
     parentId: draft.parentId ?? null,
     orderId: order?.id ?? draft.orderId ?? null,
     orderNumber,
-    object: $("#posObject").value.trim(),
+    object: draft.object || order?.object || "",
     item: $("#posItem").value.trim(),
-    itemType: $("#posItemType").value.trim(),
-    manager: $("#posManager").value.trim(),
-    constructor: $("#posConstructor").value.trim(),
-    cuttingStatus: $("#posCutting").value,
-    edgingStatus: $("#posEdging").value,
-    drillingStatus: $("#posDrilling").value,
-    assemblyStatus: $("#posAssembly").value,
-    packagingStatus: $("#posPackaging").value,
-    assemblyResponsible: $("#posAssembler").value.trim(),
-    readyDate: $("#posReadyDate").value.trim(),
-    installDate: $("#posInstallDate").value.trim(),
-    installEndDate: $("#posInstallEndDate").value.trim(),
+    itemType: draft.itemType || "Зона",
+    manager: draft.manager || order?.manager || "",
+    constructor: $("#posConstructor")?.value.trim() ?? "",
+    cuttingStatus: pipelineStatus("cutting", "cuttingStatus"),
+    edgingStatus: pipelineStatus("edging", "edgingStatus"),
+    drillingStatus: pipelineStatus("drilling", "drillingStatus"),
+    assemblyStatus: pipelineStatus("assembly", "assemblyStatus"),
+    packagingStatus: pipelineStatus("packaging", "packagingStatus"),
+    assemblyResponsible: $("#posAssembler")?.value.trim() ?? "",
+    readyDate: $("#posReadyDate")?.value.trim() ?? "",
+    installDate: $("#posInstallDate")?.value.trim() ?? "",
+    installEndDate: $("#posInstallEndDate")?.value.trim() ?? "",
     installTimeStart: "",
     installTimeEnd: "",
-    installResponsible: $("#posInstaller").value.trim(),
-    positionStatus: $("#posPositionStatus").value,
-    overdueDays: Number($("#posOverdue").value) || 0,
-    problem: $("#posProblem").value.trim(),
-    note: $("#posNote").value.trim()
+    installResponsible: $("#posInstaller")?.value.trim() ?? "",
+    positionStatus: $("#posPositionStatus")?.value ?? draft.positionStatus,
+    overdueDays: Number(draft.overdueDays) || 0,
+    problem: $("#posProblem")?.value.trim() ?? "",
+    note: $("#posNote")?.value.trim() ?? ""
   };
 }
 
@@ -381,7 +426,7 @@ async function patchStage(stageKey, payload) {
     onSuccess: async () => {
       updateHeader();
       renderDrawerContent();
-      if (activePanel === "history") await refreshDrawerHistory();
+      if (activePanel === "more") await refreshDrawerHistory();
       await onSaved();
     },
     onError: (err) => showError(err.message)
@@ -459,7 +504,7 @@ function onDrawerTabSelect(panel) {
   syncDraftFromForm();
   renderDrawerContent();
   scrollPositionDrawerToTabs();
-  if (activePanel === "history") refreshDrawerHistory();
+  if (activePanel === "more") refreshDrawerHistory();
 }
 
 function bindDrawerEvents() {
@@ -477,6 +522,27 @@ function bindDrawerEvents() {
     $("#posManager").value = draft.manager || "";
   });
 
+  document.querySelectorAll("[data-pipeline-jump]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const key = btn.dataset.pipelineJump;
+      const stage = STAGES.find((s) => s.key === key);
+      if (!stage || key === draft.currentStage) return;
+      if (stage.type === "constructor") {
+        if (!draft.hasConstructiveFile) {
+          onDrawerTabSelect("more");
+          showError("Завантажте файл конструктива");
+          return;
+        }
+        await patchStage(key, { status: "Передано", constructor: draft.constructor });
+        return;
+      }
+      await patchStage(key, {
+        status: "В роботі",
+        assemblyResponsible: draft.assemblyResponsible
+      });
+    });
+  });
+
   document.querySelectorAll("[data-pipeline-advance]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const key = btn.dataset.pipelineAdvance;
@@ -484,7 +550,7 @@ function bindDrawerEvents() {
       const stage = STAGES.find((s) => s.key === key);
       if (stage.type === "constructor") {
         if (!draft.hasConstructiveFile && next !== "Не розпочато") {
-          onDrawerTabSelect("stages");
+          onDrawerTabSelect("more");
           showError("Завантажте файл конструктива");
           return;
         }
@@ -512,6 +578,12 @@ function bindDrawerEvents() {
   });
 
   $("#pickConstructiveBtn")?.addEventListener("click", () => $("#constructiveFileInput")?.click());
+
+  $("#generatePositionQrBtn")?.addEventListener("click", () => {
+    if (!draft?.id) return;
+    void renderPositionQr(draft.id, draft.currentStage || "cutting");
+  });
+
   $("#constructiveFileInput")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file || !draft.id) return;
@@ -549,33 +621,35 @@ function bindDrawerEvents() {
     try {
       const result = await api.analyzeConstructive(draft.id);
       if (box) {
-        box.innerHTML = `
-          <div class="analysis-card">
-            <p><strong>${escapeHtml(result.summary || "—")}</strong></p>
-            ${result.materials?.length ? `<p>Матеріали: ${result.materials.map(escapeHtml).join(", ")}</p>` : ""}
-            ${result.warnings?.length ? `<p class="form-error visible">${result.warnings.map(escapeHtml).join("; ")}</p>` : ""}
-          </div>`;
+        box.innerHTML = renderAiAnalysisResult(result);
+        $("#createTasksBtn")?.addEventListener("click", async () => {
+          const stages = [];
+          document
+            .querySelectorAll("[data-task-stage]:checked")
+            .forEach((cb) => stages.push(cb.value));
+          if (!stages.length) {
+            showError("Оберіть хоча б один етап");
+            return;
+          }
+          await runSave("Задачі", {
+            saveFn: () => api.createProductionTasks(draft.id, stages),
+            successMessage: "Виробничі задачі створено",
+            onSuccess: async (pos) => {
+              draft = { ...draft, ...pos };
+              updateHeader();
+              renderDrawerContent();
+              await onSaved();
+            },
+            onError: (err) => showError(err.message)
+          }).catch(() => {});
+        });
+        $("#rejectAiTasksBtn")?.addEventListener("click", () => {
+          if (box) box.innerHTML = '<p class="history-muted">Рекомендації відхилено.</p>';
+        });
       }
     } catch (err) {
       if (box) box.innerHTML = `<p class="form-error visible">${escapeHtml(err.message)}</p>`;
     }
-  });
-
-  $("#createTasksBtn")?.addEventListener("click", async () => {
-    if (!draft.id) return;
-    const stages = [];
-    document.querySelectorAll("[data-task-stage]:checked").forEach((cb) => stages.push(cb.value));
-    await runSave("Задачі", {
-      saveFn: () => api.createProductionTasks(draft.id, stages),
-      successMessage: "Виробничі задачі створено",
-      onSuccess: async (pos) => {
-        draft = { ...draft, ...pos };
-        updateHeader();
-        renderDrawerContent();
-        await onSaved();
-      },
-      onError: (err) => showError(err.message)
-    }).catch(() => {});
   });
 }
 

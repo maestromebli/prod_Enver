@@ -5,7 +5,7 @@ const API_BASE =
 
 const TOKEN_KEY = "enver_token";
 
-function apiUrl(path) {
+export function apiUrl(path) {
   if (path.startsWith("http")) return path;
   return `${API_BASE}${path}`;
 }
@@ -79,7 +79,7 @@ async function request(path, options = {}) {
       `Помилка ${response.status}`;
     const err = new Error(msg);
     err.status = response.status;
-    err.code = raw?.error?.code;
+    err.code = raw?.code || raw?.error?.code;
     throw err;
   }
 
@@ -158,7 +158,21 @@ export const api = {
   submitAiFeedback: (body) =>
     request("/api/ai/feedback", { method: "POST", body: JSON.stringify(body) }),
 
+  getAiStatus: () => request("/api/ai/status"),
+  aiAssist: (body) => request("/api/ai/assist", { method: "POST", body: JSON.stringify(body) }),
+
   getProductionFloor: () => request("/api/production/floor"),
+
+  getNotifications: () => request("/api/notifications"),
+  getPositionQrUrl: (id, stage) =>
+    request(`/api/positions/${id}/qr?format=json&stage=${encodeURIComponent(stage || "cutting")}`),
+  getPositionQrImageUrl: (id, stage) =>
+    `/api/positions/${id}/qr?stage=${encodeURIComponent(stage || "cutting")}`,
+  runPositionNextAction: (id, actionType) =>
+    request(`/api/positions/${id}/run-next-action`, {
+      method: "POST",
+      body: JSON.stringify({ actionType })
+    }),
 
   getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
   operatorStart: (body) =>

@@ -61,12 +61,24 @@ function buildPrompt({ orderNumber, item, text, feedback }) {
 Поверни ТІЛЬКИ валідний JSON без markdown:
 {
   "summary": "короткий опис замовлення/виробу",
-  "materials": ["матеріал1", "..."],
+  "materials": ["матеріал1"],
   "panels": [{"name":"...", "qty":0, "size":"..."}],
   "warnings": ["попередження"],
-  "suggestedTasks": ["порізка", "кромкування", "присадка", "збірка", "пакування"]
+  "suggestedTasks": [
+    {"stage": "cutting", "needed": true, "reason": "...", "confidence": 0.92}
+  ],
+  "estimatedComplexity": "low|medium|high",
+  "missingInfo": ["..."],
+  "operatorNotes": {
+    "cutting": "...",
+    "edging": "...",
+    "drilling": "...",
+    "assembly": "...",
+    "packaging": "..."
+  }
 }
 
+Для suggestedTasks використовуй stage: cutting, edging, drilling, assembly, packaging.
 Текст/вміст файлу:
 ${text.slice(0, MAX_TEXT_CHARS)}${examples}`;
 }

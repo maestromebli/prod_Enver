@@ -5,8 +5,6 @@ import { $, fillSelect, showFormError } from "./utils.js";
 
 let onSaved = () => {};
 
-const DEFAULT_SUB_ITEMS = ["", ""];
-
 export function setOrderSaveHandler(handler) {
   onSaved = handler;
 }
@@ -27,23 +25,26 @@ function fillDatalists() {
 function syncOrderModalChrome(order = null) {
   const title = $("#orderModalTitle");
   const subtitle = $("#orderModalSubtitle");
+  const submit = $("#orderSubmitBtn");
   if (!title) return;
 
   if (!order) {
     title.textContent = "Нове замовлення";
     if (subtitle) {
-      subtitle.textContent = "";
-      subtitle.hidden = true;
+      subtitle.textContent = "Мінімум: номер і об'єкт";
+      subtitle.hidden = false;
     }
+    if (submit) submit.textContent = "Створити";
     return;
   }
 
   title.textContent = order.orderNumber || `Замовлення #${order.id}`;
   if (subtitle) {
     const parts = [order.object, order.client].filter(Boolean);
-    subtitle.textContent = parts.join(" · ");
-    subtitle.hidden = !parts.length;
+    subtitle.textContent = parts.join(" · ") || "Редагування";
+    subtitle.hidden = false;
   }
+  if (submit) submit.textContent = "Зберегти";
 }
 
 function syncOrderFormMoreOpen(order = null) {
@@ -54,6 +55,7 @@ function syncOrderFormMoreOpen(order = null) {
     return;
   }
   const hasExtra = Boolean(
+    order.manager?.trim() ||
     order.startDate?.trim() ||
     order.planDate?.trim() ||
     order.comment?.trim() ||
@@ -64,67 +66,21 @@ function syncOrderFormMoreOpen(order = null) {
 
 function syncSubItemsBlock(isNew) {
   const block = $("#orderSubItemsBlock");
-  if (!block) return;
-  block.hidden = !isNew;
-  if (isNew) renderSubItemsList(DEFAULT_SUB_ITEMS);
-}
-
-function renderSubItemsList(items) {
-  const list = $("#orderSubItemsList");
-  if (!list) return;
-  const rows = items.length ? items : [""];
-  list.innerHTML = rows
-    .map(
-      (value, index) => `
-    <div class="order-sub-item-row">
-      <input
-        type="text"
-        class="order-sub-item-input"
-        data-sub-item-index="${index}"
-        value="${escapeAttr(value)}"
-        placeholder="Напр. кухня, вітальня, шафа"
-        autocomplete="off"
-      />
-      <button type="button" class="order-sub-item-remove" data-remove-sub-item="${index}" aria-label="Прибрати">×</button>
-    </div>`
-    )
-    .join("");
-}
-
-function escapeAttr(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;");
+  const statusField = $("#orderStatusField");
+  if (block) block.hidden = !isNew;
+  if (statusField) statusField.hidden = isNew;
+  if (isNew) {
+    const ta = $("#orderSubItemsText");
+    if (ta && !ta.value.trim()) ta.value = "";
+  }
 }
 
 function readSubItemsFromDom() {
-  return [...document.querySelectorAll(".order-sub-item-input")]
-    .map((el) => el.value.trim())
+  const text = $("#orderSubItemsText")?.value || "";
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
     .filter(Boolean);
-}
-
-function bindSubItemsActions() {
-  $("#orderAddSubItem")?.addEventListener("click", () => {
-    const current = [...document.querySelectorAll(".order-sub-item-input")].map((el) => el.value);
-    current.push("");
-    renderSubItemsList(current);
-    const inputs = document.querySelectorAll(".order-sub-item-input");
-    inputs[inputs.length - 1]?.focus();
-  });
-
-  $("#orderSubItemsList")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-remove-sub-item]");
-    if (!btn) return;
-    const current = [...document.querySelectorAll(".order-sub-item-input")].map((el) => el.value);
-    const index = Number(btn.dataset.removeSubItem);
-    if (current.length <= 1) {
-      renderSubItemsList([""]);
-      return;
-    }
-    current.splice(index, 1);
-    renderSubItemsList(current);
-  });
 }
 
 export function openOrderModal(order = null) {
@@ -142,6 +98,7 @@ export function openOrderModal(order = null) {
   $("#orderStartDate").value = order?.startDate ?? "";
   $("#orderPlanDate").value = order?.planDate ?? "";
   $("#orderComment").value = order?.comment ?? "";
+  $("#orderSubItemsText").value = "";
 
   fillSelect("#orderStatus", statuses, order?.status || statuses[0] || "");
   fillSelect("#orderPriority", priorities, order?.priority || "Звичайний");
@@ -151,18 +108,20 @@ export function openOrderModal(order = null) {
   showError("");
   modal().classList.add("open");
   modal().setAttribute("aria-hidden", "false");
-  $("#orderNumber").focus();
+  $("#orderObject").focus();
 }
 
 export function closeOrderModal() {
   modal().classList.remove("open");
   modal().setAttribute("aria-hidden", "true");
   $("#orderForm").reset();
-  renderSubItemsList([]);
+  $("#orderSubItemsText").value = "";
   showError("");
 }
 
 function readForm() {
+  const statuses = state.directories["Статуси замовлення"] || [];
+  const isNew = !$("#orderId").value;
   const body = {
     orderNumber: $("#orderNumber").value.trim(),
     object: $("#orderObject").value.trim(),
@@ -170,11 +129,11 @@ function readForm() {
     manager: $("#orderManager").value.trim(),
     startDate: $("#orderStartDate").value.trim(),
     planDate: $("#orderPlanDate").value.trim(),
-    status: $("#orderStatus").value,
+    status: isNew ? statuses[0] || "Новий" : $("#orderStatus").value,
     priority: $("#orderPriority").value,
     comment: $("#orderComment").value.trim()
   };
-  if (!$("#orderId").value) {
+  if (isNew) {
     body.subItems = readSubItemsFromDom();
   }
   return body;
@@ -188,7 +147,8 @@ export function captureOrderModalState() {
   if (!isOrderModalOpen()) return null;
   return {
     id: $("#orderId").value || null,
-    ...readForm()
+    ...readForm(),
+    subItems: readSubItemsFromDom()
   };
 }
 
@@ -208,7 +168,7 @@ export function restoreOrderModalState(saved) {
   if (!saved.id) {
     $("#orderId").value = "";
     if (Array.isArray(saved.subItems) && saved.subItems.length) {
-      renderSubItemsList(saved.subItems);
+      $("#orderSubItemsText").value = saved.subItems.join("\n");
     }
   }
   syncOrderModalChrome(order);
@@ -259,7 +219,6 @@ async function deleteOrder() {
 }
 
 export function initOrderModal() {
-  bindSubItemsActions();
   $("#orderForm")?.addEventListener("input", () => {
     document.dispatchEvent(new CustomEvent("enver-ui-changed"));
   });

@@ -1,0 +1,905 @@
+/* ═══════════════════════════════════════════════════════════════
+   ENVER Design System — єдина візуальна мова виробничого контролю
+   Токени → legacy bridge → компоненти → адаптив
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ——— Кольори ——— */
+  --enver-bg: #f6f7f4;
+  --enver-surface: #ffffff;
+  --enver-surface-soft: #f0f2ec;
+  --enver-surface-raised: #ffffff;
+
+  --enver-text: #171a16;
+  --enver-text-muted: #666d62;
+  --enver-text-soft: #8a9186;
+
+  --enver-border: #dfe4d8;
+  --enver-border-strong: #c6cec0;
+
+  --enver-primary: #245c3b;
+  --enver-primary-hover: #1d4b31;
+  --enver-primary-soft: #e2efe7;
+
+  --enver-warning: #b7791f;
+  --enver-warning-soft: #fff4da;
+
+  --enver-danger: #b42318;
+  --enver-danger-soft: #fde7e4;
+
+  --enver-success: #287a3e;
+  --enver-success-soft: #e1f3e6;
+
+  --enver-info: #285e8e;
+  --enver-info-soft: #e3f0fb;
+
+  /* ——— Радіуси ——— */
+  --enver-radius-sm: 8px;
+  --enver-radius-md: 14px;
+  --enver-radius-lg: 22px;
+  --enver-radius-xl: 30px;
+  --enver-radius-pill: 999px;
+
+  /* ——— Тіні ——— */
+  --enver-shadow-sm: 0 1px 2px rgba(20, 30, 20, 0.06);
+  --enver-shadow-md: 0 10px 30px rgba(20, 30, 20, 0.08);
+  --enver-shadow-lg: 0 24px 70px rgba(20, 30, 20, 0.12);
+
+  --enver-focus: 0 0 0 4px rgba(36, 92, 59, 0.18);
+
+  /* ——— Відступи ——— */
+  --enver-space-1: 4px;
+  --enver-space-2: 8px;
+  --enver-space-3: 12px;
+  --enver-space-4: 16px;
+  --enver-space-5: 20px;
+  --enver-space-6: 24px;
+  --enver-space-8: 32px;
+  --enver-space-10: 40px;
+  --enver-space-12: 48px;
+
+  /* ——— Типографіка ——— */
+  --enver-font: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --enver-font-size: 16px;
+  --enver-line-height: 1.5;
+
+  /* ——— Breakpoints (для документації / media) ——— */
+  --enver-bp-mobile: 640px;
+  --enver-bp-tablet: 1024px;
+  --enver-bp-desktop: 1025px;
+  --enver-bp-wide: 1440px;
+
+  /* ——— Touch ——— */
+  --enver-touch-min: 44px;
+  --enver-touch-lg: 56px;
+
+  /* ——— Motion ——— */
+  --enver-transition: 0.15s ease;
+
+  /* ——— Bridge: legacy main.css ——— */
+  --navy: var(--enver-primary);
+  --navy-2: var(--enver-primary-hover);
+  --navy-3: #142e1f;
+  --bg: var(--enver-bg);
+  --border: var(--enver-border);
+  --border-soft: #e8ece4;
+  --text: var(--enver-text);
+  --text-strong: var(--enver-text);
+  --muted: var(--enver-text-muted);
+  --blue: var(--enver-info);
+  --green: var(--enver-success);
+  --yellow: var(--enver-warning);
+  --red: var(--enver-danger);
+  --orange: #c45d1a;
+  --gray: var(--enver-text-soft);
+  --white: var(--enver-surface);
+  --surface: var(--enver-surface);
+  --surface-muted: var(--enver-surface-soft);
+  --surface-2: #eceee8;
+  --surface-hover: #f4f6f1;
+  --input-bg: var(--enver-surface);
+  --topbar-bg: rgba(246, 247, 244, 0.96);
+  --body-glow: rgba(36, 92, 59, 0.05);
+  --body-gradient-top: #ffffff;
+  --bar-track: #e2e6dc;
+  --shadow-subtle: rgba(20, 30, 20, 0.04);
+  --shadow: var(--enver-shadow-sm);
+
+  /* ——— Bridge: tokens.css / design-system.css ——— */
+  --accent: var(--enver-primary);
+  --accent-hover: var(--enver-primary-hover);
+  --accent-soft: var(--enver-primary-soft);
+  --success: var(--enver-success);
+  --success-soft: var(--enver-success-soft);
+  --warning: var(--enver-warning);
+  --warning-soft: var(--enver-warning-soft);
+  --danger: var(--enver-danger);
+  --danger-soft: var(--enver-danger-soft);
+  --focus-ring: var(--enver-focus);
+  --transition-fast: var(--enver-transition);
+  --radius-sm: var(--enver-radius-sm);
+  --radius-md: var(--enver-radius-md);
+  --radius-lg: var(--enver-radius-lg);
+  --shadow-sm: var(--enver-shadow-sm);
+  --shadow-md: var(--enver-shadow-md);
+  --shadow-lg: var(--enver-shadow-lg);
+  --space-1: var(--enver-space-1);
+  --space-2: var(--enver-space-2);
+  --space-3: var(--enver-space-3);
+  --space-4: var(--enver-space-4);
+  --space-5: var(--enver-space-5);
+  --space-6: var(--enver-space-6);
+  --space-8: var(--enver-space-8);
+  --header-accent: var(--enver-primary);
+}
+
+[data-theme="dark"] {
+  --enver-bg: #0e1210;
+  --enver-surface: #1a211c;
+  --enver-surface-soft: #141a16;
+  --enver-surface-raised: #222a24;
+
+  --enver-text: #e8ece6;
+  --enver-text-muted: #9aa396;
+  --enver-text-soft: #6e7768;
+
+  --enver-border: #2e3830;
+  --enver-border-strong: #3d4a40;
+
+  --enver-primary: #4a9e6a;
+  --enver-primary-hover: #5cb47c;
+  --enver-primary-soft: rgba(74, 158, 106, 0.14);
+
+  --enver-warning-soft: rgba(183, 121, 31, 0.14);
+  --enver-danger-soft: rgba(180, 35, 24, 0.14);
+  --enver-success-soft: rgba(40, 122, 62, 0.14);
+  --enver-info-soft: rgba(40, 94, 142, 0.14);
+
+  --enver-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --enver-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --enver-shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.35);
+
+  --enver-focus: 0 0 0 4px rgba(74, 158, 106, 0.22);
+
+  --surface-2: #121814;
+  --surface-hover: #252e28;
+  --topbar-bg: rgba(14, 18, 16, 0.94);
+  --body-glow: rgba(74, 158, 106, 0.08);
+  --body-gradient-top: #141a16;
+  --bar-track: #2e3830;
+}
+
+/* ——— v3 shell bridge ——— */
+.enver-v3,
+body.enver-v3 {
+  --v3-font: var(--enver-font);
+  --v3-surface: var(--enver-bg);
+  --v3-surface-2: var(--enver-surface-soft);
+  --v3-elevated: var(--enver-surface);
+  --v3-text: var(--enver-text);
+  --v3-muted: var(--enver-text-muted);
+  --v3-accent: var(--enver-primary);
+  --v3-accent-soft: var(--enver-primary-soft);
+  --v3-radius: var(--enver-radius-lg);
+  --v3-radius-sm: var(--enver-radius-md);
+  --v3-shadow: var(--enver-shadow-md);
+}
+
+/* ═══ Базова типографіка ═══ */
+body {
+  font-family: var(--enver-font);
+  font-size: var(--enver-font-size);
+  line-height: var(--enver-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+.enver-page-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--enver-text);
+}
+
+.enver-section-title {
+  margin: 0 0 var(--enver-space-3);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--enver-text);
+}
+
+.enver-card-title {
+  margin: 0 0 var(--enver-space-2);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--enver-text);
+}
+
+.enver-meta {
+  font-size: 0.875rem;
+  color: var(--enver-text-muted);
+  line-height: 1.45;
+}
+
+.enver-muted {
+  color: var(--enver-text-muted);
+}
+
+.enver-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--enver-text);
+}
+
+.enver-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--enver-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ═══ Кнопки ═══ */
+.enver-button,
+.btn.enver-button-primary,
+.btn.enver-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--enver-space-2);
+  min-height: var(--enver-touch-min);
+  padding: 0 var(--enver-space-4);
+  border-radius: var(--enver-radius-sm);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--enver-transition),
+    border-color var(--enver-transition),
+    box-shadow var(--enver-transition),
+    transform var(--enver-transition);
+  text-decoration: none;
+}
+
+.enver-button:focus-visible,
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--enver-focus);
+}
+
+.enver-button-primary,
+.btn-primary {
+  background: var(--enver-primary) !important;
+  border-color: var(--enver-primary) !important;
+  color: #fff !important;
+}
+
+.enver-button-primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  background: var(--enver-primary-hover) !important;
+  border-color: var(--enver-primary-hover) !important;
+}
+
+.enver-button-secondary,
+.btn.enver-button-secondary {
+  background: var(--enver-surface);
+  border-color: var(--enver-border);
+  color: var(--enver-text);
+}
+
+.enver-button-secondary:hover:not(:disabled) {
+  background: var(--enver-surface-soft);
+  border-color: var(--enver-border-strong);
+}
+
+.enver-button-ghost,
+.btn.enver-button-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--enver-text-muted);
+}
+
+.enver-button-ghost:hover:not(:disabled) {
+  background: var(--enver-surface-soft);
+  color: var(--enver-text);
+}
+
+.enver-button-danger,
+.btn-danger {
+  background: var(--enver-danger-soft) !important;
+  border-color: #f5c4be !important;
+  color: var(--enver-danger) !important;
+}
+
+.enver-button-success {
+  background: var(--enver-success);
+  border-color: var(--enver-success);
+  color: #fff;
+}
+
+.enver-button-lg,
+.enver-touch-action {
+  min-height: var(--enver-touch-lg);
+  padding: 0 var(--enver-space-6);
+  font-size: 1.0625rem;
+  border-radius: var(--enver-radius-md);
+}
+
+.enver-button:disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ═══ Картки ═══ */
+.enver-card,
+.card.enver-card {
+  background: var(--enver-surface);
+  border: 1px solid var(--enver-border);
+  border-radius: var(--enver-radius-md);
+  box-shadow: var(--enver-shadow-sm);
+  overflow: hidden;
+}
+
+.enver-card-header {
+  padding: var(--enver-space-4) var(--enver-space-5);
+  border-bottom: 1px solid var(--enver-border);
+  background: var(--enver-surface-soft);
+}
+
+.enver-card-body {
+  padding: var(--enver-space-4) var(--enver-space-5);
+}
+
+.enver-card-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--enver-space-3);
+  padding: var(--enver-space-3) var(--enver-space-5);
+  border-top: 1px solid var(--enver-border);
+  background: var(--enver-surface-soft);
+}
+
+/* ═══ Badges / статуси ═══ */
+.enver-badge,
+.badge.enver-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--enver-radius-pill);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  min-width: auto;
+}
+
+.enver-badge-success,
+.badge.green {
+  background: var(--enver-success-soft);
+  color: var(--enver-success);
+  border-color: #b8dfc4;
+}
+
+.enver-badge-warning,
+.badge.yellow,
+.badge.orange {
+  background: var(--enver-warning-soft);
+  color: var(--enver-warning);
+  border-color: #f0d9a0;
+}
+
+.enver-badge-danger,
+.badge.red {
+  background: var(--enver-danger-soft);
+  color: var(--enver-danger);
+  border-color: #f5c4be;
+}
+
+.enver-badge-info,
+.badge.blue {
+  background: var(--enver-info-soft);
+  color: var(--enver-info);
+  border-color: #b8d4f0;
+}
+
+.enver-badge-neutral,
+.badge.gray {
+  background: var(--enver-surface-soft);
+  color: var(--enver-text-muted);
+  border-color: var(--enver-border);
+}
+
+/* ═══ Прогрес ═══ */
+.enver-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--enver-space-2);
+}
+
+.enver-progress-track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--enver-radius-pill);
+  background: var(--bar-track);
+  overflow: hidden;
+}
+
+.enver-progress-fill {
+  height: 100%;
+  border-radius: var(--enver-radius-pill);
+  background: linear-gradient(90deg, #3d8f5c, var(--enver-primary));
+  transition: width 0.3s ease;
+}
+
+.enver-progress-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--enver-text-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.progress-ring-bg {
+  stroke: var(--bar-track);
+}
+
+.progress-ring-fill {
+  stroke: var(--enver-primary);
+}
+
+/* ═══ Empty states ═══ */
+.enver-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--enver-space-3);
+  padding: var(--enver-space-10) var(--enver-space-6);
+  text-align: center;
+  color: var(--enver-text-muted);
+}
+
+.enver-empty-state-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.enver-empty-state-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--enver-text);
+}
+
+.enver-empty-state-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  max-width: 28rem;
+  line-height: 1.5;
+}
+
+/* ═══ Toast ═══ */
+.enver-toast,
+.toast {
+  padding: var(--enver-space-3) var(--enver-space-4);
+  border-radius: var(--enver-radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: var(--enver-shadow-md);
+}
+
+.toast-info {
+  background: var(--enver-info-soft);
+  color: var(--enver-info);
+  border: 1px solid #b8d4f0;
+}
+
+.toast-success {
+  background: var(--enver-success-soft);
+  color: var(--enver-success);
+  border: 1px solid #b8dfc4;
+}
+
+.toast-error {
+  background: var(--enver-danger-soft);
+  color: var(--enver-danger);
+  border: 1px solid #f5c4be;
+}
+
+/* ═══ Форми ═══ */
+.enver-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--enver-space-1);
+}
+
+.enver-field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--enver-text-muted);
+}
+
+.enver-input,
+.enver-textarea,
+.enver-select {
+  min-height: var(--enver-touch-min);
+  padding: 0 var(--enver-space-3);
+  border: 1px solid var(--enver-border);
+  border-radius: var(--enver-radius-sm);
+  background: var(--enver-surface);
+  color: var(--enver-text);
+  font-size: 1rem;
+  transition:
+    border-color var(--enver-transition),
+    box-shadow var(--enver-transition);
+}
+
+.enver-textarea {
+  padding: var(--enver-space-3);
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.enver-input:focus,
+.enver-textarea:focus,
+.enver-select:focus {
+  outline: none;
+  border-color: var(--enver-primary);
+  box-shadow: var(--enver-focus);
+}
+
+/* ═══ Skeleton loading ═══ */
+.enver-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--enver-surface-soft) 25%,
+    var(--enver-surface) 50%,
+    var(--enver-surface-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: enver-shimmer 1.4s ease infinite;
+  border-radius: var(--enver-radius-sm);
+}
+
+@keyframes enver-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.enver-skeleton-card {
+  height: 180px;
+  border-radius: var(--enver-radius-md);
+}
+
+/* ═══ Картка замовлення (покращена) ═══ */
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.order-card-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--enver-space-2);
+  margin-bottom: var(--enver-space-2);
+}
+
+.order-card-progress {
+  margin: var(--enver-space-3) 0;
+}
+
+.order-card-stage-line {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--enver-text-muted);
+  line-height: 1.4;
+}
+
+.order-card-stage-line strong {
+  color: var(--enver-text);
+  font-weight: 600;
+}
+
+.order-card-next {
+  margin: var(--enver-space-2) 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--enver-primary);
+  line-height: 1.4;
+}
+
+.order-card-warnings {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--enver-space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--enver-warning);
+}
+
+.order-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--enver-space-2);
+  margin-top: var(--enver-space-4);
+  padding-top: var(--enver-space-3);
+  border-top: 1px solid var(--enver-border);
+}
+
+.order-card-cta {
+  flex: 1;
+  min-height: var(--enver-touch-min);
+  padding: 0 var(--enver-space-4);
+  border: none;
+  border-radius: var(--enver-radius-sm);
+  background: var(--enver-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background var(--enver-transition);
+}
+
+.order-card-cta:hover {
+  background: var(--enver-primary-hover);
+}
+
+.order-card-cta--secondary {
+  background: var(--enver-surface-soft);
+  color: var(--enver-text);
+  border: 1px solid var(--enver-border);
+}
+
+.order-card-cta--secondary:hover {
+  background: var(--enver-border);
+}
+
+.order-card--overdue {
+  border-color: var(--enver-warning);
+  box-shadow: 0 0 0 1px var(--enver-warning-soft);
+}
+
+.order-card--ready-install {
+  border-color: var(--enver-success);
+  box-shadow: 0 0 0 1px var(--enver-success-soft);
+}
+
+.order-card--ready-install .order-card-status-pill {
+  background: var(--enver-success-soft);
+  color: var(--enver-success);
+}
+
+.order-card-status-pill {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: var(--enver-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--enver-surface-soft);
+  color: var(--enver-text-muted);
+}
+
+/* ═══ Екран уваги — групи ═══ */
+.attention-group {
+  padding: var(--enver-space-4) var(--enver-space-5);
+}
+
+.attention-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--enver-space-3);
+  margin-bottom: var(--enver-space-3);
+}
+
+.attention-group-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--enver-text);
+  display: flex;
+  align-items: center;
+  gap: var(--enver-space-2);
+}
+
+.attention-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 6px;
+  border-radius: var(--enver-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--enver-surface-soft);
+  color: var(--enver-text-muted);
+}
+
+.attention-group-count--critical {
+  background: var(--enver-danger-soft);
+  color: var(--enver-danger);
+}
+
+.attention-group-count--warn {
+  background: var(--enver-warning-soft);
+  color: var(--enver-warning);
+}
+
+.attention-show-all {
+  border: none;
+  background: transparent;
+  color: var(--enver-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--enver-space-1) var(--enver-space-2);
+  border-radius: var(--enver-radius-sm);
+}
+
+.attention-show-all:hover {
+  background: var(--enver-primary-soft);
+}
+
+/* ═══ Оператор — touch ═══ */
+.enver-operator-ui .op-action-btn,
+.enver-operator-ui .op-btn-primary {
+  min-height: var(--enver-touch-lg);
+}
+
+.enver-operator-card {
+  background: var(--enver-surface);
+  border: 1px solid var(--enver-border);
+  border-radius: var(--enver-radius-md);
+  padding: var(--enver-space-5);
+  box-shadow: var(--enver-shadow-sm);
+}
+
+/* ═══ Адаптив ═══ */
+@media (max-width: 640px) {
+  body {
+    font-size: 16px;
+  }
+
+  .order-card-actions {
+    flex-direction: column;
+  }
+
+  .order-card-cta {
+    width: 100%;
+  }
+
+  .orders-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toast-container {
+    left: var(--enver-space-4);
+    right: var(--enver-space-4);
+    bottom: calc(var(--enver-space-4) + env(safe-area-inset-bottom));
+    max-width: none;
+  }
+
+  .enver-button-lg,
+  .enver-touch-action {
+    width: 100%;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .enver-operator-ui .op-action-btn {
+    min-height: 60px;
+    font-size: 1.0625rem;
+  }
+
+  .orders-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--enver-space-4);
+  }
+}
+
+@media (min-width: 1440px) {
+  .orders-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--enver-space-5);
+  }
+}
+
+/* Segmented tabs */
+.enver-segmented {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--enver-space-1, 4px);
+  padding: var(--enver-space-1, 4px);
+  margin: var(--enver-space-3, 12px) 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--enver-surface-soft);
+  border: 1px solid var(--enver-border);
+  border-radius: var(--enver-radius-md);
+  scrollbar-width: none;
+}
+
+.enver-segmented::-webkit-scrollbar {
+  display: none;
+}
+
+.enver-segmented-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--enver-text-muted);
+  padding: 10px 16px;
+  border-radius: calc(var(--enver-radius-md) - 4px);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--enver-transition),
+    color var(--enver-transition),
+    box-shadow var(--enver-transition);
+}
+
+.enver-segmented-btn:hover {
+  color: var(--enver-text);
+  background: var(--enver-surface);
+}
+
+.enver-segmented-btn.active {
+  background: var(--enver-surface);
+  color: var(--enver-primary);
+  box-shadow: var(--enver-shadow-sm);
+}
+
+.enver-segmented-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--enver-focus);
+}
+
+/* Godmode banner — enver tokens */
+.godmode-next-banner {
+  background: var(--enver-primary-soft) !important;
+  border-color: var(--enver-border) !important;
+  border-left: 3px solid var(--enver-primary) !important;
+}
+
+.godmode-next-banner--blocked {
+  background: var(--enver-danger-soft) !important;
+  border-left-color: var(--enver-danger) !important;
+}
+
+.godmode-empty-state {
+  padding: var(--enver-space-8) var(--enver-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .order-card:hover {
+    transform: none;
+  }
+}

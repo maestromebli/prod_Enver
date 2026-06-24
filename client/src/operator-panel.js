@@ -17,14 +17,27 @@ import {
   newOperatorQueueIdsForStage,
   reminderSnapshot
 } from "./role-notifications.js";
+import { isCuttingOneScreen } from "./operator-ui.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
-import { isCuttingOneScreen } from "./operator-ui.js";
+import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
+
+const FINISH_MESSAGES = {
+  cutting: "Готово. Позицію передано на крайкування.",
+  edging: "Готово. Позицію передано на присадку.",
+  drilling: "Готово. Позицію передано на збірку.",
+  assembly: "Готово. Позицію передано на пакування.",
+  packaging: "Готово. Позиція готова до монтажу."
+};
+
+function finishSuccessMessage(stageKey) {
+  return FINISH_MESSAGES[stageKey] || "Етап завершено";
+}
 
 const STAGE_THEME = {
   cutting: {
-    accent: "#0071e3",
-    gradient: "linear-gradient(135deg, #2997ff 0%, #0071e3 100%)",
+    accent: "#3d8f5c",
+    gradient: "linear-gradient(135deg, #4a9e6a 0%, #245c3b 100%)",
     icon: "cut"
   },
   edging: {
@@ -234,6 +247,32 @@ function userInitials(name) {
   return (parts[0]?.[0] || "О").toUpperCase();
 }
 
+function renderOperatorNextAction(pos, field) {
+  if (!pos) return "";
+  const gm = resolvePositionGodmode(pos);
+  const next = gm.nextAction;
+  const alerts = [...(gm.blockers || []), ...(gm.warnings || [])].slice(0, 3);
+
+  const status = pos[field];
+  let afterFinish = "";
+  if (status === "В роботі" && hasBlockingSession()) {
+    afterFinish = "Після «Закінчив» позиція автоматично передасться на наступний етап.";
+  }
+
+  const warnList =
+    alerts.length > 0
+      ? `<ul class="op-warn-list">${alerts.map((w) => `<li>${escapeHtml(w.message || w.title || "")}</li>`).join("")}</ul>`
+      : "";
+
+  return `
+    <div class="op-next-action" role="status">
+      <strong>Наступна дія</strong>
+      <span>${escapeHtml(next?.label || "Оберіть завдання з черги")}</span>
+      ${afterFinish ? `<p class="op-hint">${escapeHtml(afterFinish)}</p>` : ""}
+      ${warnList}
+    </div>`;
+}
+
 function renderJobMeta() {
   const job = state.operatorJobDetail;
   if (!job?.constructiveFileName) return "";
@@ -291,7 +330,13 @@ export function renderOperatorView() {
     })
     .join("");
 
-  const queueItems = state.operatorQueue
+  const queueItems = [...state.operatorQueue]
+    .sort((a, b) => {
+      const sa = resolvePositionGodmode(a).attentionScore;
+      const sb = resolvePositionGodmode(b).attentionScore;
+      if (sb !== sa) return sb - sa;
+      return (b.overdueDays || 0) - (a.overdueDays || 0);
+    })
     .map((p) => renderQueueItem(p, field, freshQueueIds))
     .join("");
 
@@ -334,7 +379,7 @@ export function renderOperatorView() {
         <aside class="op-queue-panel">
           <div class="op-panel-head"><h2>Черга</h2><span class="op-count-badge">${state.operatorQueue.length}</span></div>
           ${freshQueueIds.size ? `<button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими (${freshQueueIds.size})</button>` : ""}
-          <div class="op-queue-list">${queueItems || '<div class="op-empty-queue"><p>Черга порожня</p></div>'}</div>
+          <div class="op-queue-list">${queueItems || renderSmartEmptyState({ icon: "🎯", title: "Черга порожня", text: "Нових задач на цьому етапі поки немає — перевірте пізніше або оберіть інший етап." })}</div>
         </aside>
 
         <main class="op-work-panel">
@@ -349,8 +394,13 @@ export function renderOperatorView() {
               ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
             </div>
             ${renderJobMeta()}
+            ${renderOperatorNextAction(pos, field)}
           `
-              : `<div class="op-task-empty"><h2>Оберіть завдання</h2><p>Натисніть картку в черзі зліва</p></div>`
+              : renderSmartEmptyState({
+                  icon: "👆",
+                  title: "Оберіть завдання",
+                  text: "Натисніть картку в черзі зліва — етап, клієнт і дії зʼявляться тут."
+                })
           }
 
           <div class="op-action-bar">
@@ -432,7 +482,7 @@ export function bindOperatorActions(onChange) {
     if (e.target.closest("#operatorStartBtn") && canStart()) {
       await runSave("Завдання", {
         saveFn: () => api.operatorStart(payload()),
-        successMessage: "Розпочато",
+        successMessage: "Роботу розпочато",
         onSuccess: async () => {
           await loadOperatorData();
           operatorOnChange();
@@ -459,9 +509,10 @@ export function bindOperatorActions(onChange) {
       }
     }
     if (e.target.closest("#operatorFinishBtn") && canFinish()) {
+      const stageKey = state.operatorStage;
       await runSave("Завдання", {
         saveFn: () => api.operatorFinish(payload()),
-        successMessage: "Етап завершено",
+        successMessage: finishSuccessMessage(stageKey),
         onSuccess: async () => {
           state.operatorSelectedPositionId = null;
           await loadOperatorData();

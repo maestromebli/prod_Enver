@@ -10,7 +10,7 @@ import {
   refreshCurrentUser,
   shouldShowProductionFloorByDefault
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB } from "./constants.js";
 import { loadProductionFloor } from "./production-floor.js";
 import { toastError } from "./toast.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
@@ -48,6 +48,7 @@ import {
   initializeRoleNotificationBaselines,
   reminderSnapshot,
   markOrdersSeenForCurrentRole,
+  markAttentionSeenForCurrentRole,
   markProductionTasksSeenForCurrentRole
 } from "./role-notifications.js";
 import { state } from "./state.js";
@@ -63,6 +64,13 @@ import {
 } from "./ui-persistence.js";
 import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.js";
 import { initTheme } from "./theme.js";
+import { hideAiAssistant, initAiAssistant } from "./ai-assistant.js";
+import {
+  bindGodmodeNotifyActions,
+  mountGodmodeNotifyChrome,
+  startGodmodeNotificationPolling,
+  stopGodmodeNotificationPolling
+} from "./godmode-notifications.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
 import "./styles/brand-logo.css";
@@ -71,7 +79,11 @@ let contentRenderTimer = null;
 const CONTENT_RENDER_DELAY_MS = 180;
 
 function setLoading(visible) {
-  $("#loadingOverlay").classList.toggle("visible", visible);
+  const overlay = $("#loadingOverlay");
+  const content = $("#content");
+  overlay?.classList.toggle("visible", visible);
+  content?.classList.toggle("enver-content-loading", visible);
+  state.loading = visible;
 }
 
 function showLoginModal(show) {
@@ -154,6 +166,10 @@ async function afterAuth({ restoreNavigation = false } = {}) {
   }
 
   showLoginModal(false);
+  initAiAssistant({ onNavigate: handleAiNavigate });
+  mountGodmodeNotifyChrome();
+  bindGodmodeNotifyActions();
+  startGodmodeNotificationPolling();
 }
 
 function openNewPositionForContext() {
@@ -324,6 +340,10 @@ function scheduleContentRender() {
 }
 
 window.__enverRender = renderApp;
+window.__enverOpenPosition = (id) => {
+  const position = state.positions.find((p) => p.id === Number(id));
+  if (position) openPositionDrawer(position);
+};
 
 async function loadData({ silent = false } = {}) {
   if (!silent) setLoading(true);
@@ -379,6 +399,9 @@ async function setTab(tab) {
   if (tab === "Замовлення") {
     markOrdersSeenForCurrentRole(state.orders);
   }
+  if (tab === ATTENTION_TAB) {
+    markAttentionSeenForCurrentRole(state.positions, state.orders);
+  }
   if (tab === PRODUCTION_FLOOR_TAB) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
@@ -420,9 +443,24 @@ function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) 
   if (stageFilter) stageFilter.value = "";
 }
 
+async function handleAiNavigate(destination) {
+  const quickRoutes = {
+    [ATTENTION_TAB]: { tab: ATTENTION_TAB },
+    Прострочки: { tab: ATTENTION_TAB },
+    Проблеми: { tab: "Позиції", status: "Проблема" },
+    Встановлення: { tab: "Встановлення" },
+    Позиції: { tab: "Позиції" },
+    Замовлення: { tab: "Замовлення" }
+  };
+  const route = quickRoutes[destination] || { tab: destination };
+  if (route.status) applyQuickFilters({ status: route.status });
+  await setTab(route.tab);
+}
+
 async function handleDashboardNav(destination) {
   const quickRoutes = {
-    "У фокусі": { tab: "Прострочки" },
+    "У фокусі": { tab: ATTENTION_TAB },
+    [ATTENTION_TAB]: { tab: ATTENTION_TAB },
     Проблеми: { tab: "Позиції", status: "Проблема" },
     "У виробництві": { tab: "Позиції", status: "У виробництві" },
     "До монтажу": { tab: "Позиції", status: "Готово до встановлення" }
@@ -528,7 +566,9 @@ document.addEventListener("click", (e) => {
 
 $("#logoutBtn")?.addEventListener("click", () => {
   logout();
+  stopGodmodeNotificationPolling();
   clearPersistedUiState();
+  hideAiAssistant();
   state.view = "main";
   showLoginModal(true);
   renderApp();
