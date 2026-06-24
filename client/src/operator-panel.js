@@ -180,6 +180,11 @@ function hasBlockingSession() {
   return ["В роботі", "На паузі"].includes(activeSessionStageStatus());
 }
 
+function canReportProblem() {
+  if (isSupervisorOperatorPanel()) return false;
+  return Boolean(workPosition()?.id);
+}
+
 function canStart() {
   if (isSupervisorOperatorPanel()) return false;
   if (hasBlockingSession()) return false;
@@ -407,7 +412,16 @@ export function renderOperatorView() {
             <button type="button" class="op-action-btn op-action-btn--start" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
             <button type="button" class="op-action-btn op-action-btn--pause" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>${canResume() ? "Продовжити" : "Пауза"}</button>
             <button type="button" class="op-action-btn op-action-btn--finish" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>Закінчив</button>
+            <button type="button" class="op-action-btn op-action-btn--problem" id="operatorProblemBtn" ${canReportProblem() ? "" : "disabled"}>Проблема</button>
           </div>
+          <form class="op-problem-form" id="operatorProblemForm" hidden>
+            <label for="operatorProblemInput">Опишіть проблему <span aria-hidden="true">*</span></label>
+            <textarea id="operatorProblemInput" rows="3" required placeholder="Що сталося на етапі?"></textarea>
+            <div class="op-problem-form-actions">
+              <button type="button" class="op-btn-ghost" id="operatorProblemCancel">Скасувати</button>
+              <button type="submit" class="op-action-btn op-action-btn--problem" id="operatorProblemSubmit">Надіслати</button>
+            </div>
+          </form>
           ${inWork && isSessionPaused() ? '<p class="op-hint">Завдання на паузі</p>' : ""}
         </main>
       </div>
@@ -520,6 +534,48 @@ export function bindOperatorActions(onChange) {
         }
       }).catch(() => {});
     }
+
+    if (e.target.closest("#operatorProblemBtn") && canReportProblem()) {
+      const form = document.querySelector("#operatorProblemForm");
+      const input = document.querySelector("#operatorProblemInput");
+      if (form && input) {
+        form.hidden = false;
+        input.value = "";
+        input.focus();
+      }
+      return;
+    }
+
+    if (e.target.closest("#operatorProblemCancel")) {
+      const form = document.querySelector("#operatorProblemForm");
+      if (form) form.hidden = true;
+      return;
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    if (e.target?.id !== "operatorProblemForm") return;
+    e.preventDefault();
+    if (!canReportProblem()) return;
+
+    const comment = document.querySelector("#operatorProblemInput")?.value?.trim();
+    if (!comment) return;
+
+    await runSave("Проблема", {
+      saveFn: () =>
+        api.operatorReportProblem({
+          userId: state.currentUser.id,
+          positionId: workPosition()?.id,
+          stageKey: state.operatorStage,
+          comment
+        }),
+      successMessage: "Проблему зафіксовано — менеджер отримає сповіщення",
+      onSuccess: async () => {
+        document.querySelector("#operatorProblemForm")?.setAttribute("hidden", "");
+        await loadOperatorData();
+        operatorOnChange();
+      }
+    }).catch(() => {});
   });
 }
 

@@ -1,4 +1,5 @@
 import { toastError, toastSuccess } from "./toast.js";
+import { humanizeUserMessage } from "./utils.js";
 
 let saveInFlight = false;
 
@@ -45,9 +46,9 @@ export async function runSave(label, options = {}) {
     if (onSuccess) await onSuccess(result);
     return result;
   } catch (err) {
-    const detail = err?.message || errorMessage || "Помилка збереження";
+    const detail = humanizeUserMessage(err?.message || errorMessage || "Помилка збереження");
     if (!silent) {
-      toastError(label ? `${label}: не збережено — ${detail}` : detail);
+      toastError(label ? `${label}: ${detail}` : detail);
     }
     if (onError) onError(err);
     throw err;

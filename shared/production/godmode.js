@@ -928,6 +928,79 @@ export function buildNotifications({
     }
   }
 
+  for (const order of _orders) {
+    const status = field(order, "status", "status");
+    if (status === "Завершено") continue;
+
+    const orderId = order.id;
+    if (orderId == null) continue;
+    const orderNumber = field(order, "order_number", "orderNumber");
+    const related = positions.filter(
+      (p) =>
+        (p.order_id ?? p.orderId) === orderId ||
+        field(p, "order_number", "orderNumber") === orderNumber
+    );
+    const orderGm = buildOrderGodmode(order, related, ctx);
+
+    for (const b of orderGm.blockers) {
+      notifications.push({
+        id: `order-${orderId}-blocker-${b.type}`,
+        type: b.type,
+        level: "blocker",
+        title: b.title || "Замовлення",
+        message: `Замовлення ${orderNumber}: ${b.message}`,
+        entityType: "order",
+        entityId: orderId,
+        actionType:
+          orderGm.nextAction?.type === "add_position" ? "add_position" : orderGm.nextAction?.type,
+        createdAt: ts
+      });
+    }
+
+    for (const w of orderGm.warnings) {
+      if (w.type === "missing_due_date") {
+        notifications.push({
+          id: `order-${orderId}-missing-due-date`,
+          type: "missing_due_date",
+          level: "warning",
+          title: "Немає планової дати",
+          message: `Замовлення ${orderNumber} не має планової дати завершення.`,
+          entityType: "order",
+          entityId: orderId,
+          actionType: "open_order",
+          createdAt: ts
+        });
+      }
+    }
+
+    const next = orderGm.nextAction;
+    if (next?.type === "close_order" && next.allowed !== false) {
+      notifications.push({
+        id: `order-${orderId}-close-ready`,
+        type: "close_order",
+        level: "info",
+        title: "Можна закрити замовлення",
+        message: `Замовлення ${orderNumber}: усі позиції завершені.`,
+        entityType: "order",
+        entityId: orderId,
+        actionType: "close_order",
+        createdAt: ts
+      });
+    } else if (next?.type === "add_position" && next.allowed !== false) {
+      notifications.push({
+        id: `order-${orderId}-add-position`,
+        type: "add_position",
+        level: "warning",
+        title: "Додати позицію",
+        message: `Замовлення ${orderNumber}: ${next.description || next.label}`,
+        entityType: "order",
+        entityId: orderId,
+        actionType: "add_position",
+        createdAt: ts
+      });
+    }
+  }
+
   const seen = new Set();
   const unique = notifications.filter((n) => {
     if (seen.has(n.id)) return false;

@@ -101,16 +101,37 @@
 }
 .pf-godmode-row {
   display: flex;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
-  margin-bottom: 8px;
   text-align: left;
   cursor: pointer;
+}
+.pf-godmode-row-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.pf-godmode-run {
+  flex-shrink: 0;
+  align-self: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--enver-accent, #0071e3);
+  background: var(--enver-accent-soft, #eff6ff);
+  color: var(--enver-accent, #0071e3);
+  cursor: pointer;
+}
+.pf-godmode-run:hover {
+  background: var(--enver-accent, #0071e3);
+  color: #fff;
 }
 .pf-godmode-row span {
   flex: 1;

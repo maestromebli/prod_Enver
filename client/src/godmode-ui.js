@@ -63,15 +63,24 @@ export function renderBlockersList(blockers = []) {
   </ul>`;
 }
 
-export function renderNextActionBanner(godmode, { positionId = null, showCta = true } = {}) {
+const ORDER_API_ACTION_TYPES = new Set(["close_order"]);
+
+export function renderNextActionBanner(
+  godmode,
+  { positionId = null, orderId = null, showCta = true } = {}
+) {
   const next = godmode?.nextAction;
   if (!next?.label) return "";
 
   const isBlocked = godmode?.health === "blocked" || next.allowed === false;
-  const ctaAttrs =
-    positionId && showCta && next.allowed !== false
-      ? `data-run-next-action="${positionId}" data-action-type="${escapeHtml(next.type)}"`
-      : "";
+  let ctaAttrs = "";
+  if (showCta && next.allowed !== false) {
+    if (ORDER_API_ACTION_TYPES.has(next.type) && orderId) {
+      ctaAttrs = `data-run-order-action="${orderId}" data-action-type="${escapeHtml(next.type)}"`;
+    } else if (positionId) {
+      ctaAttrs = `data-run-next-action="${positionId}" data-action-type="${escapeHtml(next.type)}"`;
+    }
+  }
 
   return `
     <div class="godmode-next-banner ${isBlocked ? "godmode-next-banner--blocked" : ""}" role="status">
@@ -103,7 +112,7 @@ export function renderOrderGodmodeSummary(order, positions = []) {
       </div>
       ${renderBlockersList(gm.blockers)}
       ${renderWarningsList(gm.warnings, { compact: true })}
-      ${renderNextActionBanner(gm)}
+      ${renderNextActionBanner(gm, { orderId: order.id })}
     </section>`;
 }
 
@@ -153,30 +162,218 @@ export function buildFloorGodmodeBuckets(positions = []) {
 }
 
 export function renderFloorGodmodeSection(buckets) {
-  const section = (title, items, empty) => {
+  const previewLimit = 5;
+
+  const section = (title, items, id) => {
     if (!items.length) return "";
-    const rows = items
-      .slice(0, 8)
-      .map(
-        ({ position: p, godmode: gm }) =>
-          `<button type="button" class="pf-godmode-row" data-edit-position="${p.id}">
-            <strong>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</strong>
-            <span>${escapeHtml(gm.nextAction?.label || "—")}</span>
-            ${renderHealthBadge(gm.health)}
-          </button>`
-      )
-      .join("");
-    return `<section class="pf-section"><h2 class="pf-section-title">${escapeHtml(title)}</h2>${rows || `<p class="pf-empty">${empty}</p>`}</section>`;
+    const preview = items.slice(0, previewLimit);
+    const hasMore = items.length > previewLimit;
+    const rows = (list) =>
+      list
+        .map(({ position: p, godmode: gm }) => {
+          const nextType = gm.nextAction?.type;
+          const quickRun =
+            canQuickRunGodmodeAction(nextType) && gm.nextAction?.allowed !== false
+              ? `<button type="button" class="pf-godmode-run" title="Виконати"
+                  data-pf-run="${p.id}" data-pf-action="${escapeHtml(nextType)}">▶</button>`
+              : "";
+          return `<div class="pf-godmode-row-wrap">
+            <button type="button" class="pf-godmode-row" data-edit-position="${p.id}">
+              <strong>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</strong>
+              <span>${escapeHtml(gm.nextAction?.label || "—")}</span>
+              ${renderHealthBadge(gm.health)}
+            </button>
+            ${quickRun}
+          </div>`;
+        })
+        .join("");
+
+    return `<section class="pf-section pf-godmode-group" data-pf-group="${id}">
+      <div class="attention-group-head">
+        <h2 class="pf-section-title">${escapeHtml(title)} <span class="attention-group-count">${items.length}</span></h2>
+        ${hasMore ? `<button type="button" class="attention-show-all" data-pf-expand="${id}">Показати всі</button>` : ""}
+      </div>
+      ${rows(preview)}
+      ${hasMore ? `<div class="pf-godmode-more" data-pf-more="${id}" hidden>${rows(items.slice(previewLimit))}</div>` : ""}
+    </section>`;
   };
 
   return [
-    section("Потребує уваги", buckets.attention, ""),
-    section("Прострочені", buckets.overdue, ""),
-    section("Очікують конструктив", buckets.awaitingConstructive, ""),
-    section("Очікують задачі", buckets.awaitingTasks, ""),
-    section("Готові до монтажу", buckets.readyForInstall, ""),
-    section("Проблеми", buckets.problems, "")
+    section("Потребує уваги", buckets.attention, "attention"),
+    section("Прострочені", buckets.overdue, "overdue"),
+    section("Очікують конструктив", buckets.awaitingConstructive, "constructive"),
+    section("Очікують задачі", buckets.awaitingTasks, "tasks"),
+    section("Готові до монтажу", buckets.readyForInstall, "install"),
+    section("Проблеми", buckets.problems, "problems")
   ].join("");
+}
+
+const HANDOFF_ACTION_TYPES = new Set([
+  "handoff_to_cutting",
+  "handoff_to_edging",
+  "handoff_to_drilling",
+  "handoff_to_assembly",
+  "handoff_to_packaging",
+  "ready_for_install"
+]);
+
+const UI_ACTION_TYPES = new Set([
+  "upload_constructive",
+  "run_ai_analysis",
+  "create_tasks_from_ai",
+  "schedule_install",
+  "resolve_problem"
+]);
+
+export function sortOrdersByAttention(orders, positions = []) {
+  return [...orders].sort(
+    (a, b) =>
+      (resolveOrderGodmode(b, positions).attentionScore || 0) -
+      (resolveOrderGodmode(a, positions).attentionScore || 0)
+  );
+}
+
+export function rootPositionForOrder(order, positions) {
+  return positionsForOrder(order, positions).find((p) => !p.parentId);
+}
+
+/** Виконує головну дію замовлення або повертає підказку для UI. */
+export async function executePrimaryOrderAction(
+  order,
+  positions,
+  { api, upsertPosition, upsertOrder }
+) {
+  const gm = resolveOrderGodmode(order, positions);
+  const next = gm.nextAction;
+  const root = rootPositionForOrder(order, positions);
+
+  if (!next?.type) {
+    return { action: "open_order" };
+  }
+
+  if (HANDOFF_ACTION_TYPES.has(next.type) && root?.id && next.allowed !== false) {
+    const updated = await api.runPositionNextAction(root.id, next.type);
+    upsertPosition(updated);
+    return { action: "handoff", position: updated, message: next.label };
+  }
+
+  if (UI_ACTION_TYPES.has(next.type) && root?.id) {
+    return {
+      action: "open_position",
+      positionId: root.id,
+      panel: next.type === "schedule_install" ? "install" : "more",
+      focus: next.type
+    };
+  }
+
+  if (ORDER_API_ACTION_TYPES.has(next.type) && next.allowed !== false) {
+    const updated = await api.runOrderNextAction(order.id, next.type);
+    if (upsertOrder) upsertOrder(updated);
+    return { action: "close_order", order: updated, message: next.label || "Замовлення закрито" };
+  }
+
+  if (next.type === "add_position") {
+    return { action: "open_order", hint: "add_position", tab: "positions" };
+  }
+
+  return { action: "open_order", nextAction: next };
+}
+
+export function panelForGodmodeAction(actionType) {
+  if (actionType === "schedule_install" || actionType === "wait_install") return "install";
+  if (UI_ACTION_TYPES.has(actionType) || actionType === "resolve_problem") return "more";
+  return "general";
+}
+
+export function canQuickRunGodmodeAction(actionType) {
+  return HANDOFF_ACTION_TYPES.has(actionType) || ORDER_API_ACTION_TYPES.has(actionType);
+}
+
+/** Залежності для виконання godmode-дій з UI. */
+export async function buildGodmodeActionDeps(overrides = {}) {
+  const { api } = await import("./api.js");
+  const { upsertPosition, upsertOrder, refreshAppData } = await import("./data-sync.js");
+  const { openPositionDrawer } = await import("./positions.js");
+  const { toastSuccess, toastError } = await import("./toast.js");
+  const { humanizeUserMessage } = await import("./utils.js");
+  const { state } = await import("./state.js");
+
+  return {
+    api,
+    upsertPosition,
+    upsertOrder,
+    refreshAppData,
+    openPositionDrawer,
+    toastSuccess,
+    toastError,
+    humanizeUserMessage,
+    openOrderDetail: (orderId, tab = "overview") => {
+      state.selectedOrderId = orderId;
+      state.ordersView.detailTab = tab;
+      state.activeTab = "Замовлення";
+      window.__enverRender?.();
+      window.scrollTo?.({ top: 0, behavior: "smooth" });
+    },
+    getPositions: () => state.positions,
+    getOrders: () => state.orders,
+    ...overrides
+  };
+}
+
+/** Виконує дію зі сповіщення або вкладки «Потребує уваги». */
+export async function executeGodmodeAction({ entityType, entityId, actionType }, depsIn) {
+  const deps = depsIn || (await buildGodmodeActionDeps());
+  const positions = deps.getPositions?.() || [];
+  const orders = deps.getOrders?.() || [];
+
+  try {
+    if (actionType === "open_order" && entityType === "order") {
+      deps.openOrderDetail?.(Number(entityId));
+      return { action: "open_order" };
+    }
+
+    if (actionType === "close_order" || entityType === "order") {
+      const order = orders.find((o) => o.id === Number(entityId));
+      if (!order) throw new Error("Замовлення не знайдено");
+      const result = await executePrimaryOrderAction(order, positions, deps);
+      if (result.action === "close_order" || result.action === "handoff") {
+        deps.toastSuccess?.(result.message || "Готово");
+        await deps.refreshAppData?.({ includeDirectories: false });
+        window.__enverRender?.({ contentOnly: true });
+      } else if (result.action === "open_position") {
+        const position = deps.getPositions?.().find((p) => p.id === result.positionId);
+        if (position) deps.openPositionDrawer?.(position, { panel: result.panel });
+      } else {
+        deps.openOrderDetail?.(order.id, result.tab || "overview");
+      }
+      return result;
+    }
+
+    const positionId = Number(entityId);
+    let position = positions.find((p) => p.id === positionId);
+    if (!position && deps.api?.getPosition) {
+      position = await deps.api.getPosition(positionId);
+      deps.upsertPosition?.(position);
+    }
+    if (!position) throw new Error("Позицію не знайдено");
+
+    const effectiveAction = actionType || position.godmode?.nextAction?.type;
+
+    if (effectiveAction && HANDOFF_ACTION_TYPES.has(effectiveAction)) {
+      const updated = await deps.api.runPositionNextAction(positionId, effectiveAction);
+      deps.upsertPosition?.(updated);
+      deps.toastSuccess?.("Дію виконано");
+      await deps.refreshAppData?.({ includeDirectories: false });
+      window.__enverRender?.({ contentOnly: true });
+      return { action: "handoff", position: updated };
+    }
+
+    deps.openPositionDrawer?.(position, { panel: panelForGodmodeAction(effectiveAction) });
+    return { action: "open_position" };
+  } catch (err) {
+    deps.toastError?.(deps.humanizeUserMessage?.(err?.message) || err?.message || "Помилка");
+    throw err;
+  }
 }
 
 /** Fallback для карток — сумісність з aggregateOrderAttention. */

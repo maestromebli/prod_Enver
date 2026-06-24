@@ -27,8 +27,8 @@ html[data-theme="dark"] body.enver-v3 {
 
 .enver-v3 body,
 body.enver-v3 {
-  font-family: var(--v3-font) !important;
-  background: var(--v3-surface) !important;
+  font-family: var(--v3-font);
+  background: var(--v3-surface);
   color: var(--v3-text);
   -webkit-font-smoothing: antialiased;
 }
@@ -231,12 +231,12 @@ body.enver-v3 {
   font-size: 1.1rem;
 }
 
-.app-shell-logout {
-  border-radius: 999px !important;
-  font-weight: 600 !important;
-  border: none !important;
-  background: var(--v3-elevated) !important;
-  color: var(--v3-text) !important;
+.enver-v3 .app-shell-logout {
+  border-radius: 999px;
+  font-weight: 600;
+  border: none;
+  background: var(--v3-elevated);
+  color: var(--v3-text);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -287,18 +287,72 @@ body.enver-v3 {
   color: #34c759;
 }
 
-/* Toolbar */
+/* Toolbar — вища специфічність замість !important */
+.enver-v3 .app.app-shell .filter-bar.app-shell-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: var(--v3-elevated);
+  border-radius: var(--v3-radius);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--v3-shadow);
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar .filter-field {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar .filter-field--search {
+  flex: 2 1 220px;
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar .filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--v3-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar input,
+.enver-v3 .app.app-shell .app-shell-toolbar select {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--v3-surface);
+  font-weight: 500;
+  padding: 0 12px;
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar #resetBtn {
+  height: 40px;
+  border-radius: 10px;
+  background: var(--v3-surface-2);
+  color: var(--v3-text);
+  border: none;
+  font-weight: 600;
+}
+
+.enver-v3 .app.app-shell .app-shell-toolbar .btn-primary {
+  border-radius: 10px;
+  background: var(--v3-accent);
+  border: none;
+  font-weight: 600;
+  padding: 0 18px;
+  height: 40px;
+}
+
 .app-shell-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 10px 12px;
-  margin: 0 0 16px !important;
-  padding: 14px 16px !important;
-  background: var(--v3-elevated) !important;
-  border-radius: var(--v3-radius) !important;
-  border: 1px solid rgba(0, 0, 0, 0.05) !important;
-  box-shadow: var(--v3-shadow) !important;
 }
 
 .app-shell-toolbar .filter-field {
@@ -319,46 +373,17 @@ body.enver-v3 {
   margin-bottom: 4px;
 }
 
-.app-shell-toolbar input,
-.app-shell-toolbar select {
-  width: 100%;
-  height: 40px !important;
-  border-radius: 10px !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  background: var(--v3-surface) !important;
-  font-weight: 500 !important;
-  padding: 0 12px !important;
-}
-
-.app-shell-toolbar #resetBtn {
-  height: 40px !important;
-  border-radius: 10px !important;
-  background: var(--v3-surface-2) !important;
-  color: var(--v3-text) !important;
-  border: none !important;
-  font-weight: 600 !important;
-}
-
-.app-shell-toolbar .btn-primary {
-  border-radius: 10px !important;
-  background: var(--v3-accent) !important;
-  border: none !important;
-  font-weight: 600 !important;
-  padding: 0 18px !important;
-  height: 40px !important;
-}
-
 .app-shell-content {
   flex: 1;
   min-width: 0;
 }
 
 /* Cards override */
-.enver-v3 .card {
-  background: var(--v3-elevated) !important;
-  border: 1px solid rgba(0, 0, 0, 0.05) !important;
-  border-radius: var(--v3-radius) !important;
-  box-shadow: var(--v3-shadow) !important;
+.enver-v3 .app.app-shell .card {
+  background: var(--v3-elevated);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--v3-radius);
+  box-shadow: var(--v3-shadow);
 }
 
 .enver-v3 .block-title {
@@ -367,9 +392,9 @@ body.enver-v3 {
   letter-spacing: -0.02em;
 }
 
-.enver-v3 .btn-primary {
-  background: var(--v3-accent) !important;
-  border-color: var(--v3-accent) !important;
+.enver-v3 .app.app-shell .btn-primary {
+  background: var(--v3-accent);
+  border-color: var(--v3-accent);
   border-radius: 10px;
   font-weight: 600;
 }
@@ -616,19 +641,19 @@ body.enver-v3 {
 }
 
 /* Production floor */
-.enver-v3 .pf-stage-card {
-  border-radius: var(--v3-radius) !important;
-  border: 1px solid rgba(0, 0, 0, 0.05) !important;
-  box-shadow: var(--v3-shadow) !important;
+.enver-v3 .production-floor .pf-stage-card {
+  border-radius: var(--v3-radius);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--v3-shadow);
 }
 
-.enver-v3 .pf-hero {
-  border-radius: var(--v3-radius) !important;
+.enver-v3 .production-floor .pf-hero {
+  border-radius: var(--v3-radius);
 }
 
 /* Install calendar */
 .enver-v3 .install-calendar.card {
-  border-radius: var(--v3-radius) !important;
+  border-radius: var(--v3-radius);
 }
 
 /* Badges softer */

@@ -20,7 +20,25 @@ export const config = {
   uploadsDir: process.env.UPLOADS_DIR || null
 };
 
-/** У production перевіряє критичну конфігурацію; небезпечні секрети — попередження (не ламаємо існуючі .env). */
+/** Помилки безпеки production — для assertProductionSafety і тестів. */
+export function getProductionSecurityErrors(cfg = config) {
+  const errors = [];
+  if (!cfg.isProduction) return errors;
+
+  if (!process.env.SESSION_SECRET || cfg.sessionSecret === INSECURE_DEFAULTS.sessionSecret) {
+    errors.push(
+      "SESSION_SECRET обов'язковий у production — задайте власний секрет (не enver-dev-secret)"
+    );
+  }
+  if (process.env.ADMIN_DEFAULT_PASSWORD === "admin") {
+    errors.push(
+      "ADMIN_DEFAULT_PASSWORD=admin заборонено у production — задайте надійний пароль адміністратора"
+    );
+  }
+  return errors;
+}
+
+/** У production перевіряє критичну конфігурацію; небезпечні секрети — fail-fast. */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
@@ -29,13 +47,11 @@ export function assertProductionSafety() {
     process.exit(1);
   }
 
-  const warnings = [];
-  if (!process.env.SESSION_SECRET || config.sessionSecret === INSECURE_DEFAULTS.sessionSecret) {
-    warnings.push(
-      "SESSION_SECRET — дефолтне dev-значення; задайте власний секрет у /opt/enver/.env"
-    );
+  const errors = getProductionSecurityErrors();
+  for (const message of errors) {
+    console.error(`[security] ${message}`);
   }
-  for (const message of warnings) {
-    console.warn(`[security] ${message}`);
+  if (errors.length) {
+    process.exit(1);
   }
 }

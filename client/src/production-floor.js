@@ -16,8 +16,13 @@ import { NOTIFICATION_TASK_STATUSES, stageClientField } from "@enver/shared/prod
 
 let floorCache = null;
 
+export function getProductionFloorCache() {
+  return state.productionFloor || floorCache;
+}
+
 export async function loadProductionFloor() {
   floorCache = await api.getProductionFloor();
+  state.productionFloor = floorCache;
   return floorCache;
 }
 
@@ -130,17 +135,26 @@ function renderProblems(list) {
       text: "Усі позиції без блокерів — виробництво йде за планом."
     });
   }
-  return `
-    <div class="table-wrap">
-      <table class="pf-problems-table">
-        <thead>
-          <tr><th>ID</th><th>Замовлення</th><th>Виріб</th><th>Проблема</th><th>Статус</th><th></th></tr>
-        </thead>
-        <tbody>
-          ${list
-            .map(
-              (p) => `
-            <tr>
+
+  const cards = list
+    .map(
+      (p) => `
+    <article class="pf-problem-card enver-card" data-edit-position="${p.id}" tabindex="0">
+      <div class="pf-problem-card-head">
+        <strong>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</strong>
+        ${badge(p.positionStatus)}
+      </div>
+      <p class="pf-problem-card-text">${escapeHtml(p.problem || "Проблема без опису")}</p>
+      ${(p.overdueDays ?? 0) > 0 ? `<span class="pf-problem-card-overdue">+${p.overdueDays} д прострочення</span>` : ""}
+      <button type="button" class="btn btn-sm pf-problem-card-open" data-edit-position="${p.id}">Відкрити</button>
+    </article>`
+    )
+    .join("");
+
+  const rows = list
+    .map(
+      (p) => `
+            <tr class="pf-problem-row" data-edit-position="${p.id}" tabindex="0">
               <td>${p.id}</td>
               <td>${escapeHtml(p.orderNumber)}</td>
               <td>${escapeHtml(p.item)}</td>
@@ -148,12 +162,21 @@ function renderProblems(list) {
               <td>${badge(p.positionStatus)}</td>
               <td><button type="button" class="btn btn-sm" data-edit-position="${p.id}">Відкрити</button></td>
             </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
+    )
+    .join("");
+
+  return `
+    <div class="pf-problems-view">
+      <div class="pf-problems-cards" aria-label="Проблемні позиції (картки)">${cards}</div>
+      <div class="table-wrap pf-problems-table-wrap" aria-label="Проблемні позиції (таблиця)">
+        <table class="pf-problems-table">
+          <thead>
+            <tr><th>ID</th><th>Замовлення</th><th>Виріб</th><th>Проблема</th><th>Статус</th><th></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 export function renderProductionFloorTab(data = floorCache) {
@@ -213,9 +236,43 @@ export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
     });
   });
 
+  document.querySelectorAll("[data-pf-run]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const { executeGodmodeAction } = await import("./godmode-ui.js");
+      await executeGodmodeAction({
+        entityType: "position",
+        entityId: btn.dataset.pfRun,
+        actionType: btn.dataset.pfAction
+      }).catch(() => {});
+      onRefresh?.();
+    });
+  });
+
   document.querySelectorAll("[data-edit-position]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.dataset.editPosition);
+      if (onOpenPosition) {
+        void onOpenPosition(id);
+        return;
+      }
+      const { openPositionDrawer } = await import("./positions.js");
+      const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
+      const position = state.positions.find((p) => p.id === id);
+      if (!position) return;
+      const gm = resolvePositionGodmode(position);
+      openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
+    });
+  });
+
+  document.querySelectorAll("[data-pf-expand]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      void onOpenPosition?.(Number(btn.dataset.editPosition));
+      const id = btn.dataset.pfExpand;
+      const more = document.querySelector(`[data-pf-more="${id}"]`);
+      if (more) {
+        more.hidden = false;
+        btn.hidden = true;
+      }
     });
   });
 }

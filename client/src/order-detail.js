@@ -10,6 +10,7 @@ import {
   renderNextActionBanner,
   renderOrderGodmodeSummary,
   renderSmartEmptyState,
+  resolveOrderGodmode,
   resolvePositionGodmode
 } from "./godmode-ui.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
@@ -306,6 +307,41 @@ function renderHistorySection(order) {
   return `<section class="order-history card" role="tabpanel"><div class="order-history-list">${rows}</div></section>`;
 }
 
+function renderOrderStickyBar(order, allPositions, related) {
+  const gm = resolveOrderGodmode(order, allPositions);
+  const next = gm.nextAction;
+  if (!next?.label) return "";
+
+  const root = related.find((p) => !p.parentId) || related[0];
+  const isBlocked = gm.health === "blocked" || next.allowed === false;
+  let ctaAttrs = "";
+  if (next.allowed !== false && root) {
+    if (next.type === "close_order") {
+      ctaAttrs = `data-run-order-action="${order.id}" data-action-type="${escapeHtml(next.type)}"`;
+    } else if (root.id) {
+      ctaAttrs = `data-run-next-action="${root.id}" data-action-type="${escapeHtml(next.type)}"`;
+    }
+  }
+
+  const ctaLabel = next.buttonLabel || "Виконати";
+  const ctaBtn =
+    next.allowed !== false && (ctaAttrs || next.buttonLabel)
+      ? `<button type="button" class="order-detail-sticky-cta" ${ctaAttrs} ${!ctaAttrs ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>`
+      : "";
+
+  return `
+    <div class="order-detail-sticky ${isBlocked ? "order-detail-sticky--blocked" : ""}" role="region" aria-label="Головна дія">
+      <div class="order-detail-sticky-text">
+        <span class="order-detail-sticky-kicker">${isBlocked ? "Потрібна дія" : "Далі"}</span>
+        <strong>${escapeHtml(next.label)}</strong>
+      </div>
+      <div class="order-detail-sticky-actions">
+        ${ctaBtn}
+        <button type="button" class="order-detail-sticky-secondary" data-order-detail-tab="positions">Позиції</button>
+      </div>
+    </div>`;
+}
+
 function renderNextActionBannerSection(related) {
   const root = related.find((p) => !p.parentId) || related[0];
   if (!root) return "";
@@ -344,7 +380,7 @@ export function renderOrderDetailView(order, allPositions, related) {
         </section>`
       : "";
 
-  return `<div class="orders-view orders-view--detail">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div></div>`;
+  return `<div class="orders-view orders-view--detail">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div>${renderOrderStickyBar(order, allPositions, related)}</div>`;
 }
 
 async function patchPositionStage(positionId, stageKey, payload, onRefresh) {
@@ -496,6 +532,27 @@ export function bindOrderDetail(root, handlers = {}) {
         onSuccess: async (updated) => {
           const idx = state.positions.findIndex((p) => p.id === positionId);
           if (idx >= 0) state.positions[idx] = updated;
+          await onRefresh?.();
+        }
+      }).catch(() => {});
+    });
+  });
+
+  root.querySelectorAll("[data-run-order-action]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const orderId = Number(btn.dataset.runOrderAction);
+      const actionType = btn.dataset.actionType;
+      await runSave("Замовлення", {
+        saveFn: () => api.runOrderNextAction(orderId, actionType),
+        successMessage: "Замовлення закрито",
+        onSuccess: async (updated) => {
+          const { upsertOrder, refreshAppData } = await import("./data-sync.js");
+          upsertOrder(updated);
+          try {
+            await refreshAppData({ includeDirectories: false });
+          } catch {
+            /* локальний стан уже оновлено */
+          }
           await onRefresh?.();
         }
       }).catch(() => {});

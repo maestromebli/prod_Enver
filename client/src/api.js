@@ -173,6 +173,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ actionType })
     }),
+  runOrderNextAction: (id, actionType) =>
+    request(`/api/orders/${id}/run-next-action`, {
+      method: "POST",
+      body: JSON.stringify({ actionType })
+    }),
 
   getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
   operatorStart: (body) =>
@@ -183,6 +188,8 @@ export const api = {
     request("/api/operator/resume", { method: "POST", body: JSON.stringify(body) }),
   operatorFinish: (body) =>
     request("/api/operator/finish", { method: "POST", body: JSON.stringify(body) }),
+  operatorReportProblem: (body) =>
+    request("/api/operator/report-problem", { method: "POST", body: JSON.stringify(body) }),
   getOperatorJob: (positionId) => request(`/api/operator/job/${positionId}`),
 
   getHistory: (params = {}) => {

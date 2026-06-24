@@ -31,6 +31,34 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+/** Людський текст замість технічних повідомлень API / валідації. */
+export function humanizeUserMessage(message) {
+  const raw = String(message || "").trim();
+  if (!raw) return "Щось пішло не так. Спробуйте ще раз.";
+
+  const rules = [
+    [/validation failed|required/i, "Заповніть обовʼязкові поля."],
+    [/unauthorized|401/i, "Сесія закінчилась — увійдіть знову."],
+    [/forbidden|403/i, "Недостатньо прав для цієї дії."],
+    [/not found|404/i, "Запис не знайдено."],
+    [/network|failed to fetch/i, "Немає звʼязку з сервером. Перевірте підключення."],
+    [/name required/i, "Вкажіть назву позиції."],
+    [/order.?number/i, "Вкажіть номер замовлення."],
+    [/constructive|конструктив/i, "Потрібно завантажити конструктив."],
+    [/timeout/i, "Сервер не відповів вчасно — спробуйте ще раз."]
+  ];
+
+  for (const [pattern, text] of rules) {
+    if (pattern.test(raw)) return text;
+  }
+
+  if (raw.length > 120 || /[{[\]}/\\]/.test(raw)) {
+    return "Не вдалося виконати дію. Перевірте дані та спробуйте знову.";
+  }
+
+  return raw;
+}
+
 export function statusClass(status) {
   return STATUS_CLASS[status] || "gray";
 }

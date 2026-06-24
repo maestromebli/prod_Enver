@@ -10,11 +10,33 @@ import {
 } from "../order-status-sync.js";
 import { normalizeOrderSubItems } from "../order-status-workflow.js";
 import { attachGodmodeToOrder, enrichAndMapPosition } from "../godmode-enrich.js";
+import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
+import { canRunNextAction } from "../../../shared/production/godmode.js";
 const router = Router();
 router.use(requireAuth);
 
 const PG_UNIQUE_VIOLATION = "23505";
 const ORDER_DONE_STATUS = "Завершено";
+
+const ORDER_POSITIONS_SELECT = `SELECT p.*,
+  (SELECT COUNT(*)::int FROM constructive_analyses ca
+   JOIN position_files pf ON pf.id = ca.position_file_id
+   WHERE pf.position_id = p.id) AS ai_analysis_count,
+  (SELECT COUNT(*)::int FROM operator_sessions os
+   WHERE os.position_id = p.id AND os.finished_at IS NULL) AS active_operator_sessions`;
+
+async function mapOrderPositions(order, positionRows) {
+  const tsMap = await loadStageTimestampsMap(positionRows.map((r) => r.id));
+  const now = new Date();
+  return positionRows.map((r) =>
+    enrichAndMapPosition(r, order.planDate, {
+      hasAiAnalysis: Number(r.ai_analysis_count) > 0,
+      hasActiveOperatorSession: Number(r.active_operator_sessions) > 0,
+      stageTimestamps: stageTimestampsForPosition(tsMap, r.id),
+      now
+    })
+  );
+}
 
 async function archiveOrderPositions(orderId) {
   await run(
@@ -34,20 +56,16 @@ async function archiveOrderPositions(orderId) {
 
 router.get("/", async (_req, res) => {
   const rows = await all("SELECT * FROM orders ORDER BY id");
-  const positionRows = await all(
-    `SELECT p.*,
-      (SELECT COUNT(*)::int FROM constructive_analyses ca
-       JOIN position_files pf ON pf.id = ca.position_file_id
-       WHERE pf.position_id = p.id) AS ai_analysis_count,
-      (SELECT COUNT(*)::int FROM operator_sessions os
-       WHERE os.position_id = p.id AND os.finished_at IS NULL) AS active_operator_sessions
-     FROM positions p`
-  );
+  const positionRows = await all(`${ORDER_POSITIONS_SELECT} FROM positions p`);
   const planMap = new Map(rows.map((o) => [o.order_number, o.plan_date]));
+  const tsMap = await loadStageTimestampsMap(positionRows.map((r) => r.id));
+  const now = new Date();
   const mappedPositions = positionRows.map((row) =>
     enrichAndMapPosition(row, planMap.get(row.order_number), {
       hasAiAnalysis: Number(row.ai_analysis_count) > 0,
-      hasActiveOperatorSession: Number(row.active_operator_sessions) > 0
+      hasActiveOperatorSession: Number(row.active_operator_sessions) > 0,
+      stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
+      now
     })
   );
 
@@ -70,26 +88,90 @@ router.get("/:id", async (req, res) => {
   }
   const order = mapOrder(row);
   const positionRows = await all(
-    `SELECT p.*,
-      (SELECT COUNT(*)::int FROM constructive_analyses ca
-       JOIN position_files pf ON pf.id = ca.position_file_id
-       WHERE pf.position_id = p.id) AS ai_analysis_count,
-      (SELECT COUNT(*)::int FROM operator_sessions os
-       WHERE os.position_id = p.id AND os.finished_at IS NULL) AS active_operator_sessions
+    `${ORDER_POSITIONS_SELECT}
      FROM positions p
      WHERE p.order_id = $1 OR p.order_number = $2
      ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`,
     [order.id, order.orderNumber]
   );
-  const mappedPositions = positionRows.map((r) =>
-    enrichAndMapPosition(r, order.planDate, {
-      hasAiAnalysis: Number(r.ai_analysis_count) > 0,
-      hasActiveOperatorSession: Number(r.active_operator_sessions) > 0
-    })
-  );
+  const mappedPositions = await mapOrderPositions(order, positionRows);
   res.json({
     ...attachGodmodeToOrder(order, mappedPositions, { planDate: order.planDate }),
     positions: mappedPositions
+  });
+});
+
+router.post("/:id/run-next-action", requireOrderWrite, async (req, res) => {
+  const id = Number(req.params.id);
+  const row = await one("SELECT * FROM orders WHERE id = $1", [id]);
+  if (!row) {
+    res.status(404).json({ error: "Замовлення не знайдено" });
+    return;
+  }
+
+  const order = mapOrder(row);
+  const positionRows = await all(
+    `${ORDER_POSITIONS_SELECT}
+     FROM positions p
+     WHERE p.order_id = $1 OR p.order_number = $2
+     ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`,
+    [order.id, order.orderNumber]
+  );
+  const mappedPositions = await mapOrderPositions(order, positionRows);
+  const enrichedOrder = attachGodmodeToOrder(order, mappedPositions, { planDate: order.planDate });
+  const nextAction = enrichedOrder.godmode.nextAction;
+  const requestedType = req.body?.actionType || nextAction.type;
+
+  if (requestedType !== nextAction.type) {
+    res.status(400).json({
+      error: "Зараз доступна інша дія.",
+      nextAction
+    });
+    return;
+  }
+
+  const permission = canRunNextAction(order, nextAction, req.user, { planDate: order.planDate });
+  if (!permission.allowed) {
+    res.status(permission.code === "ACTION_REQUIRES_INPUT" ? 422 : 403).json({
+      code: permission.code || "NOT_ALLOWED",
+      error: permission.reason || "Цю дію зараз неможливо виконати."
+    });
+    return;
+  }
+
+  if (requestedType === "close_order") {
+    const roots = mappedPositions.filter((p) => !p.parentId);
+    const allDone =
+      roots.length > 0 &&
+      roots.every((p) => (p.positionStatus || p.position_status) === "Завершено");
+    if (!allDone) {
+      res.status(400).json({ error: "Не всі позиції завершені — замовлення не можна закрити." });
+      return;
+    }
+
+    const updated = await one(
+      `UPDATE orders SET status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
+      [id, ORDER_DONE_STATUS]
+    );
+    await archiveOrderPositions(id);
+    await logOrderUpdate(row, updated, auditActor(req));
+    await syncOrderStatusWorkflow(updated, { actor: auditActor(req) });
+
+    const afterRows = await all(
+      `${ORDER_POSITIONS_SELECT}
+       FROM positions p
+       WHERE p.order_id = $1 OR p.order_number = $2
+       ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`,
+      [order.id, order.orderNumber]
+    );
+    const afterPositions = await mapOrderPositions(mapOrder(updated), afterRows);
+    res.json(attachGodmodeToOrder(mapOrder(updated), afterPositions, { planDate: order.planDate }));
+    return;
+  }
+
+  res.status(422).json({
+    code: "ACTION_REQUIRES_INPUT",
+    error: "Для цього потрібно виконати дію в інтерфейсі."
   });
 });
 

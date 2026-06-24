@@ -5,6 +5,7 @@ import {
   buildPositionGodmode,
   canRunNextAction,
   getAttentionScore,
+  getOrderNextAction,
   getPositionBlockers,
   getPositionNextAction,
   getPositionWarnings
@@ -96,6 +97,17 @@ describe("godmode", () => {
     assert.equal(next.type, "schedule_install");
   });
 
+  it("close_order коли всі позиції завершені", () => {
+    const order = { id: 5, orderNumber: "EN-200", manager: "Іван" };
+    const positions = [
+      basePosition({ id: 1, position_status: "Завершено" }),
+      basePosition({ id: 2, parentId: 1, position_status: "Завершено" })
+    ];
+    const next = getOrderNextAction(order, positions);
+    assert.equal(next.type, "close_order");
+    assert.equal(next.allowed, true);
+  });
+
   it("overdue warning", () => {
     const warnings = getPositionWarnings(
       basePosition({
@@ -132,6 +144,19 @@ describe("godmode", () => {
     });
     assert.ok(notes.some((n) => n.type === "missing_constructive" && n.entityId === 10));
     assert.ok(notes.length >= 2);
+  });
+
+  it("notifications для замовлень — close_order", () => {
+    const order = { id: 10, order_number: "EN-300", status: "Активний" };
+    const positions = [
+      basePosition({ id: 1, order_id: 10, orderNumber: "EN-300", position_status: "Завершено" })
+    ];
+    const notes = buildNotifications({
+      orders: [order],
+      positions,
+      now: new Date("2026-06-24")
+    });
+    assert.ok(notes.some((n) => n.entityType === "order" && n.actionType === "close_order"));
   });
 
   it("attentionScore sorting", () => {

@@ -246,7 +246,8 @@ function bindContentActions() {
 
   document.querySelectorAll("[data-edit-position]").forEach((el) => {
     el.addEventListener("click", (e) => {
-      if (e.target.closest("[data-quick-stage]")) return;
+      if (e.target.closest("[data-quick-stage], [data-toggle-position], [data-add-sub-position]"))
+        return;
       e.stopPropagation();
       const id = Number(el.dataset.editPosition);
       const position = state.positions.find((p) => p.id === id);
@@ -254,14 +255,26 @@ function bindContentActions() {
     });
   });
 
-  document.querySelectorAll("tr.row-clickable[data-edit-position]").forEach((row) => {
-    row.addEventListener("click", (e) => {
-      if (e.target.closest("button")) return;
-      const id = Number(row.dataset.editPosition);
-      const position = state.positions.find((p) => p.id === id);
-      if (position) openPositionDrawer(position);
+  document
+    .querySelectorAll(
+      "tr.row-clickable[data-edit-position], .position-card[data-edit-position], .pf-problem-card[data-edit-position], tr.pf-problem-row[data-edit-position]"
+    )
+    .forEach((row) => {
+      row.addEventListener("click", (e) => {
+        if (e.target.closest("button, [data-toggle-position], [data-add-sub-position]")) return;
+        const id = Number(row.dataset.editPosition);
+        const position = state.positions.find((p) => p.id === id);
+        if (position) openPositionDrawer(position);
+      });
+      row.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        if (e.target.closest("button")) return;
+        e.preventDefault();
+        const id = Number(row.dataset.editPosition);
+        const position = state.positions.find((p) => p.id === id);
+        if (position) openPositionDrawer(position);
+      });
     });
-  });
 
   document.querySelectorAll("[data-quick-stage]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
@@ -340,9 +353,19 @@ function scheduleContentRender() {
 }
 
 window.__enverRender = renderApp;
-window.__enverOpenPosition = (id) => {
-  const position = state.positions.find((p) => p.id === Number(id));
-  if (position) openPositionDrawer(position);
+window.__enverOpenPosition = async (id) => {
+  const { openPositionDrawer } = await import("./positions.js");
+  const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
+  let position = state.positions.find((p) => p.id === Number(id));
+  if (!position) {
+    try {
+      position = await api.getPosition(id);
+    } catch {
+      return;
+    }
+  }
+  const gm = resolvePositionGodmode(position);
+  openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
 };
 
 async function loadData({ silent = false } = {}) {
@@ -365,7 +388,10 @@ async function loadData({ silent = false } = {}) {
 }
 
 async function prepareViewData() {
-  if (state.view === "main" && state.activeTab === PRODUCTION_FLOOR_TAB) {
+  if (
+    state.view === "main" &&
+    (state.activeTab === PRODUCTION_FLOOR_TAB || state.activeTab === ATTENTION_TAB)
+  ) {
     try {
       await loadProductionFloor();
     } catch (err) {
@@ -405,7 +431,7 @@ async function setTab(tab) {
   if (tab === PRODUCTION_FLOOR_TAB) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
-  if (tab === PRODUCTION_FLOOR_TAB) {
+  if (tab === ATTENTION_TAB || tab === PRODUCTION_FLOOR_TAB) {
     setLoading(true);
     try {
       await loadProductionFloor();

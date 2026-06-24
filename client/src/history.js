@@ -44,7 +44,13 @@ export function renderChangesList(changes) {
 
 function historyRows(entries) {
   if (!entries.length) {
-    return '<tr><td colspan="7" class="empty">Змін ще немає</td></tr>';
+    return `<tr><td colspan="7">
+      <div class="enver-empty-state history-empty">
+        <span class="enver-empty-state-icon" aria-hidden="true">🕐</span>
+        <h3 class="enver-empty-state-title">Змін ще немає</h3>
+        <p class="enver-empty-state-text">Історія зʼявиться після створення замовлень, позицій і змін етапів.</p>
+      </div>
+    </td></tr>`;
   }
   return entries
     .map((e) => {

@@ -26,6 +26,8 @@ export const state = {
   operatorSelectedPositionId: null,
   operatorJobDetail: null,
   operatorLoadError: "",
+  /** Зведення цеху з /api/production/floor */
+  productionFloor: null,
   installCalendar: {
     /** calendar | list */
     displayMode: "calendar",

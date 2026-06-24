@@ -12,6 +12,89 @@
   table-layout: fixed;
 }
 
+.pf-problems-view .pf-problems-cards {
+  display: none;
+}
+
+.pf-problems-cards {
+  display: grid;
+  gap: var(--enver-space-3, 12px);
+}
+
+.pf-problem-card {
+  padding: var(--enver-space-4, 16px);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.pf-problem-card:hover {
+  border-color: var(--enver-primary, var(--navy));
+  box-shadow: var(--enver-shadow-md);
+  transform: translateY(-1px);
+}
+
+.pf-problem-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: var(--enver-space-2, 8px);
+}
+
+.pf-problem-card-head strong {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.pf-problem-card-text {
+  margin: 0 0 var(--enver-space-2, 8px);
+  font-size: 0.875rem;
+  color: var(--enver-text-muted, var(--muted));
+  line-height: 1.45;
+}
+
+.pf-problem-card-overdue {
+  display: inline-block;
+  margin-bottom: var(--enver-space-3, 12px);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--enver-warning, #b7791f);
+}
+
+.pf-problem-card-open {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .pf-problems-view .pf-problems-table-wrap {
+    display: none;
+  }
+
+  .pf-problems-view .pf-problems-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .pf-problems-view .pf-problems-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+[data-theme="dark"] .pf-problem-card {
+  background: var(--enver-surface, var(--surface, #1e293b));
+  border-color: var(--enver-border, var(--border, #334155));
+}
+
+[data-theme="dark"] .pf-problem-row:hover {
+  background: var(--surface-hover);
+}
+
 .pf-hero {
   display: flex;
   flex-wrap: wrap;
@@ -313,9 +396,23 @@
 }
 
 [data-theme="dark"] .pf-stage-card,
-[data-theme="dark"] .pf-session-row {
-  background: var(--surface, #1e293b);
-  border-color: var(--border, #334155);
+[data-theme="dark"] .pf-session-row,
+[data-theme="dark"] .pf-pipe-col {
+  background: var(--enver-surface, var(--surface, #1e293b));
+  border-color: var(--enver-border, var(--border, #334155));
+}
+
+[data-theme="dark"] .pf-pipe-col:hover {
+  border-color: var(--enver-primary, #4a9e6a);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--enver-primary, #4a9e6a) 30%, transparent);
+}
+
+[data-theme="dark"] .pf-pipe-count {
+  color: var(--enver-primary, #4a9e6a);
+}
+
+[data-theme="dark"] .pf-pipe-arrow {
+  color: var(--enver-text-soft, #6e7768);
 }
 
 [data-theme="dark"] .pf-stat {

@@ -11,7 +11,7 @@ import { PRODUCTION_FLOOR_TAB, TABS, ATTENTION_TAB } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView } from "./operator-panel.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
-import { renderPositionTableBody } from "./render-positions.js";
+import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
 import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
 import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
@@ -35,12 +35,22 @@ import { positionsForOrder } from "./workflows.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 import { notifyAiContextChanged } from "./ai-assistant.js";
 import { attentionTabBadgeCount, bindAttentionTab, renderAttentionTab } from "./attention-view.js";
-import { mountGodmodeNotifyChrome, updateGodmodeNotifyBadge } from "./godmode-notifications.js";
+import {
+  closeGodmodeNotifyPanel,
+  mountGodmodeNotifyChrome,
+  updateGodmodeNotifyBadge
+} from "./godmode-notifications.js";
 
 export { filteredPositions };
 
 function emptyRow(colspan = 10) {
-  return `<tr><td colspan="${colspan}" class="empty">Немає даних за обраними фільтрами</td></tr>`;
+  return `<tr><td colspan="${colspan}">
+    <div class="enver-empty-state positions-table-empty">
+      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
+      <p class="enver-empty-state-text">Немає позицій за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
+    </div>
+  </td></tr>`;
 }
 
 function positionsTable(data, title = "Позиції замовлення", showActions = false) {
@@ -56,6 +66,13 @@ function positionsTable(data, title = "Позиції замовлення", sho
       allowActions,
       newTaskIds
     ) || emptyRow(colspan);
+  const cards = renderPositionCards(
+    data,
+    state.positions,
+    state.expandedPositionIds,
+    allowActions,
+    newTaskIds
+  );
   const headerRow = allowActions
     ? `<div class="card-header-row">
         <div class="block-title">${escapeHtml(title)}</div>
@@ -64,10 +81,11 @@ function positionsTable(data, title = "Позиції замовлення", sho
     : `<div class="block-title">${escapeHtml(title)}</div>`;
 
   return `
-    <div class="card">
+    <div class="card positions-view">
       ${headerRow}
       <p class="positions-hint">У кожному замовленні є одна основна позиція; вироби та зони завжди додаються як <strong>підпозиції</strong> через <strong>+</strong> біля неї (окремий конструктор, збирач і монтажник).</p>
-      <div class="table-wrap">
+      <div class="positions-cards" aria-label="Позиції (картки)">${cards}</div>
+      <div class="table-wrap positions-table-wrap" aria-label="Позиції (таблиця)">
         <table class="positions-table">
           <colgroup>
             <col class="col-w-id" />
@@ -315,9 +333,14 @@ export function renderHeaderChrome() {
   if (notifyBtn) notifyBtn.hidden = !user || canViewSettings();
   if (logout) logout.hidden = !user;
 
+  const gnWrap = document.querySelector(".gn-wrap");
   if (user && state.view === "main") {
     mountGodmodeNotifyChrome();
     updateGodmodeNotifyBadge();
+    if (gnWrap) gnWrap.hidden = false;
+  } else {
+    closeGodmodeNotifyPanel();
+    if (gnWrap) gnWrap.hidden = true;
   }
 
   let opBtn = document.querySelector("#productionOperatorBtn");
@@ -400,9 +423,46 @@ export function renderApp(options = {}) {
         orders: state.orders,
         onOrderClick: (order) => {
           state.selectedOrderId = order.id;
+          state.ordersView.detailTab = "overview";
           notifyUiChanged();
           renderApp();
           window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+        onOrderCta: async (order) => {
+          const { executePrimaryOrderAction } = await import("./godmode-ui.js");
+          const { upsertPosition, upsertOrder, refreshAppData } = await import("./data-sync.js");
+          const { openPositionDrawer } = await import("./positions.js");
+          const { toastSuccess, toastError } = await import("./toast.js");
+          const { humanizeUserMessage } = await import("./utils.js");
+
+          try {
+            const result = await executePrimaryOrderAction(order, state.positions, {
+              api,
+              upsertPosition,
+              upsertOrder
+            });
+
+            if (result.action === "handoff" || result.action === "close_order") {
+              toastSuccess(result.message || "Дію виконано");
+              await refreshAppData({ includeDirectories: false });
+              renderApp({ contentOnly: true });
+              return;
+            }
+
+            if (result.action === "open_position") {
+              const position = state.positions.find((p) => p.id === result.positionId);
+              if (position) openPositionDrawer(position, { panel: result.panel });
+              return;
+            }
+
+            state.selectedOrderId = order.id;
+            state.ordersView.detailTab = result.tab || "overview";
+            notifyUiChanged();
+            renderApp();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          } catch (err) {
+            toastError(humanizeUserMessage(err?.message || "Не вдалося виконати дію"));
+          }
         }
       });
     } else {
@@ -442,8 +502,11 @@ export function renderApp(options = {}) {
     bindAttentionTab(document.querySelector("#content"), {
       onOpenPosition: async (id) => {
         const { openPositionDrawer } = await import("./positions.js");
+        const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
         const position = state.positions.find((p) => p.id === id);
-        if (position) openPositionDrawer(position);
+        if (!position) return;
+        const gm = resolvePositionGodmode(position);
+        openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
       },
       onOpenOrder: (orderId) => {
         state.selectedOrderId = orderId;
@@ -452,7 +515,8 @@ export function renderApp(options = {}) {
         notifyUiChanged();
         renderApp();
         window.scrollTo({ top: 0, behavior: "smooth" });
-      }
+      },
+      onAfterAction: () => renderApp({ contentOnly: true })
     });
   }
 

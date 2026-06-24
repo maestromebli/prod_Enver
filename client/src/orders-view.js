@@ -2,7 +2,8 @@ import { stageLabel } from "@enver/shared/production/stages.js";
 import {
   orderAttentionFromGodmode,
   renderHealthBadge,
-  renderAttentionBadge
+  renderAttentionBadge,
+  sortOrdersByAttention
 } from "./godmode-ui.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
@@ -208,11 +209,12 @@ function renderOrdersList(orders, rootPositions, allPositions) {
 
 export function renderOrdersGrid(orders, positions) {
   const rootPositions = positions.filter((p) => !p.parentId);
+  const sorted = sortOrdersByAttention(orders, positions);
   const mode = state.ordersView.displayMode || "cards";
   const body =
     mode === "list"
-      ? renderOrdersList(orders, rootPositions, positions)
-      : renderOrdersCards(orders, rootPositions, positions);
+      ? renderOrdersList(sorted, rootPositions, positions)
+      : renderOrdersCards(sorted, rootPositions, positions);
 
   return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
 }
@@ -281,9 +283,15 @@ function bindOrderCards(root, handlers) {
   });
 
   root?.querySelectorAll("[data-order-cta]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      openOrder(btn.dataset.orderCta, handlers);
+      const orderId = Number(btn.dataset.orderCta);
+      const order = handlers.orders?.find((o) => o.id === orderId);
+      if (handlers.onOrderCta && order) {
+        await handlers.onOrderCta(order);
+        return;
+      }
+      openOrder(orderId, handlers);
     });
   });
 }

@@ -114,9 +114,23 @@ async function afterOperatorLogin() {
   await refreshOperatorData();
 
   if (deepPosition) {
+    const inQueue = state.operatorQueue.some((p) => p.id === deepPosition);
     state.operatorSelectedPositionId = deepPosition;
     await loadOperatorJobDetail(deepPosition);
     renderOperatorClient();
+    if (!inQueue) {
+      toastError("Позиція не в черзі цього етапу — перегляньте деталі");
+    }
+    document
+      .querySelector(".op-work-panel")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  if (deepStage || deepPosition) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("stage");
+    url.searchParams.delete("position");
+    window.history.replaceState({}, "", `${url.pathname}${url.hash}`);
   }
 
   await syncOperatorBuildLabel();

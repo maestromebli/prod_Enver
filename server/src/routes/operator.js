@@ -347,4 +347,54 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
   res.json({ position: await mapOperatorPosition(await getPosition(positionId)) });
 });
 
+router.post("/report-problem", requireOperatorSelf, async (req, res) => {
+  const { userId, positionId, stageKey, comment } = req.body || {};
+  const text = String(comment || "").trim();
+  if (!userId || !positionId) {
+    res.status(400).json({ error: "userId та positionId обов'язкові" });
+    return;
+  }
+  if (!text) {
+    res.status(400).json({ error: "Опишіть проблему коментарем" });
+    return;
+  }
+
+  const row = await getPosition(positionId);
+  if (!row) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  const before = { ...row };
+  row.problem = text;
+  row.position_status = "Проблема";
+
+  const field = stageKey && STAGE_STATUS_FIELD[stageKey];
+  if (field && ["Передано", "В роботі", "На паузі"].includes(row[field])) {
+    row[field] = "Проблема";
+  }
+
+  const session = stageKey ? await getOpenSession(userId, positionId, stageKey) : null;
+  if (session) {
+    await run(
+      `UPDATE operator_sessions SET status = 'paused', paused_at = now(), updated_at = now() WHERE id = $1`,
+      [session.id]
+    );
+  }
+
+  await savePosition(positionId, row);
+  const afterRow = await getPosition(positionId);
+  if (stageKey && field) {
+    await logStageChange(
+      before,
+      afterRow,
+      stageKey,
+      { status: "Проблема", problem: text },
+      auditActor(req)
+    );
+  }
+
+  res.json({ position: await mapOperatorPosition(afterRow) });
+});
+
 export default router;

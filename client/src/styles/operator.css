@@ -922,6 +922,39 @@ body.view-operator .app {
   box-shadow: 0 12px 28px rgba(22, 163, 74, 0.45);
 }
 
+.op-action-btn--problem {
+  color: #fff;
+  background: linear-gradient(145deg, #dc2626, #b91c1c);
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.3);
+}
+
+.op-problem-form {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--enver-surface-2, #f8fafc);
+  border: 1px solid var(--enver-border, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.op-problem-form textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--enver-border, #cbd5e1);
+  padding: 10px;
+  font: inherit;
+}
+
+.op-problem-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .op-action-icon {
   width: 44px;
   height: 44px;

@@ -123,16 +123,13 @@ async function fetchGodmodeNotifications() {
 
 function bindPanelItems(container) {
   container.querySelectorAll("[data-gn-item]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const entityType = btn.dataset.gnEntityType;
       const entityId = Number(btn.dataset.gnEntityId);
+      const actionType = btn.dataset.gnAction || undefined;
       closeGodmodeNotifyPanel();
-      if (entityType === "position" && entityId) {
-        window.__enverOpenPosition?.(entityId);
-        return;
-      }
-      state.activeTab = ATTENTION_TAB;
-      window.__enverRender?.({ contentOnly: true });
+      const { executeGodmodeAction } = await import("./godmode-ui.js");
+      await executeGodmodeAction({ entityType, entityId, actionType }).catch(() => {});
     });
   });
 }
@@ -165,7 +162,7 @@ export function bindGodmodeNotifyActions(root = document) {
   });
 }
 
-function closeGodmodeNotifyPanel() {
+export function closeGodmodeNotifyPanel() {
   panelOpen = false;
   const panel = document.querySelector("#godmodeNotifyPanel");
   if (panel) {

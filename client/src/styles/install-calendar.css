@@ -1,16 +1,15 @@
-/* ENVER v3 — календар монтажу (Apple-like) */
+/* ENVER — календар монтажу */
 
 .install-tab {
-  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, system-ui, sans-serif);
+  font-family: var(--enver-font-sans, var(--font-sans, system-ui, sans-serif));
 }
 
 .install-mode-switch {
   display: inline-flex;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--enver-surface-soft, rgba(0, 0, 0, 0.05));
   padding: 4px;
   border-radius: 999px;
-  backdrop-filter: blur(8px);
 }
 
 .install-mode-btn {
@@ -21,23 +20,23 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 0.875rem;
-  color: var(--text-secondary, #6e6e73);
+  color: var(--enver-text-muted, var(--text-secondary, #6e6e73));
   min-height: 44px;
 }
 
 .install-mode-btn.active {
-  background: #fff;
-  color: var(--accent, #0071e3);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  background: var(--enver-surface, #fff);
+  color: var(--enver-primary, var(--accent, #245c3b));
+  box-shadow: var(--enver-shadow-sm, 0 4px 14px rgba(0, 0, 0, 0.08));
 }
 
 .install-calendar-toolbar {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(245, 245, 247, 0.92);
+  background: color-mix(in srgb, var(--enver-surface-soft, #f5f5f7) 92%, transparent);
   backdrop-filter: blur(12px);
-  border-radius: 12px;
+  border-radius: var(--enver-radius-sm, 12px);
   padding: 8px 4px;
   margin-bottom: 8px;
 }
@@ -67,9 +66,9 @@
 .install-mode-switch {
   display: inline-flex;
   gap: 4px;
-  background: #f1f3f4;
+  background: var(--enver-surface-muted, #f1f3f4);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: var(--enver-radius-sm, 8px);
 }
 
 .install-mode-btn {
@@ -88,9 +87,9 @@
 }
 
 .install-mode-btn.active {
-  background: var(--white);
-  color: var(--blue);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  background: var(--enver-surface, var(--white));
+  color: var(--enver-primary, var(--accent, #245c3b));
+  box-shadow: var(--enver-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
 }
 
 .install-list {

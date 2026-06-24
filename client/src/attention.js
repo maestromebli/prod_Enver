@@ -1,3 +1,4 @@
+import { buildPositionGodmode } from "@enver/shared/production/godmode.js";
 import {
   deriveNextAction,
   collectBlockers,
@@ -8,16 +9,56 @@ import { positionsForOrder, orderMissingNextAssignment } from "./workflows.js";
 
 export { deriveNextAction, collectBlockers, collectWarnings };
 
-const SEVERITY_RANK = { critical: 0, high: 1, normal: 2 };
+const SEVERITY_RANK = { critical: 0, high: 1, warning: 1, normal: 2 };
+
+function positionGodmodeFields(p) {
+  if (p.godmode) {
+    return {
+      blockers: p.godmode.blockers.map((b) => ({
+        severity: "high",
+        message: b.message,
+        code: b.type,
+        stageKey: b.stageKey
+      })),
+      warnings: p.godmode.warnings.map((w) => ({
+        severity: w.level || "warning",
+        message: w.message,
+        code: w.type,
+        stageKey: w.stageKey
+      })),
+      nextAction: p.godmode.nextAction,
+      attentionScore: p.godmode.attentionScore || 0
+    };
+  }
+  const gm = buildPositionGodmode(p);
+  return {
+    blockers: gm.blockers.map((b) => ({
+      severity: "high",
+      message: b.message,
+      code: b.type,
+      stageKey: b.stageKey
+    })),
+    warnings: gm.warnings.map((w) => ({
+      severity: w.level || "warning",
+      message: w.message,
+      code: w.type,
+      stageKey: w.stageKey
+    })),
+    nextAction: gm.nextAction,
+    attentionScore: gm.attentionScore || 0
+  };
+}
 
 /** Усі елементи, що потребують уваги (позиції). */
 export function collectAttentionItems(positions, orders = []) {
   const items = [];
 
   for (const p of positions) {
-    const blockers = p.blockers?.length ? p.blockers : collectBlockers(p);
-    const warnings = p.warnings?.length ? p.warnings : collectWarnings(p);
-    const nextAction = p.nextAction || deriveNextAction(p);
+    const gmFields = positionGodmodeFields(p);
+    const blockers = gmFields.blockers.length ? gmFields.blockers : collectBlockers(p);
+    const warnings = gmFields.warnings.length ? gmFields.warnings : collectWarnings(p);
+    const nextAction = gmFields.nextAction || p.nextAction || deriveNextAction(p);
+    const attentionScore = gmFields.attentionScore;
 
     for (const b of blockers) {
       items.push({
@@ -30,12 +71,17 @@ export function collectAttentionItems(positions, orders = []) {
         object: p.object,
         stageKey: b.stageKey,
         message: b.message,
-        code: b.code
+        code: b.code,
+        attentionScore
       });
     }
 
     for (const w of warnings) {
-      if (w.code === "overdue" && blockers.some((b) => b.code === "problem")) continue;
+      if (
+        w.code === "overdue" &&
+        blockers.some((b) => b.code === "problem" || b.code === "operator_problem")
+      )
+        continue;
       items.push({
         kind: "warning",
         severity: w.severity || "normal",
@@ -46,11 +92,12 @@ export function collectAttentionItems(positions, orders = []) {
         object: p.object,
         stageKey: w.stageKey,
         message: w.message,
-        code: w.code
+        code: w.code,
+        attentionScore
       });
     }
 
-    if (!blockers.length && nextAction?.type === "advance" && nextAction.stageKey) {
+    if (!blockers.length && nextAction?.type && nextAction.type !== "resolve_problem") {
       items.push({
         kind: "next",
         severity: "normal",
@@ -61,7 +108,8 @@ export function collectAttentionItems(positions, orders = []) {
         object: p.object,
         stageKey: nextAction.stageKey,
         message: nextAction.label,
-        code: nextAction.actionKey
+        code: nextAction.type,
+        attentionScore
       });
     }
   }
@@ -76,12 +124,15 @@ export function collectAttentionItems(positions, orders = []) {
         item: "",
         object: order.object,
         message: `Замовлення ${order.orderNumber}: не призначено відповідального`,
-        code: "order_assignment"
+        code: "order_assignment",
+        attentionScore: 80
       });
     }
   }
 
   return items.sort((a, b) => {
+    const scoreDiff = (b.attentionScore || 0) - (a.attentionScore || 0);
+    if (scoreDiff !== 0) return scoreDiff;
     const rank = (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
     if (rank !== 0) return rank;
     if (a.kind === "blocker" && b.kind !== "blocker") return -1;

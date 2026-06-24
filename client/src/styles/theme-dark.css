@@ -184,9 +184,9 @@
 }
 
 [data-theme="dark"] .meta-pill {
-  background: rgba(37, 99, 235, 0.18);
-  color: #93c5fd;
-  border-color: rgba(147, 197, 253, 0.35);
+  background: color-mix(in srgb, var(--enver-primary, #4a9e6a) 18%, transparent);
+  color: var(--enver-primary-light, #86c9a0);
+  border-color: color-mix(in srgb, var(--enver-primary, #4a9e6a) 35%, transparent);
 }
 
 [data-theme="dark"] .pipeline-step {
@@ -213,9 +213,9 @@
 }
 
 [data-theme="dark"] .drawer-tab.active {
-  background: var(--navy-3);
-  border-color: var(--navy-2);
-  color: var(--navy);
+  background: var(--enver-primary, #4a9e6a);
+  border-color: var(--enver-primary, #4a9e6a);
+  color: #fff;
 }
 
 [data-theme="dark"] .form-field input,
@@ -301,9 +301,13 @@
 
 [data-theme="dark"] .install-mode-btn.active,
 [data-theme="dark"] .orders-mode-btn.active {
-  background: var(--navy-3);
-  color: var(--navy);
-  border-color: var(--navy-2);
+  background: color-mix(in srgb, var(--enver-primary, #4a9e6a) 22%, var(--surface));
+  color: var(--enver-primary-light, #86c9a0);
+  border-color: color-mix(in srgb, var(--enver-primary, #4a9e6a) 40%, transparent);
+}
+
+[data-theme="dark"] .install-calendar-toolbar {
+  background: color-mix(in srgb, var(--enver-surface, var(--surface)) 92%, transparent);
 }
 
 [data-theme="dark"] .install-list-table tbody tr:hover,
