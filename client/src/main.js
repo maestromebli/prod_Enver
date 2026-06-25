@@ -81,6 +81,7 @@ import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
 import "./styles/brand-logo.css";
+import "./styles/operator.css";
 
 import { setAppLoading } from "./loading-ui.js";
 

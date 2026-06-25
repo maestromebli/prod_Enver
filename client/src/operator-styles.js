@@ -1,21 +1,21 @@
-let loaded = false;
-let loading = null;
+/** operator.css завжди в головному бандлі (main.js); тут лише operator-client для edge-case. */
+let clientLoaded = false;
+let clientLoading = null;
 
 export function isOperatorStylesLoaded() {
-  return loaded;
+  return true;
 }
 
-/** Підвантажує operator CSS лише коли потрібен (менеджерський app). */
+/** Підвантажує operator-client CSS лише якщо потрібен поза operator.html. */
 export async function ensureOperatorStyles() {
-  if (loaded) return;
-  if (!loading) {
-    loading = Promise.all([
-      import("./styles/operator.css"),
-      import("./styles/operator-client.css")
-    ]).then(() => {
-      loaded = true;
-      loading = null;
+  if (clientLoaded || document.body?.classList.contains("operator-client-mode")) {
+    return;
+  }
+  if (!clientLoading) {
+    clientLoading = import("./styles/operator-client.css").then(() => {
+      clientLoaded = true;
+      clientLoading = null;
     });
   }
-  await loading;
+  await clientLoading;
 }
