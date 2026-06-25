@@ -1,0 +1,42 @@
+name: Purge production data
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Введіть purge для підтвердження видалення всіх даних (крім користувачів і довідників)"
+        required: true
+        type: string
+
+jobs:
+  purge:
+    if: github.event.inputs.confirm == 'purge'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server deps
+        run: npm ci --prefix server
+
+      - name: Purge database (users + directories kept)
+        env:
+          DATABASE_URL_MIGRATIONS: ${{ secrets.DATABASE_URL_MIGRATIONS }}
+        run: node server/scripts/purge-data.mjs --yes
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Purge uploads on server
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            'docker exec enver sh -c "find /data/uploads -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +"'
