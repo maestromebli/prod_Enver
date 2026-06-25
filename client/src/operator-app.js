@@ -22,7 +22,7 @@ import {
   openOperatorView,
   renderOperatorView
 } from "./operator-panel.js";
-import { bindPartScanView } from "./part-scan.js";
+import { bindOperatorScanPanel, syncOperatorClientScanButton } from "./part-scan.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
@@ -82,7 +82,8 @@ function renderOperatorClient() {
   const content = $("#content");
   if (content) content.innerHTML = renderOperatorView();
   bindOperatorQueueSwipe();
-  if (state.operatorViewMode === "scan") bindPartScanView();
+  bindOperatorScanPanel(state.operatorStage);
+  syncOperatorClientScanButton(state.operatorStage);
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
 }

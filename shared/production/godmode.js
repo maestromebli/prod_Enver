@@ -699,8 +699,9 @@ function buildAutomationHints(position, context) {
   const row = enrichRow(position, context);
   if (hasConstructive(row) && row.current_stage !== "constructor") {
     hints.push({
-      type: "qr_recommended",
-      message: "Для цієї позиції можна згенерувати QR для цеху."
+      type: "part_scan_ready",
+      message:
+        "Оператор сканує етикетки деталей у панелі цеху (порізка, поклейка, присадка, збірка)."
     });
   }
   if (hasAiAnalysis(row, context) && !tasksCreated(row, context)) {

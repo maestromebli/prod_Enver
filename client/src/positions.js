@@ -1,10 +1,4 @@
-import {
-  api,
-  apiUrl,
-  constructiveFileDownloadUrl,
-  getPartLabelsUrl,
-  getStoredToken
-} from "./api.js";
+import { api, constructiveFileDownloadUrl, getPartLabelsUrl } from "./api.js";
 import { runSave } from "./save-flow.js";
 import { loadPositionHistory, renderDrawerHistory } from "./history.js";
 import { expandPosition, getParentPosition } from "./position-tree.js";
@@ -20,15 +14,7 @@ import {
 } from "./workflows.js";
 import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
-import {
-  $,
-  badge,
-  escapeHtml,
-  fillSelect,
-  humanizeUserMessage,
-  progressBar,
-  showFormError
-} from "./utils.js";
+import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
 import { canManageProcurement, canReviewConstructive, canViewFinance } from "./auth.js";
 import {
   loadCncJobsSummary,
@@ -147,43 +133,6 @@ function showError(message) {
   showFormError("#positionFormError", message);
 }
 
-async function renderPositionQr(positionId, stageKey) {
-  const box = $("#positionQrBox");
-  if (!box || !positionId) return;
-  box.innerHTML = `
-    <div class="qr-skeleton" aria-busy="true">
-      <div class="enver-skeleton" style="width:120px;height:120px;margin:0 auto 12px"></div>
-      <div class="enver-skeleton" style="height:14px;width:80%;margin:0 auto"></div>
-    </div>`;
-  try {
-    const token = getStoredToken();
-    const stage = stageKey || draft?.currentStage || "cutting";
-    const res = await fetch(
-      apiUrl(`/api/positions/${positionId}/qr?stage=${encodeURIComponent(stage)}`),
-      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-    );
-    if (!res.ok) throw new Error("Не вдалося згенерувати QR");
-    const svg = await res.text();
-    const meta = await api.getPositionQrUrl(positionId, stage);
-    box.innerHTML = `
-      <div class="qr-box-visual">${svg}</div>
-      <p class="qr-box-url">${escapeHtml(meta.url)}</p>
-      <button type="button" class="btn btn-sm" id="copyPositionQrUrlBtn">Скопіювати посилання</button>`;
-    $("#copyPositionQrUrlBtn")?.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(meta.url);
-        const { toastSuccess } = await import("./toast.js");
-        toastSuccess("Посилання скопійовано");
-      } catch {
-        const { toastError } = await import("./toast.js");
-        toastError("Не вдалося скопіювати");
-      }
-    });
-  } catch (err) {
-    box.innerHTML = `<p class="form-error visible">${escapeHtml(humanizeUserMessage(err.message))}</p>`;
-  }
-}
-
 function listOptions(key) {
   return state.directories[key] || [];
 }
@@ -273,20 +222,6 @@ function renderDrawerContent() {
     <div class="drawer-section drawer-section--pipeline">
       <div class="pipeline" id="positionPipeline">${renderPipeline()}</div>
     </div>
-    ${
-      p.id
-        ? `<div class="drawer-section drawer-section--qr" id="positionQrSection">
-      <div class="drawer-qr-head">
-        <div>
-          <h3 class="drawer-qr-title">QR для цеху</h3>
-          <p class="field-hint">Оператор сканує код на планшеті — відкривається ця позиція на поточному етапі.</p>
-        </div>
-        <button type="button" class="btn btn-sm enver-button-secondary" id="generatePositionQrBtn">Оновити QR</button>
-      </div>
-      <div id="positionQrBox" class="qr-box" aria-live="polite"></div>
-    </div>`
-        : ""
-    }
 
     <div class="drawer-tabs">
       <button type="button" class="drawer-tab ${activePanel === "general" ? "active" : ""}" data-panel="general">Основне</button>
@@ -857,15 +792,6 @@ function bindDrawerEvents() {
     },
     { once: false }
   );
-
-  $("#generatePositionQrBtn")?.addEventListener("click", () => {
-    if (!draft?.id) return;
-    void renderPositionQr(draft.id, draft.currentStage || "cutting");
-  });
-
-  if (draft?.id) {
-    void renderPositionQr(draft.id, draft.currentStage || "cutting");
-  }
 
   document.querySelectorAll("[data-run-next-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {

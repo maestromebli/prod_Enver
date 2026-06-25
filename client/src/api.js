@@ -205,10 +205,6 @@ export const api = {
     request(`/api/constructor-desk/positions/${id}/suggest-timing`, { method: "POST" }),
 
   getNotifications: () => request("/api/notifications"),
-  getPositionQrUrl: (id, stage) =>
-    request(`/api/positions/${id}/qr?format=json&stage=${encodeURIComponent(stage || "cutting")}`),
-  getPositionQrImageUrl: (id, stage) =>
-    `/api/positions/${id}/qr?stage=${encodeURIComponent(stage || "cutting")}`,
   runPositionNextAction: (id, actionType) =>
     request(`/api/positions/${id}/run-next-action`, {
       method: "POST",

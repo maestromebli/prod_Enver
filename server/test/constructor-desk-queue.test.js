@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { enrichPositionRow } from "../src/position-logic.js";
 import { defaultWorkspacePayload } from "../src/constructor-desk-service.js";
+import { shouldEnqueuePositionForConstructorDesk } from "../src/constructor-desk-queue.js";
 
 describe("constructor desk queue (unit helpers)", () => {
   it("enrichPositionRow без конструктива — етап constructor", () => {
@@ -22,6 +23,32 @@ describe("constructor desk queue (unit helpers)", () => {
   it("defaultWorkspacePayload для кухні", () => {
     const ws = defaultWorkspacePayload({ item: "Кухня E-30", item_type: "Зона" });
     assert.equal(ws.isKitchen, true);
+  });
+
+  it("shouldEnqueuePositionForConstructorDesk — пропускає вже передані в цех", () => {
+    assert.equal(
+      shouldEnqueuePositionForConstructorDesk({
+        id: 1,
+        has_constructive_file: true,
+        cutting_status: "Передано"
+      }),
+      false
+    );
+    assert.equal(
+      shouldEnqueuePositionForConstructorDesk({
+        id: 2,
+        has_constructive_file: false,
+        cutting_status: "Не розпочато"
+      }),
+      true
+    );
+    assert.equal(
+      shouldEnqueuePositionForConstructorDesk({
+        id: 3,
+        constructor_desk_queued_at: "2026-01-01"
+      }),
+      true
+    );
   });
 });
 

@@ -3,6 +3,7 @@
  */
 export function createScannerInputListener({
   target,
+  scanField,
   minLength = 4,
   timeoutMs = 80,
   suffix = "Enter",
@@ -15,9 +16,13 @@ export function createScannerInputListener({
   let timer = null;
   let destroyed = false;
 
-  const el = target || document;
+  const field = scanField || target;
+  const el = target === field ? target : target || document;
   const isScanField = (node) =>
-    node === target || node?.id === "scanInput" || node?.classList?.contains("scan-input");
+    node === field ||
+    node?.id === "scanInput" ||
+    node?.id === "operatorScanInput" ||
+    node?.classList?.contains("scan-input");
 
   const shouldIgnore = (e) => {
     const tag = e.target?.tagName?.toLowerCase();

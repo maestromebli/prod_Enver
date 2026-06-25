@@ -7,7 +7,10 @@ import {
   validateWorkspacePayload,
   workspaceCompletion
 } from "./constructor-desk-service.js";
-import { syncOrderStatusAfterConstructorAssignment } from "./constructor-desk-queue.js";
+import {
+  repairConstructorDeskQueue,
+  syncOrderStatusAfterConstructorAssignment
+} from "./constructor-desk-queue.js";
 
 const POSITION_SELECT = `
   p.id, p.parent_id, p.order_id, p.order_number, p.object, p.item, p.item_type,
@@ -215,6 +218,7 @@ export function groupDeskPositionsIntoOrders(positions = []) {
 }
 
 export async function listDeskOrders(user, options = {}) {
+  await repairConstructorDeskQueue();
   const positions = await listDeskPositions(user, options);
   return groupDeskPositionsIntoOrders(positions);
 }

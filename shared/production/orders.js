@@ -22,3 +22,6 @@ export const ORDER_STATUSES_NEED_POSITION = new Set([
   "Готово до встановлення",
   "На встановленні"
 ]);
+
+/** Статуси замовлення, для яких робочі позиції мають бути в черзі столу конструктора. */
+export const ORDER_STATUSES_CONSTRUCTOR_QUEUE = new Set(["", "Новий", "У конструктиві"]);

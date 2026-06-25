@@ -1,19 +1,26 @@
 import { api, apiUrl, getStoredToken } from "./api.js";
 import { createPartViewerLazy as createPartViewer } from "./part-viewer-lazy.js";
-import {
-  createScannerInputListener,
-  getStationName,
-  setStationName,
-  STATION_STORAGE_KEY
-} from "./scanner-input.js";
-import { escapeHtml } from "./utils.js";
+import { createScannerInputListener, getStationName, setStationName } from "./scanner-input.js";
+import { escapeHtml, $ } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { CNC_PROBLEM_REASONS } from "@enver/shared/production/constructive-package.js";
-import { $ } from "./utils.js";
+
+/** Етапи, де оператор сканує деталі за штрихкодом. */
+export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
+
+export function isPartScanStage(stageKey) {
+  return PART_SCAN_OPERATOR_STAGES.includes(stageKey);
+}
+
+/** Кнопка «Сканувати» в компактній шапці operator.html / Android APK. */
+export function syncOperatorClientScanButton(stageKey) {
+  const btn = $("#operatorClientScanBtn");
+  if (!btn) return;
+  btn.hidden = !isPartScanStage(stageKey);
+}
 
 let scannerListener = null;
 let viewer = null;
-let lastScan = null;
 let recentScans = [];
 
 function playScanFeedback() {
@@ -37,37 +44,16 @@ async function lookupBarcode(code) {
   return api.scanPart(code, station);
 }
 
-export function renderPartScanView() {
-  const station = getStationName();
-  return `
-    <div class="part-scan-screen">
-      <header class="part-scan-header">
-        <h1 class="part-scan-title">Сканування деталі</h1>
-        <p class="part-scan-hint">Піднесіть сканер до штрихкоду на деталі</p>
-      </header>
-      <div class="part-scan-input-wrap">
-        <input type="text" id="scanInput" class="scan-input" placeholder="Очікую сканування…" autocomplete="off" autofocus />
-        <p class="part-scan-status" id="scanStatus" aria-live="polite">Режим сканера активний</p>
-      </div>
-      <div class="part-scan-actions">
-        <button type="button" class="btn btn-lg scan-btn" id="scanManualBtn">Ввести вручну</button>
-        <button type="button" class="btn btn-lg scan-btn" id="scanCameraBtn">Сканувати камерою</button>
-      </div>
-      <div class="part-scan-station">
-        <label>Назва робочого місця
-          <input type="text" id="stationNameInput" value="${escapeHtml(station)}" placeholder="CNC-1"/>
-        </label>
-      </div>
-      <section class="part-scan-recent" id="scanRecent">
-        ${recentScans.length ? recentScans.map((s) => `<div class="scan-recent-item">${escapeHtml(s)}</div>`).join("") : "<p class='enver-meta'>Останні сканування зʼявляться тут</p>"}
-      </section>
-      <div id="partScanDetail" class="part-scan-detail" hidden></div>
-    </div>`;
-}
-
-function renderPartDetail(data) {
+function renderPartDetail(data, { showCncActions = false, closeLabel = "← Сканування" } = {}) {
   const p = data.part;
   const unmapped = !data.model?.mapped;
+  const cncActions = showCncActions
+    ? `
+        <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
+        <button type="button" class="btn btn-lg btn-primary" data-cnc-action="finish">Готово</button>
+        <button type="button" class="btn btn-lg btn-danger" data-cnc-action="problem">Проблема</button>`
+    : "";
+
   return `
     <div class="part-detail-card">
       <div class="part-detail-meta">
@@ -75,84 +61,102 @@ function renderPartDetail(data) {
         <p>${escapeHtml(p.blockCode || "—")} · №${escapeHtml(p.partNo)} · ${escapeHtml(p.partName)}</p>
         <p>${escapeHtml(p.material)} · ${escapeHtml(p.length)}×${escapeHtml(p.width)} ${escapeHtml(p.thickness)}</p>
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
-        <p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>
+        ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
       </div>
-      <div id="partViewer3d" class="part-viewer-3d"></div>
+      <div class="part-viewer-3d" data-part-viewer></div>
       <div class="part-detail-actions">
-        <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
-        <button type="button" class="btn btn-lg btn-primary" data-cnc-action="finish">Готово</button>
-        <button type="button" class="btn btn-lg btn-danger" data-cnc-action="problem">Проблема</button>
+        ${cncActions}
         <button type="button" class="btn btn-lg" data-viewer-action="isolate">Тільки деталь</button>
         <button type="button" class="btn btn-lg" data-viewer-action="all">Весь виріб</button>
         <button type="button" class="btn btn-lg" data-viewer-action="reset">Скинути камеру</button>
         ${data.model?.assemblyPdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(data.model.assemblyPdfUrl)}" target="_blank" rel="noopener">Креслення</a>` : ""}
-        <button type="button" class="btn btn-lg" id="closePartDetail">← Сканування</button>
+        <button type="button" class="btn btn-lg" data-part-scan-close>${escapeHtml(closeLabel)}</button>
       </div>
     </div>`;
 }
 
-async function handleScan(code) {
-  const status = $("#scanStatus");
-  if (status) status.textContent = "Пошук…";
-  try {
-    const data = await lookupBarcode(code);
-    lastScan = data;
-    recentScans = [code, ...recentScans.filter((c) => c !== code)].slice(0, 5);
-    playScanFeedback();
-    toastSuccess("Деталь знайдено");
-    if (status) status.textContent = "Деталь знайдено";
+/** Вбудована зона сканування в панелі оператора (порізка, поклейка, присадка, збірка). */
+export function renderOperatorScanPanel(stageKey) {
+  if (!isPartScanStage(stageKey)) return "";
+  const station = getStationName();
+  return `
+    <section class="op-part-scan" id="operatorPartScan" aria-label="Сканування деталі">
+      <div class="op-part-scan-head">
+        <h3 class="op-part-scan-title">Сканування деталі</h3>
+        <p class="op-part-scan-hint">Піднесіть штрихридер до етикетки — деталь зʼявиться у 3D з підсвіткою</p>
+      </div>
+      <div class="op-part-scan-bar">
+        <input
+          type="text"
+          id="operatorScanInput"
+          class="scan-input op-scan-input"
+          placeholder="Очікую сканування…"
+          autocomplete="off"
+          inputmode="none"
+        />
+        <p class="part-scan-status" id="operatorScanStatus" aria-live="polite">Режим сканера активний</p>
+      </div>
+      <div class="op-part-scan-actions">
+        <button type="button" class="btn scan-btn" id="operatorScanManualBtn">Ввести вручну</button>
+        <button type="button" class="btn scan-btn" id="operatorScanCameraBtn">Камера</button>
+      </div>
+      <div class="op-part-scan-station">
+        <label>Робоче місце
+          <input type="text" id="operatorStationInput" value="${escapeHtml(station)}" placeholder="CNC-1"/>
+        </label>
+      </div>
+      <div id="operatorPartScanDetail" class="op-part-scan-result" hidden></div>
+    </section>`;
+}
 
-    const detail = $("#partScanDetail");
-    if (detail) {
-      detail.hidden = false;
-      detail.innerHTML = renderPartDetail(data);
-      bindPartDetail(data);
+/** Повноекранний режим (застарілий, лишено для сумісності). */
+export function renderPartScanView() {
+  return renderOperatorScanPanel("cutting")
+    .replace('id="operatorScanInput"', 'id="scanInput"')
+    .replace('id="operatorScanStatus"', 'id="scanStatus"')
+    .replace('id="operatorScanManualBtn"', 'id="scanManualBtn"')
+    .replace('id="operatorScanCameraBtn"', 'id="scanCameraBtn"')
+    .replace('id="operatorStationInput"', 'id="stationNameInput"')
+    .replace('id="operatorPartScanDetail"', 'id="partScanDetail"')
+    .replace('class="op-part-scan"', 'class="part-scan-screen"');
+}
+
+async function mountViewer(container, data) {
+  viewer?.destroy();
+  viewer = null;
+  if (!container || !data.model?.viewerUrl) return;
+  try {
+    viewer = await createPartViewer(container);
+    const url = modelFileUrl(data.model.viewerUrl);
+    await viewer.loadModel(url, getStoredToken());
+    if (data.part.modelMeshName || data.part.modelNodeId) {
+      viewer.highlightPart({
+        meshName: data.part.modelMeshName || data.part.modelNodeId,
+        ghost: true
+      });
     }
-    $("#scanInput")?.focus();
-  } catch (err) {
-    if (status) status.textContent = err.message || "Помилка";
-    if (err.message?.includes("fetch") || err.message?.includes("мереж")) {
-      toastError("Немає зʼєднання, спробуйте ще раз");
-    } else {
-      toastError(err.message || "Деталь не знайдено");
-    }
-    $("#scanInput")?.focus();
+  } catch {
+    toastError("Не вдалося завантажити 3D модель");
   }
 }
 
-function bindPartDetail(data) {
-  viewer?.destroy();
-  const detailEl = $("#partScanDetail");
-  const container = $("#partViewer3d");
-  if (container && data.model?.viewerUrl) {
-    viewer = createPartViewer(container);
-    const url = modelFileUrl(data.model.viewerUrl);
-    viewer
-      .loadModel(url, getStoredToken())
-      .then(() => {
-        if (data.part.modelMeshName || data.part.modelNodeId) {
-          viewer.highlightPart({
-            meshName: data.part.modelMeshName || data.part.modelNodeId,
-            ghost: true
-          });
-        }
-      })
-      .catch(() => {});
-  }
+function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanInput } = {}) {
+  if (!detailEl) return;
 
-  $("#closePartDetail")?.addEventListener("click", () => {
+  const container = detailEl.querySelector("[data-part-viewer]");
+  void mountViewer(container, data);
+
+  detailEl.querySelector("[data-part-scan-close]")?.addEventListener("click", () => {
     viewer?.destroy();
     viewer = null;
-    const detail = $("#partScanDetail");
-    if (detail) {
-      detail.hidden = true;
-      detail.innerHTML = "";
-    }
-    $("#scanInput")?.focus();
+    detailEl.hidden = true;
+    detailEl.innerHTML = "";
+    onClose?.();
+    scanInput?.focus();
   });
 
-  detailEl?.querySelectorAll("[data-viewer-action]").forEach((btn) => {
+  detailEl.querySelectorAll("[data-viewer-action]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const action = btn.dataset.viewerAction;
       if (action === "isolate") viewer?.isolatePart(data.part.modelMeshName);
@@ -161,7 +165,9 @@ function bindPartDetail(data) {
     });
   });
 
-  detailEl?.querySelectorAll("[data-cnc-action]").forEach((btn) => {
+  if (!showCncActions) return;
+
+  detailEl.querySelectorAll("[data-cnc-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.cncAction;
       const station = getStationName();
@@ -186,40 +192,133 @@ function bindPartDetail(data) {
   });
 }
 
-export function bindPartScanView() {
+async function handleScan(
+  code,
+  { statusEl, detailEl, scanInput, showCncActions = false, closeLabel = "Згорнути" } = {}
+) {
+  if (statusEl) statusEl.textContent = "Пошук…";
+  try {
+    const data = await lookupBarcode(code);
+    recentScans = [code, ...recentScans.filter((c) => c !== code)].slice(0, 5);
+    playScanFeedback();
+    toastSuccess("Деталь знайдено");
+    if (statusEl) statusEl.textContent = `Знайдено: ${data.part.partName || code}`;
+
+    if (detailEl) {
+      detailEl.hidden = false;
+      detailEl.innerHTML = renderPartDetail(data, { showCncActions, closeLabel });
+      bindPartDetail(detailEl, data, {
+        showCncActions,
+        scanInput,
+        onClose: () => {
+          if (statusEl) statusEl.textContent = "Режим сканера активний";
+        }
+      });
+      detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    scanInput?.focus();
+  } catch (err) {
+    if (statusEl) statusEl.textContent = err.message || "Помилка";
+    if (err.message?.includes("fetch") || err.message?.includes("мереж")) {
+      toastError("Немає зʼєднання, спробуйте ще раз");
+    } else {
+      toastError(err.message || "Деталь не знайдено");
+    }
+    scanInput?.focus();
+  }
+}
+
+function bindScanControls({
+  scanInput,
+  statusEl,
+  detailEl,
+  manualBtn,
+  cameraBtn,
+  stationInput,
+  showCncActions = false,
+  closeLabel = "Згорнути"
+}) {
   scannerListener?.destroy();
+  if (!scanInput) return;
+
+  const onScan = (code) =>
+    handleScan(code, { statusEl, detailEl, scanInput, showCncActions, closeLabel });
+
   scannerListener = createScannerInputListener({
-    target: $("#scanInput"),
-    onScan: (code) => handleScan(code),
-    onManualSubmit: (code) => handleScan(code)
+    target: document,
+    scanField: scanInput,
+    onScan,
+    onManualSubmit: onScan
   });
 
-  $("#scanInput")?.addEventListener("keydown", (e) => {
+  scanInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       const v = e.target.value.trim();
-      if (v) handleScan(v);
+      if (v) onScan(v);
       e.target.value = "";
     }
   });
 
-  $("#scanManualBtn")?.addEventListener("click", () => {
+  manualBtn?.addEventListener("click", () => {
     const v = window.prompt("Введіть код вручну:");
-    if (v) handleScan(v.trim());
+    if (v) onScan(v.trim());
   });
 
-  $("#stationNameInput")?.addEventListener("change", (e) => {
+  stationInput?.addEventListener("change", (e) => {
     setStationName(e.target.value);
   });
 
-  $("#scanCameraBtn")?.addEventListener("click", () => {
-    void startCameraScan();
+  cameraBtn?.addEventListener("click", () => {
+    void startCameraScan({ statusEl, onScan });
   });
-
-  requestAnimationFrame(() => $("#scanInput")?.focus());
 }
 
-async function startCameraScan() {
-  const status = $("#scanStatus");
+/** Привʼязка вбудованої зони сканування в панелі оператора. */
+export function bindOperatorScanPanel(stageKey) {
+  if (!isPartScanStage(stageKey)) {
+    scannerListener?.destroy();
+    scannerListener = null;
+    return;
+  }
+
+  bindScanControls({
+    scanInput: $("#operatorScanInput"),
+    statusEl: $("#operatorScanStatus"),
+    detailEl: $("#operatorPartScanDetail"),
+    manualBtn: $("#operatorScanManualBtn"),
+    cameraBtn: $("#operatorScanCameraBtn"),
+    stationInput: $("#operatorStationInput"),
+    showCncActions: stageKey === "cutting",
+    closeLabel: "Згорнути"
+  });
+}
+
+/** Фокус на полі сканування (кнопка в шапці панелі). */
+export function focusOperatorScanInput() {
+  const section = $("#operatorPartScan");
+  const input = $("#operatorScanInput");
+  if (!section || !input) {
+    toastError("Сканування доступне на етапах: порізка, поклейка, присадка, збірка");
+    return;
+  }
+  section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  input.focus();
+}
+
+export function bindPartScanView() {
+  bindScanControls({
+    scanInput: $("#scanInput"),
+    statusEl: $("#scanStatus"),
+    detailEl: $("#partScanDetail"),
+    manualBtn: $("#scanManualBtn"),
+    cameraBtn: $("#scanCameraBtn"),
+    stationInput: $("#stationNameInput"),
+    showCncActions: true,
+    closeLabel: "← Сканування"
+  });
+}
+
+async function startCameraScan({ statusEl, onScan }) {
   try {
     const { BrowserMultiFormatReader } = await import("@zxing/browser");
     const reader = new BrowserMultiFormatReader();
@@ -243,20 +342,22 @@ async function startCameraScan() {
       }
       stream.getTracks().forEach((t) => t.stop());
       modal.remove();
+      $("#operatorScanInput")?.focus();
       $("#scanInput")?.focus();
     };
 
     modal.querySelector("#scanCameraClose")?.addEventListener("click", cleanup);
 
-    if (status) status.textContent = "Наведіть камеру на штрихкод…";
+    if (statusEl) statusEl.textContent = "Наведіть камеру на штрихкод…";
     reader.decodeFromVideoDevice(undefined, v, (result) => {
       if (result) {
         cleanup();
-        handleScan(result.getText());
+        onScan(result.getText());
       }
     });
   } catch (err) {
-    if (status) status.textContent = "Камера недоступна — дозволіть доступ або введіть код вручну";
+    if (statusEl)
+      statusEl.textContent = "Камера недоступна — дозволіть доступ або введіть код вручну";
     toastError(err.message || "Камера недоступна");
   }
 }

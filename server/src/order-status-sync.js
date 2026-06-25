@@ -4,6 +4,7 @@ import { enrichPositionRow } from "./position-logic.js";
 import { nextPositionId } from "./db/position-id.js";
 import { insertPosition, updatePositionStagesFromOrderSync } from "./db/position-persistence.js";
 import { enqueueOrderPositionsForConstructorDesk } from "./constructor-desk-queue.js";
+import { ORDER_STATUSES_CONSTRUCTOR_QUEUE } from "../../shared/production/orders.js";
 import {
   ORDER_STATUSES_NEED_POSITION,
   applyOrderStatusPreset,
@@ -66,7 +67,13 @@ export async function syncOrderStatusWorkflow(orderRow, { actor = null } = {}) {
     updated += 1;
   }
 
-  return { created, updated };
+  let queuedCount = 0;
+  if (ORDER_STATUSES_CONSTRUCTOR_QUEUE.has(status)) {
+    const queued = await enqueueOrderPositionsForConstructorDesk(orderRow, { planDate });
+    queuedCount = queued.length;
+  }
+
+  return { created, updated, queuedCount };
 }
 
 /** Створює підпозиції (зони / вироби) під основною позицією замовлення. */

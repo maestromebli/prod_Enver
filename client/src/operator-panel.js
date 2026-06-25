@@ -22,7 +22,7 @@ import { badge, escapeHtml, progressRing } from "./utils.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
-import { bindPartScanView, renderPartScanView } from "./part-scan.js";
+import { focusOperatorScanInput, renderOperatorScanPanel } from "./part-scan.js";
 
 async function afterOperatorMutation(result, onChange) {
   const { propagatePositionMutation } = await import("./data-sync.js");
@@ -385,9 +385,6 @@ function renderQueueItem(p, field, freshIds) {
 }
 
 export function renderOperatorView() {
-  if (state.operatorViewMode === "scan") {
-    return renderPartScanView();
-  }
   const stages = operatorStages();
   const stageKey = state.operatorStage || stages[0];
   const stage = OPERATOR_STAGES.find((s) => s.key === stageKey);
@@ -435,7 +432,9 @@ export function renderOperatorView() {
           <div class="op-avatar">${escapeHtml(userInitials(state.currentUser?.name))}</div>
           <strong>${escapeHtml(state.currentUser?.name || "Оператор")}</strong>
           <div class="op-header-actions">
-            <button type="button" class="op-btn-ghost" id="operatorScanBtn" title="Сканування деталі">📷</button>
+            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування деталі за штрихкодом">
+              <span class="op-scan-glyph" aria-hidden="true">▮▮</span><span class="op-scan-label">Сканувати</span>
+            </button>
             <button type="button" class="op-btn-ghost" id="operatorNotifySettingsBtn" title="Сповіщення">🔔</button>
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Назад</button>' : ""}
             ${isOperator() ? '<button type="button" class="op-btn-ghost op-btn-ghost-danger" id="operatorLogoutBtn">Вийти</button>' : ""}
@@ -493,6 +492,8 @@ export function renderOperatorView() {
                   text: "Натисніть картку в черзі зліва — етап, клієнт і дії зʼявляться тут."
                 })
           }
+
+          ${renderOperatorScanPanel(stageKey)}
 
           <div class="op-action-bar">
             <button type="button" class="op-action-btn op-action-btn--start enver-pressable" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
@@ -596,14 +597,11 @@ export function bindOperatorActions(onChange) {
   operatorActionsBound = true;
 
   document.addEventListener("click", async (e) => {
-    if (!e.target.closest(".operator-shell")) return;
-
-    if (e.target.closest("#operatorScanBtn")) {
-      state.operatorViewMode = state.operatorViewMode === "scan" ? "queue" : "scan";
-      operatorOnChange();
-      if (state.operatorViewMode === "scan") bindPartScanView();
+    if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn")) {
+      focusOperatorScanInput();
       return;
     }
+    if (!e.target.closest(".operator-shell")) return;
     if (e.target.closest("#operatorNotifySettingsBtn")) {
       const { navigateToNotificationSettings } = await import("./settings.js");
       navigateToNotificationSettings({ returnView: "operator" });
