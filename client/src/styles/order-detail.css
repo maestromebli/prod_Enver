@@ -312,8 +312,43 @@ button.step-dot[data-pipeline-jump] {
 
 /* ——— Вкладки та нові панелі ——— */
 
+.position-constructive-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--enver-space-4, 16px);
+}
+
+.legacy-constructive-upload {
+  padding-top: var(--enver-space-3, 12px);
+  border-top: 1px solid var(--enver-border, var(--border));
+}
+
 .order-detail-tabs {
   margin-top: var(--enver-space-2, 8px);
+}
+
+.pos-sub-tabs {
+  margin: var(--enver-space-2, 8px) 0 var(--enver-space-3, 12px);
+}
+
+.order-position-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle, var(--enver-border, #e8e8e8));
+}
+
+.order-finance-aggregate {
+  margin-bottom: 1rem;
+  padding: var(--enver-space-4, 16px);
+}
+
+.order-finance-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .order-detail-panel {
@@ -489,4 +524,90 @@ button.step-dot[data-pipeline-jump] {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* ——— Дані менеджера по позиції ——— */
+
+.position-manager-panel {
+  padding: var(--enver-space-4, 16px);
+}
+
+.pm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--enver-space-3, 12px);
+  margin-bottom: var(--enver-space-4, 16px);
+}
+
+.pm-block {
+  margin-top: var(--enver-space-4, 16px);
+  padding-top: var(--enver-space-4, 16px);
+  border-top: 1px solid var(--enver-border, var(--border));
+}
+
+.pm-block h4 {
+  margin: 0 0 var(--enver-space-3, 12px);
+  font-size: 0.9375rem;
+}
+
+.pm-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--enver-space-3, 12px);
+}
+
+.pm-file-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--enver-space-3, 12px);
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 8px);
+  background: var(--enver-surface-soft, var(--surface-muted));
+}
+
+.pm-file-thumb {
+  width: 100%;
+  max-height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.pm-drop {
+  border: 2px dashed var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-md, 14px);
+  padding: var(--enver-space-4, 16px);
+  text-align: center;
+  margin-top: var(--enver-space-3, 12px);
+}
+
+.pm-drop--active {
+  border-color: var(--enver-primary, var(--navy));
+  background: var(--enver-surface-soft, var(--surface-muted));
+}
+
+.order-finance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--enver-space-2, 8px);
+  padding: var(--enver-space-4, 16px);
+}
+
+.order-finance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: var(--enver-space-3, 12px);
+  border: 1px solid var(--enver-border, var(--border));
+  border-radius: var(--enver-radius-sm, 8px);
+  background: var(--enver-surface, var(--surface));
+  cursor: pointer;
+  text-align: left;
+}
+
+.order-position-meta {
+  margin-top: var(--enver-space-4, 16px);
+  padding: var(--enver-space-4, 16px);
 }

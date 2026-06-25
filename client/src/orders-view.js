@@ -168,7 +168,14 @@ function orderCardActions(order, attn) {
   </div>`;
 }
 
-function ordersEmptyHtml() {
+function ordersEmptyHtml(filtersActive = false) {
+  if (filtersActive) {
+    return `<div class="enver-empty-state orders-empty">
+      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
+      <p class="enver-empty-state-text">Немає замовлень за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
+    </div>`;
+  }
   return `<div class="enver-empty-state orders-empty">
     <span class="enver-empty-state-icon" aria-hidden="true">📋</span>
     <h3 class="enver-empty-state-title">Поки немає замовлень</h3>
@@ -176,7 +183,7 @@ function ordersEmptyHtml() {
   </div>`;
 }
 
-function renderOrdersCards(orders, rootPositions, allPositions) {
+function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = false) {
   const cards = orders
     .map((order) => {
       const main = mainPositionForOrder(order, rootPositions);
@@ -225,10 +232,10 @@ function renderOrdersCards(orders, rootPositions, allPositions) {
     })
     .join("");
 
-  return `<div class="orders-grid">${cards || ordersEmptyHtml()}</div>`;
+  return `<div class="orders-grid">${cards || ordersEmptyHtml(filtersActive)}</div>`;
 }
 
-function renderOrdersList(orders, rootPositions, allPositions) {
+function renderOrdersList(orders, rootPositions, allPositions, filtersActive = false) {
   const colspan = 10;
   const rows = orders.length
     ? orders
@@ -258,11 +265,7 @@ function renderOrdersList(orders, rootPositions, allPositions) {
           return [mainRow, orderListPositionsRow(order, allPositions, expanded, colspan)];
         })
         .join("")
-    : `<tr><td colspan="${colspan}"><div class="enver-empty-state">
-        <span class="enver-empty-state-icon" aria-hidden="true">📋</span>
-        <h3 class="enver-empty-state-title">Поки немає замовлень</h3>
-        <p class="enver-empty-state-text">Створіть перше замовлення, щоб запустити виробничий workflow.</p>
-      </div></td></tr>`;
+    : `<tr><td colspan="${colspan}">${ordersEmptyHtml(filtersActive)}</td></tr>`;
 
   return `<div class="orders-list card" id="ordersList">
     <div class="table-wrap">
@@ -287,14 +290,14 @@ function renderOrdersList(orders, rootPositions, allPositions) {
   </div>`;
 }
 
-export function renderOrdersGrid(orders, positions) {
+export function renderOrdersGrid(orders, positions, { filtersActive = false } = {}) {
   const rootPositions = positions.filter((p) => !p.parentId);
   const sorted = sortOrdersByAttention(orders, positions);
   const mode = state.ordersView.displayMode || "cards";
   const body =
     mode === "list"
-      ? renderOrdersList(sorted, rootPositions, positions)
-      : renderOrdersCards(sorted, rootPositions, positions);
+      ? renderOrdersList(sorted, rootPositions, positions, filtersActive)
+      : renderOrdersCards(sorted, rootPositions, positions, filtersActive);
 
   return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
 }

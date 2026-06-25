@@ -199,8 +199,18 @@ async function saveOrder(event) {
     submitEl: submitBtn,
     saveFn: () => (id ? api.updateOrder(id, body) : api.createOrder(body)),
     successMessage: id ? "Замовлення збережено" : "Замовлення створено",
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       closeOrderModal();
+      if (!id && created?.id) {
+        const { upsertOrder, upsertPosition } = await import("./data-sync.js");
+        upsertOrder(created);
+        if (Array.isArray(created.positions)) {
+          for (const p of created.positions) upsertPosition(p);
+        }
+        state.selectedOrderId = created.id;
+        const work = created.workPositions || [];
+        state.ordersView.detailTab = work[0]?.id ? `pos-${work[0].id}` : "overview";
+      }
       await onSaved();
     },
     onError: (err) => showError(err.message)

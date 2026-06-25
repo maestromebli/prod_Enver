@@ -96,6 +96,13 @@ export const api = {
 
   getPositions: () => request("/api/positions"),
   getPosition: (id) => request(`/api/positions/${id}`),
+  getPositionManagerData: (id) => request(`/api/positions/${id}/manager-data`),
+  savePositionManagerData: (id, body) =>
+    request(`/api/positions/${id}/manager-data`, { method: "PUT", body: JSON.stringify(body) }),
+  uploadPositionManagerFile: (id, body) =>
+    request(`/api/positions/${id}/files`, { method: "POST", body: JSON.stringify(body) }),
+  deletePositionManagerFile: (id, fileId) =>
+    request(`/api/positions/${id}/files/${fileId}`, { method: "DELETE" }),
   createPosition: (body) =>
     request("/api/positions", { method: "POST", body: JSON.stringify(body) }),
   updatePosition: (id, body) =>

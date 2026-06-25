@@ -40,7 +40,8 @@ import {
   initUiPersistence,
   loadPersistedUiState,
   persistUiState,
-  restoreScrollPosition
+  restoreScrollPosition,
+  schedulePersistUiState
 } from "./ui-persistence.js";
 import { setAppLoading } from "./loading-ui.js";
 import { $ } from "./utils.js";
@@ -86,6 +87,7 @@ function renderOperatorClient() {
   syncOperatorClientScanButton(state.operatorStage);
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
+  schedulePersistUiState();
 }
 
 async function refreshOperatorData({ silent = false } = {}) {
@@ -238,10 +240,10 @@ async function bootstrap() {
 
 async function startOperatorApp() {
   initOperatorPwaShell();
-  registerOperatorServiceWorker();
   watchAppBuildUpdates();
   if (await reloadIfAppBuildChanged()) return;
   await bootstrap();
+  registerOperatorServiceWorker();
 }
 
 startOperatorApp();

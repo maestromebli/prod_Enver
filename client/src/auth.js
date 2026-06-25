@@ -43,6 +43,13 @@ export function isAdmin() {
   return state.currentUser?.role === "admin";
 }
 
+export function canEditPositionManagerData() {
+  return Boolean(
+    state.currentUser?.permissions?.canEditPositionManagerData ||
+    state.currentUser?.permissions?.canEditOrders
+  );
+}
+
 export function canViewSettings() {
   return Boolean(state.currentUser?.permissions?.canViewSettings);
 }

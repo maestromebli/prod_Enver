@@ -56,6 +56,9 @@ body.operator-kiosk-locked {
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   min-height: 44px;
   padding: calc(0.35rem + env(safe-area-inset-top, 0px)) 0.5rem 0.35rem;
   background: var(--enver-surface, var(--surface, #fff));
@@ -85,6 +88,10 @@ html.operator-pwa-capable.enver-operator-installed body.operator-client-mode {
 
 [data-theme="dark"] html.operator-pwa-capable .operator-client-header {
   background: color-mix(in srgb, var(--enver-surface, #1e293b) 94%, transparent);
+}
+
+.operator-client-header::-webkit-scrollbar {
+  display: none;
 }
 
 .operator-client-header .enver-brand--header {
@@ -379,6 +386,33 @@ body.operator-client-mode .operator-shell .op-header {
 
 .enver-operator-ui .op-machine-section {
   padding: 10px;
+}
+
+.enver-operator-ui .op-work-scan-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--enver-primary, #245c3b) 35%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--enver-primary, #245c3b) 14%, #fff) 0%,
+    color-mix(in srgb, var(--enver-primary, #245c3b) 8%, #fff) 100%
+  );
+  color: var(--enver-primary, #245c3b);
+  font-size: 0.9rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(36, 92, 59, 0.15);
+}
+
+.enver-operator-ui .op-work-scan-btn:active {
+  transform: scale(0.98);
 }
 
 .enver-operator-ui .op-action-bar {

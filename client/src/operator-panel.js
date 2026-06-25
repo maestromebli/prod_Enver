@@ -22,7 +22,11 @@ import { badge, escapeHtml, progressRing } from "./utils.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
-import { focusOperatorScanInput, renderOperatorScanPanel } from "./part-scan.js";
+import {
+  focusOperatorScanInput,
+  renderOperatorScanActionButton,
+  renderOperatorScanPanel
+} from "./part-scan.js";
 
 async function afterOperatorMutation(result, onChange) {
   const { propagatePositionMutation } = await import("./data-sync.js");
@@ -495,6 +499,8 @@ export function renderOperatorView() {
 
           ${renderOperatorScanPanel(stageKey)}
 
+          ${renderOperatorScanActionButton(stageKey)}
+
           <div class="op-action-bar">
             <button type="button" class="op-action-btn op-action-btn--start enver-pressable" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
             <button type="button" class="op-action-btn op-action-btn--pause enver-pressable" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>${canResume() ? "Продовжити" : "Пауза"}</button>
@@ -597,7 +603,7 @@ export function bindOperatorActions(onChange) {
   operatorActionsBound = true;
 
   document.addEventListener("click", async (e) => {
-    if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn")) {
+    if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn, #operatorWorkScanBtn")) {
       focusOperatorScanInput();
       return;
     }

@@ -141,8 +141,14 @@ export function registerOperatorServiceWorker() {
   if (isNativeOperatorShell()) return;
   if (!("serviceWorker" in navigator)) return;
 
+  // Перша активація SW (null → controller) — не перезавантажуємо, інакше F5 дає подвійний reload.
+  let skipNextControllerChange = !navigator.serviceWorker.controller;
   let reloadingForSw = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (skipNextControllerChange) {
+      skipNextControllerChange = false;
+      return;
+    }
     if (reloadingForSw) return;
     reloadingForSw = true;
     location.reload();

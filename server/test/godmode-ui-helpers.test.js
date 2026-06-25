@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   canQuickRunGodmodeAction,
   isRunnableGodmodeAction,
-  panelForGodmodeAction
+  orderDetailSubTabForGodmodeAction,
+  panelForGodmodeAction,
+  shouldOpenOrderDetailForGodmodeAction
 } from "../../shared/production/godmode-ui-helpers.js";
 
 describe("godmode UI helpers", () => {
@@ -25,5 +27,15 @@ describe("godmode UI helpers", () => {
   it("isRunnableGodmodeAction — UI-дії не quick-run", () => {
     assert.equal(isRunnableGodmodeAction("add_position"), true);
     assert.equal(isRunnableGodmodeAction("create_tasks_from_ai"), false);
+  });
+
+  it("orderDetailSubTabForGodmodeAction — pipeline дії", () => {
+    assert.equal(orderDetailSubTabForGodmodeAction("fill_manager_data"), "manager");
+    assert.equal(orderDetailSubTabForGodmodeAction("parse_constructive_package"), "constructive");
+    assert.equal(orderDetailSubTabForGodmodeAction("create_procurement"), "procurement");
+    assert.equal(orderDetailSubTabForGodmodeAction("send_to_gitlab"), "cnc");
+    assert.equal(orderDetailSubTabForGodmodeAction("upload_constructive"), "constructive");
+    assert.equal(orderDetailSubTabForGodmodeAction("schedule_install"), "install");
+    assert.equal(shouldOpenOrderDetailForGodmodeAction("assign_constructor"), true);
   });
 });

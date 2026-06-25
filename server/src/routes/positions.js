@@ -32,6 +32,7 @@ import { buildOperatorDeepLink } from "../qr-link.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { registerConstructiveRoutes } from "./positions/constructive-routes.js";
 import { registerNextActionRoutes } from "./positions/next-action-routes.js";
+import { registerManagerRoutes } from "./positions/manager-routes.js";
 import constructivePackageRouter, {
   registerConstructivePackagePositionRoutes
 } from "./constructive-packages.js";
@@ -47,6 +48,11 @@ import {
   PACKAGE_VERSION_SUBQUERY,
   UNMAPPED_PARTS_SUBQUERY
 } from "../constructive-package-enrich.js";
+import { MANAGER_FILE_COUNT_SUBQUERY, getPositionManagerBundle } from "../position-manager-service.js";
+import { getProcurementRequest } from "../constructive/procurement-service.js";
+import { getFinanceSummaryForPosition } from "../constructive/finance-service.js";
+import { getCncJobsForPosition } from "../integrations/gitlab.js";
+import { listPackagesForPosition } from "../constructive/constructive-package-service.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -90,6 +96,7 @@ const POSITION_SELECT = `SELECT p.*,
   ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
   ${UNMAPPED_PARTS_SUBQUERY},
   ${PACKAGE_PARTS_COUNT_SUBQUERY},
+  ${MANAGER_FILE_COUNT_SUBQUERY},
   ${AI_COUNT_SUBQUERY},
   ${ACTIVE_SESSION_SUBQUERY}
  FROM positions p`;
@@ -149,6 +156,7 @@ async function resolveOrderLink(data) {
 const routeCtx = { loadRow, saveRow, planDateByOrderNumber, mapEnrichedRow };
 registerNextActionRoutes(router, routeCtx);
 registerConstructiveRoutes(router, routeCtx);
+registerManagerRoutes(router, routeCtx);
 router.use("/:id/constructive-packages", constructivePackageRouter);
 registerConstructivePackagePositionRoutes(router);
 
@@ -197,12 +205,32 @@ router.get("/:id", async (req, res) => {
   }
   const planMap = await planDateByOrderNumber();
   const tsMap = await loadStageTimestampsMap([row.id]);
-  res.json(
-    mapEnrichedRow(row, planMap, {
-      stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
-      now: new Date()
-    })
+  const mapped = mapEnrichedRow(row, planMap, {
+    stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
+    now: new Date()
+  });
+  const managerBundle = await getPositionManagerBundle(row.id);
+  const packages = await listPackagesForPosition(row.id);
+  const procurement = await one(
+    `SELECT id FROM procurement_requests WHERE position_id = $1 ORDER BY id DESC LIMIT 1`,
+    [row.id]
   );
+  const procurementDetail = procurement
+    ? await getProcurementRequest(procurement.id)
+    : null;
+  const finance = await getFinanceSummaryForPosition(row.id);
+  const cncJobs = await getCncJobsForPosition(row.id);
+
+  res.json({
+    ...mapped,
+    managerData: managerBundle?.managerData ?? null,
+    managerFiles: managerBundle?.files ?? [],
+    managerDataComplete: managerBundle?.managerDataComplete ?? false,
+    constructivePackages: packages,
+    procurement: procurementDetail,
+    finance,
+    cncJobs
+  });
 });
 
 router.post("/", requirePositionWrite, async (req, res) => {

@@ -17,7 +17,11 @@ function basePosition(overrides = {}) {
     order_number: "EN-102",
     orderNumber: "EN-102",
     item: "Шафа",
+    delivery_address: "вул. Тестова 1",
+    position_deadline: "01.07.2026",
+    constructor_name: "Ігор",
     has_constructive_file: false,
+    current_stage: "constructor",
     cutting_status: "Не розпочато",
     edging_status: "Не розпочато",
     drilling_status: "Не розпочато",
@@ -100,8 +104,14 @@ describe("godmode", () => {
   it("close_order коли всі позиції завершені", () => {
     const order = { id: 5, orderNumber: "EN-200", manager: "Іван" };
     const positions = [
-      basePosition({ id: 1, position_status: "Завершено" }),
-      basePosition({ id: 2, parentId: 1, position_status: "Завершено" })
+      basePosition({ id: 1, orderNumber: "EN-200", order_number: "EN-200", position_status: "Завершено" }),
+      basePosition({
+        id: 2,
+        parentId: 1,
+        orderNumber: "EN-200",
+        order_number: "EN-200",
+        position_status: "Завершено"
+      })
     ];
     const next = getOrderNextAction(order, positions);
     assert.equal(next.type, "close_order");

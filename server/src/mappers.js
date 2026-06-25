@@ -6,6 +6,7 @@ export function mapOrder(row) {
     object: row.object,
     client: row.client ?? "",
     manager: row.manager ?? "",
+    defaultDeliveryAddress: row.default_delivery_address ?? "",
     startDate: row.start_date ?? "",
     planDate: row.plan_date ?? "",
     status: row.status ?? "",
@@ -56,8 +57,25 @@ export function mapPosition(row) {
     problem: row.problem ?? "",
     note: row.note ?? "",
     material: row.material ?? "",
+    deliveryAddress: row.delivery_address ?? "",
+    deliveryContactName: row.delivery_contact_name ?? "",
+    deliveryContactPhone: row.delivery_contact_phone ?? "",
+    positionDeadline: row.position_deadline ?? "",
+    measurementDate: row.measurement_date ?? "",
+    installationPreferredDate: row.installation_preferred_date ?? "",
+    managerDataCompletedAt: row.manager_data_completed_at ?? null,
+    managerFilesCount: Number(row.manager_files_count) || 0,
+    constructorUserId: row.constructor_user_id ?? null,
+    constructorDueAt: row.constructor_due_at ?? null,
+    constructorAssignedAt: row.constructor_assigned_at ?? null,
     createdAt: row.created_at ?? null
   };
+}
+
+function ownString(body, key, fallback = "") {
+  if (!body || !Object.hasOwn(body, key)) return fallback;
+  const value = body[key];
+  return typeof value === "string" ? value.trim() : fallback;
 }
 
 export function orderToDb(body) {
@@ -70,7 +88,8 @@ export function orderToDb(body) {
     plan_date: body.planDate?.trim() ?? "",
     status: body.status?.trim() ?? "",
     priority: body.priority?.trim() ?? "",
-    comment: body.comment?.trim() ?? ""
+    comment: body.comment?.trim() ?? "",
+    default_delivery_address: body.defaultDeliveryAddress?.trim() ?? body.clientAddress?.trim() ?? ""
   };
 }
 
@@ -83,7 +102,7 @@ export function positionToDb(body) {
     item: body.item?.trim() ?? "",
     item_type: body.itemType?.trim() ?? "",
     manager: body.manager?.trim() ?? "",
-    constructor_name: body.constructor?.trim() ?? "",
+    constructor_name: ownString(body, "constructor"),
     has_constructive_file: Boolean(body.hasConstructiveFile),
     cutting_status: body.cuttingStatus?.trim() ?? "Не розпочато",
     edging_status: body.edgingStatus?.trim() ?? "Не розпочато",

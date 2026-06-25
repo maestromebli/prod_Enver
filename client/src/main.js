@@ -184,6 +184,13 @@ function openNewPositionForContext() {
   if (state.selectedOrderId) {
     const order = state.orders.find((o) => o.id === state.selectedOrderId);
     if (order) {
+      const root = state.positions.find(
+        (p) => !p.parentId && (p.orderId === order.id || p.orderNumber === order.orderNumber)
+      );
+      if (root) {
+        openSubPositionDrawer(root.id);
+        return;
+      }
       openPositionDrawer(null, {
         orderNumber: order.orderNumber,
         orderId: order.id,
@@ -491,7 +498,7 @@ async function setTab(tab) {
     }
   }
   try {
-    renderApp({ contentOnly: true });
+    renderApp();
   } catch (err) {
     console.error("setTab render failed", err);
     toastError(err.message || "Не вдалося відобразити вкладку");
@@ -508,6 +515,7 @@ function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) 
   if (statusFilter) statusFilter.value = status;
   if (responsibleFilter) responsibleFilter.value = responsible;
   state.productionStageFilter = "";
+  state.ordersView.priorityFilter = "";
   if (stageFilter) stageFilter.value = "";
 }
 
@@ -640,7 +648,11 @@ $("#searchInput")?.addEventListener("input", scheduleContentRender);
 $("#statusFilter")?.addEventListener("change", () => renderApp({ contentOnly: true }));
 $("#responsibleFilter")?.addEventListener("change", () => renderApp({ contentOnly: true }));
 $("#stageFilter")?.addEventListener("change", (e) => {
-  state.productionStageFilter = e.target.value;
+  if (state.activeTab === "Замовлення") {
+    state.ordersView.priorityFilter = e.target.value;
+  } else {
+    state.productionStageFilter = e.target.value;
+  }
   renderApp({ contentOnly: true });
 });
 
@@ -649,6 +661,7 @@ $("#resetBtn")?.addEventListener("click", () => {
   $("#statusFilter").value = "";
   $("#responsibleFilter").value = "";
   state.productionStageFilter = "";
+  state.ordersView.priorityFilter = "";
   if ($("#stageFilter")) $("#stageFilter").value = "";
   renderApp({ contentOnly: true });
 });

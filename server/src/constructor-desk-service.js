@@ -81,21 +81,4 @@ export function workspaceCompletion(workspace, files = []) {
   return { ledOk, measurementsOk, managerImageOk, techOk, percent: Math.round((score / 4) * 100) };
 }
 
-export function suggestConstructorTiming(position = {}, childCount = 0) {
-  const item = String(position.item || "").toLowerCase();
-  const itemType = String(position.itemType || position.item_type || "").toLowerCase();
-  let hours = 4;
-  if (itemType.includes("кухн") || item.includes("кухн")) hours = 16;
-  else if (itemType.includes("шаф") || item.includes("шаф")) hours = 8;
-  else if (itemType.includes("стіл") || item.includes("стіл")) hours = 3;
-  hours += Math.min(childCount, 8) * 1.5;
-  if (position.hasConstructiveFile || position.has_constructive_file) hours *= 0.75;
-  hours = Math.round(hours * 10) / 10;
-  const due = new Date();
-  due.setDate(due.getDate() + Math.max(1, Math.ceil(hours / 8)));
-  return {
-    estimatedHours: hours,
-    dueAt: due.toISOString(),
-    rationale: `Базова оцінка за типом «${position.itemType || position.item || "виріб"}»${childCount ? ` + ${childCount} підпоз.` : ""}`
-  };
-}
+export { suggestConstructorTiming } from "../../shared/production/constructor-timing.js";

@@ -4,6 +4,7 @@ import {
   ORDER_API_ACTION_TYPES,
   UI_ACTION_TYPES,
   canQuickRunGodmodeAction,
+  orderDetailSubTabForGodmodeAction,
   panelForGodmodeAction
 } from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
@@ -85,7 +86,9 @@ export function renderBlockersList(blockers = []) {
 
 export {
   canQuickRunGodmodeAction,
-  panelForGodmodeAction
+  orderDetailSubTabForGodmodeAction,
+  panelForGodmodeAction,
+  shouldOpenOrderDetailForGodmodeAction
 } from "@enver/shared/production/godmode-ui-helpers.js";
 
 export function renderNextActionBanner(
@@ -243,6 +246,32 @@ export function rootPositionForOrder(order, positions) {
   return positionsForOrder(order, positions).find((p) => !p.parentId);
 }
 
+/** Відкриває картку замовлення / стіл конструктора для godmode-дії. */
+export function navigateGodmodeAction(position, actionType, appState) {
+  if (!position) return false;
+
+  if (actionType === "assign_constructor") {
+    appState.activeTab = "Конструктив";
+    appState.constructorDesk.selectedPositionId = position.id;
+    return true;
+  }
+
+  const orderId = position.orderId;
+  if (!orderId) return false;
+
+  const subTab = orderDetailSubTabForGodmodeAction(actionType);
+  if (!subTab && actionType !== "fill_manager_data") return false;
+
+  appState.selectedOrderId = orderId;
+  appState.activeTab = "Замовлення";
+  appState.ordersView.detailTab = `pos-${position.id}`;
+  appState.ordersView.positionSubTab = {
+    ...(appState.ordersView.positionSubTab || {}),
+    [position.id]: subTab || "manager"
+  };
+  return true;
+}
+
 async function runOptimisticHandoff(positionId, actionType, deps) {
   const positions = deps.getPositions?.() || [];
   const snapshot = positions.find((p) => p.id === positionId);
@@ -286,6 +315,15 @@ export async function executePrimaryOrderAction(
   }
 
   if (UI_ACTION_TYPES.has(next.type) && root?.id) {
+    const subTab = orderDetailSubTabForGodmodeAction(next.type);
+    if (subTab || next.type === "fill_manager_data") {
+      return {
+        action: "open_order",
+        tab: `pos-${root.id}`,
+        subTab: subTab || "manager",
+        positionId: root.id
+      };
+    }
     return {
       action: "open_position",
       positionId: root.id,
@@ -325,9 +363,18 @@ export async function buildGodmodeActionDeps(overrides = {}) {
     toastSuccess,
     toastError,
     humanizeUserMessage,
-    openOrderDetail: (orderId, tab = "overview") => {
+    openOrderDetail: (orderId, tab = "overview", subTab = null) => {
       state.selectedOrderId = orderId;
       state.ordersView.detailTab = tab;
+      if (tab.startsWith("pos-") && subTab) {
+        const positionId = Number(tab.slice(4));
+        if (Number.isFinite(positionId)) {
+          state.ordersView.positionSubTab = {
+            ...(state.ordersView.positionSubTab || {}),
+            [positionId]: subTab
+          };
+        }
+      }
       state.activeTab = "Замовлення";
       window.__enverRender?.();
       window.scrollTo?.({ top: 0, behavior: "instant" });
@@ -350,6 +397,13 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       return { action: "open_order" };
     }
 
+    if (actionType === "add_position" && entityType === "order") {
+      deps.openOrderDetail?.(Number(entityId), "positions");
+      const { focusOrderInlineAddInput } = await import("./order-detail.js");
+      focusOrderInlineAddInput();
+      return { action: "open_order", tab: "positions" };
+    }
+
     if (actionType === "close_order" || entityType === "order") {
       const order = orders.find((o) => o.id === Number(entityId));
       if (!order) throw new Error("Замовлення не знайдено");
@@ -363,6 +417,10 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
         if (position) deps.openPositionDrawer?.(position, { panel: result.panel });
       } else {
         deps.openOrderDetail?.(order.id, result.tab || "overview");
+        if (result.hint === "add_position" || result.tab === "positions") {
+          const { focusOrderInlineAddInput } = await import("./order-detail.js");
+          focusOrderInlineAddInput();
+        }
       }
       return result;
     }
@@ -383,6 +441,13 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
       window.__enverRender?.({ contentOnly: true });
       return { action: "handoff" };
+    }
+
+    const { state: appState } = await import("./state.js");
+    if (navigateGodmodeAction(position, effectiveAction, appState)) {
+      window.__enverRender?.();
+      window.scrollTo?.({ top: 0, behavior: "instant" });
+      return { action: "open_order", tab: `pos-${positionId}` };
     }
 
     deps.openPositionDrawer?.(position, { panel: panelForGodmodeAction(effectiveAction) });

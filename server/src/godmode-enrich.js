@@ -12,12 +12,14 @@ import {
   mergeAiNotifications
 } from "./ai/ai-notifications.js";
 import { packageGodmodeContextFromRow } from "./constructive-package-enrich.js";
+import { mapManagerDataFields } from "./position-manager-service.js";
 
 export function godmodeContextFromRow(row, extra = {}) {
   return {
     hasAiAnalysis: Number(row?.ai_analysis_count ?? row?.aiAnalysisCount) > 0,
     planDate: row?.plan_date ?? row?.planDate ?? extra.planDate,
     ...packageGodmodeContextFromRow(row || {}),
+    ...mapManagerDataFields(row || {}),
     ...extra
   };
 }

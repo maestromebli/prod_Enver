@@ -39,8 +39,8 @@ describe("constructor desk service", () => {
   });
 
   it("suggestConstructorTiming дає більше годин для кухні", () => {
-    const kitchen = suggestConstructorTiming({ item: "Кухня", itemType: "кухня" }, 2);
-    const shelf = suggestConstructorTiming({ item: "Шафа", itemType: "шафа" }, 0);
+    const kitchen = suggestConstructorTiming({ item: "Кухня", itemType: "кухня" }, { childCount: 2 });
+    const shelf = suggestConstructorTiming({ item: "Шафа", itemType: "шафа" }, { childCount: 0 });
     assert.ok(kitchen.estimatedHours > shelf.estimatedHours);
     assert.ok(kitchen.dueAt);
   });

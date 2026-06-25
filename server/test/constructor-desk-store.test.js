@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   groupDeskPositionsIntoOrders,
-  isPositionOnConstructorDesk
+  isPositionOnConstructorDesk,
+  filterUsersByConstructorDirectory
 } from "../src/constructor-desk-store.js";
 
 describe("constructor desk store", () => {
@@ -44,5 +45,18 @@ describe("constructor desk store", () => {
     assert.equal(orders[0].assignedCount, 1);
     assert.equal(orders[0].pendingCount, 1);
     assert.equal(orders[0].maxCompletionPercent, 80);
+  });
+
+  it("filterUsersByConstructorDirectory — лише імена з довідника", () => {
+    const users = [
+      { id: 1, name: "Ігор" },
+      { id: 2, name: "Люда" },
+      { id: 3, name: "  Олег  " }
+    ];
+    const filtered = filterUsersByConstructorDirectory(users, ["Ігор", "Олег", "Тарас"]);
+    assert.deepEqual(
+      filtered.map((u) => u.id),
+      [1, 3]
+    );
   });
 });

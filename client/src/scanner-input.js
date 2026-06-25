@@ -106,16 +106,3 @@ export function createScannerInputListener({
     }
   };
 }
-
-export const STATION_STORAGE_KEY = "enver_station_name";
-
-export function getStationName() {
-  return localStorage.getItem(STATION_STORAGE_KEY) || "";
-}
-
-export function setStationName(name) {
-  const v = String(name || "").trim();
-  if (v) localStorage.setItem(STATION_STORAGE_KEY, v);
-  else localStorage.removeItem(STATION_STORAGE_KEY);
-  return v;
-}

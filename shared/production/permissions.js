@@ -24,6 +24,9 @@ export const DEFAULT_PERMISSIONS = {
     canSendToGitlab: true,
     canViewFinance: true,
     canManageProcurement: true,
+    canEditPositionManagerData: true,
+    canScanParts: true,
+    canMap3dParts: true,
     stages: ALL_STAGE_KEYS
   },
   manager: {
@@ -32,6 +35,7 @@ export const DEFAULT_PERMISSIONS = {
     canManageAccess: false,
     canEditOrders: true,
     canEditPositions: true,
+    canEditPositionManagerData: true,
     canUseOperatorPanel: false,
     canViewProductionFloor: false,
     canManageConstructorDesk: false,
@@ -42,6 +46,8 @@ export const DEFAULT_PERMISSIONS = {
     canSendToGitlab: false,
     canViewFinance: true,
     canManageProcurement: true,
+    canScanParts: false,
+    canMap3dParts: false,
     stages: []
   },
   production: {
@@ -60,6 +66,9 @@ export const DEFAULT_PERMISSIONS = {
     canSendToGitlab: true,
     canViewFinance: true,
     canManageProcurement: true,
+    canEditPositionManagerData: true,
+    canScanParts: true,
+    canMap3dParts: true,
     stages: ALL_STAGE_KEYS
   },
   operator: {
@@ -78,6 +87,8 @@ export const DEFAULT_PERMISSIONS = {
     canSendToGitlab: false,
     canViewFinance: false,
     canManageProcurement: false,
+    canScanParts: true,
+    canMap3dParts: false,
     stages: []
   }
 };

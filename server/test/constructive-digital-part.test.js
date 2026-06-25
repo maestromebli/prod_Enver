@@ -177,8 +177,16 @@ describe("packageGodmodeContextFromRow", () => {
 
   it("getPositionNextAction з packageStatus — parse", () => {
     const action = getPositionNextAction(
-      { has_constructive_file: true, cutting_status: "Не розпочато" },
-      { packageStatus: "uploaded", hasConstructivePackage: true }
+      {
+        item: "Кухня",
+        delivery_address: "Адреса",
+        position_deadline: "01.07.2026",
+        has_constructive_file: true,
+        cutting_status: "Не розпочато",
+        current_stage: "constructor",
+        constructor_name: "Ігор"
+      },
+      { packageStatus: "uploaded", hasConstructivePackage: true, managerDataComplete: true }
     );
     assert.equal(action.type, "parse_constructive_package");
   });

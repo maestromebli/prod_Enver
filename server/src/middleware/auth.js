@@ -6,7 +6,8 @@ const QUERY_TOKEN_PATHS = [
   /^\/api\/notifications\/stream$/,
   /^\/api\/positions\/\d+\/constructive-file$/,
   /^\/api\/positions\/\d+\/constructive-file\/\d+$/,
-  /^\/api\/constructor-desk\/positions\/\d+\/files\/\d+$/
+  /^\/api\/constructor-desk\/positions\/\d+\/files\/\d+$/,
+  /^\/api\/positions\/\d+\/files\/\d+\/download$/
 ];
 
 function allowQueryToken(method, path) {

@@ -5,6 +5,7 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { runSave } from "./save-flow.js";
+import { managerFileDownloadUrl } from "./position-manager-panel.js";
 
 const LED_VOLTAGES = ["220", "24", "12"];
 
@@ -73,20 +74,63 @@ function findConstructorOrder(orderId) {
   );
 }
 
+function constructorOptionsForPosition(position, constructors = []) {
+  const list = [...constructors];
+  if (
+    position.constructorUserId &&
+    !list.some((user) => user.id === position.constructorUserId)
+  ) {
+    list.unshift({
+      id: position.constructorUserId,
+      name: position.constructorUserName || position.constructor || `#${position.constructorUserId}`
+    });
+  }
+  return list;
+}
+
 function renderOrdersHero() {
   const isChief = canManageConstructorDesk();
+  const f = state.constructorDesk.filter || "all";
+  const filters = [
+    ["all", "Усі"],
+    ["unassigned", "Без конструктора"],
+    ["mine", "Мої"],
+    ["overdue", "Просрочені"],
+    ["no_manager_files", "Без файлів менеджера"],
+    ["no_manager_data", "Без даних менеджера"]
+  ];
+  const filterBtns = filters
+    .map(
+      ([key, label]) =>
+        `<button type="button" class="enver-segmented-btn ${f === key ? "active" : ""}" data-cd-filter="${key}">${label}</button>`
+    )
+    .join("");
   return `
     <div class="cd-hero card">
       <div>
-        <h2 class="block-title">Замовлення у конструкторах</h2>
+        <h2 class="block-title">Конструктив</h2>
         <p class="settings-hint">${
           isChief
-            ? "Позиції на етапі конструктиву або з призначеним конструктором."
-            : "Ваші призначені замовлення та позиції."
+            ? "Робочі позиції замовлень — ті самі, що в картці замовлення."
+            : "Ваші призначені позиції."
         }</p>
       </div>
+      <nav class="enver-segmented cd-filters">${filterBtns}</nav>
       ${isChief ? `<label class="checkbox-label"><input type="checkbox" id="cdOnlyMineToggle" ${state.constructorDesk.onlyMine ? "checked" : ""} /> Лише мої</label>` : ""}
     </div>`;
+}
+
+function filterDeskPositions(positions) {
+  const f = state.constructorDesk.filter || "all";
+  const now = Date.now();
+  return positions.filter((p) => {
+    if (f === "unassigned") return !p.constructorUserId && !String(p.constructor || "").trim();
+    if (f === "mine") return true;
+    if (f === "overdue") return p.constructorDueAt && new Date(p.constructorDueAt).getTime() < now;
+    if (f === "no_manager_files") return !(p.managerFilesCount > 0);
+    if (f === "no_manager_data") return !p.managerDataComplete;
+    return true;
+  });
 }
 
 function renderConstructorOrdersList(orders) {
@@ -126,13 +170,20 @@ function renderConstructorOrdersList(orders) {
 
 function renderConstructorOrderDetail(order) {
   const isChief = canManageConstructorDesk();
-  const positions = order.positions || [];
+  const positions = filterDeskPositions(order.positions || []);
   const rows = positions
     .map((p) => {
+      const managerBadge = p.managerDataComplete
+        ? `<span class="badge green">Дані ✓</span>`
+        : `<span class="badge orange">Дані</span>`;
+      const filesBadge =
+        (p.managerFilesCount || 0) > 0
+          ? `<span class="badge blue">${p.managerFilesCount} файл.</span>`
+          : `<span class="badge gray">Без файлів</span>`;
       const assignCell = isChief
         ? `<select class="cd-assign-select" data-cd-assign-user="${p.id}">
             <option value="">— не призначено —</option>
-            ${(state.constructorDesk.constructors || [])
+            ${constructorOptionsForPosition(p, state.constructorDesk.constructors || [])
               .map(
                 (u) =>
                   `<option value="${u.id}" ${p.constructorUserId === u.id ? "selected" : ""}>${escapeHtml(u.name)}</option>`
@@ -147,7 +198,7 @@ function renderConstructorOrderDetail(order) {
            <small class="enver-meta">${dueLabel(p.constructorDueAt)}</small>`;
 
       return `<tr>
-        <td>${escapeHtml(p.item || "—")}<br><small class="enver-meta">${escapeHtml(p.itemType || "")}</small></td>
+        <td>${escapeHtml(p.item || "—")}<br><small class="enver-meta">${escapeHtml(p.itemType || "")}</small><br>${managerBadge} ${filesBadge}</td>
         <td class="cd-assign-cell">${assignCell}</td>
         <td>${completionBadge(p.completion)} ${p.completion?.ledOk ? "💡" : ""}</td>
         <td>${escapeHtml(p.currentStage || "—")}</td>
@@ -231,7 +282,7 @@ function renderWorkspace(detail, constructors) {
         <div class="cd-assign-grid">
           <select id="cdWsAssignUser">
             <option value="">— конструктор —</option>
-            ${constructors.map((u) => `<option value="${u.id}" ${p.constructorUserId === u.id ? "selected" : ""}>${escapeHtml(u.name)}</option>`).join("")}
+            ${constructorOptionsForPosition(p, constructors).map((u) => `<option value="${u.id}" ${p.constructorUserId === u.id ? "selected" : ""}>${escapeHtml(u.name)}</option>`).join("")}
           </select>
           <input type="datetime-local" id="cdWsDue" value="${p.constructorDueAt ? p.constructorDueAt.slice(0, 16) : ""}" />
           <input type="number" id="cdWsHours" min="0" step="0.5" placeholder="години" value="${p.constructorEstimatedHours ?? ""}" />
@@ -242,6 +293,19 @@ function renderWorkspace(detail, constructors) {
       </div>`
           : ""
       }
+
+      <div class="card cd-manager-input">
+        <h3>Вхідні дані від менеджера</h3>
+        <p class="enver-meta">Адреса, строки та файли з картки замовлення (тільки перегляд).</p>
+        <div class="cd-manager-files">
+          ${(detail.managerFiles || [])
+            .map(
+              (f) =>
+                `<a class="btn btn-sm" href="${managerFileDownloadUrl(p.id, f.id)}" target="_blank" rel="noopener">${escapeHtml(f.fileName || f.kind)}</a>`
+            )
+            .join("") || '<span class="enver-meta">Файлів менеджера ще немає — попросіть менеджера заповнити картку позиції.</span>'}
+        </div>
+      </div>
 
       <div class="card cd-led-card">
         <h3>LED підсвітка <span class="badge red">обов'язково</span></h3>
@@ -471,6 +535,13 @@ export function bindConstructorDeskActions(onChange = () => {}) {
       state.constructorDesk.selectedPositionId = null;
       state.constructorDesk.detail = null;
       await loadConstructorDesk();
+      onChange();
+      return;
+    }
+
+    const filterBtn = e.target.closest("[data-cd-filter]");
+    if (filterBtn) {
+      state.constructorDesk.filter = filterBtn.dataset.cdFilter || "all";
       onChange();
       return;
     }

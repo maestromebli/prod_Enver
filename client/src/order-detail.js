@@ -1,30 +1,62 @@
 import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
 import { constructiveFilesSummary } from "@enver/shared/production/constructive-files.js";
+import {
+  getWorkPositions,
+  getPositionTabLabel
+} from "@enver/shared/production/order-position-model.js";
 import { api } from "./api.js";
-import { canEditOrders, canEditPositions } from "./auth.js";
-import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tree.js";
+import { canEditOrders, canEditPositions, canViewFinance } from "./auth.js";
+import {
+  buildVisiblePositionRows,
+  expandPosition,
+  togglePositionExpanded
+} from "./position-tree.js";
 import { quickAdvancePosition } from "./positions.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
 import {
+  navigateGodmodeAction,
   renderNextActionBanner,
   renderOrderGodmodeSummary,
   renderSmartEmptyState,
   resolveOrderGodmode,
   resolvePositionGodmode
 } from "./godmode-ui.js";
+import { HANDOFF_ACTION_TYPES, UI_ACTION_TYPES } from "@enver/shared/production/godmode-ui-helpers.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
 import { STAGES, getStageStatus } from "./workflows.js";
+import { loadPositionManagerBundle } from "./position-manager-panel.js";
+import {
+  clearAllPositionOrderTabCache,
+  bindPositionOrderTab,
+  getPositionSubTab,
+  loadPositionOrderTabData,
+  renderPositionOrderTab
+} from "./position-order-tab.js";
 
-const DETAIL_TABS = [
+const BASE_DETAIL_TABS = [
   { key: "overview", label: "Огляд" },
-  { key: "positions", label: "Позиції" },
-  { key: "production", label: "Виробництво" },
-  { key: "constructive", label: "Конструктив" },
-  { key: "install", label: "Монтаж" },
+  { key: "finance", label: "Фінанси" },
   { key: "history", label: "Історія" }
 ];
+
+function buildDetailTabs(order, related, activeTab) {
+  const work = getWorkPositions(order, related);
+  const tabs = [{ key: "overview", label: "Огляд" }];
+  work.forEach((p, i) => {
+    tabs.push({ key: `pos-${p.id}`, label: getPositionTabLabel(p, i) });
+  });
+  tabs.push({ key: "finance", label: "Фінанси" });
+  tabs.push({ key: "history", label: "Історія" });
+  const buttons = tabs
+    .map(
+      (t) =>
+        `<button type="button" class="enver-segmented-btn ${activeTab === t.key ? "active" : ""}" data-order-detail-tab="${t.key}" role="tab" aria-selected="${activeTab === t.key}">${escapeHtml(t.label)}</button>`
+    )
+    .join("");
+  return `<nav class="enver-segmented order-detail-tabs" role="tablist" aria-label="Розділи замовлення">${buttons}</nav>`;
+}
 
 function orderProgress(positions) {
   if (!positions.length) return 0;
@@ -68,12 +100,8 @@ function renderOrderHero(order, related) {
     </header>`;
 }
 
-function renderDetailTabs(activeTab) {
-  const buttons = DETAIL_TABS.map(
-    (t) =>
-      `<button type="button" class="enver-segmented-btn ${activeTab === t.key ? "active" : ""}" data-order-detail-tab="${t.key}" role="tab" aria-selected="${activeTab === t.key}">${t.label}</button>`
-  ).join("");
-  return `<nav class="enver-segmented order-detail-tabs" role="tablist" aria-label="Розділи замовлення">${buttons}</nav>`;
+function renderDetailTabs(order, related, activeTab) {
+  return buildDetailTabs(order, related, activeTab);
 }
 
 function stepDotClass(position, stage) {
@@ -179,37 +207,50 @@ function renderPositionsSection(order, allPositions, related) {
     </section>`;
 }
 
-function renderProductionSection(related) {
-  const roots = related.filter((p) => !p.parentId);
-  if (!roots.length) {
+function renderFinanceSection(order, related) {
+  if (!canViewFinance()) {
+    return `<section class="order-finance card" role="tabpanel"><p class="enver-meta">Немає доступу до фінансів.</p></section>`;
+  }
+  const work = getWorkPositions(order, related);
+  if (!work.length) {
     return renderSmartEmptyState({
-      icon: "⚙️",
-      title: "Виробництво ще не запущено",
-      text: "Додайте позиції та завантажте конструктив, щоб побачити потік етапів."
+      icon: "💰",
+      title: "Фінанси",
+      text: "Додайте позиції — фінансові дані зʼявляться після закупівлі."
     });
   }
-
-  const cards = roots
-    .map((p) => {
-      const gm = resolvePositionGodmode(p);
-      return `
-        <article class="order-prod-card">
-          <div class="order-prod-head">
-            <strong>${escapeHtml(p.item || "—")}</strong>
-            <span>${p.progress ?? 0}% · ${escapeHtml(stageLabel(p.currentStage || "constructor"))}</span>
-          </div>
-          ${renderStepTrack(p, { canEdit: canEditPositions(), labeled: true })}
-          ${gm.nextAction?.label ? `<p class="order-prod-next">Далі: ${escapeHtml(gm.nextAction.label)}</p>` : ""}
-        </article>`;
-    })
+  const summary = state.ordersView.orderFinanceSummary;
+  const summaryBlock = summary
+    ? `<div class="order-finance-aggregate card">
+        <h4 class="enver-section-title">Зведення по замовленню</h4>
+        <div class="order-finance-stats">
+          <div><span class="enver-kpi-label">План</span><strong>${escapeHtml(String(summary.estimated ?? "—"))}</strong></div>
+          <div><span class="enver-kpi-label">Факт</span><strong>${escapeHtml(String(summary.actual ?? "—"))}</strong></div>
+          <div><span class="enver-kpi-label">Різниця</span><strong>${escapeHtml(String(summary.difference ?? "—"))}</strong></div>
+        </div>
+      </div>`
+    : "";
+  const rows = work
+    .map(
+      (p) => `
+      <button type="button" class="order-finance-row" data-order-detail-tab="pos-${p.id}" data-pos-sub-jump="finance">
+        <strong>${escapeHtml(p.item || "—")}</strong>
+        <span class="enver-meta">Фінанси позиції</span>
+      </button>`
+    )
     .join("");
-
-  return `<section class="order-production card" role="tabpanel"><div class="order-production-list">${cards}</div></section>`;
+  return `<section class="order-finance card" role="tabpanel">${summaryBlock}<div class="order-finance-list">${rows}</div></section>`;
 }
 
-function renderConstructiveSection(related) {
-  const roots = related.filter((p) => !p.parentId);
-  if (!roots.length) {
+function renderPositionTabSection(position, bundle) {
+  const subTab = getPositionSubTab(position.id);
+  const downstream = state.ordersView.positionTabDownstream?.[position.id] || null;
+  return renderPositionOrderTab(position, bundle, { subTab, downstream });
+}
+
+function renderConstructiveSection(order, related) {
+  const work = getWorkPositions(order, related);
+  if (!work.length) {
     return renderSmartEmptyState({
       icon: "📐",
       title: "Немає позицій",
@@ -217,7 +258,7 @@ function renderConstructiveSection(related) {
     });
   }
 
-  const rows = roots
+  const rows = work
     .map((p) => {
       const ok = p.hasConstructiveFile;
       const statusClass = ok ? "enver-badge-success" : "enver-badge-warning";
@@ -316,26 +357,33 @@ function renderHistorySection(order) {
   return `<section class="order-history card" role="tabpanel"><div class="order-history-list">${rows}</div></section>`;
 }
 
-function renderOrderStickyBar(order, allPositions, related) {
+function renderOrderStickyBar(order, allPositions, related, workPositions = null) {
   const gm = resolveOrderGodmode(order, allPositions);
   const next = gm.nextAction;
   if (!next?.label) return "";
 
-  const root = related.find((p) => !p.parentId) || related[0];
+  const work = workPositions || getWorkPositions(order, related);
+  const focusPosition = work[0] || related.find((p) => !p.parentId) || related[0];
   const isBlocked = gm.health === "blocked" || next.allowed === false;
   let ctaAttrs = "";
-  if (next.allowed !== false && root) {
+  if (next.allowed !== false) {
     if (next.type === "close_order") {
       ctaAttrs = `data-run-order-action="${order.id}" data-action-type="${escapeHtml(next.type)}"`;
-    } else if (root.id) {
-      ctaAttrs = `data-run-next-action="${root.id}" data-action-type="${escapeHtml(next.type)}"`;
+    } else if (next.type === "add_position") {
+      ctaAttrs = `data-order-detail-tab="overview" data-focus-inline-add="1"`;
+    } else if (next.type === "fill_manager_data" && focusPosition?.id) {
+      ctaAttrs = `data-order-detail-tab="pos-${focusPosition.id}"`;
+    } else if (next.type === "assign_constructor") {
+      ctaAttrs = `data-open-constructor-desk="1"`;
+    } else if (focusPosition?.id) {
+      ctaAttrs = `data-run-next-action="${focusPosition.id}" data-action-type="${escapeHtml(next.type)}"`;
     }
   }
 
   const ctaLabel = next.buttonLabel || "Виконати";
   const ctaBtn =
-    next.allowed !== false && (ctaAttrs || next.buttonLabel)
-      ? `<button type="button" class="enver-sticky-bar-cta" ${ctaAttrs} ${!ctaAttrs ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>`
+    next.allowed !== false && ctaAttrs
+      ? `<button type="button" class="enver-sticky-bar-cta" ${ctaAttrs}>${escapeHtml(ctaLabel)}</button>`
       : "";
 
   return `
@@ -346,7 +394,7 @@ function renderOrderStickyBar(order, allPositions, related) {
       </div>
       <div class="enver-sticky-bar-actions">
         ${ctaBtn}
-        <button type="button" class="enver-sticky-bar-secondary" data-order-detail-tab="positions">Позиції</button>
+        <button type="button" class="enver-sticky-bar-secondary" data-order-detail-tab="overview">Огляд</button>
       </div>
     </div>`;
 }
@@ -358,40 +406,59 @@ function renderNextActionBannerSection(related) {
   return renderNextActionBanner(gm, { positionId: root.id });
 }
 
-function renderTabContent(tab, order, allPositions, related) {
+function renderTabContent(tab, order, allPositions, related, positionBundles = {}) {
+  if (tab.startsWith("pos-")) {
+    const positionId = Number(tab.slice(4));
+    const position = getWorkPositions(order, related).find((p) => p.id === positionId);
+    if (!position) {
+      return renderSmartEmptyState({ icon: "📦", title: "Позицію не знайдено", text: "" });
+    }
+    return renderPositionTabSection(position, positionBundles[positionId]);
+  }
   switch (tab) {
     case "positions":
       return renderPositionsSection(order, allPositions, related);
-    case "production":
-      return renderProductionSection(related);
-    case "constructive":
-      return renderConstructiveSection(related);
-    case "install":
-      return renderInstallSection(order, related);
+    case "finance":
+      return renderFinanceSection(order, related);
     case "history":
       return renderHistorySection(order);
     case "overview":
     default:
-      return `${renderOrderGodmodeSummary(order, allPositions)}${renderNextActionBannerSection(related)}`;
+      return `${renderOrderGodmodeSummary(order, allPositions)}${renderOverviewWorkPositions(order, related)}`;
   }
 }
 
-export function renderOrderDetailView(order, allPositions, related) {
+function renderOverviewWorkPositions(order, related) {
+  const work = getWorkPositions(order, related);
+  if (!work.length) return "";
+  const rows = work
+    .map(
+      (p) => `
+      <button type="button" class="order-constructive-row" data-order-detail-tab="pos-${p.id}">
+        <div>
+          <strong>${escapeHtml(p.item || "—")}</strong>
+          <span class="enver-meta">${p.managerDataComplete ? "Дані заповнено" : "Потрібні дані менеджера"}${p.constructivePackageStatus ? ` · ${escapeHtml(p.constructivePackageStatus)}` : p.hasConstructiveFile ? " · конструктив" : ""}</span>
+        </div>
+        <span class="enver-badge">${p.progress ?? 0}%</span>
+      </button>`
+    )
+    .join("");
+  return `<section class="order-overview-positions card">
+    <h3 class="enver-section-title">Робочі позиції</h3>
+    <div class="order-constructive-list">${rows}</div>
+    ${canEditPositions() ? renderInlineAdd(true) : ""}
+  </section>`;
+}
+
+export function renderOrderDetailView(order, allPositions, related, positionBundles = {}) {
   const tab = state.ordersView.detailTab || "overview";
   const hero = renderOrderHero(order, related);
-  const tabs = renderDetailTabs(tab);
-  const panel = renderTabContent(tab, order, allPositions, related);
-  const positionsQuick =
-    tab === "overview" && related.length
-      ? `<section class="order-overview-positions card">
-          <h3 class="enver-section-title">Позиції (${related.filter((p) => !p.parentId).length})</h3>
-          <p class="enver-meta">Перейдіть на вкладку «Позиції» для повного керування.</p>
-        </section>`
-      : "";
+  const tabs = renderDetailTabs(order, related, tab);
+  const panel = renderTabContent(tab, order, allPositions, related, positionBundles);
+  const work = getWorkPositions(order, related);
+  const stickyBar = renderOrderStickyBar(order, allPositions, related, work);
 
-  const stickyBar = renderOrderStickyBar(order, allPositions, related);
-
-  return `<div class="orders-view orders-view--detail${stickyBar ? " enver-screen--sticky-mobile" : ""}">${hero}${tabs}<div class="order-detail-panel">${panel}${positionsQuick}</div>${stickyBar}</div>`;
+  return `<div class="orders-view orders-view--detail${stickyBar ? " enver-screen--sticky-mobile" : ""}">${hero}${tabs}<div class="order-detail-panel">${panel}</div>${stickyBar}</div>`;
 }
 
 async function patchPositionStage(positionId, stageKey, payload, onRefresh) {
@@ -450,6 +517,24 @@ function rootForOrder(order, related) {
   return related.find((p) => !p.parentId);
 }
 
+export function focusOrderInlineAddInput() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelector("#orderInlineAddInput")?.focus();
+    });
+  });
+}
+
+/** Скидає кеш вкладок картки замовлення при виході або зміні замовлення. */
+export function clearOrderDetailViewState() {
+  clearAllPositionOrderTabCache();
+  state.ordersView.positionBundles = {};
+  state.ordersView.positionTabDownstream = {};
+  state.ordersView.positionSubTab = {};
+  state.ordersView.orderFinanceSummary = null;
+  state.ordersView.detailTab = "overview";
+}
+
 async function inlineAddPosition(order, itemName, related, onRefresh) {
   const name = itemName.trim();
   if (!name) return;
@@ -469,7 +554,13 @@ async function inlineAddPosition(order, itemName, related, onRefresh) {
   }
 
   await runSave("Позиція", {
-    saveFn: () => api.createPosition(body),
+    saveFn: async () => {
+      const created = await api.createPosition(body);
+      const { upsertPosition } = await import("./data-sync.js");
+      upsertPosition(created);
+      if (created.parentId) expandPosition(created.parentId);
+      return created;
+    },
     successMessage: `«${name}» додано`,
     onSuccess: async () => {
       await onRefresh?.();
@@ -509,9 +600,95 @@ export function bindOrderDetail(root, handlers = {}) {
   root.querySelectorAll("[data-order-detail-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.ordersView.detailTab = btn.dataset.orderDetailTab;
-      onRefresh?.({ contentOnly: true });
+      const tabKey = btn.dataset.orderDetailTab || "";
+      if (btn.dataset.posSubJump && tabKey.startsWith("pos-")) {
+        const positionId = Number(tabKey.slice(4));
+        state.ordersView.positionSubTab = {
+          ...(state.ordersView.positionSubTab || {}),
+          [positionId]: btn.dataset.posSubJump
+        };
+      }
+      onRefresh?.({ contentOnly: false });
+      if (btn.dataset.focusInlineAdd) focusOrderInlineAddInput();
     });
   });
+
+  root.querySelector("[data-open-constructor-desk]")?.addEventListener("click", async () => {
+    const { state: appState } = await import("./state.js");
+    appState.activeTab = "Конструктив";
+    window.__enverRender?.();
+  });
+
+  const tab = state.ordersView.detailTab || "";
+  if (tab.startsWith("pos-")) {
+    const positionId = Number(tab.slice(4));
+    const position =
+      getWorkPositions(
+        state.orders.find((o) => o.id === state.selectedOrderId) || {},
+        state.positions.filter(
+          (p) =>
+            p.orderId === state.selectedOrderId ||
+            p.orderNumber === state.orders.find((o) => o.id === state.selectedOrderId)?.orderNumber
+        )
+      ).find((p) => p.id === positionId) || state.positions.find((p) => p.id === positionId);
+    const subTab = getPositionSubTab(positionId);
+
+    const bindTab = () => {
+      const panel = root.querySelector(`[data-position-tab="${positionId}"]`) || root;
+      if (!position) return;
+      bindPositionOrderTab(panel, position, state.ordersView.positionBundles?.[positionId], {
+        subTab,
+        onRefresh,
+        onOpenConstructor: async () => {
+          state.activeTab = "Конструктив";
+          state.constructorDesk.selectedPositionId = positionId;
+          window.__enverRender?.();
+        },
+        onOpenPosition: (pid) => onOpenPosition?.(pid)
+      });
+    };
+
+    const ensureDownstream = () => {
+      if (subTab === "manager") {
+        bindTab();
+        return;
+      }
+      loadPositionOrderTabData(positionId, subTab)
+        .then((data) => {
+          state.ordersView.positionTabDownstream = {
+            ...(state.ordersView.positionTabDownstream || {}),
+            [positionId]: data
+          };
+          bindTab();
+          onRefresh?.({ contentOnly: true });
+        })
+        .catch(() => bindTab());
+    };
+
+    if (!state.ordersView.positionBundles?.[positionId]) {
+      loadPositionManagerBundle(positionId)
+        .then((bundle) => {
+          state.ordersView.positionBundles = {
+            ...(state.ordersView.positionBundles || {}),
+            [positionId]: bundle
+          };
+          ensureDownstream();
+        })
+        .catch(() => ensureDownstream());
+    } else {
+      ensureDownstream();
+    }
+  }
+
+  if (canViewFinance() && state.selectedOrderId) {
+    api
+      .getOrder(state.selectedOrderId)
+      .then((payload) => {
+        state.ordersView.orderFinanceSummary = payload.summary?.finance || null;
+        if (state.ordersView.detailTab === "finance") onRefresh?.({ contentOnly: true });
+      })
+      .catch(() => {});
+  }
 
   root.querySelectorAll("[data-edit-order]").forEach((btn) => {
     btn.addEventListener("click", () => onEditOrder?.(Number(btn.dataset.editOrder)));
@@ -537,6 +714,19 @@ export function bindOrderDetail(root, handlers = {}) {
     btn.addEventListener("click", async () => {
       const positionId = Number(btn.dataset.runNextAction);
       const actionType = btn.dataset.actionType;
+      const position = state.positions.find((p) => p.id === positionId);
+
+      if (position && !HANDOFF_ACTION_TYPES.has(actionType)) {
+        if (navigateGodmodeAction(position, actionType, state)) {
+          await onRefresh?.({ contentOnly: false });
+          return;
+        }
+        if (UI_ACTION_TYPES.has(actionType)) {
+          onOpenPosition?.(positionId);
+          return;
+        }
+      }
+
       await runSave("Наступна дія", {
         saveFn: () => api.runPositionNextAction(positionId, actionType),
         successMessage: "Дію виконано",

@@ -461,6 +461,19 @@ async function patchStage(stageKey, payload) {
   }).catch(() => {});
 }
 
+function rootPositionForOrderNumber(orderNumber, orderId) {
+  return state.positions.find(
+    (p) => !p.parentId && (p.orderId === orderId || (orderNumber && p.orderNumber === orderNumber))
+  );
+}
+
+function withParentWhenRootExists(body) {
+  if (body.parentId) return body;
+  const root = rootPositionForOrderNumber(body.orderNumber, body.orderId);
+  if (!root) return body;
+  return { ...body, parentId: root.id };
+}
+
 async function savePosition() {
   showError("");
   syncDraftFromForm();
@@ -484,7 +497,7 @@ async function savePosition() {
   await runSave(isEdit ? "Позиція" : "Нова позиція", {
     submitEl: submitBtn,
     saveFn: async () => {
-      const body = readForm();
+      const body = withParentWhenRootExists(readForm());
       if (isEdit) {
         return api.updatePosition(draft.id, body);
       }
@@ -761,7 +774,7 @@ function bindDrawerEvents() {
   });
 
   bindConstructiveUpload();
-  bindConstructivePackageBlock(draft);
+  bindConstructivePackageBlock(draft, $("#constructivePackageMount") || document.body);
   bindConstructivePipelinePanel();
 
   document.addEventListener(
@@ -786,7 +799,7 @@ function bindDrawerEvents() {
             pipelinePanelOptions()
           );
         }
-        bindConstructivePackageBlock(draft);
+        bindConstructivePackageBlock(draft, mount);
         bindConstructivePipelinePanel();
       }
     },

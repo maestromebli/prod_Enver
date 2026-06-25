@@ -1,6 +1,6 @@
 import { api, apiUrl, getStoredToken } from "./api.js";
 import { createPartViewerLazy as createPartViewer } from "./part-viewer-lazy.js";
-import { createScannerInputListener, getStationName, setStationName } from "./scanner-input.js";
+import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { CNC_PROBLEM_REASONS } from "@enver/shared/production/constructive-package.js";
@@ -19,9 +19,26 @@ export function syncOperatorClientScanButton(stageKey) {
   btn.hidden = !isPartScanStage(stageKey);
 }
 
+/** Помітна кнопка сканування над панеллю дій (планшет / APK). */
+export function renderOperatorScanActionButton(stageKey) {
+  if (!isPartScanStage(stageKey)) return "";
+  if (!document.body?.classList.contains("operator-client-mode")) return "";
+  return `
+    <button
+      type="button"
+      class="op-work-scan-btn enver-pressable"
+      id="operatorWorkScanBtn"
+      title="Сканування деталі за штрихкодом"
+    >
+      <span class="op-scan-glyph" aria-hidden="true">▮▮</span>
+      <span>Сканувати деталь</span>
+    </button>`;
+}
+
 let scannerListener = null;
 let viewer = null;
 let recentScans = [];
+let scanControlsAbort = null;
 
 function playScanFeedback() {
   if (navigator.vibrate) navigator.vibrate(40);
@@ -40,11 +57,10 @@ function modelFileUrl(viewerUrl) {
 }
 
 async function lookupBarcode(code) {
-  const station = getStationName();
-  return api.scanPart(code, station);
+  return api.scanPart(code);
 }
 
-function renderPartDetail(data, { showCncActions = false, closeLabel = "← Сканування" } = {}) {
+function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
   const p = data.part;
   const unmapped = !data.model?.mapped;
   const cncActions = showCncActions
@@ -56,6 +72,9 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← Ск
 
   return `
     <div class="part-detail-card">
+      <div class="part-detail-toolbar">
+        <button type="button" class="btn btn-sm part-scan-back" data-part-scan-close>${escapeHtml(closeLabel)}</button>
+      </div>
       <div class="part-detail-meta">
         <p><strong>${escapeHtml(data.order?.orderNumber || "")}</strong> · ${escapeHtml(data.position?.item || "")}</p>
         <p>${escapeHtml(p.blockCode || "—")} · №${escapeHtml(p.partNo)} · ${escapeHtml(p.partName)}</p>
@@ -79,11 +98,13 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← Ск
 /** Вбудована зона сканування в панелі оператора (порізка, поклейка, присадка, збірка). */
 export function renderOperatorScanPanel(stageKey) {
   if (!isPartScanStage(stageKey)) return "";
-  const station = getStationName();
   return `
     <section class="op-part-scan" id="operatorPartScan" aria-label="Сканування деталі">
       <div class="op-part-scan-head">
-        <h3 class="op-part-scan-title">Сканування деталі</h3>
+        <div class="op-part-scan-head-row">
+          <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn" hidden>← Назад</button>
+          <h3 class="op-part-scan-title">Сканування деталі</h3>
+        </div>
         <p class="op-part-scan-hint">Піднесіть штрихридер до етикетки — деталь зʼявиться у 3D з підсвіткою</p>
       </div>
       <div class="op-part-scan-bar">
@@ -101,11 +122,6 @@ export function renderOperatorScanPanel(stageKey) {
         <button type="button" class="btn scan-btn" id="operatorScanManualBtn">Ввести вручну</button>
         <button type="button" class="btn scan-btn" id="operatorScanCameraBtn">Камера</button>
       </div>
-      <div class="op-part-scan-station">
-        <label>Робоче місце
-          <input type="text" id="operatorStationInput" value="${escapeHtml(station)}" placeholder="CNC-1"/>
-        </label>
-      </div>
       <div id="operatorPartScanDetail" class="op-part-scan-result" hidden></div>
     </section>`;
 }
@@ -117,7 +133,7 @@ export function renderPartScanView() {
     .replace('id="operatorScanStatus"', 'id="scanStatus"')
     .replace('id="operatorScanManualBtn"', 'id="scanManualBtn"')
     .replace('id="operatorScanCameraBtn"', 'id="scanCameraBtn"')
-    .replace('id="operatorStationInput"', 'id="stationNameInput"')
+    .replace('id="operatorPartScanBackBtn"', 'id="partScanBackBtn"')
     .replace('id="operatorPartScanDetail"', 'id="partScanDetail"')
     .replace('class="op-part-scan"', 'class="part-scan-screen"');
 }
@@ -141,19 +157,36 @@ async function mountViewer(container, data) {
   }
 }
 
+function setScanDetailOpen(open) {
+  $("#operatorPartScan")?.classList.toggle("is-detail-open", open);
+  const panelBack = $("#operatorPartScanBackBtn") || $("#partScanBackBtn");
+  if (panelBack) panelBack.hidden = !open;
+  const headerBack = $("#operatorClientBackBtn");
+  if (headerBack) headerBack.hidden = !open;
+}
+
+function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
+  viewer?.destroy();
+  viewer = null;
+  if (detailEl) {
+    detailEl.hidden = true;
+    detailEl.innerHTML = "";
+  }
+  setScanDetailOpen(false);
+  onClose?.();
+  scanInput?.focus();
+}
+
 function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanInput } = {}) {
   if (!detailEl) return;
 
   const container = detailEl.querySelector("[data-part-viewer]");
   void mountViewer(container, data);
 
-  detailEl.querySelector("[data-part-scan-close]")?.addEventListener("click", () => {
-    viewer?.destroy();
-    viewer = null;
-    detailEl.hidden = true;
-    detailEl.innerHTML = "";
-    onClose?.();
-    scanInput?.focus();
+  detailEl.querySelectorAll("[data-part-scan-close]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closePartScanDetail(detailEl, { onClose, scanInput });
+    });
   });
 
   detailEl.querySelectorAll("[data-viewer-action]").forEach((btn) => {
@@ -170,7 +203,6 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
   detailEl.querySelectorAll("[data-cnc-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.cncAction;
-      const station = getStationName();
       try {
         if (action === "problem") {
           const reason = window.prompt(
@@ -178,11 +210,11 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
             "Інше"
           );
           if (!reason) return;
-          await api.partCncProblem(data.part.id, { reason, station });
+          await api.partCncProblem(data.part.id, { reason });
         } else if (action === "start") {
-          await api.partCncStart(data.part.id, { station });
+          await api.partCncStart(data.part.id, {});
         } else if (action === "finish") {
-          await api.partCncFinish(data.part.id, { station });
+          await api.partCncFinish(data.part.id, {});
         }
         toastSuccess("Збережено");
       } catch (err) {
@@ -206,7 +238,8 @@ async function handleScan(
 
     if (detailEl) {
       detailEl.hidden = false;
-      detailEl.innerHTML = renderPartDetail(data, { showCncActions, closeLabel });
+      detailEl.innerHTML = renderPartDetail(data, { showCncActions, closeLabel: "← Назад" });
+      setScanDetailOpen(true);
       bindPartDetail(detailEl, data, {
         showCncActions,
         scanInput,
@@ -234,15 +267,28 @@ function bindScanControls({
   detailEl,
   manualBtn,
   cameraBtn,
-  stationInput,
   showCncActions = false,
-  closeLabel = "Згорнути"
+  closeLabel = "← Назад"
 }) {
   scannerListener?.destroy();
+  scanControlsAbort?.abort();
+  scanControlsAbort = new AbortController();
+  const { signal } = scanControlsAbort;
+
   if (!scanInput) return;
 
   const onScan = (code) =>
     handleScan(code, { statusEl, detailEl, scanInput, showCncActions, closeLabel });
+
+  const onBackFromDetail = () => {
+    if (!detailEl || detailEl.hidden) return;
+    closePartScanDetail(detailEl, {
+      onClose: () => {
+        if (statusEl) statusEl.textContent = "Режим сканера активний";
+      },
+      scanInput
+    });
+  };
 
   scannerListener = createScannerInputListener({
     target: document,
@@ -251,26 +297,38 @@ function bindScanControls({
     onManualSubmit: onScan
   });
 
-  scanInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const v = e.target.value.trim();
-      if (v) onScan(v);
-      e.target.value = "";
-    }
-  });
+  scanInput.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Enter") {
+        const v = e.target.value.trim();
+        if (v) onScan(v);
+        e.target.value = "";
+      }
+    },
+    { signal }
+  );
 
-  manualBtn?.addEventListener("click", () => {
-    const v = window.prompt("Введіть код вручну:");
-    if (v) onScan(v.trim());
-  });
+  manualBtn?.addEventListener(
+    "click",
+    () => {
+      const v = window.prompt("Введіть код вручну:");
+      if (v) onScan(v.trim());
+    },
+    { signal }
+  );
 
-  stationInput?.addEventListener("change", (e) => {
-    setStationName(e.target.value);
-  });
+  $("#operatorPartScanBackBtn")?.addEventListener("click", onBackFromDetail, { signal });
+  $("#partScanBackBtn")?.addEventListener("click", onBackFromDetail, { signal });
+  $("#operatorClientBackBtn")?.addEventListener("click", onBackFromDetail, { signal });
 
-  cameraBtn?.addEventListener("click", () => {
-    void startCameraScan({ statusEl, onScan });
-  });
+  cameraBtn?.addEventListener(
+    "click",
+    () => {
+      void startCameraScan({ statusEl, onScan });
+    },
+    { signal }
+  );
 }
 
 /** Привʼязка вбудованої зони сканування в панелі оператора. */
@@ -278,6 +336,8 @@ export function bindOperatorScanPanel(stageKey) {
   if (!isPartScanStage(stageKey)) {
     scannerListener?.destroy();
     scannerListener = null;
+    scanControlsAbort?.abort();
+    scanControlsAbort = null;
     return;
   }
 
@@ -287,10 +347,10 @@ export function bindOperatorScanPanel(stageKey) {
     detailEl: $("#operatorPartScanDetail"),
     manualBtn: $("#operatorScanManualBtn"),
     cameraBtn: $("#operatorScanCameraBtn"),
-    stationInput: $("#operatorStationInput"),
     showCncActions: stageKey === "cutting",
-    closeLabel: "Згорнути"
+    closeLabel: "← Назад"
   });
+  setScanDetailOpen(false);
 }
 
 /** Фокус на полі сканування (кнопка в шапці панелі). */
@@ -312,9 +372,8 @@ export function bindPartScanView() {
     detailEl: $("#partScanDetail"),
     manualBtn: $("#scanManualBtn"),
     cameraBtn: $("#scanCameraBtn"),
-    stationInput: $("#stationNameInput"),
     showCncActions: true,
-    closeLabel: "← Сканування"
+    closeLabel: "← Назад"
   });
 }
 
@@ -365,6 +424,9 @@ async function startCameraScan({ statusEl, onScan }) {
 export function destroyPartScanView() {
   scannerListener?.destroy();
   scannerListener = null;
+  scanControlsAbort?.abort();
+  scanControlsAbort = null;
   viewer?.destroy();
   viewer = null;
+  setScanDetailOpen(false);
 }

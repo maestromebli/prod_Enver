@@ -6,6 +6,8 @@ import { mapOrder, orderToDb } from "../mappers.js";
 import { bootstrapOrderPositions, syncOrderStatusWorkflow } from "../order-status-sync.js";
 import { normalizeOrderSubItems } from "../order-status-workflow.js";
 import { attachGodmodeToOrder, enrichAndMapPosition } from "../godmode-enrich.js";
+import { getWorkPositions } from "../../../shared/production/order-position-model.js";
+import { getFinanceSummaryForPosition } from "../constructive/finance-service.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { canRunNextAction } from "../../../shared/production/godmode.js";
 import {
@@ -20,6 +22,7 @@ import {
   PACKAGE_VERSION_SUBQUERY,
   UNMAPPED_PARTS_SUBQUERY
 } from "../constructive-package-enrich.js";
+import { MANAGER_FILE_COUNT_SUBQUERY } from "../position-manager-service.js";
 const router = Router();
 router.use(requireAuth);
 
@@ -35,6 +38,7 @@ const ORDER_POSITIONS_SELECT = `SELECT p.*,
   ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
   ${UNMAPPED_PARTS_SUBQUERY},
   ${PACKAGE_PARTS_COUNT_SUBQUERY},
+  ${MANAGER_FILE_COUNT_SUBQUERY},
   (SELECT COUNT(*)::int FROM constructive_analyses ca
    JOIN position_files pf ON pf.id = ca.position_file_id
    WHERE pf.position_id = p.id) AS ai_analysis_count,
@@ -111,9 +115,21 @@ router.get("/:id", async (req, res) => {
     [order.id, order.orderNumber]
   );
   const mappedPositions = await mapOrderPositions(order, positionRows);
+  const workPositions = getWorkPositions(order, mappedPositions);
+  let financeSummary = null;
+  if (workPositions.length) {
+    const totals = await Promise.all(
+      workPositions.map((p) => getFinanceSummaryForPosition(p.id).catch(() => null))
+    );
+    const estimated = totals.reduce((s, t) => s + (t?.estimated || 0), 0);
+    const actual = totals.reduce((s, t) => s + (t?.actual || 0), 0);
+    financeSummary = { estimated, actual, difference: actual - estimated, positionCount: workPositions.length };
+  }
   res.json({
     ...attachGodmodeToOrder(order, mappedPositions, { planDate: order.planDate }),
-    positions: mappedPositions
+    positions: mappedPositions,
+    workPositions,
+    summary: { finance: financeSummary, workPositionCount: workPositions.length }
   });
 });
 
@@ -200,8 +216,8 @@ router.post("/", requireOrderWrite, async (req, res) => {
 
   try {
     const inserted = await one(
-      `INSERT INTO orders (order_number, object, client, manager, start_date, plan_date, status, priority, comment)
-       VALUES (@order_number, @object, @client, @manager, @start_date, @plan_date, @status, @priority, @comment)
+      `INSERT INTO orders (order_number, object, client, manager, start_date, plan_date, status, priority, comment, default_delivery_address)
+       VALUES (@order_number, @object, @client, @manager, @start_date, @plan_date, @status, @priority, @comment, @default_delivery_address)
        RETURNING *`,
       data
     );
@@ -213,9 +229,24 @@ router.post("/", requireOrderWrite, async (req, res) => {
     await logOrderCreate(inserted, auditActor(req));
     const actor = auditActor(req);
     const subItems = normalizeOrderSubItems(req.body);
-    await bootstrapOrderPositions(inserted, { subItems, actor });
+    const createRootPosition = Boolean(req.body?.createRootPosition);
+    await bootstrapOrderPositions(inserted, { subItems, createRootPosition, actor });
     await syncOrderStatusWorkflow(inserted, { actor });
-    res.status(201).json(mapOrder(inserted));
+
+    const positionRows = await all(
+      `${ORDER_POSITIONS_SELECT}
+       FROM positions p
+       WHERE p.order_id = $1 OR p.order_number = $2
+       ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`,
+      [inserted.id, data.order_number]
+    );
+    const order = mapOrder(inserted);
+    const mappedPositions = await mapOrderPositions(order, positionRows);
+    res.status(201).json({
+      ...attachGodmodeToOrder(order, mappedPositions, { planDate: order.planDate }),
+      positions: mappedPositions,
+      workPositions: getWorkPositions(order, mappedPositions)
+    });
   } catch (err) {
     if (err.code === PG_UNIQUE_VIOLATION) {
       res.status(409).json({ error: "Замовлення з таким номером уже існує" });
@@ -251,6 +282,7 @@ router.put("/:id", requireOrderWrite, async (req, res) => {
         status = @status,
         priority = @priority,
         comment = @comment,
+        default_delivery_address = @default_delivery_address,
         updated_at = now()
       WHERE id = @id
       RETURNING *`,

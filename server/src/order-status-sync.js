@@ -1,4 +1,4 @@
-import { all, one } from "./db.js";
+import { all, one, run } from "./db.js";
 import { logPositionCreate } from "./audit.js";
 import { enrichPositionRow } from "./position-logic.js";
 import { nextPositionId } from "./db/position-id.js";
@@ -97,8 +97,29 @@ export async function createOrderSubPositions(orderRow, rootRow, itemNames, { ac
 }
 
 /** Після створення замовлення: root + підпозиції (за потреби) і черга конструктора. */
-export async function bootstrapOrderPositions(orderRow, { subItems = [], actor = null } = {}) {
+export async function bootstrapOrderPositions(
+  orderRow,
+  { subItems = [], createRootPosition = false, actor = null } = {}
+) {
   const { root } = await ensureOrderRootPosition(orderRow, { actor });
+
+  if (createRootPosition && !subItems.length && root?.id) {
+    const item = String(orderRow.object || "").trim() || orderRow.order_number;
+    await run(
+      `UPDATE positions SET item = $2, item_type = $3 WHERE id = $1`,
+      [root.id, item, "Замовлення"]
+    );
+    if (orderRow.default_delivery_address || orderRow.client_address) {
+      const addr = String(orderRow.default_delivery_address || orderRow.client_address || "").trim();
+      if (addr) {
+        await run(`UPDATE positions SET delivery_address = $2 WHERE id = $1 AND trim(delivery_address) = ''`, [
+          root.id,
+          addr
+        ]);
+      }
+    }
+  }
+
   if (subItems.length) {
     await createOrderSubPositions(orderRow, root, subItems, { actor });
   }

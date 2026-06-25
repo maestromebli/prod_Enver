@@ -11,6 +11,35 @@ import {
   repairConstructorDeskQueue,
   syncOrderStatusAfterConstructorAssignment
 } from "./constructor-desk-queue.js";
+import { getDirectories } from "./directories-store.js";
+import { getWorkPositions } from "../../shared/production/order-position-model.js";
+import {
+  getPositionManagerBundle,
+  listManagerFiles,
+  saveManagerData,
+  uploadManagerFile
+} from "./position-manager-service.js";
+import {
+  defaultManagerDataJson,
+  isManagerDataComplete,
+  buildManagerDataFromRow
+} from "../../shared/production/position-manager-data.js";
+import {
+  isWorkspaceManagerKind,
+  workspaceKindToManagerKind
+} from "../../shared/production/manager-file-adapter.js";
+
+export function normalizePersonName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Активні користувачі, чиє ім'я є в довіднику «Конструктори». */
+export function filterUsersByConstructorDirectory(users, directoryNames = []) {
+  const allowed = new Set(directoryNames.map(normalizePersonName).filter(Boolean));
+  return users.filter((user) => allowed.has(normalizePersonName(user.name)));
+}
 
 const POSITION_SELECT = `
   p.id, p.parent_id, p.order_id, p.order_number, p.object, p.item, p.item_type,
@@ -54,7 +83,9 @@ function mapDeskRow(row, files = [], commentCount = 0) {
     orderPriority: row.order_priority || "",
     workspace,
     completion,
-    commentCount
+    commentCount,
+    managerFilesCount: row.manager_files_count ?? 0,
+    managerDataComplete: row.manager_data_complete ?? false
   };
 }
 
@@ -141,7 +172,30 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
     return userCanAccessPositionDesk(user, row);
   });
 
-  const ids = filtered.map((r) => r.id);
+  const byOrder = new Map();
+  for (const row of filtered) {
+    const key = row.order_id != null ? `id:${row.order_id}` : `num:${row.order_number}`;
+    if (!byOrder.has(key)) byOrder.set(key, []);
+    byOrder.get(key).push(row);
+  }
+  const workIds = new Set();
+  for (const group of byOrder.values()) {
+    const work = getWorkPositions(
+      { id: group[0].order_id, orderNumber: group[0].order_number },
+      group.map((r) => ({
+        id: r.id,
+        parentId: r.parent_id,
+        orderId: r.order_id,
+        orderNumber: r.order_number,
+        item: r.item,
+        itemType: r.item_type
+      }))
+    );
+    work.forEach((p) => workIds.add(p.id));
+  }
+  const workRows = filtered.filter((r) => workIds.has(r.id));
+
+  const ids = workRows.map((r) => r.id);
   if (!ids.length) return [];
 
   const fileRows = await all(
@@ -162,9 +216,37 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
   }
   const commentsByPos = new Map(commentRows.map((r) => [r.position_id, r.cnt]));
 
-  return filtered.map((row) =>
-    mapDeskRow(row, filesByPos.get(row.id) || [], commentsByPos.get(row.id) || 0)
+  const managerCounts = await all(
+    `SELECT position_id, SUM(cnt)::int AS cnt FROM (
+       SELECT position_id, COUNT(*)::int AS cnt
+       FROM position_files
+       WHERE position_id = ANY($1::int[]) AND kind LIKE 'manager_%'
+       GROUP BY position_id
+       UNION ALL
+       SELECT position_id, COUNT(*)::int AS cnt
+       FROM constructor_workspace_files
+       WHERE position_id = ANY($1::int[])
+         AND kind IN ('tech', 'measurements', 'manager_image', 'custom')
+       GROUP BY position_id
+     ) merged GROUP BY position_id`,
+    [ids]
   );
+  const managerCountByPos = new Map(managerCounts.map((r) => [r.position_id, r.cnt]));
+
+  return workRows.map((row) => {
+    const managerFilesCount = managerCountByPos.get(row.id) || 0;
+    const managerData = buildManagerDataFromRow(row);
+    const managerDataComplete = isManagerDataComplete(row, managerData, { managerFilesCount });
+    return mapDeskRow(
+      {
+        ...row,
+        manager_files_count: managerFilesCount,
+        manager_data_complete: managerDataComplete
+      },
+      filesByPos.get(row.id) || [],
+      commentsByPos.get(row.id) || 0
+    );
+  });
 }
 
 function positionHasConstructorAssignment(p) {
@@ -254,9 +336,12 @@ export async function getDeskPosition(user, positionId) {
       ?.cnt || 0
   );
 
+  const managerFiles = await listManagerFiles(positionId);
+
   return {
     position: mapDeskRow(row, files, comments.length),
     files,
+    managerFiles,
     comments,
     childCount
   };
@@ -278,6 +363,12 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
   const constructorUserId = body.constructorUserId ? Number(body.constructorUserId) : null;
   let constructorName = String(body.constructorName || "").trim();
   if (constructorUserId) {
+    const assignable = await listConstructorUsers();
+    if (!assignable.some((u) => u.id === constructorUserId)) {
+      const err = new Error("Обраного користувача немає у списку конструкторів");
+      err.status = 400;
+      throw err;
+    }
     const u = await one(`SELECT name FROM users WHERE id = $1`, [constructorUserId]);
     if (u?.name) constructorName = u.name;
   }
@@ -287,18 +378,20 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
       constructor_user_id = $2,
       constructor_name = $3,
       constructor_assigned_at = CASE
-        WHEN $2 IS NOT NULL THEN COALESCE(constructor_assigned_at, now())
+        WHEN $2::integer IS NOT NULL THEN COALESCE(constructor_assigned_at, now())
         ELSE constructor_assigned_at
       END,
       constructor_due_at = $4,
-      constructor_estimated_hours = $5
+      constructor_estimated_hours = $5,
+      assignment_comment = COALESCE($6, assignment_comment)
      WHERE id = $1`,
     [
       positionId,
       constructorUserId || null,
       constructorName,
       body.constructorDueAt || null,
-      body.constructorEstimatedHours != null ? Number(body.constructorEstimatedHours) : null
+      body.constructorEstimatedHours != null ? Number(body.constructorEstimatedHours) : null,
+      body.assignmentComment != null ? String(body.assignmentComment).trim() : null
     ]
   );
 
@@ -425,6 +518,65 @@ export async function uploadDeskFile(
     throw err;
   }
 
+  const fileKind = kind || "custom";
+  const actor = { id: user.id, name: user.name || "", role: user.role || "" };
+
+  if (isWorkspaceManagerKind(fileKind)) {
+    const managerKind = workspaceKindToManagerKind(fileKind);
+    const url = String(externalUrl || "").trim();
+
+    if (url && !dataBase64) {
+      const bundle = await getPositionManagerBundle(positionId);
+      const md = bundle?.managerData || defaultManagerDataJson();
+      const title = String(label || fileName || "Посилання").trim();
+
+      if (fileKind === "tech") {
+        const has = (md.appliances || []).some((a) => String(a.url || "").trim() === url);
+        if (!has) {
+          md.appliances = [...(md.appliances || []), { title, url, note: "" }];
+        }
+      } else {
+        const has = (md.sourceLinks || []).some((l) => String(l.url || "").trim() === url);
+        if (!has) {
+          md.sourceLinks = [...(md.sourceLinks || []), { title, url, kind: managerKind }];
+        }
+      }
+
+      await saveManagerData(positionId, md, actor);
+      return {
+        id: `link-${Date.now()}`,
+        kind: fileKind,
+        label: title,
+        externalUrl: url,
+        originalName: title,
+        source: "manager_data"
+      };
+    }
+
+    if (dataBase64) {
+      const uploaded = await uploadManagerFile(
+        positionId,
+        {
+          kind: managerKind,
+          fileName: fileName || "file",
+          mime,
+          dataBase64,
+          comment: label || ""
+        },
+        actor
+      );
+      return {
+        id: uploaded.id,
+        kind: fileKind,
+        label: label || uploaded.fileName || "",
+        originalName: uploaded.fileName || fileName || "",
+        mime: uploaded.mime || mime || "",
+        sizeBytes: uploaded.sizeBytes || 0,
+        source: "position_files"
+      };
+    }
+  }
+
   let storagePath = "";
   let originalName = "";
   let sizeBytes = 0;
@@ -491,12 +643,28 @@ export async function suggestTimingForPosition(user, positionId) {
     err.status = 403;
     throw err;
   }
-  return suggestConstructorTiming(data.position, data.childCount);
+  const managerFiles = data.managerFiles || [];
+  const managerData = buildManagerDataFromRow(data.position);
+  return suggestConstructorTiming(data.position, {
+    childCount: data.childCount,
+    managerFilesCount: managerFiles.length,
+    managerPdfCount: managerFiles.filter(
+      (f) => f.kind === "manager_pdf" || String(f.mime || "").includes("pdf")
+    ).length,
+    managerPhotoCount: managerFiles.filter((f) => f.kind === "manager_photo").length,
+    applianceCount: managerData.appliances?.length || 0,
+    orderPlanDate: data.position.orderPlanDate || data.position.order_plan_date || "",
+    positionDeadline: data.position.positionDeadline || data.position.position_deadline || ""
+  });
 }
 
 export async function listConstructorUsers() {
+  const dirs = await getDirectories();
   const rows = await all(
     `SELECT id, name, login, role FROM users WHERE active = TRUE ORDER BY name`
   );
-  return rows.map((r) => ({ id: r.id, name: r.name, login: r.login, role: r.role }));
+  return filterUsersByConstructorDirectory(
+    rows.map((r) => ({ id: r.id, name: r.name, login: r.login, role: r.role })),
+    dirs["Конструктори"] || []
+  );
 }

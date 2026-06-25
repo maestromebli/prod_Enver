@@ -18,6 +18,34 @@
   margin-bottom: 10px;
 }
 
+.op-part-scan-head-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.op-part-scan-back,
+.part-scan-back {
+  flex-shrink: 0;
+  min-height: 36px;
+  font-weight: 600;
+}
+
+.op-part-scan.is-detail-open .op-part-scan-hint,
+.op-part-scan.is-detail-open .op-part-scan-bar,
+.op-part-scan.is-detail-open .op-part-scan-actions {
+  display: none;
+}
+
+.op-part-scan.is-detail-open .op-part-scan-title {
+  margin-bottom: 0;
+}
+
+.part-detail-toolbar {
+  margin-bottom: 10px;
+}
+
 .op-part-scan-title {
   margin: 0 0 4px;
   font-size: 1rem;
@@ -49,20 +77,6 @@
 .op-part-scan-actions .scan-btn {
   min-height: 44px;
   min-width: 120px;
-}
-
-.op-part-scan-station {
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-}
-
-.op-part-scan-station input {
-  width: 100%;
-  max-width: 200px;
-  margin-top: 4px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #e2e8f0);
 }
 
 .op-part-scan-result {

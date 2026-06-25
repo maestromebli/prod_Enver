@@ -74,7 +74,8 @@ export function captureUiState() {
       installerFilter: state.installCalendar.installerFilter ?? ""
     },
     ordersView: {
-      displayMode: state.ordersView.displayMode
+      displayMode: state.ordersView.displayMode,
+      priorityFilter: state.ordersView.priorityFilter ?? ""
     },
     selectedOrderId: state.selectedOrderId,
     operatorStage: state.operatorStage,
@@ -201,6 +202,12 @@ export function applyUiState(snapshot) {
   const ordersView = snapshot.ordersView;
   if (ordersView && VALID_ORDERS_DISPLAY.has(ordersView.displayMode)) {
     state.ordersView.displayMode = ordersView.displayMode;
+  }
+  if (ordersView?.priorityFilter != null) {
+    state.ordersView.priorityFilter = ordersView.priorityFilter;
+    if (state.activeTab === "Замовлення" && $("#stageFilter")) {
+      $("#stageFilter").value = ordersView.priorityFilter;
+    }
   }
 
   if (snapshot.selectedOrderId != null) {

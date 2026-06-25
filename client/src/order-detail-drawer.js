@@ -15,8 +15,9 @@ export function isOrderDetailDrawerOpen() {
   return Boolean(drawerOrderId && backdrop()?.classList.contains("open"));
 }
 
+/** Drawer лише на мобільних; на desktop — повна картка замовлення. */
 export function shouldUseOrderDrawer() {
-  return window.matchMedia("(min-width: 768px)").matches;
+  return window.matchMedia("(max-width: 767px)").matches;
 }
 
 function skeletonHtml() {

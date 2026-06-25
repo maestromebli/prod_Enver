@@ -45,8 +45,14 @@ export const state = {
   ordersView: {
     /** cards | list */
     displayMode: "cards",
-    /** overview | positions | production | constructive | install | history */
-    detailTab: "overview"
+    /** overview | pos-{id} | finance | history */
+    detailTab: "overview",
+    positionBundles: {},
+    positionSubTab: {},
+    positionTabDownstream: {},
+    orderFinanceSummary: null,
+    /** Фільтр пріоритету на реєстрі замовлень */
+    priorityFilter: ""
   },
   constructorDesk: {
     orders: [],
@@ -58,6 +64,7 @@ export const state = {
     loading: false,
     onlyMine: false,
     error: "",
-    stale: false
+    stale: false,
+    filter: "all"
   }
 };

@@ -21,6 +21,8 @@ import {
   getConstructivePackageNextAction,
   getConstructivePackageWarnings
 } from "./constructive-godmode.js";
+import { isManagerDataComplete } from "./position-manager-data.js";
+import { getWorkPositions } from "./order-position-model.js";
 
 const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly", "packaging"];
 
@@ -416,6 +418,34 @@ export function getOrderWarnings(order, positions = [], context = {}) {
   return warnings;
 }
 
+function hasConstructorAssigned(row) {
+  if (row?.constructor_user_id != null || row?.constructorUserId != null) return true;
+  return Boolean(field(row, "constructor_name", "constructor").trim());
+}
+
+function managerDataReady(row, context) {
+  if (context.managerDataComplete === true) return true;
+  if (context.managerDataComplete === false) return false;
+  return isManagerDataComplete(row, context.managerData, {
+    managerFilesCount: num(row, "manager_files_count", "managerFilesCount") || context.managerFilesCount
+  });
+}
+
+function shouldRequireManagerData(row, context) {
+  if (context.skipManagerDataCheck || context.managerDataComplete === true) return false;
+  const stage = field(row, "current_stage", "currentStage") || "constructor";
+  if (stage !== "constructor") return false;
+  if (hasConstructive(row) && context?.packageStatus) return false;
+  return !managerDataReady(row, context);
+}
+
+function shouldRequireConstructorAssignment(row, context) {
+  if (shouldRequireManagerData(row, context)) return false;
+  const stage = field(row, "current_stage", "currentStage") || "constructor";
+  if (stage !== "constructor" && !context.onConstructorDesk) return false;
+  return !hasConstructorAssigned(row);
+}
+
 /** Наступна дія для позиції. */
 export function getPositionNextAction(position, context = {}) {
   const row = enrichRow(position, context);
@@ -432,6 +462,48 @@ export function getPositionNextAction(position, context = {}) {
       allowed: false,
       reason: b.message
     });
+  }
+
+  if (shouldRequireManagerData(row, context)) {
+    return makeAction({
+      type: "fill_manager_data",
+      label: "Заповнити дані позиції",
+      description: "Вкажіть адресу доставки, строк позиції та файли менеджера в картці замовлення.",
+      buttonLabel: "Заповнити",
+      priority: "high",
+      allowed: true,
+      stageKey: "constructor"
+    });
+  }
+
+  const currentStage = field(row, "current_stage", "currentStage") || "constructor";
+  if (shouldRequireConstructorAssignment(row, context)) {
+    return makeAction({
+      type: "assign_constructor",
+      label: "Призначити конструктора",
+      description: "Головний конструктор має призначити виконавця та дедлайн.",
+      buttonLabel: "Призначити",
+      priority: "high",
+      allowed: true,
+      stageKey: "constructor"
+    });
+  }
+
+  const dueAt = row.constructor_due_at ?? row.constructorDueAt;
+  if (dueAt && context.now) {
+    const due = new Date(dueAt);
+    const now = context.now instanceof Date ? context.now : new Date(context.now);
+    if (due < now && currentStage === "constructor") {
+      return makeAction({
+        type: "assign_constructor",
+        label: "Дедлайн конструктора прострочено",
+        description: "Оновіть дедлайн або завершіть конструктив.",
+        buttonLabel: "Переглянути",
+        priority: "high",
+        allowed: true,
+        stageKey: "constructor"
+      });
+    }
   }
 
   if (!hasConstructive(row)) {
@@ -592,9 +664,9 @@ export function getPositionNextAction(position, context = {}) {
   });
 }
 
-/** Наступна дія для замовлення (за головною позицією). */
+/** Наступна дія для замовлення (за першою робочою позицією). */
 export function getOrderNextAction(order, positions = [], context = {}) {
-  const roots = positions.filter((p) => !(p.parentId ?? p.parent_id));
+  const work = getWorkPositions(order, positions);
   const orderBlockers = getOrderBlockers(order, positions, context);
 
   if (orderBlockers.length) {
@@ -610,7 +682,7 @@ export function getOrderNextAction(order, positions = [], context = {}) {
     });
   }
 
-  if (!roots.length) {
+  if (!work.length) {
     return makeAction({
       type: "add_position",
       label: "Додати позицію",
@@ -621,7 +693,7 @@ export function getOrderNextAction(order, positions = [], context = {}) {
     });
   }
 
-  const sorted = [...roots].sort(
+  const sorted = [...work].sort(
     (a, b) =>
       getAttentionScore(b, getPositionWarnings(b, context), getPositionBlockers(b, context)) -
       getAttentionScore(a, getPositionWarnings(a, context), getPositionBlockers(a, context))
@@ -630,10 +702,11 @@ export function getOrderNextAction(order, positions = [], context = {}) {
   const main = sorted[0];
   const next = getPositionNextAction(main, {
     ...context,
-    planDate: field(order, "plan_date", "planDate")
+    planDate: field(order, "plan_date", "planDate"),
+    onConstructorDesk: true
   });
 
-  const allDone = roots.every((p) => positionStatus(p) === "Завершено");
+  const allDone = work.every((p) => positionStatus(p) === "Завершено");
   if (allDone) {
     return makeAction({
       type: "close_order",

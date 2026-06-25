@@ -32,10 +32,24 @@
 
 .cd-hero {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
   padding: 16px 18px;
+}
+
+.cd-filters {
+  flex-wrap: wrap;
+}
+
+.cd-manager-input {
+  padding: 16px;
+}
+
+.cd-manager-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cd-table {

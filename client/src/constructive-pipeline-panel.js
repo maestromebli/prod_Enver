@@ -1,11 +1,12 @@
 import { escapeHtml } from "./utils.js";
-import { api } from "./api.js";
+import { api, getPartLabelsUrl } from "./api.js";
 import {
   packageStatusLabel,
   procurementStatusLabel,
   cncJobStatusLabel
 } from "@enver/shared/production/constructive-package.js";
 import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
+import { getConstructivePackageNextAction } from "@enver/shared/production/constructive-godmode.js";
 
 export function renderFinancePanel(positionId, summary = null) {
   if (!summary) {
@@ -151,13 +152,28 @@ export function renderProcurementPanel(procurement = null, { canManage = false }
 export function renderConstructivePipelinePanel(detail, procurement = null, options = {}) {
   const pkg = detail?.package;
   if (!pkg) {
-    return `<p class="enver-meta">Завантажте пакет конструктива у вкладці «Ще».</p>`;
+    return `<section class="constructive-pipeline-panel constructive-pipeline-panel--empty">
+      <p class="enver-meta">Пакет конструктива ще не завантажено.</p>
+      <p class="enver-meta">Завантажте файли у повній картці позиції або на стілі конструктора.</p>
+      <button type="button" class="btn btn-sm btn-primary" data-open-position-full>Відкрити картку позиції</button>
+    </section>`;
   }
 
   const review = buildConstructiveReviewSummary(detail);
   const reviewBadge =
     review.needsReview && detail.parts?.length
       ? `<span class="cp-review-badge">Потрібна перевірка</span>`
+      : "";
+
+  const pkgAction = getConstructivePackageNextAction({
+    packageStatus: pkg.status,
+    unmappedPartsCount: detail.unmappedParts?.length || 0
+  });
+  const pipelineGodmodeBtn =
+    pkgAction &&
+    pkgAction.allowed !== false &&
+    !["wait_parse", "wait_procurement", "handoff_to_cutting"].includes(pkgAction.type)
+      ? `<button type="button" class="btn btn-sm btn-primary" id="pipelineGodmodeBtn" data-pipeline-action="${escapeHtml(pkgAction.type)}">${escapeHtml(pkgAction.buttonLabel)}</button>`
       : "";
 
   const partsList = (detail.parts || [])
@@ -181,6 +197,7 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
       <p class="cp-status-lg">${escapeHtml(packageStatusLabel(pkg.status))} · v${pkg.version} ${reviewBadge}</p>
       <p>${detail.parts?.length || 0} деталей · ${detail.unmappedParts?.length || 0} без 3D</p>
       <div class="cp-actions-inline">
+        ${pipelineGodmodeBtn}
         <button type="button" class="btn btn-sm btn-primary" id="openConstructiveReviewBtn">Перевірка конструктива</button>
         <button type="button" class="btn btn-sm" id="openModelMappingBtn">Мапінг 3D деталей</button>
         <button type="button" class="btn btn-sm" id="analyzePackageAiBtn">ШІ-аналіз пакета</button>
@@ -195,4 +212,121 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
       </div>
       <div id="procurementPanelMount">${renderProcurementPanel(procurement, { canManage: options.canManageProcurement })}</div>
     </section>`;
+}
+
+/** Підвʼязує кнопки pipeline-конструктива (перевірка, 3D, ШІ, закупівля). */
+export function bindConstructivePipelinePanel(root, ctx = {}) {
+  const {
+    positionId,
+    getPackageDetail = () => null,
+    getProcurement = () => null,
+    onProcurementUpdated,
+    onPackageUpdated,
+    onOpenPosition
+  } = ctx;
+  if (!root || !positionId) return;
+
+  const afterPipelineAction = () => {
+    onPackageUpdated?.();
+    onProcurementUpdated?.();
+  };
+
+  root.querySelector("#pipelineGodmodeBtn")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#pipelineGodmodeBtn");
+    const action = btn?.dataset?.pipelineAction;
+    const detail = getPackageDetail();
+    const pkgId = detail?.package?.id;
+    if (!action) return;
+
+    const { toastError, toastSuccess } = await import("./toast.js");
+
+    try {
+      if (action === "parse_constructive_package" && pkgId) {
+        await api.parseConstructivePackage(positionId, pkgId);
+        toastSuccess("Пакет розібрано");
+      } else if (action === "create_procurement" && pkgId) {
+        const proc = await api.createProcurementFromPackage(positionId, pkgId);
+        onProcurementUpdated?.(proc);
+        toastSuccess("Закупівлю створено");
+      } else if (action === "send_to_gitlab") {
+        await api.sendToGitlab(positionId);
+        toastSuccess("Відправлено в GitLab");
+      } else if (action === "print_part_labels") {
+        window.open(getPartLabelsUrl(positionId), "_blank", "noopener,noreferrer");
+        return;
+      } else if (action === "review_constructive" && pkgId) {
+        const { openConstructiveReviewModal } = await import("./constructive-review-ui.js");
+        const { canReviewConstructive } = await import("./auth.js");
+        openConstructiveReviewModal(positionId, detail, { canReview: canReviewConstructive() });
+        return;
+      } else if (action === "upload_constructive_package") {
+        onOpenPosition?.(positionId);
+        return;
+      } else {
+        toastError("Дію потрібно виконати вручну");
+        return;
+      }
+      afterPipelineAction();
+    } catch (err) {
+      toastError(err.message);
+    }
+  });
+
+  root.querySelector("[data-open-position-full]")?.addEventListener("click", () => {
+    onOpenPosition?.(positionId);
+  });
+
+  root.querySelector("#openConstructiveReviewBtn")?.addEventListener("click", async () => {
+    const detail = getPackageDetail();
+    if (!detail?.package?.id) return;
+    const { openConstructiveReviewModal } = await import("./constructive-review-ui.js");
+    const { canReviewConstructive } = await import("./auth.js");
+    openConstructiveReviewModal(positionId, detail, { canReview: canReviewConstructive() });
+  });
+
+  root.querySelector("#openModelMappingBtn")?.addEventListener("click", async () => {
+    const detail = getPackageDetail();
+    if (!detail?.package?.id) return;
+    const { openModelMappingModal } = await import("./model-mapping-ui.js");
+    openModelMappingModal(positionId, detail);
+  });
+
+  root.querySelector("#analyzePackageAiBtn")?.addEventListener("click", async () => {
+    const detail = getPackageDetail();
+    const pkgId = detail?.package?.id;
+    if (!pkgId) return;
+    const box = root.querySelector("#packageAiResult");
+    if (box) {
+      box.hidden = false;
+      box.textContent = "ШІ аналізує пакет…";
+    }
+    try {
+      const res = await api.analyzeConstructivePackageAi(positionId, pkgId);
+      if (box) {
+        box.innerHTML = `<pre class="package-ai-json">${escapeHtml(JSON.stringify(res.analysis || res, null, 2))}</pre>`;
+      }
+    } catch (err) {
+      if (box) box.textContent = err.message;
+    }
+  });
+
+  root.querySelector("#advanceProcurementBtn")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#advanceProcurementBtn");
+    const nextStatus = btn?.dataset?.nextStatus;
+    const procurement = getProcurement();
+    if (!nextStatus || !procurement?.id) return;
+    try {
+      const updated = await api.updatePositionProcurement(positionId, procurement.id, {
+        status: nextStatus
+      });
+      onProcurementUpdated?.(updated);
+    } catch (err) {
+      const { toastError } = await import("./toast.js");
+      toastError(err.message);
+    }
+  });
+}
+
+export function bindProcurementPanel(root, ctx = {}) {
+  bindConstructivePipelinePanel(root, ctx);
 }

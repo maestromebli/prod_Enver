@@ -21,11 +21,11 @@ import { bindOperatorScanPanel } from "./part-scan.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
-import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
+import { bindOrderDetail, clearOrderDetailViewState, renderOrderDetailView } from "./order-detail.js";
 import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
 import { bindSettingsActions, getSettingsHeaderMeta, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
-import { filteredPositions } from "./filters.js";
+import { filteredPositions, filteredOrders, hasActiveFilters } from "./filters.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole,
@@ -215,6 +215,16 @@ function renderPageChrome() {
   if (sub) sub.textContent = meta.subtitle || "";
 }
 
+/** Легке оновлення підсвітки вкладки без повного перемальовування меню (для contentOnly). */
+export function syncNavActiveTab() {
+  document.querySelectorAll("#tabs .tab-btn[data-tab]").forEach((btn) => {
+    const active = btn.dataset.tab === state.activeTab;
+    btn.classList.toggle("active", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+}
+
 export function renderTabs() {
   const tour = getTourStep();
   const newOrders = countNewOrdersForCurrentRole();
@@ -272,6 +282,9 @@ export function renderResponsibleOptions() {
   const current = select.value;
   const people = new Set();
 
+  state.orders.forEach((o) => {
+    if (o.manager) people.add(o.manager);
+  });
   state.positions.forEach((p) => {
     [p.manager, p.constructor, p.assemblyResponsible, p.installResponsible]
       .filter(Boolean)
@@ -286,6 +299,101 @@ export function renderResponsibleOptions() {
       .join("")}
   `;
   select.value = current;
+}
+
+const POSITION_STATUS_OPTIONS = [
+  "",
+  "Передано",
+  "В роботі",
+  "Готово",
+  "Готово до встановлення",
+  "На паузі",
+  "Проблема",
+  "Не розпочато"
+];
+
+function fillStatusFilterOptions(options, labels) {
+  const select = document.querySelector("#statusFilter");
+  if (!select) return;
+  const current = select.value;
+  const labelEl = select.closest(".filter-field")?.querySelector(".filter-label");
+
+  select.innerHTML = options
+    .map((value, i) => {
+      const label = labels?.[i] ?? (value || "Усі статуси");
+      return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+  if (options.includes(current)) select.value = current;
+  else select.value = "";
+
+  if (labelEl) {
+    labelEl.textContent = state.activeTab === "Замовлення" ? "Статус замовлення" : "Статус";
+  }
+}
+
+export function renderToolbarFilters() {
+  const stageSelect = document.querySelector("#stageFilter");
+  const stageField = stageSelect?.closest(".filter-field");
+  const stageLabel = stageField?.querySelector(".filter-label");
+  const statusField = document.querySelector("#statusFilter")?.closest(".filter-field");
+  const responsibleField = document.querySelector("#responsibleFilter")?.closest(".filter-field");
+  const searchField = document.querySelector("#searchInput")?.closest(".filter-field");
+  const onOrdersRegistry =
+    state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
+
+  if (searchField) {
+    const input = searchField.querySelector("#searchInput");
+    if (input) {
+      input.placeholder = onOrdersRegistry
+        ? "Номер, клієнт, об'єкт, виріб…"
+        : "Замовлення, об'єкт, виріб…";
+    }
+  }
+
+  if (onOrdersRegistry) {
+    const orderStatuses = state.directories["Статуси замовлення"] || [
+      "Новий",
+      "У конструктиві",
+      "Передано у виробництво",
+      "У виробництві",
+      "Частково готово",
+      "Готово до встановлення",
+      "На встановленні",
+      "Пауза за клієнтом",
+      "Проблема"
+    ];
+    fillStatusFilterOptions(["", ...orderStatuses], ["Усі статуси", ...orderStatuses]);
+
+    if (stageSelect && stageField) {
+      const priorities = state.directories["Пріоритети"] || ["Високий", "Звичайний", "Низький"];
+      stageSelect.hidden = false;
+      stageField.hidden = false;
+      if (stageLabel) stageLabel.textContent = "Пріоритет";
+      const current = state.ordersView.priorityFilter ?? "";
+      stageSelect.innerHTML = `
+        <option value="">Усі пріоритети</option>
+        ${priorities.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("")}
+      `;
+      stageSelect.value = priorities.includes(current) ? current : "";
+    }
+  } else {
+    fillStatusFilterOptions(
+      POSITION_STATUS_OPTIONS,
+      POSITION_STATUS_OPTIONS.map((v) => v || "Усі статуси")
+    );
+
+    if (stageSelect && stageField) {
+      stageSelect.hidden = true;
+      stageField.hidden = true;
+      if (stageLabel) stageLabel.textContent = "Етап";
+    }
+  }
+
+  const hideSecondary =
+    state.activeTab === "Історія змін" || state.activeTab === OVERVIEW_TAB || state.view !== "main";
+  if (statusField) statusField.hidden = hideSecondary;
+  if (responsibleField) responsibleField.hidden = hideSecondary;
 }
 
 export function renderToolbarActions() {
@@ -310,12 +418,7 @@ export function renderToolbarActions() {
 }
 
 export function renderStageFilter() {
-  const select = document.querySelector("#stageFilter");
-  if (!select) return;
-
-  const field = select.closest(".filter-field");
-  select.hidden = true;
-  if (field) field.hidden = true;
+  renderToolbarFilters();
 }
 
 function renderOrderDetail() {
@@ -330,17 +433,21 @@ function renderOrderDetail() {
       state.expandedPositionIds.add(p.id);
     }
   }
-  return renderOrderDetailView(order, state.positions, related);
+  const bundles = state.ordersView.positionBundles || {};
+  return renderOrderDetailView(order, state.positions, related, bundles);
 }
 
 function renderContent() {
   const data = filteredPositions();
   const tab = state.activeTab;
+  const ordersData = filteredOrders();
 
   if (tab === OVERVIEW_TAB) return renderDashboard();
   if (tab === "Замовлення") {
     if (state.selectedOrderId) return renderOrderDetail();
-    return renderOrdersGrid(state.orders, state.positions);
+    return renderOrdersGrid(ordersData, state.positions, {
+      filtersActive: hasActiveFilters()
+    });
   }
   if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
@@ -348,7 +455,9 @@ function renderContent() {
   if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Історія змін") return historyTab();
-  return renderOrdersGrid(state.orders, state.positions);
+  return renderOrdersGrid(ordersData, state.positions, {
+    filtersActive: hasActiveFilters()
+  });
 }
 
 export function renderHeaderChrome() {
@@ -466,6 +575,7 @@ export function renderApp(options = {}) {
     if (!options.preserveScroll) {
       window.scrollTo(0, 0);
     }
+    notifyUiChanged();
     return;
   }
 
@@ -474,6 +584,7 @@ export function renderApp(options = {}) {
     renderKpis();
     renderToolbarActions();
   } else {
+    syncNavActiveTab();
     renderPageChrome();
   }
   renderStageFilter();
@@ -490,9 +601,10 @@ export function renderApp(options = {}) {
   }
 
   if (state.activeTab === "Замовлення") {
+    const ordersData = filteredOrders();
     if (!state.selectedOrderId) {
       bindOrdersGrid(document.querySelector("#content"), {
-        orders: state.orders,
+        orders: ordersData,
         positions: state.positions,
         onOpenPosition: async (id) => {
           const { openPositionDrawer } = await import("./positions.js");
@@ -500,6 +612,7 @@ export function renderApp(options = {}) {
           if (position) openPositionDrawer(position);
         },
         onOrderClick: (order) => {
+          clearOrderDetailViewState();
           state.selectedOrderId = order.id;
           state.ordersView.detailTab = "overview";
           notifyUiChanged();
@@ -541,9 +654,22 @@ export function renderApp(options = {}) {
 
             state.selectedOrderId = order.id;
             state.ordersView.detailTab = result.tab || "overview";
+            if (result.subTab && String(result.tab || "").startsWith("pos-")) {
+              const pid = Number(String(result.tab).slice(4));
+              if (Number.isFinite(pid)) {
+                state.ordersView.positionSubTab = {
+                  ...(state.ordersView.positionSubTab || {}),
+                  [pid]: result.subTab
+                };
+              }
+            }
             notifyUiChanged();
             renderApp();
             window.scrollTo({ top: 0, behavior: "instant" });
+            if (result.hint === "add_position" || result.tab === "positions") {
+              const { focusOrderInlineAddInput } = await import("./order-detail.js");
+              focusOrderInlineAddInput();
+            }
           } catch (err) {
             toastError(humanizeUserMessage(err?.message || "Не вдалося виконати дію"));
           }
@@ -553,8 +679,8 @@ export function renderApp(options = {}) {
       const content = document.querySelector("#content");
       bindOrderDetail(content, {
         onBack: () => {
+          clearOrderDetailViewState();
           state.selectedOrderId = null;
-          state.ordersView.detailTab = "overview";
           notifyUiChanged();
           renderApp();
           window.scrollTo({ top: 0, behavior: "instant" });
