@@ -12,33 +12,50 @@ export function isPartScanStage(stageKey) {
   return PART_SCAN_OPERATOR_STAGES.includes(stageKey);
 }
 
-/** Кнопка «Сканувати» в компактній шапці operator.html / Android APK. */
-export function syncOperatorClientScanButton(stageKey) {
-  const btn = $("#operatorClientScanBtn");
-  if (!btn) return;
-  btn.hidden = !isPartScanStage(stageKey);
+/** Кнопки сканування в компактній шапці operator.html / Android APK. */
+export function syncOperatorClientScanButtons(stageKey) {
+  const show = isPartScanStage(stageKey);
+  $("#operatorClientScanBtn")?.toggleAttribute("hidden", !show);
+  $("#operatorClientCameraBtn")?.toggleAttribute("hidden", !show);
 }
 
-/** Помітна кнопка сканування над панеллю дій (планшет / APK). */
+/** @deprecated використовуйте syncOperatorClientScanButtons */
+export function syncOperatorClientScanButton(stageKey) {
+  syncOperatorClientScanButtons(stageKey);
+}
+
+/** Помітні кнопки сканування над панеллю дій (планшет / APK). */
 export function renderOperatorScanActionButton(stageKey) {
   if (!isPartScanStage(stageKey)) return "";
   if (!document.body?.classList.contains("operator-client-mode")) return "";
   return `
-    <button
-      type="button"
-      class="op-work-scan-btn enver-pressable"
-      id="operatorWorkScanBtn"
-      title="Сканування деталі за штрихкодом"
-    >
-      <span class="op-scan-glyph" aria-hidden="true">▮▮</span>
-      <span>Сканувати деталь</span>
-    </button>`;
+    <div class="op-work-scan-row">
+      <button
+        type="button"
+        class="op-work-scan-btn enver-pressable"
+        id="operatorWorkScanBtn"
+        title="Сканування штрихридером"
+      >
+        <span class="op-scan-glyph" aria-hidden="true">▮▮</span>
+        <span>Штрихридер</span>
+      </button>
+      <button
+        type="button"
+        class="op-work-scan-btn op-work-scan-btn--camera enver-pressable"
+        id="operatorWorkCameraBtn"
+        title="Сканування камерою"
+      >
+        <span class="op-camera-glyph" aria-hidden="true">📷</span>
+        <span>Камера</span>
+      </button>
+    </div>`;
 }
 
 let scannerListener = null;
 let viewer = null;
 let recentScans = [];
 let scanControlsAbort = null;
+let cameraScanCleanup = null;
 
 function playScanFeedback() {
   if (navigator.vibrate) navigator.vibrate(40);
@@ -105,7 +122,7 @@ export function renderOperatorScanPanel(stageKey) {
           <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn" hidden>← Назад</button>
           <h3 class="op-part-scan-title">Сканування деталі</h3>
         </div>
-        <p class="op-part-scan-hint">Піднесіть штрихридер до етикетки — деталь зʼявиться у 3D з підсвіткою</p>
+        <p class="op-part-scan-hint">Штрихридер, камера або ручний ввід — деталь зʼявиться у 3D з підсвіткою</p>
       </div>
       <div class="op-part-scan-bar">
         <input
@@ -365,6 +382,27 @@ export function focusOperatorScanInput() {
   input.focus();
 }
 
+/** Відкрити сканування камерою (кнопки в шапці / робочій зоні). */
+export function openOperatorCameraScan(stageKey) {
+  if (!isPartScanStage(stageKey)) {
+    toastError("Сканування доступне на етапах: порізка, поклейка, присадка, збірка");
+    return;
+  }
+  const statusEl = $("#operatorScanStatus") || $("#scanStatus");
+  const detailEl = $("#operatorPartScanDetail") || $("#partScanDetail");
+  const scanInput = $("#operatorScanInput") || $("#scanInput");
+  const onScan = (code) =>
+    handleScan(code, {
+      statusEl,
+      detailEl,
+      scanInput,
+      showCncActions: stageKey === "cutting",
+      closeLabel: "← Назад"
+    });
+  $("#operatorPartScan")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  void startCameraScan({ statusEl, onScan });
+}
+
 export function bindPartScanView() {
   bindScanControls({
     scanInput: $("#scanInput"),
@@ -378,43 +416,102 @@ export function bindPartScanView() {
 }
 
 async function startCameraScan({ statusEl, onScan }) {
+  if (cameraScanCleanup) {
+    cameraScanCleanup();
+    cameraScanCleanup = null;
+  }
+
+  let handled = false;
+  let frameId = 0;
+  let reader = null;
+  let stream = null;
+  let modal = null;
+
+  const cleanup = () => {
+    cameraScanCleanup = null;
+    if (frameId) cancelAnimationFrame(frameId);
+    frameId = 0;
+    try {
+      reader?.reset();
+    } catch {
+      /* ignore */
+    }
+    stream?.getTracks().forEach((t) => t.stop());
+    modal?.remove();
+    $("#operatorScanInput")?.focus();
+    $("#scanInput")?.focus();
+  };
+
   try {
     const { BrowserMultiFormatReader } = await import("@zxing/browser");
-    const reader = new BrowserMultiFormatReader();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
+    reader = new BrowserMultiFormatReader();
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } }
     });
 
-    const modal = document.createElement("div");
+    modal = document.createElement("div");
     modal.className = "scan-camera-modal";
-    modal.innerHTML = `<div class="scan-camera-inner"><video id="scanCameraVideo" playsinline autoplay muted></video><button type="button" class="btn" id="scanCameraClose">Закрити</button></div>`;
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-label", "Сканування штрихкоду камерою");
+    modal.innerHTML = `
+      <div class="scan-camera-inner">
+        <div class="scan-camera-viewport">
+          <video id="scanCameraVideo" playsinline autoplay muted></video>
+          <div class="scan-camera-frame" aria-hidden="true"></div>
+        </div>
+        <p class="scan-camera-hint">Наведіть штрихкод у рамку</p>
+        <button type="button" class="btn scan-camera-close" id="scanCameraClose">Закрити</button>
+      </div>`;
     document.body.appendChild(modal);
-    const v = modal.querySelector("#scanCameraVideo");
-    v.srcObject = stream;
-    await v.play();
+    const video = modal.querySelector("#scanCameraVideo");
+    video.srcObject = stream;
+    await video.play();
 
-    const cleanup = () => {
-      try {
-        reader.reset();
-      } catch {
-        /* ignore */
-      }
-      stream.getTracks().forEach((t) => t.stop());
-      modal.remove();
-      $("#operatorScanInput")?.focus();
-      $("#scanInput")?.focus();
+    const onDetected = (text) => {
+      if (handled) return;
+      const code = String(text || "").trim();
+      if (!code) return;
+      handled = true;
+      cleanup();
+      onScan(code);
     };
 
     modal.querySelector("#scanCameraClose")?.addEventListener("click", cleanup);
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) cleanup();
+    });
+
+    cameraScanCleanup = cleanup;
 
     if (statusEl) statusEl.textContent = "Наведіть камеру на штрихкод…";
-    reader.decodeFromVideoDevice(undefined, v, (result) => {
-      if (result) {
-        cleanup();
-        onScan(result.getText());
-      }
-    });
+
+    if (typeof window.BarcodeDetector !== "undefined") {
+      const detector = new window.BarcodeDetector({
+        formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "data_matrix"]
+      });
+      const tick = async () => {
+        if (handled) return;
+        if (video.videoWidth) {
+          try {
+            const codes = await detector.detect(video);
+            if (codes?.length) {
+              onDetected(codes[0].rawValue);
+              return;
+            }
+          } catch {
+            /* fallback до ZXing */
+          }
+        }
+        frameId = requestAnimationFrame(tick);
+      };
+      frameId = requestAnimationFrame(tick);
+    } else {
+      reader.decodeFromVideoElement(video, (result) => {
+        if (result) onDetected(result.getText());
+      });
+    }
   } catch (err) {
+    cleanup();
     if (statusEl)
       statusEl.textContent = "Камера недоступна — дозволіть доступ або введіть код вручну";
     toastError(err.message || "Камера недоступна");
@@ -426,6 +523,8 @@ export function destroyPartScanView() {
   scannerListener = null;
   scanControlsAbort?.abort();
   scanControlsAbort = null;
+  cameraScanCleanup?.();
+  cameraScanCleanup = null;
   viewer?.destroy();
   viewer = null;
   setScanDetailOpen(false);

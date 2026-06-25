@@ -154,6 +154,10 @@ function managerPayloadToDb(body = {}, existingRow = {}) {
   const comments = { ...existing.comments, ...(body.comments || {}) };
   const appliances = Array.isArray(body.appliances) ? body.appliances : existing.appliances;
   const sourceLinks = Array.isArray(body.sourceLinks) ? body.sourceLinks : existing.sourceLinks;
+  const requirements = {
+    ...existing.requirements,
+    ...(body.requirements && typeof body.requirements === "object" ? body.requirements : {})
+  };
 
   const json = {
     delivery: {
@@ -169,6 +173,10 @@ function managerPayloadToDb(body = {}, existingRow = {}) {
       installPreferredDate: deadlines.installPreferredDate ?? ""
     },
     appliances,
+    requirements: {
+      needsTech: Boolean(requirements.needsTech),
+      needsLed: Boolean(requirements.needsLed)
+    },
     comments,
     sourceLinks
   };
@@ -199,7 +207,8 @@ export async function saveManagerData(positionId, body, actor, { markComplete = 
 
   const shouldComplete =
     markComplete === true ||
-    (markComplete !== false && isManagerDataComplete(mergedRow, managerData, { managerFilesCount: filesCount }));
+    (markComplete !== false &&
+      isManagerDataComplete(mergedRow, managerData, { managerFilesCount: filesCount }));
 
   await run(
     `UPDATE positions SET
@@ -233,7 +242,9 @@ export async function saveManagerData(positionId, body, actor, { markComplete = 
     entityId: positionId,
     action: "update",
     meta: {
-      summary: shouldComplete ? "Дані менеджера по позиції заповнено" : "Оновлено дані менеджера по позиції",
+      summary: shouldComplete
+        ? "Дані менеджера по позиції заповнено"
+        : "Оновлено дані менеджера по позиції",
       orderNumber: row.order_number,
       item: row.item
     },
@@ -246,8 +257,14 @@ export async function saveManagerData(positionId, body, actor, { markComplete = 
   };
 }
 
-export async function uploadManagerFile(positionId, { fileName, mime, dataBase64, kind = "manager_other", comment = "" }, actor) {
-  const existing = await one(`SELECT id, order_number, item FROM positions WHERE id = $1`, [positionId]);
+export async function uploadManagerFile(
+  positionId,
+  { fileName, mime, dataBase64, kind = "manager_other", comment = "" },
+  actor
+) {
+  const existing = await one(`SELECT id, order_number, item FROM positions WHERE id = $1`, [
+    positionId
+  ]);
   if (!existing) {
     const err = new Error("Позицію не знайдено");
     err.status = 404;

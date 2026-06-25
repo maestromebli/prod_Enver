@@ -1,15 +1,13 @@
 import { api } from "./api.js";
-import { canManageProcurement, canViewFinance } from "./auth.js";
+import { canManageProcurement } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderPositionManagerPanel, bindPositionManagerPanel } from "./position-manager-panel.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import {
   loadCncJobsSummary,
-  loadFinanceSummary,
   loadProcurementSummary,
   bindConstructivePipelinePanel,
   renderCncQueuePanel,
-  renderFinancePanel,
   renderProcurementPanel
 } from "./constructive-pipeline-panel.js";
 import {
@@ -26,9 +24,8 @@ import { state } from "./state.js";
 
 const SUB_TABS = [
   { key: "manager", label: "Дані" },
-  { key: "constructive", label: "Конструктив" },
+  { key: "constructive", label: "Пакет конструктива" },
   { key: "procurement", label: "Закупівля" },
-  { key: "finance", label: "Фінанси" },
   { key: "cnc", label: "ЧПК" },
   { key: "install", label: "Монтаж" },
   { key: "operator", label: "Оператор" },
@@ -42,15 +39,10 @@ function cacheKey(positionId, subTab) {
 }
 
 function renderSubTabs(positionId, activeSub) {
-  const buttons = SUB_TABS.filter((t) => {
-    if (t.key === "finance" && !canViewFinance()) return false;
-    return true;
-  })
-    .map(
-      (t) =>
-        `<button type="button" class="enver-segmented-btn ${activeSub === t.key ? "active" : ""}" data-pos-sub-tab="${t.key}" data-position-id="${positionId}">${t.label}</button>`
-    )
-    .join("");
+  const buttons = SUB_TABS.map(
+    (t) =>
+      `<button type="button" class="enver-segmented-btn ${activeSub === t.key ? "active" : ""}" data-pos-sub-tab="${t.key}" data-position-id="${positionId}">${t.label}</button>`
+  ).join("");
   return `<nav class="enver-segmented pos-sub-tabs" role="tablist">${buttons}</nav>`;
 }
 
@@ -92,12 +84,10 @@ export function renderPositionOrderTab(
   } else if (activeSub === "constructive") {
     body =
       downstream != null
-        ? renderPositionConstructivePanel(position, downstream)
-        : `<p class="enver-meta">Завантаження конструктива…</p>`;
+        ? renderPositionConstructivePanel(position, downstream, { editable: false })
+        : `<p class="enver-meta">Завантаження пакета конструктива…</p>`;
   } else if (activeSub === "procurement") {
     body = renderProcurementPanel(downstream?.procurement, { canManage: canManageProcurement() });
-  } else if (activeSub === "finance") {
-    body = renderFinancePanel(position.id, downstream?.finance);
   } else if (activeSub === "cnc") {
     body = renderCncQueuePanel(downstream?.cncJobs || []);
   } else if (activeSub === "install") {
@@ -114,7 +104,7 @@ export function renderPositionOrderTab(
       ${renderSubTabs(position.id, activeSub)}
       <div class="pos-sub-panel" data-pos-sub-panel="${position.id}">${body}</div>
       <div class="order-position-meta">
-        <button type="button" class="btn btn-sm" data-open-position="${position.id}">Повна картка позиції</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-open-position-drawer="${position.id}">Класичний drawer</button>
         <button type="button" class="btn btn-sm btn-ghost" data-open-constructor-ws="${position.id}">Стіл конструктора</button>
       </div>
     </section>`;
@@ -134,8 +124,6 @@ export async function loadPositionOrderTabData(positionId, subTab) {
     data = { packageDetail, procurement, cncJobs };
   } else if (subTab === "procurement") {
     data.procurement = await loadProcurementSummary(positionId);
-  } else if (subTab === "finance") {
-    data.finance = await loadFinanceSummary(positionId);
   } else if (subTab === "cnc") {
     data.cncJobs = await loadCncJobsSummary(positionId);
   }
@@ -205,8 +193,9 @@ export function bindPositionOrderTab(
     });
   });
 
-  root.querySelector("[data-open-constructor-ws]")?.addEventListener("click", () => {
-    onOpenConstructor?.(positionId);
+  root.querySelector("[data-open-constructor-ws]")?.addEventListener("click", async () => {
+    const { openConstructorWorkspace } = await import("./constructor-desk.js");
+    await openConstructorWorkspace(positionId);
   });
 
   if (activeSub === "manager") {
@@ -238,6 +227,7 @@ export function bindPositionOrderTab(
     const downstream = state.ordersView.positionTabDownstream?.[positionId];
     bindPositionConstructivePanel(panel, position, {
       downstream,
+      editable: false,
       onRefresh: handlePositionRefresh
     });
   }

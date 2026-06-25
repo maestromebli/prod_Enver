@@ -177,6 +177,18 @@
   margin-top: 16px;
 }
 
+.cp-pick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.cp-pick-actions .btn {
+  pointer-events: auto;
+}
+
 .cp-pipeline {
   display: flex;
   flex-wrap: wrap;
@@ -237,10 +249,91 @@
   padding: 16px;
 }
 
-.scan-camera-inner video {
+.scan-camera-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   width: min(100%, 480px);
-  border-radius: 8px;
+}
+
+.scan-camera-viewport {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
   background: #000;
+}
+
+.scan-camera-inner video {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 480px);
+  object-fit: cover;
+}
+
+.scan-camera-frame {
+  position: absolute;
+  inset: 18% 10%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.scan-camera-hint {
+  margin: 0;
+  color: #fff;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.scan-camera-close {
+  min-height: 44px;
+  min-width: 140px;
+}
+
+.op-btn-camera,
+.operator-client-camera-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 40%, transparent);
+  background: color-mix(in srgb, var(--op-accent, #245c3b) 10%, transparent);
+}
+
+.op-camera-glyph {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.op-work-scan-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.op-work-scan-btn--camera {
+  border-color: color-mix(in srgb, #1a5fb4 35%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #1a5fb4 14%, #fff) 0%,
+    color-mix(in srgb, #1a5fb4 8%, #fff) 100%
+  );
+  color: #1a5fb4;
+  box-shadow: 0 2px 8px rgba(26, 95, 180, 0.15);
+}
+
+@media (max-width: 520px) {
+  .op-camera-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
 }
 
 .finance-panel {

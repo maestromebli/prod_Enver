@@ -27,7 +27,14 @@ const positionsWithSubs = [
 ];
 
 const singleRoot = [
-  { id: 20, orderId: 2, orderNumber: "2026-002", parentId: null, item: "Квартира", itemType: "Замовлення" }
+  {
+    id: 20,
+    orderId: 2,
+    orderNumber: "2026-002",
+    parentId: null,
+    item: "Квартира",
+    itemType: "Замовлення"
+  }
 ];
 
 describe("order-position-model", () => {
@@ -46,7 +53,10 @@ describe("order-position-model", () => {
 
   it("getWorkPositions returns root when no subpositions", () => {
     const work = getWorkPositions({ id: 2, orderNumber: "2026-002" }, singleRoot);
-    assert.deepEqual(work.map((p) => p.id), [20]);
+    assert.deepEqual(
+      work.map((p) => p.id),
+      [20]
+    );
   });
 
   it("isSinglePositionOrder", () => {

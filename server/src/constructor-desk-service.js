@@ -1,4 +1,5 @@
 import { parseJson } from "./json-utils.js";
+import { getPositionRequirements } from "../../shared/production/position-manager-data.js";
 
 export const LED_VOLTAGES = ["220", "24", "12"];
 
@@ -48,37 +49,58 @@ export function isKitchenWorkspace(workspace, position = {}) {
 
 export function validateWorkspacePayload(workspace, position = {}) {
   const errors = [];
-  const led = workspace?.ledLighting || {};
-  if (!String(led.voltage || "").trim()) {
-    errors.push("LED підсвітка: оберіть напругу (220, 24 або 12 В)");
-  } else if (!LED_VOLTAGES.includes(String(led.voltage))) {
-    errors.push("LED підсвітка: некоректна напруга");
+  const { needsTech, needsLed } = getPositionRequirements(position);
+
+  if (needsLed) {
+    const led = workspace?.ledLighting || {};
+    if (!String(led.voltage || "").trim()) {
+      errors.push("LED підсвітка: оберіть напругу (220, 24 або 12 В)");
+    } else if (!LED_VOLTAGES.includes(String(led.voltage))) {
+      errors.push("LED підсвітка: некоректна напруга");
+    }
+    if (!String(led.color || "").trim()) {
+      errors.push("LED підсвітка: вкажіть колір");
+    }
   }
-  if (!String(led.color || "").trim()) {
-    errors.push("LED підсвітка: вкажіть колір");
-  }
-  if (isKitchenWorkspace(workspace, position)) {
+
+  if (needsTech) {
     const hasTech =
       String(workspace?.techLink || "").trim() ||
       (workspace?.files || []).some((f) => f.kind === "tech");
     if (!hasTech) {
-      errors.push("Для кухні потрібна техніка: посилання або файл");
+      errors.push("Потрібна техніка: додайте посилання або файл");
     }
   }
+
   return errors;
 }
 
-export function workspaceCompletion(workspace, files = []) {
+export function workspaceCompletion(workspace, files = [], position = {}) {
+  const { needsTech, needsLed } = getPositionRequirements(position);
   const led = workspace?.ledLighting || {};
-  const ledOk = Boolean(String(led.voltage || "").trim() && String(led.color || "").trim());
+  const ledOk =
+    !needsLed || Boolean(String(led.voltage || "").trim() && String(led.color || "").trim());
   const measurementsOk = files.some((f) => f.kind === "measurements");
   const managerImageOk = files.some((f) => f.kind === "manager_image");
   const techOk =
-    !isKitchenWorkspace(workspace) ||
+    !needsTech ||
     Boolean(String(workspace?.techLink || "").trim()) ||
     files.some((f) => f.kind === "tech");
-  const score = [ledOk, measurementsOk, managerImageOk, techOk].filter(Boolean).length;
-  return { ledOk, measurementsOk, managerImageOk, techOk, percent: Math.round((score / 4) * 100) };
+
+  const checks = [measurementsOk, managerImageOk];
+  if (needsLed) checks.push(ledOk);
+  if (needsTech) checks.push(techOk);
+  const score = checks.filter(Boolean).length;
+
+  return {
+    needsTech,
+    needsLed,
+    ledOk: needsLed ? ledOk : null,
+    techOk: needsTech ? techOk : null,
+    measurementsOk,
+    managerImageOk,
+    percent: checks.length ? Math.round((score / checks.length) * 100) : 100
+  };
 }
 
 export { suggestConstructorTiming } from "../../shared/production/constructor-timing.js";

@@ -155,13 +155,29 @@ html.operator-pwa-capable.enver-operator-installed body.operator-client-mode {
   background: color-mix(in srgb, var(--enver-primary, #245c3b) 10%, transparent);
 }
 
+.operator-client-header .operator-client-camera-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: #1a5fb4;
+  border-color: color-mix(in srgb, #1a5fb4 35%, transparent);
+  background: color-mix(in srgb, #1a5fb4 10%, transparent);
+}
+
 .operator-client-header .operator-client-scan-btn .op-scan-glyph {
   font-size: 0.68rem;
   letter-spacing: -2px;
 }
 
+.operator-client-header .operator-client-camera-btn .op-camera-glyph {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
 @media (max-width: 420px) {
-  .operator-client-header .operator-client-scan-btn .op-scan-label {
+  .operator-client-header .operator-client-scan-btn .op-scan-label,
+  .operator-client-header .operator-client-camera-btn .op-camera-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -388,6 +404,11 @@ body.operator-client-mode .operator-shell .op-header {
   padding: 10px;
 }
 
+.enver-operator-ui .op-work-scan-row {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
 .enver-operator-ui .op-work-scan-btn {
   flex-shrink: 0;
   display: flex;
@@ -396,7 +417,7 @@ body.operator-client-mode .operator-shell .op-header {
   gap: 8px;
   width: 100%;
   min-height: 48px;
-  margin-top: 4px;
+  margin-top: 0;
   padding: 0 14px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--enver-primary, #245c3b) 35%, transparent);

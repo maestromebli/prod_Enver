@@ -16,11 +16,10 @@ import {
   getConstructivePackageWarnings
 } from "../../shared/production/constructive-godmode.js";
 import {
-  canSendToGitlab,
+  canReleasePackageToCnc,
   isPackageApprovedForCnc,
   detectPackageFileKind
 } from "../../shared/production/constructive-package.js";
-import { DEFAULT_PERMISSIONS } from "../../shared/production/permissions.js";
 import { renderPartLabelsHtml } from "../src/constructive/labels.js";
 
 describe("constructive/part-code", () => {
@@ -91,9 +90,9 @@ describe("constructive-package shared", () => {
     assert.equal(detectPackageFileKind("kitchen.glb"), "glb_model");
   });
 
-  it("canSendToGitlab лише після approval", () => {
-    assert.equal(canSendToGitlab("uploaded"), false);
-    assert.equal(canSendToGitlab("approved_by_production"), true);
+  it("canReleasePackageToCnc лише після approval", () => {
+    assert.equal(canReleasePackageToCnc("uploaded"), false);
+    assert.equal(canReleasePackageToCnc("approved_by_production"), true);
   });
 
   it("isPackageApprovedForCnc", () => {
@@ -111,16 +110,6 @@ describe("constructive-godmode", () => {
   it("warning для unmapped parts", () => {
     const w = getConstructivePackageWarnings({ unmappedPartsCount: 3 });
     assert.ok(w.some((x) => x.type === "unmapped_3d_parts"));
-  });
-});
-
-describe("permissions finance", () => {
-  it("оператор не бачить фінанси", () => {
-    assert.equal(DEFAULT_PERMISSIONS.operator.canViewFinance, false);
-  });
-
-  it("production бачить фінанси", () => {
-    assert.equal(DEFAULT_PERMISSIONS.production.canViewFinance, true);
   });
 });
 
@@ -156,10 +145,10 @@ describe("scan unknown barcode message", () => {
   });
 });
 
-describe("approval before gitlab", () => {
-  it("uploaded status не дозволяє GitLab", () => {
+describe("approval before cnc release", () => {
+  it("uploaded status не дозволяє передачу на верстат", () => {
     assert.equal(isPackageApprovedForCnc("uploaded"), false);
-    assert.equal(canSendToGitlab("uploaded"), false);
+    assert.equal(canReleasePackageToCnc("uploaded"), false);
   });
 });
 

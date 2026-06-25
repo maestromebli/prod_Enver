@@ -1,7 +1,5 @@
 import { all, one, run } from "../db.js";
 import { recordHistory } from "../audit.js";
-import { createFinanceEntriesFromProcurement } from "./finance-service.js";
-
 export async function createProcurementFromPackage(packageId, actor) {
   const pkg = await one(`SELECT * FROM constructive_packages WHERE id = $1`, [packageId]);
   if (!pkg) {
@@ -155,13 +153,7 @@ export async function updateProcurementStatus(
         `UPDATE constructive_packages SET status = 'procurement_done', updated_at = now() WHERE id = $1`,
         [req.package_id]
       );
-      await run(
-        `UPDATE constructive_packages SET status = 'finance_ready', updated_at = now() WHERE id = $1`,
-        [req.package_id]
-      );
     }
-
-    await createFinanceEntriesFromProcurement(requestId, actor);
   }
 
   const position = await one(`SELECT order_number, item FROM positions WHERE id = $1`, [

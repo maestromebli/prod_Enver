@@ -125,7 +125,9 @@ export async function syncOrderStatusAfterConstructorAssignment(orderRow, { acto
   const work = await listWorkPositionsForOrder(orderRow.id, orderRow.order_number);
   if (!work.length) return { updated: false, reason: "no_positions" };
 
-  const allAssigned = work.every((p) => p.constructor_user_id != null);
+  const allAssigned = work.every(
+    (p) => p.constructor_user_id != null || String(p.constructor_name || "").trim()
+  );
   if (!allAssigned) return { updated: false, reason: "not_all_assigned" };
 
   const before = await one(`SELECT * FROM orders WHERE id = $1`, [orderRow.id]);

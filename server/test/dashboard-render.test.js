@@ -21,7 +21,8 @@ function withStateSnapshot(fn) {
     orders: state.orders,
     positions: state.positions,
     kpis: state.kpis,
-    currentUser: state.currentUser
+    currentUser: state.currentUser,
+    listFilters: { ...state.listFilters }
   };
   const originalDocument = global.document;
   try {
@@ -31,6 +32,7 @@ function withStateSnapshot(fn) {
     state.positions = snapshot.positions;
     state.kpis = snapshot.kpis;
     state.currentUser = snapshot.currentUser;
+    state.listFilters = snapshot.listFilters;
     global.document = originalDocument;
   }
 }
@@ -63,7 +65,8 @@ describe("dashboard render", () => {
         }
       ];
       state.kpis = null;
-      global.document = mockDocument({ search: "шафа" });
+      state.listFilters = { search: "шафа", status: "", responsible: "" };
+      global.document = mockDocument();
 
       const html = renderDashboard();
       assert.match(html, /Списки відфільтровано/);

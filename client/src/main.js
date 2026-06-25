@@ -60,6 +60,7 @@ import {
   clearPersistedUiState,
   initUiPersistence,
   loadPersistedUiState,
+  notifyUiChanged,
   persistUiState,
   restoreOverlays,
   restoreScrollPosition,
@@ -78,6 +79,8 @@ import {
 import { initOrderDetailDrawer } from "./order-detail-drawer.js";
 import { initCommandPalette } from "./command-palette.js";
 import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
+import { resolveDashboardNav } from "./dashboard-routes.js";
+import { setListFilters } from "./filters.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
 import "./styles/brand-logo.css";
@@ -204,6 +207,20 @@ function openNewPositionForContext() {
 }
 
 function bindContentActions() {
+  document.querySelectorAll("[data-dash-open-order]").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.dashOpenOrder);
+      state.activeTab = "Замовлення";
+      state.selectedOrderId = id;
+      state.ordersView.detailTab = "overview";
+      const { notifyUiChanged } = await import("./ui-persistence.js");
+      notifyUiChanged();
+      renderApp();
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
+  });
+
   document.querySelectorAll("[data-edit-order]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -260,13 +277,17 @@ function bindContentActions() {
   });
 
   document.querySelectorAll("[data-edit-position]").forEach((el) => {
-    el.addEventListener("click", (e) => {
+    el.addEventListener("click", async (e) => {
       if (e.target.closest("[data-quick-stage], [data-toggle-position], [data-add-sub-position]"))
         return;
       e.stopPropagation();
       const id = Number(el.dataset.editPosition);
-      const position = state.positions.find((p) => p.id === id);
-      if (position) openPositionDrawer(position);
+      const { openPositionFromContext } = await import("./godmode-navigation.js");
+      if (await openPositionFromContext(id)) {
+        notifyUiChanged();
+        renderApp();
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
     });
   });
 
@@ -275,19 +296,22 @@ function bindContentActions() {
       "tr.row-clickable[data-edit-position], .position-card[data-edit-position], .pf-problem-card[data-edit-position], tr.pf-problem-row[data-edit-position]"
     )
     .forEach((row) => {
-      row.addEventListener("click", (e) => {
-        if (e.target.closest("button, [data-toggle-position], [data-add-sub-position]")) return;
+      const openRow = async (e) => {
+        if (e?.target?.closest?.("button, [data-toggle-position], [data-add-sub-position]")) return;
+        e?.preventDefault?.();
         const id = Number(row.dataset.editPosition);
-        const position = state.positions.find((p) => p.id === id);
-        if (position) openPositionDrawer(position);
-      });
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
+      };
+      row.addEventListener("click", openRow);
       row.addEventListener("keydown", (e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
         if (e.target.closest("button")) return;
-        e.preventDefault();
-        const id = Number(row.dataset.editPosition);
-        const position = state.positions.find((p) => p.id === id);
-        if (position) openPositionDrawer(position);
+        void openRow(e);
       });
     });
 
@@ -369,18 +393,12 @@ function scheduleContentRender() {
 
 wireAppRenderBus(renderApp);
 window.__enverOpenPosition = async (id) => {
-  const { openPositionDrawer } = await import("./positions.js");
-  const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
-  let position = state.positions.find((p) => p.id === Number(id));
-  if (!position) {
-    try {
-      position = await api.getPosition(id);
-    } catch {
-      return;
-    }
+  const { openPositionFromContext } = await import("./godmode-navigation.js");
+  if (await openPositionFromContext(id)) {
+    notifyUiChanged();
+    renderApp();
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
-  const gm = resolvePositionGodmode(position);
-  openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
 };
 
 async function loadData({ silent = false, preserveScroll = false } = {}) {
@@ -391,7 +409,7 @@ async function loadData({ silent = false, preserveScroll = false } = {}) {
     initializeRoleNotificationBaselines();
     primeRoleNotifications(reminderSnapshot());
     renderResponsibleOptions();
-    renderApp(silent ? { contentOnly: true, preserveScroll } : { preserveScroll });
+    renderApp(silent ? { contentOnly: !preserveScroll, preserveScroll } : { preserveScroll });
   } catch (err) {
     $("#content").innerHTML = `
       <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">
@@ -428,7 +446,14 @@ async function prepareViewData() {
   }
   if (state.activeTab === CONSTRUCTOR_DESK_TAB && state.view === "main") {
     try {
-      await loadConstructorDesk();
+      const hasDeskContext =
+        state.constructorDesk.selectedPositionId != null ||
+        state.constructorDesk.selectedOrderId != null;
+      await loadConstructorDesk({ silent: hasDeskContext });
+      if (state.constructorDesk.selectedPositionId != null) {
+        const { restoreConstructorDeskSession } = await import("./constructor-desk.js");
+        await restoreConstructorDeskSession();
+      }
     } catch (err) {
       toastError(err.message);
     }
@@ -470,16 +495,21 @@ async function setTab(tab) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
   if (tab === CONSTRUCTOR_DESK_TAB) {
-    state.constructorDesk.selectedOrderId = null;
-    state.constructorDesk.selectedPositionId = null;
-    state.constructorDesk.detail = null;
-    setLoading(true);
+    if (prevTab !== CONSTRUCTOR_DESK_TAB) {
+      state.constructorDesk.selectedOrderId = null;
+      state.constructorDesk.selectedPositionId = null;
+      state.constructorDesk.detail = null;
+      state.constructorDesk.workspaceTab = "work";
+    }
     try {
-      await loadConstructorDesk();
+      const hasWorkspace = state.constructorDesk.selectedPositionId != null;
+      await loadConstructorDesk({ silent: hasWorkspace });
+      if (hasWorkspace) {
+        const { restoreConstructorDeskSession } = await import("./constructor-desk.js");
+        await restoreConstructorDeskSession();
+      }
     } catch (err) {
       toastError(err.message);
-    } finally {
-      setLoading(false);
     }
   }
   if (tab === ATTENTION_TAB || tab === PRODUCTION_FLOOR_TAB) {
@@ -506,51 +536,33 @@ async function setTab(tab) {
 }
 
 function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) {
-  const searchInput = $("#searchInput");
-  const statusFilter = $("#statusFilter");
-  const responsibleFilter = $("#responsibleFilter");
-  const stageFilter = $("#stageFilter");
-
-  if (searchInput) searchInput.value = search;
-  if (statusFilter) statusFilter.value = status;
-  if (responsibleFilter) responsibleFilter.value = responsible;
+  setListFilters({ search, status, responsible });
   state.productionStageFilter = "";
   state.ordersView.priorityFilter = "";
+  const stageFilter = $("#stageFilter");
   if (stageFilter) stageFilter.value = "";
 }
 
 async function handleAiNavigate(destination) {
-  const quickRoutes = {
-    [ATTENTION_TAB]: { tab: ATTENTION_TAB },
-    Прострочки: { tab: ATTENTION_TAB },
-    Проблеми: { tab: "Позиції", status: "Проблема" },
-    Встановлення: { tab: "Встановлення" },
-    Позиції: { tab: "Позиції" },
-    Замовлення: { tab: "Замовлення" }
-  };
-  const route = quickRoutes[destination] || { tab: destination };
-  if (route.status) applyQuickFilters({ status: route.status });
+  const route = resolveDashboardNav(destination);
+  applyQuickFilters({ status: route.status || "" });
+  if (route.archived) {
+    state.showArchived = true;
+  } else if (destination !== "Архів") {
+    state.showArchived = false;
+  }
   await setTab(route.tab);
 }
 
 async function handleDashboardNav(destination) {
-  const quickRoutes = {
-    "У фокусі": { tab: ATTENTION_TAB },
-    [ATTENTION_TAB]: { tab: ATTENTION_TAB },
-    Прострочки: { tab: ATTENTION_TAB },
-    Проблеми: { tab: "Позиції", status: "Проблема" },
-    "У виробництві": { tab: "Позиції", status: "У виробництві" },
-    "До монтажу": { tab: "Позиції", status: "Готово до встановлення" }
-  };
-
-  const route = quickRoutes[destination];
-  if (route) {
-    applyQuickFilters({ status: route.status });
-    await setTab(route.tab);
-    return;
+  const route = resolveDashboardNav(destination);
+  applyQuickFilters({ status: route.status || "" });
+  if (route.archived) {
+    state.showArchived = true;
+  } else {
+    state.showArchived = false;
   }
-
-  await setTab(destination);
+  await setTab(route.tab);
 }
 
 async function openSettingsView() {
@@ -644,9 +656,18 @@ $("#tabs")?.addEventListener("click", (e) => {
   if (btn) setTab(btn.dataset.tab);
 });
 
-$("#searchInput")?.addEventListener("input", scheduleContentRender);
-$("#statusFilter")?.addEventListener("change", () => renderApp({ contentOnly: true }));
-$("#responsibleFilter")?.addEventListener("change", () => renderApp({ contentOnly: true }));
+$("#searchInput")?.addEventListener("input", (e) => {
+  state.listFilters.search = e.target.value;
+  scheduleContentRender();
+});
+$("#statusFilter")?.addEventListener("change", (e) => {
+  state.listFilters.status = e.target.value;
+  renderApp({ contentOnly: true });
+});
+$("#responsibleFilter")?.addEventListener("change", (e) => {
+  state.listFilters.responsible = e.target.value;
+  renderApp({ contentOnly: true });
+});
 $("#stageFilter")?.addEventListener("change", (e) => {
   if (state.activeTab === "Замовлення") {
     state.ordersView.priorityFilter = e.target.value;
@@ -657,11 +678,10 @@ $("#stageFilter")?.addEventListener("change", (e) => {
 });
 
 $("#resetBtn")?.addEventListener("click", () => {
-  $("#searchInput").value = "";
-  $("#statusFilter").value = "";
-  $("#responsibleFilter").value = "";
+  setListFilters({ search: "", status: "", responsible: "" });
   state.productionStageFilter = "";
   state.ordersView.priorityFilter = "";
+  state.showArchived = false;
   if ($("#stageFilter")) $("#stageFilter").value = "";
   renderApp({ contentOnly: true });
 });

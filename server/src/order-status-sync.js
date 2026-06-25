@@ -105,17 +105,20 @@ export async function bootstrapOrderPositions(
 
   if (createRootPosition && !subItems.length && root?.id) {
     const item = String(orderRow.object || "").trim() || orderRow.order_number;
-    await run(
-      `UPDATE positions SET item = $2, item_type = $3 WHERE id = $1`,
-      [root.id, item, "Замовлення"]
-    );
+    await run(`UPDATE positions SET item = $2, item_type = $3 WHERE id = $1`, [
+      root.id,
+      item,
+      "Замовлення"
+    ]);
     if (orderRow.default_delivery_address || orderRow.client_address) {
-      const addr = String(orderRow.default_delivery_address || orderRow.client_address || "").trim();
+      const addr = String(
+        orderRow.default_delivery_address || orderRow.client_address || ""
+      ).trim();
       if (addr) {
-        await run(`UPDATE positions SET delivery_address = $2 WHERE id = $1 AND trim(delivery_address) = ''`, [
-          root.id,
-          addr
-        ]);
+        await run(
+          `UPDATE positions SET delivery_address = $2 WHERE id = $1 AND trim(delivery_address) = ''`,
+          [root.id, addr]
+        );
       }
     }
   }

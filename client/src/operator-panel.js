@@ -24,6 +24,8 @@ import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
 import {
   focusOperatorScanInput,
+  isPartScanStage,
+  openOperatorCameraScan,
   renderOperatorScanActionButton,
   renderOperatorScanPanel
 } from "./part-scan.js";
@@ -436,9 +438,17 @@ export function renderOperatorView() {
           <div class="op-avatar">${escapeHtml(userInitials(state.currentUser?.name))}</div>
           <strong>${escapeHtml(state.currentUser?.name || "Оператор")}</strong>
           <div class="op-header-actions">
-            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування деталі за штрихкодом">
+            ${
+              isPartScanStage(stageKey)
+                ? `
+            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування штрихридером">
               <span class="op-scan-glyph" aria-hidden="true">▮▮</span><span class="op-scan-label">Сканувати</span>
             </button>
+            <button type="button" class="op-btn-ghost op-btn-camera" id="operatorCameraBtn" title="Сканування камерою">
+              <span class="op-camera-glyph" aria-hidden="true">📷</span><span class="op-camera-label">Камера</span>
+            </button>`
+                : ""
+            }
             <button type="button" class="op-btn-ghost" id="operatorNotifySettingsBtn" title="Сповіщення">🔔</button>
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Назад</button>' : ""}
             ${isOperator() ? '<button type="button" class="op-btn-ghost op-btn-ghost-danger" id="operatorLogoutBtn">Вийти</button>' : ""}
@@ -605,6 +615,10 @@ export function bindOperatorActions(onChange) {
   document.addEventListener("click", async (e) => {
     if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn, #operatorWorkScanBtn")) {
       focusOperatorScanInput();
+      return;
+    }
+    if (e.target.closest("#operatorCameraBtn, #operatorClientCameraBtn, #operatorWorkCameraBtn")) {
+      openOperatorCameraScan(state.operatorStage);
       return;
     }
     if (!e.target.closest(".operator-shell")) return;

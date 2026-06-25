@@ -12,7 +12,7 @@ import {
   getPackageById,
   recordScanEvent
 } from "../constructive/constructive-package-service.js";
-import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/gitlab.js";
+import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import { CNC_PROBLEM_REASONS } from "../../../shared/production/constructive-package.js";
 import { recordHistory } from "../audit.js";
@@ -25,7 +25,7 @@ function buildViewerUrl(packageId, fileId) {
   return `/api/positions/0/constructive-packages/${packageId}/files/${fileId}`;
 }
 
-async function buildScanResponse(part, user) {
+async function buildScanResponse(part) {
   const position = await one(`SELECT * FROM positions WHERE id = $1`, [part.positionId]);
   const order = position?.order_id
     ? await one(`SELECT * FROM orders WHERE id = $1`, [position.order_id])
@@ -42,8 +42,6 @@ async function buildScanResponse(part, user) {
   const viewerUrl = glbFile
     ? `${host}/api/constructive/packages/${part.packageId}/files/${glbFile.id}`
     : null;
-
-  const canSeeFinance = Boolean(user?.permissions?.canViewFinance || user?.role === "admin");
 
   return {
     part,
@@ -68,8 +66,7 @@ async function buildScanResponse(part, user) {
         ? `${host}/api/constructive/packages/${part.packageId}/files/${pdfFile.id}`
         : null
     },
-    nextAction: part.cncStatus === "in_progress" ? "finish_cnc" : "start_cnc",
-    finance: canSeeFinance ? undefined : null
+    nextAction: part.cncStatus === "in_progress" ? "finish_cnc" : "start_cnc"
   };
 }
 
@@ -93,7 +90,7 @@ router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => 
     action: "viewed_3d"
   });
 
-  const payload = await buildScanResponse(part, req.user);
+  const payload = await buildScanResponse(part);
   res.json(payload);
 });
 
@@ -125,7 +122,7 @@ router.get("/:id", requireOperatorPanelView, async (req, res) => {
     modelNodeId: row.model_node_id,
     modelMeshName: row.model_mesh_name
   };
-  res.json(await buildScanResponse(part, req.user));
+  res.json(await buildScanResponse(part));
 });
 
 router.get("/:id/barcode", requireOperatorPanelView, async (req, res) => {

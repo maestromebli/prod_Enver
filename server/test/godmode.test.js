@@ -104,7 +104,12 @@ describe("godmode", () => {
   it("close_order коли всі позиції завершені", () => {
     const order = { id: 5, orderNumber: "EN-200", manager: "Іван" };
     const positions = [
-      basePosition({ id: 1, orderNumber: "EN-200", order_number: "EN-200", position_status: "Завершено" }),
+      basePosition({
+        id: 1,
+        orderNumber: "EN-200",
+        order_number: "EN-200",
+        position_status: "Завершено"
+      }),
       basePosition({
         id: 2,
         parentId: 1,

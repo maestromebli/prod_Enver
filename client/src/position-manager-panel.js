@@ -77,11 +77,14 @@ export function renderPositionManagerPanel(position, bundle = null) {
       deadlines: {},
       comments: {},
       appliances: [],
+      requirements: { needsTech: false, needsLed: false },
       sourceLinks: []
     };
   const files = bundle?.files || position?.managerFiles || [];
   const pct = bundle?.managerDataPercent ?? position?.managerDataPercent ?? 0;
   const complete = bundle?.managerDataComplete ?? position?.managerDataComplete ?? false;
+  const needsTech = Boolean(data.requirements?.needsTech);
+  const needsLed = Boolean(data.requirements?.needsLed);
 
   return `
     <section class="position-manager-panel card" data-position-manager="${position.id}">
@@ -91,6 +94,16 @@ export function renderPositionManagerPanel(position, bundle = null) {
       </header>
 
       <form class="pm-form" data-pm-form="${position.id}">
+        <div class="pm-requirements form-grid span-2">
+          <label class="checkbox-label">
+            <input type="checkbox" id="pmNeedsTech-${position.id}" data-pm-needs-tech ${needsTech ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            Потрібна техніка
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="pmNeedsLed-${position.id}" data-pm-needs-led ${needsLed ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            Потрібен LED
+          </label>
+        </div>
         <div class="form-grid">
           <div class="form-field span-2">
             <label for="pmDelivery-${position.id}">Адреса доставки *</label>
@@ -138,7 +151,7 @@ export function renderPositionManagerPanel(position, bundle = null) {
         }
       </form>
 
-      <div class="pm-block">
+      <div class="pm-block pm-tech-block" data-pm-tech-block="${position.id}" ${needsTech ? "" : "hidden"}>
         <h4>Техніка / посилання</h4>
         ${renderAppliances(data.appliances)}
         ${
@@ -191,6 +204,10 @@ function readForm(positionId) {
       manager: document.getElementById(`pmManagerNotes-${positionId}`)?.value?.trim() || "",
       technical: document.getElementById(`pmTechNotes-${positionId}`)?.value?.trim() || ""
     },
+    requirements: {
+      needsTech: Boolean(document.getElementById(`pmNeedsTech-${positionId}`)?.checked),
+      needsLed: Boolean(document.getElementById(`pmNeedsLed-${positionId}`)?.checked)
+    },
     appliances: panelCache.get(positionId)?.managerData?.appliances || [],
     markComplete: true
   };
@@ -216,6 +233,14 @@ async function uploadFiles(positionId, fileList, kind) {
 export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
   const panel = root.querySelector(`[data-position-manager="${positionId}"]`);
   if (!panel) return;
+
+  const syncTechBlockVisibility = () => {
+    const needsTech = Boolean(document.getElementById(`pmNeedsTech-${positionId}`)?.checked);
+    const block = panel.querySelector(`[data-pm-tech-block="${positionId}"]`);
+    if (block) block.hidden = !needsTech;
+  };
+
+  panel.querySelector(`[data-pm-needs-tech]`)?.addEventListener("change", syncTechBlockVisibility);
 
   panel.querySelector(`[data-pm-form="${positionId}"]`)?.addEventListener("submit", async (e) => {
     e.preventDefault();

@@ -1,3 +1,4 @@
+import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import {
   orderAttentionFromGodmode,
@@ -27,7 +28,7 @@ function toggleOrderExpanded(orderId) {
 function orderPositionsToggleBtn(order, related, expanded) {
   const label = expanded ? "Згорнути позиції" : "Показати позиції";
   const icon = expanded ? "−" : "+";
-  const countHint = related.length ? ` (${related.filter((p) => !p.parentId).length})` : "";
+  const countHint = related.length ? ` (${getWorkPositions(order, related).length})` : "";
   return `<button type="button" class="btn-tree btn-order-pos-toggle" data-toggle-order-positions="${order.id}" title="${label}${countHint}" aria-label="${label}" aria-expanded="${expanded}">${icon}</button>`;
 }
 
@@ -192,7 +193,7 @@ function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = 
       const attn = orderAttentionFromGodmode(order, allPositions);
       const gm = attn.godmode;
       const cardClass = orderCardClass(attn, order);
-      const posCount = positionsForOrder(order, allPositions).filter((p) => !p.parentId).length;
+      const posCount = getWorkPositions(order, positionsForOrder(order, allPositions)).length;
       const nextLabel = attn.nextAction?.label;
       const swipeRightLabel = nextLabel ? escapeHtml(nextLabel.slice(0, 24)) : "Дія";
       const healthBadge = gm ? renderHealthBadge(gm.health) : "";
@@ -308,7 +309,7 @@ export function renderOrderDetailHeader(order, positions, { canEditOrder = false
   const progress = main?.progress ?? 0;
   const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
   const priClass = priorityClass(order.priority);
-  const positionCount = positionsForOrder(order, positions).filter((p) => !p.parentId).length;
+  const positionCount = getWorkPositions(order, positionsForOrder(order, positions)).length;
 
   return `
     <div class="order-detail-head">

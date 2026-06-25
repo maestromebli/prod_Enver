@@ -35,7 +35,7 @@ Unmapped 3D: ${packageDetail.unmappedParts?.length || 0}
 - Не вигадуй дані яких немає у списках нижче.
 - Якщо немає GLB/GTLF — modelReadiness.needsGlbExport = true.
 - B3D без GLB — не вважай 3D готовим.
-- Не пропонуй автоматично GitLab, finance, CNC release.
+- Не пропонуй автоматично відправку на ЧПК, finance, CNC release.
 - Усі тексти українською.
 
 Деталі (перші 40):

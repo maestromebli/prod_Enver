@@ -1,17 +1,50 @@
 import { state } from "./state.js";
-import { activeOrders, activePositions } from "./archive.js";
+import {
+  activeOrders,
+  activePositions,
+  archivedPositions,
+  isArchivedOrder,
+  ORDER_DONE_STATUS
+} from "./archive.js";
 import { positionsForOrder } from "./workflows.js";
 
 export function currentFilters() {
+  return {
+    search: (state.listFilters.search ?? "").toLowerCase().trim(),
+    status: state.listFilters.status ?? "",
+    responsible: state.listFilters.responsible ?? "",
+    priority: state.ordersView.priorityFilter ?? ""
+  };
+}
+
+/** Оновлює фільтри в state і синхронізує з DOM (якщо елементи вже є). */
+export function setListFilters({ search, status, responsible } = {}) {
+  if (search != null) state.listFilters.search = String(search);
+  if (status != null) state.listFilters.status = String(status);
+  if (responsible != null) state.listFilters.responsible = String(responsible);
+  syncListFiltersToDom();
+}
+
+/** Після перемальовування тулбару — відновити значення фільтрів зі state. */
+export function syncListFiltersToDom() {
+  if (typeof document === "undefined") return;
   const searchEl = document.querySelector("#searchInput");
   const statusEl = document.querySelector("#statusFilter");
   const responsibleEl = document.querySelector("#responsibleFilter");
-  return {
-    search: (searchEl?.value ?? "").toLowerCase().trim(),
-    status: statusEl?.value ?? "",
-    responsible: responsibleEl?.value ?? "",
-    priority: state.ordersView.priorityFilter ?? ""
-  };
+  const stageEl = document.querySelector("#stageFilter");
+
+  if (searchEl) searchEl.value = state.listFilters.search ?? "";
+  if (statusEl && state.listFilters.status != null) statusEl.value = state.listFilters.status;
+  if (responsibleEl && state.listFilters.responsible != null) {
+    responsibleEl.value = state.listFilters.responsible;
+  }
+  if (stageEl) {
+    if (state.activeTab === "Замовлення" && !state.selectedOrderId) {
+      stageEl.value = state.ordersView.priorityFilter ?? "";
+    } else {
+      stageEl.value = state.productionStageFilter ?? "";
+    }
+  }
 }
 
 export function hasActiveFilters(filters = currentFilters()) {
@@ -28,14 +61,21 @@ function positionMatchesStatus(position, status) {
   ].includes(status);
 }
 
-export function filteredOrders(
-  source = activeOrders(state.orders),
-  positions = activePositions(state.positions, state.orders)
-) {
-  const { search, status, responsible, priority } = currentFilters();
+export function filteredOrders(source, positions) {
+  const filters = currentFilters();
+  const showArchived = state.showArchived || filters.status === ORDER_DONE_STATUS;
+  const orderSource =
+    source ?? (showArchived ? state.orders.filter(isArchivedOrder) : activeOrders(state.orders));
+  const positionSource =
+    positions ??
+    (showArchived
+      ? archivedPositions(state.positions, state.orders)
+      : activePositions(state.positions, state.orders));
 
-  return source.filter((order) => {
-    const related = positionsForOrder(order, positions);
+  const { search, status, responsible, priority } = filters;
+
+  return orderSource.filter((order) => {
+    const related = positionsForOrder(order, positionSource);
 
     const orderText = [
       order.id,
@@ -88,11 +128,18 @@ export function filteredOrders(
   });
 }
 
-export function filteredPositions(source = activePositions(state.positions, state.orders)) {
-  const { search, status, responsible } = currentFilters();
-  const parentItems = new Map(source.filter((p) => !p.parentId).map((p) => [p.id, p.item]));
+export function filteredPositions(source) {
+  const filters = currentFilters();
+  const showArchived = state.showArchived || filters.status === ORDER_DONE_STATUS;
+  const positionSource =
+    source ??
+    (showArchived
+      ? archivedPositions(state.positions, state.orders)
+      : activePositions(state.positions, state.orders));
+  const { search, status, responsible } = filters;
+  const parentItems = new Map(positionSource.filter((p) => !p.parentId).map((p) => [p.id, p.item]));
 
-  return source.filter((p) => {
+  return positionSource.filter((p) => {
     const parentItem = p.parentId ? parentItems.get(p.parentId) || "" : "";
     const text = [
       p.id,

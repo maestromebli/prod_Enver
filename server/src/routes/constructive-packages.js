@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   auditActor,
   requireAuth,
+  requireConstructorDeskWrite,
   requirePermission,
   requirePermissionOrAdmin,
   requirePositionAccess,
@@ -28,12 +29,7 @@ import {
   getProcurementForPosition,
   updateProcurementStatus
 } from "../constructive/procurement-service.js";
-import { getFinanceSummaryForPosition } from "../constructive/finance-service.js";
-import {
-  getCncJobsForPosition,
-  isGitlabConfigured,
-  sendPositionToGitlab
-} from "../integrations/gitlab.js";
+import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { detectPackageFileKind } from "../../../shared/production/constructive-package.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import { renderPartLabelsHtml } from "../constructive/labels.js";
@@ -86,7 +82,7 @@ router.get("/latest", requirePositionAccess, async (req, res) => {
   res.json(await getPackageDetail(latest.id));
 });
 
-router.post("/", requirePositionWrite, async (req, res) => {
+router.post("/", requireConstructorDeskWrite, async (req, res) => {
   const positionId = Number(req.params.id);
   const position = await loadPosition(positionId);
   if (!position) {
@@ -114,7 +110,7 @@ router.post("/", requirePositionWrite, async (req, res) => {
   }
 });
 
-router.post("/:packageId/parse", requirePositionWrite, async (req, res) => {
+router.post("/:packageId/parse", requireConstructorDeskWrite, async (req, res) => {
   const packageId = Number(req.params.packageId);
   try {
     const detail = await parseConstructivePackage(packageId, auditActor(req));
@@ -124,7 +120,7 @@ router.post("/:packageId/parse", requirePositionWrite, async (req, res) => {
   }
 });
 
-router.post("/:packageId/analyze-ai", requirePositionWrite, async (req, res) => {
+router.post("/:packageId/analyze-ai", requireConstructorDeskWrite, async (req, res) => {
   const packageId = Number(req.params.packageId);
   const positionId = Number(req.params.id);
   const position = await loadPosition(positionId);
@@ -253,13 +249,8 @@ router.get("/:packageId/files/:fileId", requirePositionAccess, async (req, res) 
 
 export default router;
 
-/** Додаткові маршрути позиції (finance, gitlab, labels). */
+/** Додаткові маршрути позиції (ЧПК, labels). */
 export function registerConstructivePackagePositionRoutes(router) {
-  router.get("/:id/finance", requirePermissionOrAdmin("canViewFinance"), async (req, res) => {
-    const summary = await getFinanceSummaryForPosition(Number(req.params.id));
-    res.json(summary);
-  });
-
   router.get("/:id/procurement", requirePositionAccess, async (req, res) => {
     const proc = await getProcurementForPosition(Number(req.params.id));
     res.json(proc || null);
@@ -278,23 +269,6 @@ export function registerConstructivePackagePositionRoutes(router) {
       res.json(proc);
     }
   );
-
-  router.post(
-    "/:id/send-to-gitlab",
-    requirePermissionOrAdmin("canSendToGitlab"),
-    async (req, res) => {
-      try {
-        const result = await sendPositionToGitlab(Number(req.params.id), auditActor(req));
-        res.json(result);
-      } catch (err) {
-        res.status(err.status || 502).json({ error: err.message });
-      }
-    }
-  );
-
-  router.get("/:id/gitlab-status", requirePositionAccess, async (_req, res) => {
-    res.json({ configured: isGitlabConfigured() });
-  });
 
   router.get("/:id/cnc-jobs", requirePositionAccess, async (req, res) => {
     const jobs = await getCncJobsForPosition(Number(req.params.id));

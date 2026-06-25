@@ -15,13 +15,11 @@ import {
 import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
-import { canManageProcurement, canReviewConstructive, canViewFinance } from "./auth.js";
+import { canManageProcurement, canReviewConstructive } from "./auth.js";
 import {
   loadCncJobsSummary,
-  loadFinanceSummary,
   loadProcurementSummary,
-  renderConstructivePipelinePanel,
-  renderFinancePanel
+  renderConstructivePipelinePanel
 } from "./constructive-pipeline-panel.js";
 import { openModelMappingModal } from "./model-mapping-ui.js";
 import { openConstructiveReviewModal } from "./constructive-review-ui.js";
@@ -44,7 +42,6 @@ let activePanel = "general";
 let constructiveDropZone = null;
 let constructiveFiles = [];
 let constructivePackageDetail = null;
-let financeSummary = null;
 let procurementSummary = null;
 let cncJobsSummary = [];
 
@@ -110,7 +107,7 @@ function renderConstructiveUploadBlock(p) {
         data-prev-state="${state}"
         aria-label="Завантаження конструктива"
       >
-        <input type="file" id="constructiveFileInput" accept="${CONSTRUCTIVE_ACCEPT_EXT.join(",")}" hidden />
+        <input type="file" id="constructiveFileInput" class="enver-file-input-offscreen" accept="${CONSTRUCTIVE_ACCEPT_EXT.join(",")}" tabindex="-1" aria-hidden="true" />
         <div class="constructive-upload-inner">
           <span class="constructive-upload-icon" aria-hidden="true">${hasFiles ? "✓" : "📎"}</span>
           ${fileLine}
@@ -134,7 +131,23 @@ function showError(message) {
 }
 
 function listOptions(key) {
-  return state.directories[key] || [];
+  const items = state.directories[key] || [];
+  if (items.length) return items;
+  if (key === "Конструктори") {
+    return (state.constructorDesk.constructors || []).map((c) => c.name).filter(Boolean);
+  }
+  return [];
+}
+
+async function ensureDirectoryLists() {
+  const keys = ["Конструктори", "Збирачі", "Монтажники"];
+  if (keys.some((k) => !(state.directories[k] || []).length)) {
+    try {
+      state.directories = await api.getDirectories();
+    } catch {
+      /* datalist лишиться порожнім */
+    }
+  }
 }
 
 function applyOrderDefaults(orderNumber) {
@@ -226,7 +239,6 @@ function renderDrawerContent() {
     <div class="drawer-tabs">
       <button type="button" class="drawer-tab ${activePanel === "general" ? "active" : ""}" data-panel="general">Основне</button>
       <button type="button" class="drawer-tab ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">Конструктив / ЧПК</button>
-      ${canViewFinance() ? `<button type="button" class="drawer-tab ${activePanel === "finance" ? "active" : ""}" data-panel="finance">Фінанси</button>` : ""}
       <button type="button" class="drawer-tab ${activePanel === "install" ? "active" : ""}" data-panel="install">Монтаж</button>
       <button type="button" class="drawer-tab ${activePanel === "more" ? "active" : ""}" data-panel="more">Ще</button>
     </div>
@@ -272,15 +284,9 @@ function renderDrawerContent() {
 
       <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
         <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, pipelinePanelOptions())}</div>
+        ${renderConstructiveUploadBlock(p)}
+        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: false })}</div>
       </div>
-
-      ${
-        canViewFinance()
-          ? `<div class="drawer-panel ${activePanel === "finance" ? "active" : ""}" data-panel="finance">
-        <div id="financePanelMount">${renderFinancePanel(p.id, financeSummary)}</div>
-      </div>`
-          : ""
-      }
 
       <div class="drawer-panel ${activePanel === "install" ? "active" : ""}" data-panel="install">
         <div class="form-grid">
@@ -301,12 +307,7 @@ function renderDrawerContent() {
       </div>
 
       <div class="drawer-panel ${activePanel === "more" ? "active" : ""}" data-panel="more">
-        <details class="drawer-more-block" ${p.hasConstructiveFile ? "open" : ""}>
-          <summary>Конструктив</summary>
-          ${renderConstructiveUploadBlock(p)}
-          <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail)}</div>
-        </details>
-        <div class="form-grid" style="margin-top:12px">
+        <div class="form-grid">
           <div class="form-field span-2">
             <label for="posProblem">Проблема</label>
             <textarea id="posProblem" rows="2">${escapeHtml(p.problem)}</textarea>
@@ -334,15 +335,17 @@ function renderDrawerContent() {
   fillSelect($("#posPositionStatus"), POSITION_STATUSES, p.positionStatus);
   if (p.orderNumber && $("#posOrderNumber")) $("#posOrderNumber").value = p.orderNumber;
 
-  $("#constructorsList").innerHTML = listOptions("Конструктори")
-    .map((x) => `<option value="${escapeHtml(x)}"></option>`)
-    .join("");
-  $("#assemblersList").innerHTML = listOptions("Збирачі")
-    .map((x) => `<option value="${escapeHtml(x)}"></option>`)
-    .join("");
-  $("#installersList").innerHTML = listOptions("Монтажники")
-    .map((x) => `<option value="${escapeHtml(x)}"></option>`)
-    .join("");
+  void ensureDirectoryLists().then(() => {
+    $("#constructorsList").innerHTML = listOptions("Конструктори")
+      .map((x) => `<option value="${escapeHtml(x)}"></option>`)
+      .join("");
+    $("#assemblersList").innerHTML = listOptions("Збирачі")
+      .map((x) => `<option value="${escapeHtml(x)}"></option>`)
+      .join("");
+    $("#installersList").innerHTML = listOptions("Монтажники")
+      .map((x) => `<option value="${escapeHtml(x)}"></option>`)
+      .join("");
+  });
 
   bindDrawerEvents();
   if (activePanel === "more") refreshDrawerHistory();
@@ -546,13 +549,6 @@ function onDrawerTabSelect(panel) {
   renderDrawerContent();
   scrollPositionDrawerToTabs();
   if (activePanel === "more") refreshDrawerHistory();
-  if (activePanel === "finance" && draft?.id && canViewFinance()) {
-    void loadFinanceSummary(draft.id).then((s) => {
-      financeSummary = s;
-      const mount = $("#financePanelMount");
-      if (mount) mount.innerHTML = renderFinancePanel(draft.id, financeSummary);
-    });
-  }
   if (activePanel === "constructive" && draft?.id) {
     void Promise.all([loadProcurementSummary(draft.id), loadCncJobsSummary(draft.id)]).then(
       ([proc, jobs]) => {
@@ -725,7 +721,7 @@ function bindDrawerEvents() {
       if (!stage || key === draft.currentStage) return;
       if (stage.type === "constructor") {
         if (!draft.hasConstructiveFile) {
-          onDrawerTabSelect("more");
+          onDrawerTabSelect("constructive");
           showError("Завантажте файл конструктива");
           return;
         }
@@ -746,7 +742,7 @@ function bindDrawerEvents() {
       const stage = STAGES.find((s) => s.key === key);
       if (stage.type === "constructor") {
         if (!draft.hasConstructiveFile && next !== "Не розпочато") {
-          onDrawerTabSelect("more");
+          onDrawerTabSelect("constructive");
           showError("Завантажте файл конструктива");
           return;
         }
@@ -774,7 +770,9 @@ function bindDrawerEvents() {
   });
 
   bindConstructiveUpload();
-  bindConstructivePackageBlock(draft, $("#constructivePackageMount") || document.body);
+  bindConstructivePackageBlock(draft, $("#constructivePackageMount") || document.body, {
+    editable: false
+  });
   bindConstructivePipelinePanel();
 
   document.addEventListener(
@@ -784,7 +782,9 @@ function bindDrawerEvents() {
         constructivePackageDetail = await loadConstructivePackageDetail(draft.id);
         const mount = $("#constructivePackageMount");
         if (mount)
-          mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail);
+          mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail, {
+            editable: false
+          });
         const pipe = $("#constructivePipelineMount");
         if (pipe) {
           if (draft?.id) {
@@ -799,7 +799,7 @@ function bindDrawerEvents() {
             pipelinePanelOptions()
           );
         }
-        bindConstructivePackageBlock(draft, mount);
+        bindConstructivePackageBlock(draft, mount, { editable: false });
         bindConstructivePipelinePanel();
       }
     },
@@ -810,6 +810,14 @@ function bindDrawerEvents() {
     btn.addEventListener("click", async () => {
       const positionId = Number(btn.dataset.runNextAction);
       const actionType = btn.dataset.actionType;
+      const position = state.positions.find((p) => p.id === positionId);
+
+      if (position && actionType === "assign_constructor") {
+        const { openConstructorDeskForAssignment } = await import("./constructor-desk.js");
+        await openConstructorDeskForAssignment({ positionId });
+        return;
+      }
+
       await runSave("Наступна дія", {
         saveFn: () => api.runPositionNextAction(positionId, actionType),
         successMessage: "Дію виконано",

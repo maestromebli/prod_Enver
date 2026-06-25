@@ -1,3 +1,18 @@
+.cd-orders-list {
+  margin: 0;
+}
+
+.cd-orders-list-table th:nth-child(5),
+.cd-orders-list-table th:nth-child(6),
+.cd-orders-list-table th:nth-child(7),
+.cd-orders-list-table th:nth-child(8),
+.cd-orders-list-table td:nth-child(5),
+.cd-orders-list-table td:nth-child(6),
+.cd-orders-list-table td:nth-child(7),
+.cd-orders-list-table td:nth-child(8) {
+  text-align: center;
+}
+
 .cd-orders-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -71,6 +86,46 @@
   display: block;
   width: 100%;
   margin-bottom: 6px;
+}
+
+.cd-ws-tabs {
+  margin-bottom: 4px;
+}
+
+.cd-package-panel {
+  padding: 16px;
+}
+
+.cp-files-download-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-file-download-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 2fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--enver-border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.cp-file-link {
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.cp-readonly-hint {
+  margin-top: 12px;
+}
+
+.constructive-package-block--readonly .cp-status {
+  margin-bottom: 8px;
 }
 
 .cd-assign-grid {

@@ -9,7 +9,9 @@ export function suggestConstructorTiming(position = {}, context = {}) {
   const itemType = String(position.itemType || position.item_type || "").toLowerCase();
   const childCount = Number(context.childCount) || 0;
   const managerFilesCount =
-    Number(context.managerFilesCount ?? position.managerFilesCount ?? position.manager_files_count) || 0;
+    Number(
+      context.managerFilesCount ?? position.managerFilesCount ?? position.manager_files_count
+    ) || 0;
   const pdfCount = Number(context.managerPdfCount) || 0;
   const photoCount = Number(context.managerPhotoCount) || 0;
   const applianceCount = Number(context.applianceCount) || 0;
@@ -17,10 +19,7 @@ export function suggestConstructorTiming(position = {}, context = {}) {
     context.orderPlanDate || position.orderPlanDate || position.order_plan_date || ""
   ).trim();
   const positionDeadline = String(
-    position.positionDeadline ||
-      position.position_deadline ||
-      context.positionDeadline ||
-      ""
+    position.positionDeadline || position.position_deadline || context.positionDeadline || ""
   ).trim();
 
   let hours = 4;

@@ -34,6 +34,10 @@ export function defaultManagerDataJson() {
       installPreferredDate: ""
     },
     appliances: [],
+    requirements: {
+      needsTech: false,
+      needsLed: false
+    },
     comments: {
       client: "",
       manager: "",
@@ -62,7 +66,20 @@ export function parseManagerDataJson(raw) {
     deadlines: { ...base.deadlines, ...(parsed.deadlines || {}) },
     comments: { ...base.comments, ...(parsed.comments || {}) },
     appliances: Array.isArray(parsed.appliances) ? parsed.appliances : base.appliances,
+    requirements: {
+      ...base.requirements,
+      ...(parsed.requirements && typeof parsed.requirements === "object" ? parsed.requirements : {})
+    },
     sourceLinks: Array.isArray(parsed.sourceLinks) ? parsed.sourceLinks : base.sourceLinks
+  };
+}
+
+/** Вимоги менеджера: техніка та LED (керують столом конструктора). */
+export function getPositionRequirements(position = {}, managerData = null) {
+  const data = managerData || buildManagerDataFromRow(position);
+  return {
+    needsTech: Boolean(data.requirements?.needsTech),
+    needsLed: Boolean(data.requirements?.needsLed)
   };
 }
 
@@ -71,7 +88,9 @@ export function buildManagerDataFromRow(row = {}) {
   const json = parseManagerDataJson(row.manager_data_json ?? row.managerDataJson);
   return {
     delivery: {
-      address: String(row.delivery_address ?? row.deliveryAddress ?? json.delivery.address ?? "").trim(),
+      address: String(
+        row.delivery_address ?? row.deliveryAddress ?? json.delivery.address ?? ""
+      ).trim(),
       contactName: String(
         row.delivery_contact_name ?? row.deliveryContactName ?? json.delivery.contactName ?? ""
       ).trim(),
@@ -95,6 +114,10 @@ export function buildManagerDataFromRow(row = {}) {
       ).trim()
     },
     appliances: json.appliances,
+    requirements: {
+      needsTech: Boolean(json.requirements?.needsTech),
+      needsLed: Boolean(json.requirements?.needsLed)
+    },
     comments: { ...json.comments },
     sourceLinks: json.sourceLinks,
     completedAt: row.manager_data_completed_at ?? row.managerDataCompletedAt ?? null,
@@ -102,7 +125,11 @@ export function buildManagerDataFromRow(row = {}) {
   };
 }
 
-export function isManagerDataComplete(position, managerData = null, { managerFilesCount = 0 } = {}) {
+export function isManagerDataComplete(
+  position,
+  managerData = null,
+  { managerFilesCount = 0 } = {}
+) {
   const data = managerData || buildManagerDataFromRow(position);
   const hasItem = Boolean(String(position?.item ?? "").trim());
   const hasAddress = Boolean(String(data.delivery?.address ?? "").trim());
@@ -112,7 +139,11 @@ export function isManagerDataComplete(position, managerData = null, { managerFil
   return hasItem && hasAddress && hasDeadline;
 }
 
-export function managerDataCompletionPercent(position, managerData = null, { managerFilesCount = 0 } = {}) {
+export function managerDataCompletionPercent(
+  position,
+  managerData = null,
+  { managerFilesCount = 0 } = {}
+) {
   const data = managerData || buildManagerDataFromRow(position);
   let score = 0;
   const checks = [

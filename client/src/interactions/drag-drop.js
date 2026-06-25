@@ -4,6 +4,48 @@ import { prefersReducedMotion } from "./motion.js";
 
 const DEFAULT_DRAG_CLASS = "enver-drag-over";
 
+/** Відкрити нативний діалог вибору файлу (не використовуйте атрибут hidden на input). */
+export function openFileInput(inputEl) {
+  if (!inputEl || inputEl.disabled || !inputEl.isConnected) return;
+  const style = inputEl.style;
+  const prev = {
+    position: style.position,
+    left: style.left,
+    top: style.top,
+    width: style.width,
+    height: style.height,
+    opacity: style.opacity,
+    pointerEvents: style.pointerEvents,
+    zIndex: style.zIndex
+  };
+  Object.assign(style, {
+    position: "fixed",
+    left: "0",
+    top: "0",
+    width: "1px",
+    height: "1px",
+    opacity: "0.01",
+    pointerEvents: "auto",
+    zIndex: "2147483647"
+  });
+  inputEl.click();
+  const restore = () => {
+    style.position = prev.position;
+    style.left = prev.left;
+    style.top = prev.top;
+    style.width = prev.width;
+    style.height = prev.height;
+    style.opacity = prev.opacity;
+    style.pointerEvents = prev.pointerEvents;
+    style.zIndex = prev.zIndex;
+  };
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(restore);
+  } else {
+    restore();
+  }
+}
+
 /**
  * Зона drag & drop для файлів (конструктив тощо).
  *
@@ -16,6 +58,8 @@ const DEFAULT_DRAG_CLASS = "enver-drag-over";
  *   onFile: (file: File) => void | Promise<void>,
  *   onReject?: (reason: "too-large" | "unsupported" | "empty") => void,
  *   onStateChange?: (state: string) => void,
+ *   multiple?: boolean,
+ *   openPicker?: () => void,
  * }} options
  */
 export function createFileDropZone(zoneEl, options) {
@@ -60,9 +104,16 @@ export function createFileDropZone(zoneEl, options) {
     }
   };
 
-  const onClick = () => {
+  const onClick = (e) => {
     if (options.disabled || destroyed) return;
-    options.inputEl?.click();
+    // Не відкривати діалог повторно для кнопок, input[type=file] та програмних кліків з input
+    if (e?.target !== zoneEl && e?.target?.closest?.("button, a, input, label, select, textarea"))
+      return;
+    if (options.openPicker) {
+      options.openPicker();
+      return;
+    }
+    openFileInput(options.inputEl);
   };
 
   const onDragEnter = (e) => {
@@ -96,14 +147,19 @@ export function createFileDropZone(zoneEl, options) {
     e.preventDefault();
     dragDepth = 0;
     zoneEl.classList.remove(DEFAULT_DRAG_CLASS);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void handleFile(file);
-    else setState("idle");
+    const raw = Array.from(e.dataTransfer?.files || []);
+    const files = options.multiple ? raw : raw.slice(0, 1);
+    if (files.length) {
+      for (const file of files) void handleFile(file);
+    } else {
+      setState("idle");
+    }
   };
 
   const onInputChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) void handleFile(file);
+    const raw = Array.from(e.target.files || []);
+    const files = options.multiple ? raw : raw.slice(0, 1);
+    for (const file of files) void handleFile(file);
     e.target.value = "";
   };
 
@@ -119,7 +175,7 @@ export function createFileDropZone(zoneEl, options) {
   zoneEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      onClick();
+      onClick(e);
     }
   });
 

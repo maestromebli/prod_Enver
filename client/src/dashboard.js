@@ -1,6 +1,7 @@
+import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
-import { ATTENTION_TAB } from "./constants.js";
+import { ATTENTION_TAB, PRODUCTION_FLOOR_TAB } from "./constants.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole
@@ -62,7 +63,11 @@ function listRow({
   metaIsHtml = false,
   badge
 }) {
-  const attrs = id ? ` data-edit-position="${id}"` : orderId ? ` data-edit-order="${orderId}"` : "";
+  const attrs = id
+    ? ` data-edit-position="${id}"`
+    : orderId
+      ? ` data-dash-open-order="${orderId}"`
+      : "";
   const navLabel = id
     ? `Відкрити позицію: ${title}`
     : orderId
@@ -260,12 +265,8 @@ export function renderDashboard() {
       </button>`;
     });
 
-  const positionsByOrderId = allData.reduce((map, p) => {
-    map.set(p.orderId, (map.get(p.orderId) || 0) + 1);
-    return map;
-  }, new Map());
   const orderRows = state.orders.slice(0, 3).map((o) => {
-    const posCount = positionsByOrderId.get(o.id) || 0;
+    const posCount = getWorkPositions(o, allData).length;
     return listRow({
       orderId: o.id,
       title: o.orderNumber,
@@ -307,7 +308,7 @@ export function renderDashboard() {
             <button type="button" class="dash-quick-btn" data-dash-nav="Замовлення">Замовлення</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(ATTENTION_TAB)}">Увага</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="Встановлення">Монтажі</button>
-            <button type="button" class="dash-quick-btn" data-dash-nav="Виробництво за етапами">Етапи</button>
+            <button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(PRODUCTION_FLOOR_TAB)}">Етапи</button>
           </nav>
         </div>
         ${
@@ -331,7 +332,7 @@ export function renderDashboard() {
               </div>
               <div class="dash-alert-actions">
                 ${newOrdersCount > 0 ? `<button type="button" class="btn btn-sm" data-dash-nav="Замовлення">Переглянути</button>` : ""}
-                ${newTasksCount > 0 ? `<button type="button" class="btn btn-sm btn-primary" data-dash-nav="Виробництво за етапами">До завдань</button>` : ""}
+                ${newTasksCount > 0 ? `<button type="button" class="btn btn-sm btn-primary" data-dash-nav="${escapeHtml(PRODUCTION_FLOOR_TAB)}">До завдань</button>` : ""}
               </div>
             </section>`
           : ""

@@ -427,7 +427,8 @@ function managerDataReady(row, context) {
   if (context.managerDataComplete === true) return true;
   if (context.managerDataComplete === false) return false;
   return isManagerDataComplete(row, context.managerData, {
-    managerFilesCount: num(row, "manager_files_count", "managerFilesCount") || context.managerFilesCount
+    managerFilesCount:
+      num(row, "manager_files_count", "managerFilesCount") || context.managerFilesCount
   });
 }
 

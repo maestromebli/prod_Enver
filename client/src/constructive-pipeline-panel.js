@@ -8,50 +8,6 @@ import {
 import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
 import { getConstructivePackageNextAction } from "@enver/shared/production/constructive-godmode.js";
 
-export function renderFinancePanel(positionId, summary = null) {
-  if (!summary) {
-    return `<section class="finance-panel"><p class="enver-meta">Завантаження фінансів…</p></section>`;
-  }
-
-  const rows = Object.entries(summary.byType || {})
-    .map(
-      ([type, data]) => `
-    <tr>
-      <td>${escapeHtml(type)}</td>
-      <td class="num">${Number(data.actual || 0).toFixed(2)}</td>
-    </tr>`
-    )
-    .join("");
-
-  return `
-    <section class="finance-panel">
-      <h3 class="drawer-section-title">Фінанси позиції</h3>
-      <div class="finance-summary-grid">
-        <div class="finance-card">
-          <span class="finance-label">План</span>
-          <strong>${Number(summary.estimated || 0).toFixed(2)} UAH</strong>
-        </div>
-        <div class="finance-card">
-          <span class="finance-label">Факт</span>
-          <strong>${Number(summary.actual || 0).toFixed(2)} UAH</strong>
-        </div>
-        <div class="finance-card ${summary.difference > 0 ? "is-over" : ""}">
-          <span class="finance-label">Відхилення</span>
-          <strong>${Number(summary.difference || 0).toFixed(2)} UAH</strong>
-        </div>
-      </div>
-      ${
-        rows
-          ? `<table class="finance-table"><thead><tr><th>Тип</th><th>Сума</th></tr></thead><tbody>${rows}</tbody></table>`
-          : "<p class='enver-meta'>Записів фінансів ще немає.</p>"
-      }
-    </section>`;
-}
-
-export async function loadFinanceSummary(positionId) {
-  return api.getPositionFinance(positionId);
-}
-
 export async function loadProcurementSummary(positionId) {
   return api.getPositionProcurement(positionId);
 }
@@ -66,7 +22,7 @@ export async function loadCncJobsSummary(positionId) {
 
 export function renderCncQueuePanel(jobs = []) {
   if (!jobs.length) {
-    return `<section class="cnc-queue-panel"><p class="enver-meta">Черга ЧПК порожня — відправте пакет у GitLab або release CNC.</p></section>`;
+    return `<section class="cnc-queue-panel"><p class="enver-meta">Черга ЧПК порожня — відправте пакет на ЧПК або передайте на верстат.</p></section>`;
   }
 
   const active = jobs.filter((j) => !["done", "cancelled"].includes(j.status)).length;
@@ -154,8 +110,7 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
   if (!pkg) {
     return `<section class="constructive-pipeline-panel constructive-pipeline-panel--empty">
       <p class="enver-meta">Пакет конструктива ще не завантажено.</p>
-      <p class="enver-meta">Завантажте файли у повній картці позиції або на стілі конструктора.</p>
-      <button type="button" class="btn btn-sm btn-primary" data-open-position-full>Відкрити картку позиції</button>
+      <p class="enver-meta">Завантажте файли на <strong>столі конструктора</strong> (вкладка «Пакет конструктива»).</p>
     </section>`;
   }
 
@@ -248,9 +203,9 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
         const proc = await api.createProcurementFromPackage(positionId, pkgId);
         onProcurementUpdated?.(proc);
         toastSuccess("Закупівлю створено");
-      } else if (action === "send_to_gitlab") {
-        await api.sendToGitlab(positionId);
-        toastSuccess("Відправлено в GitLab");
+      } else if (action === "release_to_cnc" && pkgId) {
+        await api.releaseConstructivePackageToCnc(positionId, pkgId);
+        toastSuccess("Передано на верстат");
       } else if (action === "print_part_labels") {
         window.open(getPartLabelsUrl(positionId), "_blank", "noopener,noreferrer");
         return;

@@ -7,7 +7,7 @@
 1. **Замовлення** — створення замовлення автоматично додає root-позицію.
 2. **Підпозиції** — вироби (work positions) додаються як `parent_id → root`.
 3. **Дані менеджера** — вкладка «Дані» у картці замовлення: адреса, строки, файли `manager_*`.
-4. **Конструктив** — пакет (XLS/B3D/GLB) + legacy-файл; pipeline: parse → review → procurement → GitLab/ЧПК.
+4. **Конструктив** — пакет (XLS/B3D/GLB) + legacy-файл; pipeline: parse → review → procurement → ЧПК.
 5. **ШІ** — legacy-аналіз файлу або аналіз пакета; рекомендовані виробничі задачі.
 6. **Закупівля / фінанси** — з пакета; при статусі `received` створюються фінансові записи.
 7. **Виробництво** — handoff по етапах (порізка → … → пакування → готово до встановлення).
@@ -37,7 +37,7 @@
 - `POST /api/positions/:id/constructive-packages`
 - `POST .../constructive-packages/:id/parse`
 - `POST .../constructive-packages/:id/procurement`
-- `POST /api/positions/:id/send-to-gitlab`
+- `POST .../constructive-packages/:packageId/release-cnc`
 - `GET /api/orders/:id` — агрегація фінансів по work-позиціях
 
 ## Міграції

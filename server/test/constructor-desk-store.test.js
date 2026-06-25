@@ -5,6 +5,10 @@ import {
   isPositionOnConstructorDesk,
   filterUsersByConstructorDirectory
 } from "../src/constructor-desk-store.js";
+import {
+  buildConstructorAssigneesFromDirectory,
+  parseConstructorAssigneeValue
+} from "../../shared/production/constructor-assignees.js";
 
 describe("constructor desk store", () => {
   it("isPositionOnConstructorDesk — етап constructor або призначення", () => {
@@ -58,5 +62,39 @@ describe("constructor desk store", () => {
       filtered.map((u) => u.id),
       [1, 3]
     );
+  });
+
+  it("buildConstructorAssigneesFromDirectory — усі імена з довідника", () => {
+    const users = [
+      { id: 1, name: "Ігор", login: "igor", role: "operator" },
+      { id: 2, name: "Люда", login: "lyuda", role: "manager" }
+    ];
+    const assignees = buildConstructorAssigneesFromDirectory(["Ігор", "Тарас", "Олег"], users);
+    assert.deepEqual(assignees, [
+      { id: 1, name: "Ігор", login: "igor", role: "operator" },
+      { id: null, name: "Тарас", login: null, role: null },
+      { id: null, name: "Олег", login: null, role: null }
+    ]);
+  });
+
+  it("parseConstructorAssigneeValue — user і name", () => {
+    assert.deepEqual(parseConstructorAssigneeValue("u:5"), {
+      constructorUserId: 5,
+      constructorName: ""
+    });
+    assert.deepEqual(parseConstructorAssigneeValue("n:Тарас"), {
+      constructorUserId: null,
+      constructorName: "Тарас"
+    });
+  });
+});
+
+describe("constructor assignees shared", () => {
+  it("mergeConstructorAssignees підтягує довідник, якщо API порожній", async () => {
+    const { mergeConstructorAssignees } =
+      await import("../../shared/production/constructor-assignees.js");
+    const merged = mergeConstructorAssignees([], ["Максим", "Тарас"]);
+    assert.equal(merged.length, 2);
+    assert.equal(merged[0].name, "Максим");
   });
 });

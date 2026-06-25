@@ -48,10 +48,12 @@ import {
   PACKAGE_VERSION_SUBQUERY,
   UNMAPPED_PARTS_SUBQUERY
 } from "../constructive-package-enrich.js";
-import { MANAGER_FILE_COUNT_SUBQUERY, getPositionManagerBundle } from "../position-manager-service.js";
+import {
+  MANAGER_FILE_COUNT_SUBQUERY,
+  getPositionManagerBundle
+} from "../position-manager-service.js";
 import { getProcurementRequest } from "../constructive/procurement-service.js";
-import { getFinanceSummaryForPosition } from "../constructive/finance-service.js";
-import { getCncJobsForPosition } from "../integrations/gitlab.js";
+import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { listPackagesForPosition } from "../constructive/constructive-package-service.js";
 
 const router = Router();
@@ -215,10 +217,7 @@ router.get("/:id", async (req, res) => {
     `SELECT id FROM procurement_requests WHERE position_id = $1 ORDER BY id DESC LIMIT 1`,
     [row.id]
   );
-  const procurementDetail = procurement
-    ? await getProcurementRequest(procurement.id)
-    : null;
-  const finance = await getFinanceSummaryForPosition(row.id);
+  const procurementDetail = procurement ? await getProcurementRequest(procurement.id) : null;
   const cncJobs = await getCncJobsForPosition(row.id);
 
   res.json({
@@ -228,7 +227,6 @@ router.get("/:id", async (req, res) => {
     managerDataComplete: managerBundle?.managerDataComplete ?? false,
     constructivePackages: packages,
     procurement: procurementDetail,
-    finance,
     cncJobs
   });
 });

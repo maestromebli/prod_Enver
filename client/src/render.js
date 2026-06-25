@@ -21,11 +21,20 @@ import { bindOperatorScanPanel } from "./part-scan.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
-import { bindOrderDetail, clearOrderDetailViewState, renderOrderDetailView } from "./order-detail.js";
+import {
+  bindOrderDetail,
+  clearOrderDetailViewState,
+  renderOrderDetailView
+} from "./order-detail.js";
 import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
 import { bindSettingsActions, getSettingsHeaderMeta, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
-import { filteredPositions, filteredOrders, hasActiveFilters } from "./filters.js";
+import {
+  filteredPositions,
+  filteredOrders,
+  hasActiveFilters,
+  syncListFiltersToDom
+} from "./filters.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole,
@@ -37,7 +46,7 @@ import {
   loadProductionFloor,
   renderProductionFloorTab
 } from "./production-floor.js";
-import { renderConstructorDeskTab } from "./constructor-desk.js";
+import { renderConstructorDeskTab, bindConstructorDeskWorkspace } from "./constructor-desk.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { activePositions } from "./archive.js";
@@ -166,7 +175,7 @@ const TAB_META = {
   Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
   [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
-  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Замовлення на етапі конструктиву" },
+  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Картки або список замовлень у конструктиві" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
   Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
   "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
@@ -279,7 +288,8 @@ export function renderKpis() {
 
 export function renderResponsibleOptions() {
   const select = document.querySelector("#responsibleFilter");
-  const current = select.value;
+  if (!select) return;
+  const current = state.listFilters.responsible ?? select.value;
   const people = new Set();
 
   state.orders.forEach((o) => {
@@ -290,6 +300,7 @@ export function renderResponsibleOptions() {
       .filter(Boolean)
       .forEach((person) => people.add(person));
   });
+  if (current && !people.has(current)) people.add(current);
 
   select.innerHTML = `
     <option value="">Усі відповідальні</option>
@@ -309,13 +320,14 @@ const POSITION_STATUS_OPTIONS = [
   "Готово до встановлення",
   "На паузі",
   "Проблема",
-  "Не розпочато"
+  "Не розпочато",
+  "Завершено"
 ];
 
 function fillStatusFilterOptions(options, labels) {
   const select = document.querySelector("#statusFilter");
   if (!select) return;
-  const current = select.value;
+  const current = state.listFilters.status || select.value;
   const labelEl = select.closest(".filter-field")?.querySelector(".filter-label");
 
   select.innerHTML = options
@@ -394,6 +406,7 @@ export function renderToolbarFilters() {
     state.activeTab === "Історія змін" || state.activeTab === OVERVIEW_TAB || state.view !== "main";
   if (statusField) statusField.hidden = hideSecondary;
   if (responsibleField) responsibleField.hidden = hideSecondary;
+  syncListFiltersToDom();
 }
 
 export function renderToolbarActions() {
@@ -607,6 +620,13 @@ export function renderApp(options = {}) {
         orders: ordersData,
         positions: state.positions,
         onOpenPosition: async (id) => {
+          const { openPositionInOrderDetail } = await import("./order-detail.js");
+          if (openPositionInOrderDetail(id)) {
+            notifyUiChanged();
+            renderApp();
+            window.scrollTo({ top: 0, behavior: "instant" });
+            return;
+          }
           const { openPositionDrawer } = await import("./positions.js");
           const position = state.positions.find((p) => p.id === id);
           if (position) openPositionDrawer(position);
@@ -711,12 +731,12 @@ export function renderApp(options = {}) {
   if (state.activeTab === ATTENTION_TAB) {
     bindAttentionTab(document.querySelector("#content"), {
       onOpenPosition: async (id) => {
-        const { openPositionDrawer } = await import("./positions.js");
-        const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
-        const position = state.positions.find((p) => p.id === id);
-        if (!position) return;
-        const gm = resolvePositionGodmode(position);
-        openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
       },
       onOpenOrder: (orderId) => {
         state.selectedOrderId = orderId;
@@ -741,20 +761,18 @@ export function renderApp(options = {}) {
         }
       },
       onOpenPosition: async (id) => {
-        let position = state.positions.find((p) => p.id === id);
-        if (!position) {
-          try {
-            position = await api.getPosition(id);
-          } catch (err) {
-            const { toastError } = await import("./toast.js");
-            toastError(err.message || "Не вдалося відкрити позицію");
-            return;
-          }
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
         }
-        const { openPositionDrawer } = await import("./positions.js");
-        openPositionDrawer(position);
       }
     });
+  }
+
+  if (state.activeTab === CONSTRUCTOR_DESK_TAB && state.constructorDesk.selectedPositionId) {
+    bindConstructorDeskWorkspace(() => renderApp({ contentOnly: true }));
   }
 
   notifyAiContextChanged();

@@ -7,7 +7,6 @@ import { bootstrapOrderPositions, syncOrderStatusWorkflow } from "../order-statu
 import { normalizeOrderSubItems } from "../order-status-workflow.js";
 import { attachGodmodeToOrder, enrichAndMapPosition } from "../godmode-enrich.js";
 import { getWorkPositions } from "../../../shared/production/order-position-model.js";
-import { getFinanceSummaryForPosition } from "../constructive/finance-service.js";
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { canRunNextAction } from "../../../shared/production/godmode.js";
 import {
@@ -116,20 +115,11 @@ router.get("/:id", async (req, res) => {
   );
   const mappedPositions = await mapOrderPositions(order, positionRows);
   const workPositions = getWorkPositions(order, mappedPositions);
-  let financeSummary = null;
-  if (workPositions.length) {
-    const totals = await Promise.all(
-      workPositions.map((p) => getFinanceSummaryForPosition(p.id).catch(() => null))
-    );
-    const estimated = totals.reduce((s, t) => s + (t?.estimated || 0), 0);
-    const actual = totals.reduce((s, t) => s + (t?.actual || 0), 0);
-    financeSummary = { estimated, actual, difference: actual - estimated, positionCount: workPositions.length };
-  }
   res.json({
     ...attachGodmodeToOrder(order, mappedPositions, { planDate: order.planDate }),
     positions: mappedPositions,
     workPositions,
-    summary: { finance: financeSummary, workPositionCount: workPositions.length }
+    summary: { workPositionCount: workPositions.length }
   });
 });
 

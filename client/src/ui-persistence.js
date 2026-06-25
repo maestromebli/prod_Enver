@@ -1,4 +1,6 @@
 import { TABS } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, CONSTRUCTOR_DESK_TAB } from "./users-constants.js";
+import { setListFilters, syncListFiltersToDom } from "./filters.js";
 import {
   captureInstallScheduleOverlay,
   restoreInstallScheduleOverlay
@@ -12,16 +14,36 @@ const STORAGE_KEYS = {
   main: "enver_ui_state",
   operator: "enver_operator_ui_state"
 };
-const VERSION = 4;
+const VERSION = 5;
+const SUPPORTED_VERSIONS = new Set([3, 4, 5]);
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
 const VALID_ORDERS_DISPLAY = new Set(["cards", "list"]);
+const VALID_CD_ORDERS_DISPLAY = new Set(["cards", "list"]);
+const LEGACY_TAB_ALIASES = {
+  "Виробництво за етапами": PRODUCTION_FLOOR_TAB,
+  Конструктив: CONSTRUCTOR_DESK_TAB
+};
 
 let saveTimer = null;
 let persistenceScope = "main";
 let scrollRestoreY = null;
 let operatorScrollRestore = null;
+
+function resolveActiveTab(tab) {
+  if (!tab) return null;
+  const resolved = LEGACY_TAB_ALIASES[tab] || tab;
+  return TABS.includes(resolved) ? resolved : null;
+}
+
+function migrateSnapshot(data) {
+  if (!data || typeof data !== "object" || !SUPPORTED_VERSIONS.has(data.v)) return null;
+  const snapshot = { ...data, v: VERSION };
+  const tab = resolveActiveTab(snapshot.activeTab);
+  if (tab) snapshot.activeTab = tab;
+  return snapshot;
+}
 
 function storageKey() {
   return STORAGE_KEYS[persistenceScope] || STORAGE_KEYS.main;
@@ -59,11 +81,12 @@ export function captureUiState() {
     activeTab: state.activeTab,
     settingsSection: state.settingsSection,
     filters: {
-      search: $("#searchInput")?.value ?? "",
-      status: $("#statusFilter")?.value ?? "",
-      responsible: $("#responsibleFilter")?.value ?? "",
+      search: state.listFilters.search ?? "",
+      status: state.listFilters.status ?? "",
+      responsible: state.listFilters.responsible ?? "",
       productionStageFilter: state.productionStageFilter ?? ""
     },
+    showArchived: state.showArchived === true,
     historyEntityFilter: state.historyEntityFilter ?? "",
     expandedPositionIds: [...state.expandedPositionIds],
     expandedOrderIds: [...state.expandedOrderIds],
@@ -75,7 +98,15 @@ export function captureUiState() {
     },
     ordersView: {
       displayMode: state.ordersView.displayMode,
-      priorityFilter: state.ordersView.priorityFilter ?? ""
+      priorityFilter: state.ordersView.priorityFilter ?? "",
+      detailTab: state.ordersView.detailTab ?? "overview"
+    },
+    constructorDesk: {
+      displayMode: state.constructorDesk.displayMode,
+      selectedPositionId: state.constructorDesk.selectedPositionId,
+      selectedOrderId: state.constructorDesk.selectedOrderId,
+      workspaceTab: state.constructorDesk.workspaceTab,
+      onlyMine: state.constructorDesk.onlyMine === true
     },
     selectedOrderId: state.selectedOrderId,
     operatorStage: state.operatorStage,
@@ -90,9 +121,7 @@ export function loadPersistedUiState() {
   try {
     const raw = sessionStorage.getItem(storageKey());
     if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (data?.v !== VERSION) return null;
-    return data;
+    return migrateSnapshot(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -118,16 +147,14 @@ export function schedulePersistUiState() {
 }
 
 function applyFilters(filters = {}) {
-  const searchEl = $("#searchInput");
-  const statusEl = $("#statusFilter");
-  const responsibleEl = $("#responsibleFilter");
-  const stageEl = $("#stageFilter");
-
-  if (searchEl && filters.search != null) searchEl.value = filters.search;
-  if (statusEl && filters.status != null) statusEl.value = filters.status;
-  if (responsibleEl && filters.responsible != null) responsibleEl.value = filters.responsible;
+  setListFilters({
+    search: filters.search ?? "",
+    status: filters.status ?? "",
+    responsible: filters.responsible ?? ""
+  });
   if (filters.productionStageFilter != null) {
     state.productionStageFilter = filters.productionStageFilter;
+    const stageEl = $("#stageFilter");
     if (stageEl) stageEl.value = filters.productionStageFilter;
   }
 }
@@ -155,7 +182,8 @@ export function applyUiState(snapshot) {
   }
 
   if (VALID_VIEWS.has(snapshot.view)) state.view = snapshot.view;
-  if (TABS.includes(snapshot.activeTab)) state.activeTab = snapshot.activeTab;
+  const activeTab = resolveActiveTab(snapshot.activeTab);
+  if (activeTab) state.activeTab = activeTab;
   const settingsSections = new Set([
     "users",
     "access",
@@ -173,7 +201,10 @@ export function applyUiState(snapshot) {
     state.activeTab = "Замовлення";
   }
 
-  applyFilters(snapshot.filters);
+  applyFilters(snapshot.filters ?? {});
+  if (typeof snapshot.showArchived === "boolean") {
+    state.showArchived = snapshot.showArchived;
+  }
   if (snapshot.historyEntityFilter != null)
     state.historyEntityFilter = snapshot.historyEntityFilter;
 
@@ -205,9 +236,29 @@ export function applyUiState(snapshot) {
   }
   if (ordersView?.priorityFilter != null) {
     state.ordersView.priorityFilter = ordersView.priorityFilter;
-    if (state.activeTab === "Замовлення" && $("#stageFilter")) {
-      $("#stageFilter").value = ordersView.priorityFilter;
+  }
+  if (ordersView?.detailTab) {
+    state.ordersView.detailTab = ordersView.detailTab;
+  }
+
+  const constructorDesk = snapshot.constructorDesk;
+  if (constructorDesk && VALID_CD_ORDERS_DISPLAY.has(constructorDesk.displayMode)) {
+    state.constructorDesk.displayMode = constructorDesk.displayMode;
+  }
+  if (constructorDesk?.selectedPositionId != null) {
+    const positionId = Number(constructorDesk.selectedPositionId);
+    if (Number.isFinite(positionId)) {
+      state.constructorDesk.selectedPositionId = positionId;
     }
+  }
+  if (constructorDesk?.selectedOrderId != null) {
+    state.constructorDesk.selectedOrderId = constructorDesk.selectedOrderId;
+  }
+  if (constructorDesk?.workspaceTab === "work" || constructorDesk?.workspaceTab === "package") {
+    state.constructorDesk.workspaceTab = constructorDesk.workspaceTab;
+  }
+  if (typeof constructorDesk?.onlyMine === "boolean") {
+    state.constructorDesk.onlyMine = constructorDesk.onlyMine;
   }
 
   if (snapshot.selectedOrderId != null) {
@@ -298,6 +349,8 @@ export function initUiPersistence({ scope = "main" } = {}) {
   document.addEventListener("enver-ui-changed", schedulePersistUiState);
   bindScrollPersistence();
 }
+
+export { syncListFiltersToDom } from "./filters.js";
 
 export function notifyUiChanged() {
   document.dispatchEvent(new CustomEvent("enver-ui-changed"));

@@ -22,37 +22,36 @@ export const UI_ACTION_TYPES = new Set([
 export const ORDER_API_ACTION_TYPES = new Set(["close_order"]);
 
 export function panelForGodmodeAction(actionType) {
-  if (actionType === "fill_manager_data") return "manager";
-  if (actionType === "assign_constructor") return "constructor-desk";
   if (actionType === "schedule_install" || actionType === "wait_install") return "install";
   if (
     actionType === "parse_constructive_package" ||
     actionType === "review_constructive" ||
     actionType === "create_procurement" ||
-    actionType === "send_to_gitlab" ||
-    actionType === "print_part_labels"
+    actionType === "release_to_cnc" ||
+    actionType === "print_part_labels" ||
+    actionType === "run_ai_analysis" ||
+    actionType === "create_tasks_from_ai"
   ) {
     return "constructive";
   }
-  if (UI_ACTION_TYPES.has(actionType) || actionType === "resolve_problem") return "more";
+  if (actionType === "resolve_problem") return "more";
+  if (actionType === "fill_manager_data") return "general";
   return "general";
 }
 
-/** Підвкладка картки замовлення для godmode-дії (null — відкривати drawer). */
+/** Підвкладка картки замовлення для godmode-дії (null — відкривати drawer або стіл конструктора). */
 export function orderDetailSubTabForGodmodeAction(actionType) {
   const map = {
     fill_manager_data: "manager",
-    upload_constructive: "constructive",
     run_ai_analysis: "constructive",
     create_tasks_from_ai: "constructive",
     schedule_install: "install",
     parse_constructive_package: "constructive",
     review_constructive: "constructive",
-    upload_constructive_package: "constructive",
     wait_parse: "constructive",
     create_procurement: "procurement",
     wait_procurement: "procurement",
-    send_to_gitlab: "cnc",
+    release_to_cnc: "cnc",
     print_part_labels: "cnc"
   };
   return map[actionType] || null;
@@ -76,4 +75,40 @@ export function isRunnableGodmodeAction(actionType) {
     actionType === "close_order" ||
     actionType === "add_position"
   );
+}
+
+/** data-* атрибути для CTA-кнопки godmode (без DOM). */
+export function buildGodmodeCtaAttrs(next, { positionId = null, orderId = null } = {}) {
+  if (!next || next.allowed === false) return "";
+
+  if (ORDER_API_ACTION_TYPES.has(next.type) && orderId != null) {
+    return `data-run-order-action="${orderId}" data-action-type="${next.type}"`;
+  }
+
+  if (next.type === "assign_constructor") {
+    if (positionId != null) return `data-open-constructor-desk-position="${positionId}"`;
+    if (orderId != null) return `data-open-constructor-desk-order="${orderId}"`;
+    return `data-open-constructor-desk="1"`;
+  }
+
+  if (
+    (next.type === "upload_constructive" || next.type === "upload_constructive_package") &&
+    positionId != null
+  ) {
+    return `data-open-constructor-desk-position="${positionId}" data-constructor-ws-tab="package"`;
+  }
+
+  if (next.type === "fill_manager_data" && positionId != null) {
+    return `data-order-detail-tab="pos-${positionId}"`;
+  }
+
+  if (next.type === "add_position" && orderId != null) {
+    return `data-order-detail-tab="overview" data-focus-inline-add="1"`;
+  }
+
+  if (positionId != null) {
+    return `data-run-next-action="${positionId}" data-action-type="${next.type}"`;
+  }
+
+  return "";
 }

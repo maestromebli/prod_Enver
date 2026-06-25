@@ -297,6 +297,64 @@
   word-break: break-word;
 }
 
+/* Не display:none — інакше programmatic .click() не відкриває діалог у Safari/Chrome */
+.enver-file-input-offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Кнопка «Обрати файл» — клік потрапляє на input поверх label */
+.cd-file-pick-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cd-file-pick-label .enver-file-input-offscreen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  clip: auto;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.cp-pick-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cp-pick-label .enver-file-input-offscreen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  clip: auto;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
 .constructive-upload-zone {
   position: relative;
   border: 2px dashed var(--enver-border, var(--border));
