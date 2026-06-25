@@ -23,8 +23,17 @@ export function resolveOrderGodmode(order, positions = []) {
   return buildOrderGodmode(order, related, { planDate: order.planDate });
 }
 
+function isCompletePositionGodmode(gm) {
+  return (
+    gm &&
+    Array.isArray(gm.warnings) &&
+    Array.isArray(gm.blockers) &&
+    Object.prototype.hasOwnProperty.call(gm, "nextAction")
+  );
+}
+
 export function resolvePositionGodmode(position) {
-  if (position?.godmode) return position.godmode;
+  if (isCompletePositionGodmode(position?.godmode)) return position.godmode;
   return buildPositionGodmode(position, {
     planDate: position.planDate,
     hasConstructivePackage: position.hasConstructivePackage,

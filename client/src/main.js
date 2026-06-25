@@ -489,7 +489,12 @@ async function setTab(tab) {
       toastError(`Не вдалося завантажити історію: ${err.message}`);
     }
   }
-  renderApp({ contentOnly: true });
+  try {
+    renderApp({ contentOnly: true });
+  } catch (err) {
+    console.error("setTab render failed", err);
+    toastError(err.message || "Не вдалося відобразити вкладку");
+  }
 }
 
 function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) {
@@ -699,6 +704,10 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
     clearPersistedUiState();
     await loadData();
     await afterAuth();
+    if (state.view === "operator") {
+      const { ensureOperatorStyles } = await import("./operator-styles.js");
+      await ensureOperatorStyles();
+    }
     renderApp();
   } catch (ex) {
     err.textContent = ex.message;
@@ -751,6 +760,10 @@ async function bootstrap() {
       await afterAuth();
     }
     await prepareViewData();
+    if (state.view === "operator") {
+      const { ensureOperatorStyles } = await import("./operator-styles.js");
+      await ensureOperatorStyles();
+    }
     renderApp({ preserveScroll: restoreNavigation });
     await restoreOverlays(persisted);
     restoreScrollPosition();

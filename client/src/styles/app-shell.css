@@ -45,11 +45,18 @@ body.enver-v3 {
   min-height: 100dvh;
 }
 
-.app-shell--focus {
-  grid-template-columns: 1fr;
+/* Специфічність вища за .app.app-shell — інакше main лишається у вузькій колонці 248px */
+.app.app-shell.app-shell--focus {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.app-shell--focus .app-shell-sidebar {
+.app.app-shell.app-shell--focus .app-shell-main {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.app.app-shell.app-shell--focus .app-shell-sidebar {
   display: none;
 }
 
@@ -816,5 +823,101 @@ body.enver-v3 {
 
   .app-shell-page-sub {
     display: none;
+  }
+}
+
+/* ——— Панель цеху з менеджерського app (кнопка «Панель цеху») ——— */
+.app-shell.app-shell--operator {
+  min-height: 100dvh;
+}
+
+.app-shell.app-shell--operator .app-shell-main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  padding: 12px clamp(12px, 2vw, 28px) 24px;
+}
+
+.app-shell.app-shell--operator .app-shell-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+}
+
+.app-shell.app-shell--operator .operator-shell {
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-shell.app-shell--operator .op-header {
+  flex-shrink: 0;
+}
+
+.app-shell.app-shell--operator .op-stage-nav,
+.app-shell.app-shell--operator .op-supervisor-banner,
+.app-shell.app-shell--operator .op-lock-banner {
+  flex-shrink: 0;
+}
+
+.app-shell.app-shell--operator .op-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+}
+
+.app-shell.app-shell--operator .op-queue-panel,
+.app-shell.app-shell--operator .op-work-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell.app-shell--operator .op-queue-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.app-shell.app-shell--operator .op-work-panel {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell.app-shell--operator .op-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 12px;
+  padding-top: 8px;
+  background: linear-gradient(
+    to top,
+    var(--op-surface, #fff) 72%,
+    color-mix(in srgb, var(--op-surface, #fff) 85%, transparent)
+  );
+}
+
+@media (max-width: 960px) {
+  .app-shell.app-shell--operator .op-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(160px, 32vh) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell.app-shell--operator.app-shell--focus .app-shell-main {
+    padding-bottom: 16px;
   }
 }

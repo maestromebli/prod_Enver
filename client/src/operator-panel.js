@@ -17,7 +17,6 @@ import {
   newOperatorQueueIdsForStage,
   reminderSnapshot
 } from "./role-notifications.js";
-import { isCuttingOneScreen } from "./operator-ui.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
@@ -397,7 +396,6 @@ export function renderOperatorView() {
   const inWork = hasBlockingSession();
   const field = statusField();
   const freshQueueIds = newOperatorQueueIdsForStage(stageKey, state.operatorQueue);
-  const oneScreen = isCuttingOneScreen(stageKey);
   const sessionOnOtherStage = hasBlockingSession() && !isOnActiveSessionStage();
   const blockingStageKey = activeSessionStageKey();
   const blockingStage = OPERATOR_STAGES.find((s) => s.key === blockingStageKey);
@@ -423,7 +421,7 @@ export function renderOperatorView() {
     .join("");
 
   return `
-    <div class="operator-shell v3-operator${oneScreen ? " op-one-screen" : ""}" data-stage="${escapeHtml(stageKey)}"
+    <div class="operator-shell v3-operator" data-stage="${escapeHtml(stageKey)}"
       style="--op-accent:${theme.accent};--op-gradient:${theme.gradient}">
       <header class="op-header">
         <div class="op-header-brand">
@@ -614,8 +612,13 @@ export function bindOperatorActions(onChange) {
     }
     if (e.target.closest("#operatorBackBtn")) {
       state.view = "main";
-      const { refreshAppData } = await import("./data-sync.js");
-      await refreshAppData({ syncViews: true });
+      try {
+        const { refreshAppData } = await import("./data-sync.js");
+        await refreshAppData({ syncViews: true });
+      } catch (err) {
+        const { toastError } = await import("./toast.js");
+        toastError(err.message || "Не вдалося оновити дані");
+      }
       operatorOnChange();
       return;
     }

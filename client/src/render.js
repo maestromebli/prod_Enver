@@ -17,6 +17,7 @@ import {
 } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
+import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
 import { bindOrderDetail, renderOrderDetailView } from "./order-detail.js";
@@ -451,6 +452,12 @@ export function renderApp(options = {}) {
     return;
   }
   if (state.view === "operator") {
+    if (!isOperatorStylesLoaded()) {
+      void import("./operator-styles.js")
+        .then(({ ensureOperatorStyles }) => ensureOperatorStyles())
+        .then(() => renderApp(options));
+      return;
+    }
     document.querySelector("#content").innerHTML = renderOperatorView();
     bindOperatorQueueSwipe();
     syncOperatorBuildChip("operatorBuildChipInline");
@@ -468,7 +475,17 @@ export function renderApp(options = {}) {
     renderPageChrome();
   }
   renderStageFilter();
-  document.querySelector("#content").innerHTML = renderContent();
+  const content = document.querySelector("#content");
+  try {
+    content.innerHTML = renderContent();
+  } catch (err) {
+    console.error("renderContent failed", err);
+    content.innerHTML = `
+      <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">
+        Не вдалося відобразити вкладку «${escapeHtml(state.activeTab)}»: ${escapeHtml(err.message)}
+      </div>
+    `;
+  }
 
   if (state.activeTab === "Замовлення") {
     if (!state.selectedOrderId) {

@@ -44,7 +44,7 @@ body.view-operator .app {
 /* Header */
 .op-header {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 16px 24px;
   padding: 20px 24px;
@@ -258,9 +258,11 @@ body.view-operator .app {
 /* Layout */
 .op-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 380px) 1fr;
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 960px) {
@@ -286,6 +288,9 @@ body.view-operator .app {
   border-radius: var(--op-radius);
   box-shadow: var(--op-shadow);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .op-panel-head {
@@ -362,6 +367,8 @@ body.view-operator .app {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
+  flex: 1;
+  min-height: 0;
   max-height: min(68vh, 640px);
   overflow-y: auto;
   scrollbar-width: thin;
@@ -525,11 +532,11 @@ body.view-operator .app {
 
 /* Work panel */
 .op-work-panel {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  min-height: 480px;
+  gap: 16px;
+  min-height: 0;
 }
 
 .op-task-hero {
@@ -840,11 +847,20 @@ body.view-operator .app {
 /* Action buttons */
 .op-action-bar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
-@media (max-width: 720px) {
+@media (min-width: 900px) {
+  .op-action-bar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 420px) {
   .op-action-bar {
     grid-template-columns: 1fr;
   }
@@ -853,18 +869,22 @@ body.view-operator .app {
 .op-action-btn {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 12px;
   border: none;
-  border-radius: var(--op-radius);
+  border-radius: var(--op-radius-sm);
   font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   transition:
     transform 0.12s,
     box-shadow 0.15s,
     opacity 0.15s;
-  min-height: 72px;
+  min-height: 56px;
 }
 
 .op-action-btn:disabled {
@@ -1278,4 +1298,42 @@ body.view-operator .app {
   text-decoration: none;
   font-weight: 600;
   word-break: break-word;
+}
+
+/* Вбудована панель з менеджерського app (кнопка «Панель цеху») */
+body.view-operator:not(.operator-client-mode) .operator-shell {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+body.view-operator:not(.operator-client-mode) .op-queue-list {
+  max-height: none;
+}
+
+body.view-operator:not(.operator-client-mode) .op-header-user {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+body.view-operator:not(.operator-client-mode) .op-header-user > strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+body.view-operator:not(.operator-client-mode) .op-header-actions {
+  margin-left: 0;
+}
+
+@media (max-width: 960px) {
+  body.view-operator:not(.operator-client-mode) .op-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(160px, 32vh) minmax(0, 1fr);
+  }
 }

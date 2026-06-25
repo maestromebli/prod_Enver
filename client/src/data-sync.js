@@ -1,6 +1,7 @@
 import { buildOrderGodmode } from "@enver/shared/production/godmode.js";
 import { api } from "./api.js";
 import { expandParentsWithChildren } from "./position-tree.js";
+import { invalidateProductionFloorCache } from "./production-floor.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 
@@ -30,7 +31,7 @@ function reconcileOrdersForPosition(position) {
 
 /** Позначити похідні кеші (цех, конструктори) як застарілі. */
 export function markDerivedDataStale() {
-  state.productionFloor = null;
+  invalidateProductionFloorCache();
   state.constructorDesk.stale = true;
 }
 

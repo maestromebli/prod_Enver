@@ -42,6 +42,7 @@ body.operator-kiosk-locked {
 .operator-client-shell {
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
   min-height: 0;
   max-height: 100svh;
@@ -160,6 +161,8 @@ html.operator-pwa-capable.enver-operator-installed body.operator-client-mode {
 
 .enver-operator-ui .operator-shell {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -199,6 +202,15 @@ body.operator-client-mode .operator-shell .op-header {
   margin-bottom: 4px;
   padding: 3px;
   gap: 4px;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.enver-operator-ui .op-stage-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .enver-operator-ui .op-stage-tab {
@@ -228,10 +240,11 @@ body.operator-client-mode .operator-shell .op-header {
 .enver-operator-ui .op-layout {
   flex: 1;
   min-height: 0;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 8px;
   align-items: stretch;
   overflow: hidden;
-  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
 }
 
 .enver-operator-ui .op-queue-panel,
@@ -302,6 +315,8 @@ body.operator-client-mode .operator-shell .op-header {
   min-height: 0;
   padding: 10px;
   gap: 10px;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -343,8 +358,18 @@ body.operator-client-mode .operator-shell .op-header {
 
 .enver-operator-ui .op-action-bar {
   flex-shrink: 0;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding-top: 6px;
+  background: linear-gradient(
+    to top,
+    var(--op-surface, #fff) 70%,
+    color-mix(in srgb, var(--op-surface, #fff) 88%, transparent)
+  );
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -353,12 +378,15 @@ body.operator-client-mode .operator-shell .op-header {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 48px;
+  gap: 6px;
+  min-height: 52px;
   padding: 0 10px;
   border-radius: 12px;
   border: 1px solid transparent;
   text-align: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
   box-shadow: 0 2px 6px rgba(15, 42, 68, 0.1);
 }
 
@@ -423,11 +451,17 @@ body.enver-operator-ui.view-operator {
   padding-top: 0;
 }
 
-/* Портрет: черга зверху, робота знизу */
-@media (orientation: portrait), (max-width: 820px) {
+/* Планшет / телефон у портреті — черга зверху */
+@media (orientation: portrait) and (max-width: 1024px) {
   .enver-operator-ui .op-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
+    grid-template-rows: minmax(150px, 32vh) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .enver-operator-ui .op-action-bar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -833,10 +867,17 @@ body.enver-operator-ui.view-operator {
   box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
 }
 
-/* Портрет на планшеті — лишаємо дві колонки для порізки */
-@media (orientation: portrait), (max-width: 820px) {
+/* Порізка one-screen: дві колонки на планшеті */
+@media (max-width: 899px) {
   .enver-operator-ui .operator-shell.op-one-screen .op-layout {
     grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
-    grid-template-rows: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) and (orientation: portrait) {
+  .enver-operator-ui .operator-shell.op-one-screen .op-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(140px, 28vh) minmax(0, 1fr);
   }
 }

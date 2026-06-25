@@ -1,5 +1,4 @@
 import { api } from "./api.js";
-import { enterOperatorView } from "./operator-panel.js";
 import {
   markProductionTasksSeenForCurrentRole,
   newProductionTaskIdsForCurrentRole
@@ -18,7 +17,12 @@ import { bindProductionBoard, renderProductionBoard } from "./production-board.j
 let floorCache = null;
 
 export function getProductionFloorCache() {
-  return state.productionFloor || floorCache;
+  return state.productionFloor ?? floorCache;
+}
+
+export function invalidateProductionFloorCache() {
+  floorCache = null;
+  state.productionFloor = null;
 }
 
 export async function loadProductionFloor() {
@@ -198,7 +202,7 @@ function renderProblems(list) {
     </div>`;
 }
 
-export function renderProductionFloorTab(data = floorCache) {
+export function renderProductionFloorTab(data = getProductionFloorCache()) {
   if (state.productionFloorLoading && !data) {
     return `<div class="production-floor">${productionFloorSkeleton()}</div>`;
   }
@@ -268,6 +272,7 @@ export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
   });
   document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {
     btn.addEventListener("click", async () => {
+      const { enterOperatorView } = await import("./operator-panel.js");
       await enterOperatorView(btn.dataset.openOperatorStage);
     });
   });
