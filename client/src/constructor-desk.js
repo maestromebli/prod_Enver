@@ -13,12 +13,17 @@ import {
   parseConstructorAssigneeValue
 } from "@enver/shared/production/constructor-assignees.js";
 import {
+  CONSTRUCTORS_DIRECTORY_KEY,
+  getDirectoryList
+} from "@enver/shared/production/directories.js";
+import {
   bindPositionConstructivePanel,
   renderPositionConstructivePanel
 } from "./position-constructive-panel.js";
 import { loadConstructivePackageDetail } from "./constructive-package-ui.js";
 import { loadCncJobsSummary, loadProcurementSummary } from "./constructive-pipeline-panel.js";
 import { notifyUiChanged } from "./ui-persistence.js";
+import { openFileInput } from "./interactions/drag-drop.js";
 
 const LED_VOLTAGES = ["220", "24", "12"];
 const CD_DISPLAY_LABELS = { cards: "Картки", list: "Список" };
@@ -151,13 +156,14 @@ function renderConstructorOptions(position, constructors = []) {
 }
 
 function constructorDirectoryNames() {
-  return state.directories?.Конструктори || state.directories?.["Конструктори"] || [];
+  return getDirectoryList(state.directories, CONSTRUCTORS_DIRECTORY_KEY);
 }
 
-async function ensureConstructorDirectories() {
-  if (constructorDirectoryNames().length) return;
+async function ensureConstructorDirectories({ force = false } = {}) {
+  if (!force && constructorDirectoryNames().length) return;
   try {
-    state.directories = await api.getDirectories();
+    const dirs = await api.getDirectories();
+    state.directories = { ...state.directories, ...dirs };
   } catch {
     /* ігноруємо — спробуємо з API конструкторів */
   }
@@ -383,10 +389,18 @@ function renderAssetBlock(positionId, kind, label, files, { linkValue = "", link
       <h3>${escapeHtml(label)}</h3>
       ${linkField ? `<div class="form-field"><label>Посилання</label><input type="url" data-cd-link-field="${linkField}" value="${escapeHtml(linkValue)}" placeholder="https://…" /></div>` : ""}
       <div class="cd-upload-row">
-        <label class="btn btn-sm cd-file-pick-btn">
+        <button type="button" class="btn btn-sm" data-cd-pick-file="${kind}" data-cd-position="${positionId}">
           Обрати файл
-          <input type="file" data-cd-file-input data-cd-kind="${kind}" data-cd-position="${positionId}" />
-        </label>
+        </button>
+        <input
+          type="file"
+          class="enver-file-input-offscreen"
+          data-cd-file-input
+          data-cd-kind="${kind}"
+          data-cd-position="${positionId}"
+          tabindex="-1"
+          aria-hidden="true"
+        />
         <span class="enver-meta" data-cd-file-name="${kind}">Файл не обрано</span>
         <input type="text" data-cd-file-label="${kind}" placeholder="Підпис (необов'язково)" />
         <button type="button" class="btn btn-sm btn-primary" data-cd-upload="${kind}" data-cd-position="${positionId}" disabled>Завантажити</button>
@@ -623,6 +637,10 @@ export async function loadConstructorDesk({ silent = false } = {}) {
     state.constructorDesk.orders = orders;
     state.constructorDesk.positions = orders.flatMap((o) => o.positions || []);
     state.constructorDesk.constructors = resolveConstructorAssignees(constructors);
+    if (!state.constructorDesk.constructors.length && shouldLoadConstructors) {
+      await ensureConstructorDirectories({ force: true });
+      state.constructorDesk.constructors = resolveConstructorAssignees(constructors);
+    }
     state.constructorDesk.error = "";
     state.constructorDesk.stale = false;
   } catch (err) {
@@ -778,6 +796,8 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
   root.addEventListener(
     "click",
     async (e) => {
+      if (e.target.closest("[data-cd-pick-file], [data-cd-file-input], [data-cd-upload]")) return;
+
       const tabBtn = e.target.closest("[data-cd-ws-tab]");
       if (tabBtn) {
         const nextTab = tabBtn.dataset.cdWsTab || "work";
@@ -951,51 +971,57 @@ async function fileToBase64(file) {
   return btoa(binary);
 }
 
-function handleDeskPickFile(pickFileBtn) {
-  const kind = pickFileBtn.dataset.cdPickFile;
-  if (!kind) return;
-  const filePositionId = Number(pickFileBtn.dataset.cdPosition);
-  if (!filePositionId) return;
-  const block = pickFileBtn.closest(".cd-asset-block");
+/** Оновлює підпис обраного файлу та стан кнопки «Завантажити». */
+function syncDeskFileRow(input) {
+  const kind = input.dataset.cdKind;
+  const block = input.closest(".cd-asset-block");
+  const file = input.files?.[0];
   const nameEl = block?.querySelector(`[data-cd-file-name="${kind}"]`);
-  void pickLocalFile().then((file) => {
-    if (!file || !(file instanceof File)) return;
-    pendingDeskFiles.set(deskFileKey(filePositionId, kind), file);
-    if (nameEl) nameEl.textContent = file.name;
-  });
+  const uploadBtn = block?.querySelector(`[data-cd-upload="${kind}"]`);
+  if (nameEl) nameEl.textContent = file?.name || "Файл не обрано";
+  if (uploadBtn) uploadBtn.disabled = !file;
 }
 
-async function handleDeskUpload(uploadBtn, onChange) {
-  const block = uploadBtn.closest(".cd-asset-block");
-  const kind = uploadBtn.dataset.cdUpload;
-  const filePositionId = Number(uploadBtn.dataset.cdPosition);
-  if (!kind || !filePositionId) return;
+async function handleDeskFileUpload(btn, onChange) {
+  if (btn.disabled) return;
+
+  const kind = btn.dataset.cdUpload;
+  const filePositionId = Number(btn.dataset.cdPosition);
+  const block = btn.closest(".cd-asset-block");
+  const input = block?.querySelector(`[data-cd-file-input][data-cd-kind="${kind}"]`);
   const labelInput = block?.querySelector(`[data-cd-file-label="${kind}"]`);
-  const nameEl = block?.querySelector(`[data-cd-file-name="${kind}"]`);
-  let file = pendingDeskFiles.get(deskFileKey(filePositionId, kind));
+  const file = input?.files?.[0];
   if (!file) {
     toastError("Спочатку оберіть файл");
-    void pickLocalFile().then((picked) => {
-      if (!picked || !(picked instanceof File)) return;
-      pendingDeskFiles.set(deskFileKey(filePositionId, kind), picked);
-      if (nameEl) nameEl.textContent = picked.name;
-    });
+    openFileInput(input);
     return;
   }
+
   try {
-    const dataBase64 = await fileToBase64(file);
-    await api.uploadConstructorDeskFile(filePositionId, {
-      kind,
-      label: labelInput?.value?.trim() || file.name,
-      fileName: file.name,
-      mime: file.type || "application/octet-stream",
-      dataBase64
+    await runSave("Завантаження файлу", {
+      submitEl: btn,
+      saveFn: async () => {
+        const dataBase64 = await fileToBase64(file);
+        return api.uploadConstructorDeskFile(filePositionId, {
+          kind,
+          label: labelInput?.value?.trim() || file.name,
+          fileName: file.name,
+          mime: file.type || "application/octet-stream",
+          dataBase64
+        });
+      },
+      successMessage: "Файл завантажено",
+      onSuccess: async () => {
+        if (input) input.value = "";
+        syncDeskFileRow(input);
+        await refreshConstructorWorkspace(filePositionId, {
+          showLoading: false,
+          reloadOrders: false
+        });
+        onChange({ contentOnly: true });
+        void loadConstructorDesk({ silent: true }).then(() => onChange({ contentOnly: true }));
+      }
     });
-    toastSuccess("Файл завантажено");
-    pendingDeskFiles.delete(deskFileKey(filePositionId, kind));
-    await refreshConstructorWorkspace(filePositionId, { showLoading: false, reloadOrders: false });
-    onChange();
-    void loadConstructorDesk({ silent: true }).then(() => onChange());
   } catch (err) {
     toastError(err.message);
   }
@@ -1012,16 +1038,25 @@ export function bindConstructorDeskActions(onChange = () => {}) {
   if (actionsBound) return;
   actionsBound = true;
 
+  document.addEventListener("change", (e) => {
+    const input = e.target.closest("[data-cd-file-input]");
+    if (!input?.closest(".constructor-workspace")) return;
+    syncDeskFileRow(input);
+  });
+
   document.addEventListener("click", async (e) => {
-    const pickFileBtn = e.target.closest("[data-cd-pick-file]");
-    if (pickFileBtn?.closest(".constructor-workspace")) {
-      handleDeskPickFile(pickFileBtn);
+    const pickBtn = e.target.closest("[data-cd-pick-file]");
+    if (pickBtn?.closest(".constructor-workspace")) {
+      const kind = pickBtn.dataset.cdPickFile;
+      const block = pickBtn.closest(".cd-asset-block");
+      const input = block?.querySelector(`[data-cd-file-input][data-cd-kind="${kind}"]`);
+      openFileInput(input);
       return;
     }
 
     const uploadBtn = e.target.closest("[data-cd-upload]");
     if (uploadBtn?.closest(".constructor-workspace")) {
-      await handleDeskUpload(uploadBtn, onChange);
+      await handleDeskFileUpload(uploadBtn, onChange);
       return;
     }
 

@@ -98,3 +98,12 @@ describe("constructor assignees shared", () => {
     assert.equal(merged[0].name, "Максим");
   });
 });
+
+describe("directories shared", () => {
+  it("getDirectoryList — збіг ключа без урахування регістру", async () => {
+    const { getDirectoryList, CONSTRUCTORS_DIRECTORY_KEY } =
+      await import("../../shared/production/directories.js");
+    const names = getDirectoryList({ конструктори: ["Тарас", "Ігор"] }, CONSTRUCTORS_DIRECTORY_KEY);
+    assert.deepEqual(names, ["Тарас", "Ігор"]);
+  });
+});

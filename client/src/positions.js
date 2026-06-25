@@ -13,6 +13,10 @@ import {
   stageStatusClass
 } from "./workflows.js";
 import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
+import {
+  CONSTRUCTORS_DIRECTORY_KEY,
+  getDirectoryList
+} from "@enver/shared/production/directories.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
 import { canManageProcurement, canReviewConstructive } from "./auth.js";
@@ -131,17 +135,17 @@ function showError(message) {
 }
 
 function listOptions(key) {
-  const items = state.directories[key] || [];
+  const items = getDirectoryList(state.directories, key);
   if (items.length) return items;
-  if (key === "Конструктори") {
+  if (key === CONSTRUCTORS_DIRECTORY_KEY) {
     return (state.constructorDesk.constructors || []).map((c) => c.name).filter(Boolean);
   }
   return [];
 }
 
 async function ensureDirectoryLists() {
-  const keys = ["Конструктори", "Збирачі", "Монтажники"];
-  if (keys.some((k) => !(state.directories[k] || []).length)) {
+  const keys = [CONSTRUCTORS_DIRECTORY_KEY, "Збирачі", "Монтажники"];
+  if (keys.some((k) => !getDirectoryList(state.directories, k).length)) {
     try {
       state.directories = await api.getDirectories();
     } catch {

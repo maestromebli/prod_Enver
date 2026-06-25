@@ -36,7 +36,8 @@ test("enver-file-input-offscreen не використовує display:none", ()
   assert.doesNotMatch(block, /display:\s*none/);
 });
 
-test("cd-file-pick-label накладає input поверх кнопки", () => {
-  const css = readFileSync(new URL("../src/styles/interactions.css", import.meta.url), "utf8");
-  assert.match(css, /\.cd-file-pick-label \.enver-file-input-offscreen/);
+test("стіл конструктора: кнопка вибору файлу відокремлена від input", () => {
+  const source = readFileSync(new URL("../src/constructor-desk.js", import.meta.url), "utf8");
+  assert.match(source, /data-cd-pick-file/);
+  assert.match(source, /enver-file-input-offscreen/);
 });
