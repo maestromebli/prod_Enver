@@ -228,6 +228,7 @@ jobs:
           docker run --rm \
             -e NODE_ENV=production \
             -e SESSION_SECRET=ci-production-smoke-secret \
+            -e DATABASE_URL=postgresql://ci:ci@127.0.0.1:9/ci \
             -e UPLOADS_DIR=/tmp/enver-uploads \
             "$IMAGE" node -e "
               import { assertProductionSafety } from './server/src/config.js';
