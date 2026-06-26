@@ -359,15 +359,38 @@ Severity: Low
 Area: tests  
 Status: verified
 
-Запуск: `DOTENV_CONFIG_PATH=../.env node -r dotenv/config --test test/integration/*.test.mjs` у `server/` — **20/20 passed**.
+Запуск: `DOTENV_CONFIG_PATH=../.env node -r dotenv/config --test test/integration/*.test.mjs` у `server/` — **27/27 passed** (включно з `rbac-audit.test.mjs`).
+
+### BUG-014 — Vite chunk size > 500 kB
+
+Severity: Low  
+Area: client / build  
+Status: mitigated
+
+`manualChunks` для `three` — `part-viewer` ~5 kB, `three` ~779 kB окремим chunk.
+
+### BUG-012 — xlsx ReDoS / prototype pollution
+
+Severity: Low  
+Area: security  
+Status: mitigated
+
+`sheetRows` + `MAX_XLS_ROWS=5000` у `xls-parser.js`. Повна заміна бібліотеки — окремий етап.
+
+---
+
+## Regression tests (2026-06-26)
+
+- `server/test/integration/rbac-audit.test.mjs` — оператор 403, IDOR пакетів, legacy redirect
+- `client/test/api-session.test.js` — `enver:session-expired` на 401
 
 ---
 
 ## Підсумок
 
-| Severity | Знайдено | Виправлено       |
-| -------- | -------- | ---------------- |
-| Critical | 0        | 0                |
-| High     | 5        | 5                |
-| Medium   | 6        | 6                |
-| Low      | 5        | 0 (needs-review) |
+| Severity | Знайдено | Виправлено / mitigated |
+| -------- | -------- | ---------------------- |
+| Critical | 0        | 0                      |
+| High     | 5        | 5                      |
+| Medium   | 6        | 6                      |
+| Low      | 5        | 4                      |

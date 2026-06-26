@@ -103,16 +103,28 @@ function extractFromRows(rows) {
   return { materials, hardware, warnings, extractionQuality };
 }
 
+const MAX_XLS_ROWS = 5000;
+
 export async function parseXlsBuffer(buffer, originalName = "") {
   try {
     const mod = await import("xlsx");
     const XLSX = mod.default || mod;
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true, sheetRows: MAX_XLS_ROWS });
     const allRows = [];
     for (const name of wb.SheetNames) {
       const sheet = wb.Sheets[name];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
       allRows.push(...parseSheetRows(rows));
+      if (allRows.length > MAX_XLS_ROWS) {
+        return {
+          materials: [],
+          hardware: [],
+          warnings: [
+            `XLS занадто великий (${originalName}) — обмеження ${MAX_XLS_ROWS} рядків. Завантажте менший файл або PDF.`
+          ],
+          extractionQuality: "poor"
+        };
+      }
     }
     return extractFromRows(allRows);
   } catch (err) {

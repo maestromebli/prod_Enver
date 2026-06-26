@@ -69,8 +69,9 @@ describeIntegration("integration: RBAC audit regressions", () => {
         kind: "assembly_pdf"
       })
     });
-    assert.equal(uploadRes.status, 201, await uploadRes.text());
-    const pkgBody = await uploadRes.json();
+    const uploadText = await uploadRes.text();
+    assert.equal(uploadRes.status, 201, uploadText);
+    const pkgBody = JSON.parse(uploadText);
     const detail = pkgBody.data ?? pkgBody;
     packageId = detail.package?.id ?? detail.id;
     fileId = detail.files?.[0]?.id;
@@ -79,10 +80,10 @@ describeIntegration("integration: RBAC audit regressions", () => {
   });
 
   after(async () => {
-    server?.close();
     await deleteTestUser(baseUrl, adminToken, operatorUserId);
     await cleanupTestOrder(orderNumberA);
     await cleanupTestOrder(orderNumberB);
+    server?.close();
   });
 
   it("оператор — 403 на списки замовлень і позицій", async () => {
@@ -109,7 +110,8 @@ describeIntegration("integration: RBAC audit regressions", () => {
     });
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.ok(Array.isArray(body.data ?? body));
+    const payload = body.data ?? body;
+    assert.ok(Array.isArray(payload.queue));
   });
 
   it("оператор — 403 на POST /api/ai/assist", async () => {

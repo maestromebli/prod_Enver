@@ -15,6 +15,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) return "three";
+        }
+      },
       input: {
         main: path.resolve(__dirname, "index.html"),
         operator: path.resolve(__dirname, "operator.html"),
