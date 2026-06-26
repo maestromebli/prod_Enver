@@ -18,6 +18,8 @@ test.describe("E2E: RBAC і файли оператора", () => {
   let positionId;
   let packageId;
   let fileId;
+  let otherOrderId;
+  let otherPositionId;
 
   test.beforeAll(async ({ request }) => {
     ({ token: adminToken } = await loginAdmin(request));
@@ -29,10 +31,16 @@ test.describe("E2E: RBAC і файли оператора", () => {
     positionId = created.positionId;
     packageId = created.packageId;
     fileId = created.fileId;
+    const other = await createOrderWithPackage(request, adminToken, `${orderNumber}-B`);
+    otherOrderId = other.orderId;
+    otherPositionId = other.positionId;
   });
 
   test.afterAll(async ({ request }) => {
     await deleteUser(request, adminToken, operatorUserId);
+    if (otherOrderId) {
+      await request.delete(`/api/orders/${otherOrderId}`, { headers: authHeaders(adminToken) });
+    }
     if (orderId) {
       await request.delete(`/api/orders/${orderId}`, { headers: authHeaders(adminToken) });
     }
@@ -67,12 +75,9 @@ test.describe("E2E: RBAC і файли оператора", () => {
   });
 
   test("IDOR: чужий position_id у URL файлу — 404", async ({ request }) => {
-    const listRes = await request.get("/api/positions", { headers: authHeaders(adminToken) });
-    const positions = (await listRes.json()).data;
-    const other = positions.find((p) => p.id !== positionId && !p.parentId);
-    expect(other?.id).toBeTruthy();
+    expect(otherPositionId).toBeTruthy();
     const res = await request.get(
-      `/api/positions/${other.id}/constructive-packages/${packageId}/files/${fileId}`,
+      `/api/positions/${otherPositionId}/constructive-packages/${packageId}/files/${fileId}`,
       { headers: authHeaders(adminToken) }
     );
     expect(res.status()).toBe(404);
