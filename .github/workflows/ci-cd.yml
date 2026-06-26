@@ -85,10 +85,17 @@ jobs:
       - name: Install
         run: npm run install:all
 
+      - name: Migrate (integration DB)
+        env:
+          DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
+          DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
+        run: npm run migrate --prefix server
+
       - name: Integration tests + coverage
         env:
           CI: true
           RUN_INTEGRATION_TESTS: "1"
+          CI_INTEGRATION_MIGRATED: "1"
           DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
           DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
           COVERAGE_MIN_LINES: "55"
@@ -197,7 +204,6 @@ jobs:
           tags: |
             ${{ steps.repo.outputs.name }}:latest
             ${{ steps.repo.outputs.name }}:${{ github.sha }}
-            enver:ci
           build-args: |
             APP_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha
@@ -206,7 +212,8 @@ jobs:
       - name: Smoke Docker (main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker run -d --name enver-smoke-main -p 13001:3000 -e NODE_ENV=development enver:ci
+          IMAGE="${{ steps.repo.outputs.name }}:${{ github.sha }}"
+          docker run -d --name enver-smoke-main -p 13001:3000 -e NODE_ENV=development "$IMAGE"
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:13001/api/health | grep -q '"ok":true'; then
               docker rm -f enver-smoke-main

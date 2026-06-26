@@ -84,6 +84,8 @@ describeIntegration("integration: API surface", () => {
     const res = await fetch(`${baseUrl}/api/clients/info`, { headers: authHeaders(token) });
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.equal(typeof body.data.available, "boolean");
+    const info = body.data ?? body;
+    assert.equal(typeof info.androidDownloadAvailable, "boolean");
+    assert.ok(info.operatorUrl);
   });
 });

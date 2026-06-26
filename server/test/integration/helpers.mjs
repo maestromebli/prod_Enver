@@ -12,6 +12,8 @@ export function integrationEnabled() {
 }
 
 export function runMigrations() {
+  if (process.env.CI_INTEGRATION_MIGRATED === "1") return;
+
   const result = spawnSync("node", ["-r", "dotenv/config", "scripts/migrate.mjs"], {
     cwd: serverRoot,
     env: {
