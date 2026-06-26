@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { one } from "../db.js";
+import { PACKAGE_ID_SUBQUERY } from "../constructive-package-enrich.js";
 import {
   requireAdmin,
   requireAuth,
@@ -13,6 +14,7 @@ import {
   listRecentAnalyses,
   saveAiFeedback
 } from "../constructive-ai.js";
+import { analyzeConstructivePackage } from "../constructive/constructive-package-ai.js";
 import { chatWithAssistant, fetchAssistantHints, getAiAvailability } from "../ai-assistant.js";
 import {
   createAiRule,
@@ -30,7 +32,10 @@ router.use(requireAuth);
 
 router.post("/analyze-constructive/:positionId", requirePositionWrite, async (req, res) => {
   const positionId = Number(req.params.positionId);
-  const position = await one("SELECT * FROM positions WHERE id = $1", [positionId]);
+  const position = await one(
+    `SELECT p.*, ${PACKAGE_ID_SUBQUERY} FROM positions p WHERE p.id = $1`,
+    [positionId]
+  );
   if (!position) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
@@ -42,22 +47,32 @@ router.post("/analyze-constructive/:positionId", requirePositionWrite, async (re
      ORDER BY created_at DESC LIMIT 1`,
     [positionId]
   );
-  if (!file) {
-    res.status(400).json({ error: "Спочатку завантажте файл конструктива" });
+  if (file) {
+    const result = await analyzeConstructiveFile({
+      positionFileId: file.id,
+      orderNumber: position.order_number,
+      item: position.item,
+      itemType: position.item_type,
+      material: position.material,
+      storagePath: file.storage_path,
+      mime: file.mime,
+      originalName: file.original_name
+    });
+    res.json(result);
     return;
   }
 
-  const result = await analyzeConstructiveFile({
-    positionFileId: file.id,
-    orderNumber: position.order_number,
-    item: position.item,
-    itemType: position.item_type,
-    material: position.material,
-    storagePath: file.storage_path,
-    mime: file.mime,
-    originalName: file.original_name
-  });
-  res.json(result);
+  const packageId = Number(position.constructive_package_id);
+  if (packageId) {
+    const result = await analyzeConstructivePackage(packageId, {
+      orderNumber: position.order_number,
+      item: position.item
+    });
+    res.json(result);
+    return;
+  }
+
+  res.status(400).json({ error: "Спочатку завантажте файл конструктива" });
 });
 
 router.get("/analyses/:positionId", async (req, res) => {

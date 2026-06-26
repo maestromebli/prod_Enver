@@ -4,7 +4,8 @@ import {
   PRODUCTION_FLOOR_TAB,
   ATTENTION_TAB,
   OVERVIEW_TAB,
-  CONSTRUCTOR_DESK_TAB
+  CONSTRUCTOR_DESK_TAB,
+  PROCUREMENT_TAB
 } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
@@ -36,6 +37,11 @@ import { notifyUiChanged } from "./ui-persistence.js";
 import { notifyAiContextChanged } from "./ai-assistant.js";
 import { bindAttentionTab, renderAttentionTab } from "./attention-view.js";
 import { renderDashboard } from "./dashboard.js";
+import {
+  bindProcurementTab,
+  loadProcurementList,
+  renderProcurementTab
+} from "./procurement-view.js";
 import { emptyStateIcon } from "./icons.js";
 import {
   renderHeaderChrome,
@@ -50,29 +56,25 @@ import {
 export { filteredPositions };
 export { renderResponsibleOptions } from "./render-chrome.js";
 
-function emptyRow(colspan = 10) {
-  return `<tr><td colspan="${colspan}">
-    <div class="enver-empty-state positions-table-empty">
-      <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
-      <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
-      <p class="enver-empty-state-text">Немає позицій за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
-    </div>
-  </td></tr>`;
+function positionsEmptyState() {
+  return `<div class="enver-empty-state positions-table-empty" role="status">
+    <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
+    <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
+    <p class="enver-empty-state-text">Немає позицій за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
+  </div>`;
 }
 
 function positionsTable(data, title = "Позиції замовлення", showActions = false) {
   const allowActions = showActions && canEditPositions();
-  const actionHeader = allowActions ? "<th>Дії</th>" : "";
-  const colspan = allowActions ? 21 : 20;
+  const actionHeader = allowActions ? '<th scope="col" title="Дії">Дії</th>' : "";
   const newTaskIds = newProductionTaskIdsForCurrentRole();
-  const body =
-    renderPositionTableBody(
-      data,
-      state.positions,
-      state.expandedPositionIds,
-      allowActions,
-      newTaskIds
-    ) || emptyRow(colspan);
+  const body = renderPositionTableBody(
+    data,
+    state.positions,
+    state.expandedPositionIds,
+    allowActions,
+    newTaskIds
+  );
   const cards = renderPositionCards(
     data,
     state.positions,
@@ -86,6 +88,32 @@ function positionsTable(data, title = "Позиції замовлення", sho
         <button type="button" class="btn btn-primary btn-sm" id="newPositionBtn">+ Нова позиція</button>
        </div>`
     : `<div class="block-title">${escapeHtml(title)}</div>`;
+
+  const tableHead = `
+          <thead>
+            <tr>
+              <th scope="col" class="col-opt-id">ID</th>
+              <th scope="col">Номер замовлення</th>
+              <th scope="col" class="col-opt-object">Об'єкт</th>
+              <th scope="col" class="left col-item">Виріб / Зона</th>
+              <th scope="col" class="col-opt-type">Тип виробу</th>
+              <th scope="col" class="col-opt-manager">Менеджер</th>
+              <th scope="col" class="col-opt-constructor">Конструктор</th>
+              <th scope="col">Порізка</th>
+              <th scope="col" class="col-opt-edging">Крайкування</th>
+              <th scope="col" class="col-opt-drilling">Присадка</th>
+              <th scope="col">Збірка</th>
+              <th scope="col" class="col-opt-ready">Дата готовності</th>
+              <th scope="col" class="col-opt-install-date">Період монтажу</th>
+              <th scope="col">Монтажник</th>
+              <th scope="col">Статус позиції</th>
+              <th scope="col">Готово, %</th>
+              <th scope="col" class="col-opt-overdue">Прострочка, днів</th>
+              <th scope="col" class="left col-opt-problem">Проблема</th>
+              <th scope="col" class="left col-opt-note">Примітка</th>
+              ${actionHeader}
+            </tr>
+          </thead>`;
 
   return `
     <div class="card positions-view">
@@ -103,12 +131,11 @@ function positionsTable(data, title = "Позиції замовлення", sho
             <col class="col-w-person col-opt-manager" />
             <col class="col-w-person col-opt-constructor" />
             <col class="col-w-stage" />
-            <col class="col-w-stage col-opt-edging" />
-            <col class="col-w-stage col-opt-drilling" />
-            <col class="col-w-stage" />
+            <col class="col-w-stage-wide col-opt-edging" />
+            <col class="col-w-stage-wide col-opt-drilling" />
             <col class="col-w-stage" />
             <col class="col-w-date col-opt-ready" />
-            <col class="col-w-date col-opt-install-date" />
+            <col class="col-w-date-wide col-opt-install-date" />
             <col class="col-w-person" />
             <col class="col-w-status" />
             <col class="col-w-progress" />
@@ -117,32 +144,10 @@ function positionsTable(data, title = "Позиції замовлення", sho
             <col class="col-w-text col-opt-note" />
             ${allowActions ? '<col class="col-w-actions" />' : ""}
           </colgroup>
-          <thead>
-            <tr>
-              <th class="col-opt-id">ID</th>
-              <th>Номер замовлення</th>
-              <th class="col-opt-object">Об'єкт</th>
-              <th class="left col-item">Виріб / Зона</th>
-              <th class="col-opt-type">Тип виробу</th>
-              <th class="col-opt-manager">Менеджер</th>
-              <th class="col-opt-constructor">Конструктор</th>
-              <th>Порізка</th>
-              <th class="col-opt-edging">Крайкування</th>
-              <th class="col-opt-drilling">Присадка</th>
-              <th>Збірка</th>
-              <th class="col-opt-ready">Дата готовності</th>
-              <th class="col-opt-install-date">Період монтажу</th>
-              <th>Монтажник</th>
-              <th>Статус позиції</th>
-              <th>Готово, %</th>
-              <th class="col-opt-overdue">Прострочка, днів</th>
-              <th class="left col-opt-problem">Проблема</th>
-              <th class="left col-opt-note">Примітка</th>
-              ${actionHeader}
-            </tr>
-          </thead>
-          <tbody>${body}</tbody>
+          ${tableHead}
+          <tbody>${body || ""}</tbody>
         </table>
+        ${body ? "" : `<div class="positions-table-empty-wrap">${positionsEmptyState()}</div>`}
       </div>
     </div>
   `;
@@ -182,6 +187,7 @@ function renderContent() {
   if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === CONSTRUCTOR_DESK_TAB) return renderConstructorDeskTab();
+  if (tab === PROCUREMENT_TAB) return renderProcurementTab();
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Історія змін") return historyTab();
   return renderOrdersGrid(ordersData, state.positions, {
@@ -406,6 +412,20 @@ export function renderApp(options = {}) {
 
   if (state.activeTab === CONSTRUCTOR_DESK_TAB && state.constructorDesk.selectedPositionId) {
     bindConstructorDeskWorkspace(() => renderApp({ contentOnly: true }));
+  }
+
+  if (state.activeTab === PROCUREMENT_TAB) {
+    bindProcurementTab(document.querySelector("#content"), {
+      onRefresh: () => renderApp({ contentOnly: true }),
+      onOpenPosition: async (id) => {
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
+      }
+    });
   }
 
   notifyAiContextChanged();

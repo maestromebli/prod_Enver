@@ -546,6 +546,79 @@ tr.row-position-fresh {
   padding: 2rem 1rem;
 }
 
+.positions-view > .card-header-row {
+  padding: 12px 20px;
+}
+
+.positions-view > .card-header-row .block-title {
+  padding-left: 2px;
+}
+
+.positions-table-empty-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.positions-table-empty-wrap .positions-table-empty {
+  min-height: 0;
+  padding: 2rem 1.5rem;
+}
+
+/* Широка таблиця позицій: фіксовані колонки + горизонтальний скрол */
+.positions-view .positions-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.positions-view .positions-table-wrap > .positions-table {
+  flex: 0 0 auto;
+}
+
+.positions-table {
+  table-layout: fixed;
+  width: max(100%, 1860px);
+  min-width: 1860px;
+}
+
+.positions-view .positions-table-wrap th,
+.positions-view .positions-table-wrap td {
+  max-width: none;
+}
+
+.positions-view .positions-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+  line-height: 1.3;
+  vertical-align: middle;
+  text-align: center;
+  padding: 10px 8px;
+  background: var(--surface-muted);
+  box-shadow: inset 0 -1px 0 var(--border-soft);
+}
+
+.positions-view .positions-table th.left,
+.positions-view .positions-table th.col-item {
+  text-align: left;
+}
+
+.positions-view .positions-table-wrap td {
+  text-align: center;
+}
+
+.positions-view .positions-table-wrap td.left,
+.positions-view .positions-table-wrap td.col-item {
+  text-align: left;
+}
+
 .drawer-section--qr {
   padding: 14px 16px;
   border: 1px solid var(--enver-border, var(--border));

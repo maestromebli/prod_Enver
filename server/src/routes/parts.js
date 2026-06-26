@@ -14,7 +14,7 @@ import {
 } from "../constructive/constructive-package-service.js";
 import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
-import { CNC_PROBLEM_REASONS } from "../../../shared/production/constructive-package.js";
+import { CNC_PROBLEM_REASONS, findPackagePreview3dFile, preview3dLoadFormat } from "../../../shared/production/constructive-package.js";
 import { recordHistory } from "../audit.js";
 import { config } from "../config.js";
 
@@ -35,12 +35,12 @@ async function buildScanResponse(part) {
   const cncJobs = await getCncJobsForPosition(part.positionId);
   const cncJob = cncJobs.find((j) => j.partId === part.id) || null;
 
-  const glbFile = detail?.files?.find((f) => f.kind === "glb_model" || f.kind === "gltf_model");
+  const previewFile = findPackagePreview3dFile(detail);
   const pdfFile = detail?.files?.find((f) => f.kind === "assembly_pdf");
 
   const host = config.domain ? `https://${config.domain}` : "";
-  const viewerUrl = glbFile
-    ? `${host}/api/constructive/packages/${part.packageId}/files/${glbFile.id}`
+  const viewerUrl = previewFile
+    ? `${host}/api/constructive/packages/${part.packageId}/files/${previewFile.id}`
     : null;
 
   return {
@@ -59,7 +59,8 @@ async function buildScanResponse(part) {
     cncJob,
     model: {
       viewerUrl,
-      glbFileId: glbFile?.id || null,
+      viewerFormat: previewFile ? preview3dLoadFormat(previewFile) : null,
+      glbFileId: previewFile?.id || null,
       manifest: detail?.manifest?.manifestJson || null,
       mapped: Boolean(part.modelNodeId || part.modelMeshName),
       assemblyPdfUrl: pdfFile

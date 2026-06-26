@@ -1,5 +1,5 @@
 import fs from "fs";
-import { all, one } from "./db.js";
+import { all, one, run } from "./db.js";
 import {
   CONSTRUCTIVE_MAX_BYTES,
   isConstructiveExtension
@@ -74,4 +74,31 @@ export function setConstructiveDownloadHeaders(res, fileRow) {
 export function pipeConstructiveFile(res, fullPath, fileRow) {
   setConstructiveDownloadHeaders(res, fileRow);
   return fs.createReadStream(fullPath).pipe(res);
+}
+
+export async function deleteConstructiveFile(positionId, fileId) {
+  const row = await one(
+    `SELECT * FROM position_files WHERE id = $1 AND position_id = $2 AND kind = 'constructive'`,
+    [fileId, positionId]
+  );
+  if (!row) {
+    const err = new Error("Файл не знайдено");
+    err.status = 404;
+    throw err;
+  }
+
+  await run(`DELETE FROM position_files WHERE id = $1`, [fileId]);
+  try {
+    const full = resolveStoredPath(row.storage_path);
+    if (fs.existsSync(full)) fs.unlinkSync(full);
+  } catch {
+    /* ignore */
+  }
+
+  const remaining = await all(
+    `SELECT id FROM position_files WHERE position_id = $1 AND kind = 'constructive'`,
+    [positionId]
+  );
+
+  return { deleted: true, hasFilesLeft: remaining.length > 0 };
 }

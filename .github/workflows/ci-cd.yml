@@ -36,6 +36,15 @@ jobs:
       - name: Install
         run: npm run install:all
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: B3D converter (Bazis .b3d)
+        run: |
+          pip install -e "./tools/b3d-converter[dev]"
+          cd tools/b3d-converter && pytest -q
+
       - name: Format check
         run: npm run format:check
 

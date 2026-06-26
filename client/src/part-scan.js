@@ -4,10 +4,10 @@ import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
 import { iconSvg } from "./icons.js";
 import { toastError, toastSuccess } from "./toast.js";
-import { CNC_PROBLEM_REASONS } from "@enver/shared/production/constructive-package.js";
+import { CNC_PROBLEM_REASONS, formatPartDimensionsMm } from "@enver/shared/production/constructive-package.js";
 
-/** Етапи, де оператор сканує деталі за штрихкодом. */
-export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
+/** Етапи зі скануванням етикеток (верстат і етапи працюють без штрихкодів у системі). */
+export const PART_SCAN_OPERATOR_STAGES = [];
 
 export function isPartScanStage(stageKey) {
   return PART_SCAN_OPERATOR_STAGES.includes(stageKey);
@@ -96,7 +96,7 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
       <div class="part-detail-meta">
         <p><strong>${escapeHtml(data.order?.orderNumber || "")}</strong> · ${escapeHtml(data.position?.item || "")}</p>
         <p>${escapeHtml(p.blockCode || "—")} · №${escapeHtml(p.partNo)} · ${escapeHtml(p.partName)}</p>
-        <p>${escapeHtml(p.material)} · ${escapeHtml(p.length)}×${escapeHtml(p.width)} ${escapeHtml(p.thickness)}</p>
+        <p>${escapeHtml(p.material)} · ${escapeHtml(formatPartDimensionsMm(p))}</p>
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
         ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
@@ -163,7 +163,7 @@ async function mountViewer(container, data) {
   try {
     viewer = await createPartViewer(container);
     const url = modelFileUrl(data.model.viewerUrl);
-    await viewer.loadModel(url, getStoredToken());
+    await viewer.loadModel(url, getStoredToken(), { format: data.model.viewerFormat || "glb" });
     if (data.part.modelMeshName || data.part.modelNodeId) {
       viewer.highlightPart({
         meshName: data.part.modelMeshName || data.part.modelNodeId,

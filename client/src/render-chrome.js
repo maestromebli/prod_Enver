@@ -3,6 +3,7 @@ import {
   canEditPositions,
   canViewProductionFloor,
   canViewConstructorDesk,
+  canViewProcurement,
   canViewSettings,
   hasOperatorAccess,
   isOperator
@@ -12,7 +13,8 @@ import {
   TABS,
   ATTENTION_TAB,
   OVERVIEW_TAB,
-  CONSTRUCTOR_DESK_TAB
+  CONSTRUCTOR_DESK_TAB,
+  PROCUREMENT_TAB
 } from "./constants.js";
 import { getSettingsHeaderMeta } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
@@ -31,6 +33,7 @@ import {
 } from "./godmode-notifications.js";
 import { navIconSvg, iconSvg } from "./icons.js";
 import { setOperatorUiActive } from "./operator-ui.js";
+import { procurementTabBadgeCount } from "./procurement-view.js";
 
 function isOrdersRegistry() {
   return state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
@@ -44,6 +47,7 @@ function visibleTabs() {
   return TABS.filter((tab) => {
     if (tab === PRODUCTION_FLOOR_TAB) return canViewProductionFloor();
     if (tab === CONSTRUCTOR_DESK_TAB) return canViewConstructorDesk();
+    if (tab === PROCUREMENT_TAB) return canViewProcurement();
     return true;
   });
 }
@@ -54,6 +58,7 @@ const TAB_META = {
   [ATTENTION_TAB]: { subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { subtitle: "Черги, сесії та проблеми" },
   [CONSTRUCTOR_DESK_TAB]: { subtitle: "Картки або список замовлень у конструктиві" },
+  [PROCUREMENT_TAB]: { subtitle: "Заявки з Excel-специфікації конструктора" },
   Встановлення: { subtitle: "Календар монтажу" },
   "Історія змін": { subtitle: "Аудит дій у системі" }
 };
@@ -122,6 +127,7 @@ export function renderTabs() {
   const newOrders = countNewOrdersForCurrentRole();
   const newTasks = countNewProductionTasksForCurrentRole();
   const attentionCount = attentionTabBadgeCount();
+  const procurementCount = procurementTabBadgeCount();
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
   document.querySelector("#tabs").innerHTML = visibleTabs()
     .map((tab) => {
@@ -136,6 +142,7 @@ export function renderTabs() {
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
         ${tab === ATTENTION_TAB ? tabBadge(attentionCount) : ""}
         ${tab === PRODUCTION_FLOOR_TAB ? tabBadge(newTasks) : ""}
+        ${tab === PROCUREMENT_TAB ? tabBadge(procurementCount) : ""}
       </button>
     `;
     })

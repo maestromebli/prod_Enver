@@ -1,3 +1,4 @@
+import { state } from "./state.js";
 import { api, constructivePackageFileUrl, getPartLabelsUrl } from "./api.js";
 import { createFileDropZone } from "./interactions/drag-drop.js";
 import { pickLocalFile } from "./file-picker.js";
@@ -8,23 +9,117 @@ import {
   formatConstructiveSize
 } from "@enver/shared/production/constructive-files.js";
 import {
-  CONSTRUCTIVE_PIPELINE_STEPS,
+  formatCncFileMaterialLabel,
+  inferCncFileMaterialMeta,
+  isMultiInstancePackageFileKind
+} from "@enver/shared/production/cnc-file-meta.js";
+import {
   PACKAGE_FILE_KIND_LABELS,
+  PACKAGE_HANDOFF_TO_CUTTING_STATUSES,
   packageStatusLabel,
-  detectPackageFileKind
+  packageParseDisplay,
+  detectPackageFileKind,
+  partitionModelMappingSources,
+  canCreateProcurement,
+  hasModelMappingResult,
+  hasModelMappingSources,
+  has3dPreviewFile,
+  shouldShowModelMappingTab
 } from "@enver/shared/production/constructive-package.js";
 import { canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { runSave } from "./save-flow.js";
+import {
+  renderConstructivePipeline,
+  renderPackageParseBanner,
+  runPackageParseWithProgress,
+  applyPackageParseUi
+} from "./constructive-package-parse-ui.js";
 
 const packageDropZones = new WeakMap();
 const quickUploadZones = new WeakMap();
-const pendingFilesByRoot = new WeakMap();
 const packageBindAbort = new WeakMap();
+const packageUploadQueues = new WeakMap();
 
-const PACKAGE_EXTRA_EXT = [".glb", ".gltf"];
+const PACKAGE_EXTRA_EXT = [".glb", ".gltf", ".wrl"];
+const PACKAGE_CNC_EXT = [".nc", ".giblab", ".kdt", ".gcode", ".tap", ".cnc"];
+const PACKAGE_ALL_ACCEPT = [...CONSTRUCTIVE_ACCEPT_EXT, ...PACKAGE_EXTRA_EXT, ...PACKAGE_CNC_EXT];
+
+async function fileToPackagePayload(file) {
+  const kind = detectPackageFileKind(file.name);
+  const payload = {
+    fileName: file.name,
+    mime: file.type || "application/octet-stream",
+    kind,
+    dataBase64: await readFileAsBase64(file)
+  };
+  if (isMultiInstancePackageFileKind(kind)) {
+    const meta = inferCncFileMaterialMeta(file.name);
+    payload.materialType = meta.materialType || "";
+    payload.materialDecor = meta.materialDecor || "";
+  }
+  return payload;
+}
+
+async function flushPackageUploadQueue(position, root, notify) {
+  const state = packageUploadQueues.get(root);
+  if (!state || state.busy || !state.pending.length) return;
+
+  state.busy = true;
+  const files = state.pending.splice(0, state.pending.length);
+  const zone = root.querySelector("[data-cp-package-drop]");
+  zone?.classList.add("is-uploading");
+  zone?.setAttribute("aria-busy", "true");
+
+  try {
+    const payload = await Promise.all(files.map(fileToPackagePayload));
+    const result = await api.uploadConstructivePackage(position.id, payload);
+    const ctx = getPackagePanelContext(position.id);
+    handlePackageUploadResult(root, result, {
+      onDetailPatched: ctx?.onDetailPatched,
+      hideProcurement: ctx?.hideProcurement === true
+    });
+    if (ctx) {
+      ctx.detail = result;
+      if (ctx.onUpdated) {
+        await ctx.onUpdated({ packageDomOnly: true });
+      } else {
+        applyPackageDetailToDom(root, position, result, ctx.constructiveFiles || []);
+      }
+    } else {
+      notify();
+    }
+  } catch (err) {
+    toastError(err.message);
+  } finally {
+    state.busy = false;
+    zone?.classList.remove("is-uploading");
+    zone?.removeAttribute("aria-busy");
+    if (state.pending.length) {
+      void flushPackageUploadQueue(position, root, notify);
+    }
+  }
+}
+
+function enqueuePackageUpload(root, position, fileList, notify) {
+  const accepted = fileList.filter(isPackageUploadFile);
+  const skipped = fileList.length - accepted.length;
+  if (!accepted.length) {
+    if (fileList.length) toastError("Немає підтримуваних файлів пакета");
+    return { added: 0, skipped };
+  }
+
+  if (!packageUploadQueues.has(root)) {
+    packageUploadQueues.set(root, { pending: [], busy: false });
+  }
+  const state = packageUploadQueues.get(root);
+  state.pending.push(...accepted);
+  void flushPackageUploadQueue(position, root, notify);
+
+  return { added: accepted.length, skipped };
+}
 
 function fileExtension(name) {
   const n = String(name || "");
@@ -41,32 +136,46 @@ export function isPackageUploadFile(file) {
   return detectPackageFileKind(file.name) !== "other";
 }
 
-function syncPackageUploadBtn(root, pendingFiles) {
-  const btn = root.querySelector("[data-cp-upload-btn]");
-  if (btn) btn.disabled = pendingFiles.size === 0;
+function handlePackageUploadResult(root, result, { onDetailPatched, hideProcurement = false } = {}) {
+  onDetailPatched?.(result);
+
+  if (result?.autoParseError) {
+    toastError(`Файли збережено, але автоматичний розбір не вдався: ${result.autoParseError}`);
+    return;
+  }
+
+  const mappingReady = hasModelMappingResult(result) || shouldShowModelMappingTab(result);
+
+  if (result?.autoParsed) {
+    const parts = ["Файли збережено"];
+    if (has3dPreviewFile(result)) parts.push("3D-модель з .b3d");
+    else if (mappingReady) parts.push("мапінг 3D створено");
+    if (!hideProcurement && (result?.autoProcurement || result?.procurement?.id)) {
+      parts.push("закупівлю з Excel");
+    }
+    toastSuccess(`${parts.join(" — ")}.`);
+    return;
+  }
+
+  if (!mappingReady && !hasModelMappingSources(result)) {
+    const files = result?.files || [];
+    const missing = [];
+    if (!files.some((f) => f.kind === "project")) missing.push(".project");
+    if (!files.some((f) => f.kind === "b3d")) missing.push(".b3d");
+    if (missing.length) {
+      toastSuccess(
+        `Файли збережено. Додайте ${missing.join(" та ")} у той самий пакет — розбір і мапінг 3D запустяться автоматично`
+      );
+      return;
+    }
+  }
+
+  toastSuccess(packageUploadSuccessMessage(result));
 }
 
-function addPendingPackageFiles(root, pendingFiles, fileList, { toastSummary = false } = {}) {
-  let added = 0;
-  let skipped = 0;
-  for (const file of fileList) {
-    if (!isPackageUploadFile(file)) {
-      skipped += 1;
-      continue;
-    }
-    const kind = detectPackageFileKind(file.name);
-    pendingFiles.set(kind, file);
-    updateSlotName(root, kind, file.name);
-    added += 1;
-  }
-  syncPackageUploadBtn(root, pendingFiles);
-  if (toastSummary && added > 0) {
-    const extra = skipped > 0 ? ` · пропущено ${skipped}` : "";
-    toastSuccess(`Додано ${added} файл(ів)${extra}`);
-  } else if (toastSummary && !added) {
-    toastError("У папці немає підтримуваних файлів пакета");
-  }
-  return { added, skipped };
+function packageUploadSuccessMessage(result) {
+  if (has3dPreviewFile(result)) return "Файли збережено — 3D-модель з .b3d готова";
+  return "Файли завантажено";
 }
 
 function readFileAsBase64FromFile(file) {
@@ -104,43 +213,98 @@ export function bindQuickConstructiveUpload(root, position, { onUploaded, editab
 /** @deprecated Використовуйте bindQuickConstructiveUpload */
 export const bindLegacyConstructiveUpload = bindQuickConstructiveUpload;
 
-function renderPipeline(status) {
-  const steps = CONSTRUCTIVE_PIPELINE_STEPS.map((s) => {
-    const active = s.statuses.includes(status);
-    return `<span class="cp-pipe-step ${active ? "is-active" : ""}">${escapeHtml(s.label)}</span>`;
+/** @deprecated Використовуйте shouldShowModelMappingTab з shared */
+export function hasConstructiveModelMapping(detail) {
+  return shouldShowModelMappingTab(detail);
+}
+
+function renderUploadedConstructiveFiles(positionId, detail, legacyFiles = [], { editable = false } = {}) {
+  const pkg = detail?.package;
+  const packageFiles = detail?.files || [];
+  const hasLegacy = legacyFiles.length > 0;
+  const hasPackage = Boolean(pkg);
+
+  if (!hasLegacy && !hasPackage) {
+    return `<div class="cp-uploaded-files cp-uploaded-files--empty" data-cp-uploaded-files><p class="field-hint">Завантажених файлів ще немає.</p></div>`;
+  }
+
+  const blocks = [];
+  if (hasPackage) {
+    blocks.push(`
+      <div class="cp-uploaded-group">
+        ${pkg?.version ? `<p class="enver-meta">Пакет v${pkg.version} · ${escapeHtml(packageStatusLabel(pkg.status))}</p>` : ""}
+        ${packageFiles.length ? renderPackageFilesList(positionId, pkg.id, packageFiles, { editable }) : `<p class="enver-meta" data-package-id="${pkg.id}">Файлів у пакеті немає — додайте нові.</p>`}
+      </div>`);
+  }
+  if (hasLegacy) {
+    blocks.push(`
+      <div class="cp-uploaded-group cp-uploaded-group--legacy">
+        <h4 class="cp-uploaded-title enver-meta">Раніше завантажені</h4>
+        ${renderConstructiveFileList(legacyFiles, positionId, { editable })}
+      </div>`);
+  }
+
+  return `<div class="cp-uploaded-files" data-cp-uploaded-files>${blocks.join("")}</div>`;
+}
+
+/** Оновлює лише блок завантажених файлів (без повного re-render панелі). */
+export function patchConstructiveUploadedFiles(root, position, detail, constructiveFiles = []) {
+  if (!root) return;
+  const mount = root.querySelector("[data-cp-uploaded-files]");
+  const html = renderUploadedConstructiveFiles(position?.id, detail, constructiveFiles, {
+    editable: true
   });
-  return `<div class="cp-pipeline">${steps.join('<span class="cp-pipe-arrow">→</span>')}</div>`;
+  if (mount) {
+    mount.outerHTML = html;
+  } else {
+    const filesPanel = root.querySelector("[data-cp-package-files]");
+    const uploadWrap = filesPanel?.querySelector(".file-upload-wrap");
+    if (filesPanel && uploadWrap) {
+      uploadWrap.insertAdjacentHTML("beforebegin", html);
+    }
+  }
 }
 
-function renderFileSlots() {
-  const kinds = Object.entries(PACKAGE_FILE_KIND_LABELS);
-  return kinds
-    .map(
-      ([kind, label]) => `
-    <div class="cp-file-slot" data-kind="${kind}">
-      <span class="cp-file-label">${escapeHtml(label)}</span>
-      <span class="cp-file-name" data-slot-name="${kind}">—</span>
-    </div>`
-    )
-    .join("");
+function renderPipeline(status) {
+  return renderConstructivePipeline(status);
 }
 
-function renderPackageFilesDownloadList(positionId, packageId, files = []) {
+function renderPackageFilesList(positionId, packageId, files = [], { editable = false } = {}) {
   if (!files.length) {
     return `<p class="enver-meta">Файлів у пакеті немає.</p>`;
   }
-  const rows = files
+  const items = files
     .map((f) => {
       const href = constructivePackageFileUrl(positionId, packageId, f.id);
       const kindLabel = escapeHtml(f.kindLabel || PACKAGE_FILE_KIND_LABELS[f.kind] || f.kind);
-      return `<li class="cp-file-download-row">
-        <span class="cp-file-kind">${kindLabel}</span>
-        <a class="cp-file-link" href="${href}" download="${escapeHtml(f.originalName || "file")}">${escapeHtml(f.originalName || "файл")}</a>
-        <span class="enver-meta">${escapeHtml(formatConstructiveSize(f.sizeBytes))}</span>
-      </li>`;
+      const materialLabel = formatCncFileMaterialLabel(f);
+      const materialBadge = materialLabel
+        ? `<span class="cp-cnc-material-badge">${escapeHtml(materialLabel)}</span>`
+        : "";
+      return `
+    <li class="constructive-file-item">
+      <a class="constructive-file-link" href="${href}" download="${escapeHtml(f.originalName || "file")}">
+        <span class="constructive-file-name">
+          <span class="cp-file-kind-badge">${kindLabel}</span>
+          ${materialBadge}
+          <span class="cp-file-link-text">${escapeHtml(f.originalName || "файл")}</span>
+        </span>
+        <span class="constructive-file-size enver-meta">${escapeHtml(formatConstructiveSize(f.sizeBytes))}</span>
+      </a>
+      ${
+        editable
+          ? `<button type="button" class="btn btn-sm btn-danger constructive-file-delete" data-cp-delete-file="${f.id}" data-package-id="${packageId}" title="Видалити" aria-label="Видалити файл">×</button>`
+          : ""
+      }
+    </li>`;
     })
     .join("");
-  return `<ul class="cp-files-download-list" aria-label="Файли пакета">${rows}</ul>`;
+  return `<ul class="constructive-files-list" data-package-id="${packageId}" aria-label="Файли пакета">${items}</ul>`;
+}
+
+/** @deprecated Використовуйте renderPackageFilesList */
+function renderPackageFilesDownloadList(positionId, packageId, files = []) {
+  return renderPackageFilesList(positionId, packageId, files);
 }
 
 /** Перегляд пакета в замовленні — без завантаження та дій. */
@@ -155,6 +319,7 @@ export function renderConstructivePackageReadOnly(
   const files = detail?.files || [];
   const positionId = position?.id;
   const packageId = pkg?.id;
+  const { project, b3d, specification, cncMachine } = partitionModelMappingSources(files);
   const legacyList = renderConstructiveFileList(legacyFiles, positionId);
   const hasLegacy = legacyFiles.length > 0 || position?.hasConstructiveFile;
 
@@ -175,7 +340,10 @@ export function renderConstructivePackageReadOnly(
           ? `<p class="cp-status">v${pkg.version} · ${escapeHtml(statusLabel)}</p>`
           : `<p class="enver-meta">Пакет ще не завантажено. Завантаження доступне на <strong>столі конструктора</strong>.</p>`
       }
-      ${pkg && packageId ? renderPackageFilesDownloadList(positionId, packageId, files) : ""}
+      ${pkg && packageId && b3d.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">3D-модель (.b3d)</h4>${renderPackageFilesDownloadList(positionId, packageId, b3d)}</div>` : ""}
+      ${pkg && packageId && project.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Проект конструктора (.project)</h4>${renderPackageFilesDownloadList(positionId, packageId, project)}</div>` : ""}
+      ${pkg && packageId && specification.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Специфікація</h4>${renderPackageFilesDownloadList(positionId, packageId, specification)}</div>` : ""}
+      ${pkg && packageId && cncMachine.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Файли на верстат</h4>${renderPackageFilesDownloadList(positionId, packageId, cncMachine)}</div>` : ""}
       ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
       ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
       ${
@@ -186,72 +354,79 @@ export function renderConstructivePackageReadOnly(
     </section>`;
 }
 
-function constructiveFormatsLabel() {
+function packageUploadFormatsLabel() {
   const mb = Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
-  return `PDF, ZIP, XML, DWG, XLS, B3D · до ${mb} МБ`;
+  return `.project · .b3d · XLS · PDF · ЧПК · GLB — до ${mb} МБ`;
 }
 
-/** Швидке завантаження одного файлу конструктива — спільний UI. */
-export function renderQuickConstructiveUpload(position, { fileListHtml = "" } = {}) {
+function renderUnifiedPackageUpload(detail, { hideProcurement = false } = {}) {
+  const hasFiles = Boolean(detail?.files?.length);
+  const autoHint = hideProcurement
+    ? "3D-збірка — після скрипта <strong>enver-b3d-assembly-export.js</strong> у Базісі на .b3d (ENVER3). Без скрипта — лише розкладка деталей."
+    : "3D-збірка: .project + .b3d з ENVER3 (скрипт Базіс). Закупівля — після Excel.";
+  return `
+    <div class="cp-unified-upload file-upload-wrap">
+      ${renderFileUploadZone({
+        zoneAttr: "data-cp-package-drop",
+        inputAttr: "data-cp-package-input",
+        hasFiles,
+        title: hasFiles ? "Додати файли" : "Завантажити файли пакета",
+        hintHtml:
+          'Перетягніть або <button type="button" class="btn-link" data-cp-pick-files>оберіть файли</button> · <button type="button" class="btn-link" data-cp-pick-folder>папку</button>',
+        formats: packageUploadFormatsLabel(),
+        accept: PACKAGE_ALL_ACCEPT.join(",")
+      })}
+      <p class="enver-meta cp-auto-hint">${autoHint}</p>
+    </div>`;
+}
+
+/** @deprecated Використовуйте renderUnifiedPackageUpload у пакеті конструктива */
+export function renderQuickConstructiveUpload(position) {
   if (!position?.id) {
     return `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`;
   }
-  const has = position.hasConstructiveFile;
-  return renderFileUploadZone({
-    zoneAttr: "data-quick-constructive",
-    inputAttr: "data-quick-constructive-input",
-    hasFiles: has,
-    title: has ? "Додати ще файл" : "Завантажити конструктив",
-    hint: "Перетягніть або натисніть",
-    formats: constructiveFormatsLabel(),
-    accept: CONSTRUCTIVE_ACCEPT_EXT.join(","),
-    fileListHtml
-  });
+  return renderUnifiedPackageUpload(null);
 }
-
-/** @deprecated Використовуйте renderQuickConstructiveUpload */
-export const renderLegacyConstructiveUpload = renderQuickConstructiveUpload;
 
 export function renderConstructivePackageBlock(
   position,
   detail = null,
-  { editable = false, fileListHtml = "" } = {}
+  { editable = false, constructiveFiles = [], hideProcurement = false } = {}
 ) {
   if (!editable) {
-    return renderConstructivePackageReadOnly(position, detail);
+    return renderConstructivePackageReadOnly(position, detail, { legacyFiles: constructiveFiles });
   }
 
   const pkg = detail?.package;
   const status = pkg?.status || "uploaded";
-  const statusLabel = packageStatusLabel(status);
+  const parseDisplay = packageParseDisplay(status, detail?.parts?.length || 0);
+  const partsSuffix = detail?.parts?.length ? ` · ${detail.parts.length} деталей` : "";
+  const showManualParseBtn =
+    pkg && pkg.status !== "parsing" && (detail?.files?.length > 0 || pkg.status !== "uploaded");
+  const parseBtnLabel = pkg?.status === "uploaded" ? "Розібрати" : "Розібрати знову";
+  const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
 
   return `
-    <section class="constructive-package-block">
-      <h3 class="enver-section-title">Конструктив</h3>
-      ${renderQuickConstructiveUpload(position, { fileListHtml })}
-      <details class="cp-package-advanced"${pkg ? " open" : ""}>
-        <summary class="cp-package-advanced-summary">Пакет ЧПК${pkg ? ` · v${pkg.version} · ${escapeHtml(statusLabel)}` : ""}</summary>
+    <section class="constructive-package-block" data-position-id="${position?.id || ""}" data-package-id="${pkg?.id || ""}">
+      <h3 class="enver-section-title">Пакет конструктива</h3>
+      ${pkg ? renderPackageParseBanner(detail) : ""}
+      ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
+      <div data-cp-package-files>
         ${pkg ? renderPipeline(status) : ""}
-        <div data-cp-package-drop class="constructive-upload-zone file-upload-zone file-upload-zone--compact enver-drop-target" tabindex="0">
-          <p class="constructive-upload-title">Файли пакета</p>
-          <p class="constructive-upload-hint">Перетягніть сюди або <button type="button" class="btn-link" data-cp-pick-files>оберіть файли</button> · <button type="button" class="btn-link" data-cp-pick-folder>папку</button></p>
-          <p class="constructive-upload-formats">XLS · Project · B3D · PDF · GLB · ЧПК</p>
-        </div>
-        <details class="cp-slots-details">
-          <summary>Слоти файлів</summary>
-          <div class="cp-file-slots">${renderFileSlots()}</div>
-        </details>
+        ${renderUploadedConstructiveFiles(position?.id, detail, constructiveFiles, { editable: true })}
+        ${renderUnifiedPackageUpload(detail, { hideProcurement })}
         <div class="constructive-actions constructive-actions--cta cp-actions">
-          <button type="button" class="btn btn-primary" data-cp-upload-btn disabled>Завантажити пакет</button>
-          <button type="button" class="btn btn-sm" data-cp-parse-btn ${pkg ? "" : "disabled"}>Розібрати</button>
-          <button type="button" class="btn btn-sm" data-cp-procurement-btn ${pkg?.status === "parsed" || pkg?.status === "needs_review" ? "" : "disabled"}>Закупівля</button>
-          <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length ? "" : "disabled"}>Підтвердити</button>
-          <button type="button" class="btn btn-sm" data-cp-release-cnc-btn ${["approved_by_constructor", "approved_by_production", "cnc_ready", "sent_to_cnc"].includes(status) ? "" : "disabled"}>На верстат</button>
-          <a class="btn btn-sm" data-cp-labels-btn href="${position?.id ? getPartLabelsUrl(position.id) : "#"}" target="_blank" ${detail?.parts?.length ? "" : "hidden"}>Етикетки</a>
+          ${showManualParseBtn ? `<button type="button" class="btn btn-sm btn-ghost" data-cp-parse-btn">${parseBtnLabel}</button>` : ""}
+          ${
+            hideProcurement
+              ? ""
+              : `<button type="button" class="btn btn-sm" data-cp-procurement-btn ${canStartProcurement ? "" : "disabled"} title="З Excel-специфікації">В закупівлю</button>`
+          }
+          <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length && ["parsed", "needs_review"].includes(status) ? "" : "disabled"}>Підтвердити</button>
+          <button type="button" class="btn btn-sm btn-primary" data-cp-handoff-cutting-btn ${PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status) ? "" : "disabled"}>На порізку</button>
         </div>
-        ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
         ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
-      </details>
+      </div>
     </section>`;
 }
 
@@ -263,29 +438,272 @@ export async function loadConstructivePackageDetail(positionId) {
   }
 }
 
-function getPendingFiles(root) {
-  if (!pendingFilesByRoot.has(root)) pendingFilesByRoot.set(root, new Map());
-  return pendingFilesByRoot.get(root);
+const packagePanelContextsByPosition = new Map();
+
+function storePackagePanelContext(positionId, ctx) {
+  if (positionId && ctx) packagePanelContextsByPosition.set(Number(positionId), ctx);
 }
 
-function updateSlotName(root, kind, name) {
-  const el = root.querySelector(`[data-slot-name="${kind}"]`);
-  if (el) el.textContent = name || "—";
+function getPackagePanelContext(positionId) {
+  return packagePanelContextsByPosition.get(Number(positionId)) || null;
+}
+
+function patchConstructiveActionButtons(block, detail, { hideProcurement = false } = {}) {
+  const pkg = detail?.package;
+  const status = pkg?.status || "uploaded";
+  const showManualParseBtn =
+    pkg && pkg.status !== "parsing" && (detail?.files?.length > 0 || status !== "uploaded");
+  const parseBtnLabel = status === "uploaded" ? "Розібрати" : "Розібрати знову";
+  const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
+
+  const parseBtn = block.querySelector("[data-cp-parse-btn]");
+  if (parseBtn) {
+    parseBtn.textContent = parseBtnLabel;
+    parseBtn.hidden = !showManualParseBtn;
+    parseBtn.disabled = false;
+  } else if (showManualParseBtn) {
+    const actions = block.querySelector(".cp-actions");
+    if (actions && !actions.querySelector("[data-cp-parse-btn]")) {
+      actions.insertAdjacentHTML(
+        "afterbegin",
+        `<button type="button" class="btn btn-sm btn-ghost" data-cp-parse-btn">${parseBtnLabel}</button>`
+      );
+    }
+  }
+
+  const procBtn = block.querySelector("[data-cp-procurement-btn]");
+  if (hideProcurement) {
+    procBtn?.remove();
+  } else if (procBtn) {
+    procBtn.disabled = !canStartProcurement;
+  }
+
+  const approveBtn = block.querySelector("[data-cp-approve-btn]");
+  if (approveBtn) {
+    approveBtn.disabled = !(detail?.parts?.length && ["parsed", "needs_review"].includes(status));
+  }
+
+  const handoffBtn = block.querySelector("[data-cp-handoff-cutting-btn]");
+  if (handoffBtn) {
+    handoffBtn.disabled = !PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status);
+  }
+}
+
+function applyPackageDetailToDom(root, position, detail, constructiveFiles = []) {
+  const block = root?.querySelector?.(".constructive-package-block");
+  if (!block || !position?.id) return;
+
+  block.dataset.packageId = String(detail?.package?.id || "");
+  applyPackageParseUi(block, position, detail, constructiveFiles);
+  patchConstructiveActionButtons(block, detail, {
+    hideProcurement: getPackagePanelContext(position.id)?.hideProcurement === true
+  });
+  patchConstructiveUploadedFiles(root, position, detail, constructiveFiles);
+}
+
+async function refreshAfterPackageFileChange(root, position, liveCtx, detail, constructiveFiles) {
+  liveCtx.detail = detail;
+  if (constructiveFiles !== undefined) {
+    liveCtx.constructiveFiles = constructiveFiles;
+    if (position?.id && state.constructorDesk.selectedPositionId === position.id) {
+      state.constructorDesk.packageConstructiveFiles = constructiveFiles;
+    }
+  }
+  liveCtx.onDetailPatched?.(detail);
+  if (liveCtx.onUpdated) {
+    await liveCtx.onUpdated({ packageDomOnly: true });
+    return;
+  }
+  applyPackageDetailToDom(root, position, detail, liveCtx.constructiveFiles || []);
+}
+
+function bindPackageFileDelete(root, position, liveCtx, { signal }) {
+  root.addEventListener(
+    "click",
+    async (e) => {
+      const pkgBtn = e.target.closest("[data-cp-delete-file]");
+      const legacyBtn = e.target.closest("[data-delete-legacy-file]");
+      if (!pkgBtn && !legacyBtn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const btn = pkgBtn || legacyBtn;
+      const block = btn.closest(".constructive-package-block");
+      if (!block || block.dataset.cpDeleting === "1") return;
+
+      const positionId = Number(block.dataset.positionId) || position?.id;
+      if (!positionId) {
+        toastError("Не вдалося визначити позицію");
+        return;
+      }
+
+      if (pkgBtn) {
+        const fileId = Number(btn.getAttribute("data-cp-delete-file"));
+        const packageId = Number(
+          btn.getAttribute("data-package-id") || block.dataset.packageId
+        );
+        if (!fileId || !packageId) {
+          toastError("Не вдалося визначити файл для видалення");
+          return;
+        }
+        if (
+          !window.confirm(
+            "Видалити цей файл з пакета? Після видалення потрібно розібрати пакет знову."
+          )
+        ) {
+          return;
+        }
+        block.dataset.cpDeleting = "1";
+        try {
+          const detail = await api.deleteConstructivePackageFile(positionId, packageId, fileId);
+          await refreshAfterPackageFileChange(root, position, liveCtx, detail);
+          toastSuccess("Файл видалено");
+        } catch (err) {
+          toastError(err.message || "Не вдалося видалити файл");
+        } finally {
+          delete block.dataset.cpDeleting;
+        }
+        return;
+      }
+
+      const fileId = Number(btn.getAttribute("data-delete-legacy-file"));
+      if (!fileId) {
+        toastError("Не вдалося визначити файл для видалення");
+        return;
+      }
+      if (!window.confirm("Видалити цей файл конструктива?")) return;
+
+      block.dataset.cpDeleting = "1";
+      try {
+        const result = await api.deleteConstructiveFile(positionId, fileId);
+        const legacyFiles = result.files || (await api.getConstructiveFiles(positionId)) || [];
+        const detail =
+          liveCtx.detail || (await api.getConstructivePackageLatest(positionId));
+        await refreshAfterPackageFileChange(root, position, liveCtx, detail, legacyFiles);
+        toastSuccess("Файл видалено");
+      } catch (err) {
+        toastError(err.message || "Не вдалося видалити файл");
+      } finally {
+        delete block.dataset.cpDeleting;
+      }
+    },
+    { signal }
+  );
+}
+
+function bindConstructivePackageActions(root, position, liveCtx, { signal, notify }) {
+  const hideProcurement = liveCtx.hideProcurement === true;
+
+  root.addEventListener(
+    "click",
+    async (e) => {
+      const parseBtn = e.target.closest("[data-cp-parse-btn]");
+      if (parseBtn) {
+        if (parseBtn.disabled) return;
+        const block = parseBtn.closest(".constructive-package-block");
+        try {
+          const latest = await api.getConstructivePackageLatest(position.id);
+          const packageId = latest?.package?.id;
+          if (!packageId) {
+            toastError("Спочатку завантажте файли пакета");
+            return;
+          }
+          liveCtx.detail = latest;
+          const after = await runPackageParseWithProgress(position.id, packageId, {
+            root,
+            position,
+            liveCtx,
+            notify
+          });
+          if (!hideProcurement && (after?.autoProcurement || after?.procurement?.id)) {
+            toastSuccess("Пакет розібрано — закупівлю створено з Excel");
+          } else {
+            toastSuccess("Пакет розібрано");
+          }
+        } catch (err) {
+          toastError(err.message);
+          if (block && position) {
+            const fresh = await api.getConstructivePackageLatest(position.id).catch(() => null);
+            if (fresh) applyPackageParseUi(block, position, fresh);
+          }
+        }
+        return;
+      }
+
+      if (!hideProcurement && e.target.closest("[data-cp-procurement-btn]")) {
+        try {
+          const latest = await api.getConstructivePackageLatest(position.id);
+          const proc = await api.createProcurementFromPackage(position.id, latest.package.id);
+          const { invalidateProcurementListCache } = await import("./procurement-view.js");
+          const { canViewProcurement } = await import("./auth.js");
+          invalidateProcurementListCache();
+          if (canViewProcurement() && proc?.id) {
+            const { openProcurementRequest } = await import("./procurement-view.js");
+            await openProcurementRequest(proc.id);
+            const { notifyUiChanged } = await import("./ui-persistence.js");
+            const { renderApp } = await import("./render.js");
+            notifyUiChanged();
+            renderApp();
+            toastSuccess("Заявку додано до реєстру закупівель");
+          } else {
+            toastSuccess("Закупівлю створено");
+          }
+          notify();
+        } catch (err) {
+          toastError(err.message);
+        }
+        return;
+      }
+
+      if (e.target.closest("[data-cp-approve-btn]")) {
+        try {
+          const latest = await api.getConstructivePackageLatest(position.id);
+          const approvedPkg = await api.approveConstructivePackage(position.id, latest.package.id);
+          const nextDetail = {
+            ...latest,
+            package: { ...latest.package, ...approvedPkg, status: approvedPkg.status }
+          };
+          liveCtx.detail = nextDetail;
+          liveCtx.onDetailPatched?.(nextDetail);
+          const block = root.querySelector(".constructive-package-block");
+          if (block) applyPackageDetailToDom(root, position, nextDetail, liveCtx.constructiveFiles);
+          toastSuccess("Пакет підтверджено");
+          notify();
+        } catch (err) {
+          toastError(err.message);
+        }
+        return;
+      }
+
+      if (e.target.closest("[data-cp-handoff-cutting-btn]")) {
+        try {
+          await api.runPositionNextAction(position.id, "handoff_to_cutting");
+          toastSuccess("Позицію передано в чергу порізки");
+          notify();
+        } catch (err) {
+          const hint = err.nextAction?.label ? ` (${err.nextAction.label})` : "";
+          toastError(`${err.message}${hint}`);
+        }
+      }
+    },
+    { signal }
+  );
 }
 
 export function bindConstructivePackageBlock(
   position,
   root = document.body,
-  { onUpdated, editable = false } = {}
+  {
+    onUpdated,
+    editable = false,
+    detail = null,
+    constructiveFiles = [],
+    onDetailPatched,
+    hideProcurement = false
+  } = {}
 ) {
   if (!editable || !position?.id || !root) return;
-
-  bindQuickConstructiveUpload(root, position, { editable: true, onUploaded: onUpdated });
-
-  const zone = root.querySelector("[data-cp-package-drop]");
-  if (!zone) return;
-
-  const packageAccept = [...CONSTRUCTIVE_ACCEPT_EXT, ...PACKAGE_EXTRA_EXT].join(",");
 
   packageDropZones.get(root)?.destroy();
   packageBindAbort.get(root)?.abort();
@@ -293,34 +711,41 @@ export function bindConstructivePackageBlock(
   packageBindAbort.set(root, bindAbort);
   const { signal } = bindAbort;
 
-  const pendingFiles = getPendingFiles(root);
-  pendingFiles.clear();
-
-  const queueFile = (file) => {
-    if (!isPackageUploadFile(file)) return;
-    const kind = detectPackageFileKind(file.name);
-    pendingFiles.set(kind, file);
-    updateSlotName(root, kind, file.name);
-    syncPackageUploadBtn(root, pendingFiles);
-  };
-
   const notify = () => {
     onUpdated?.();
-    document.dispatchEvent(new CustomEvent("enver:constructive-package-updated"));
+  };
+
+  const patchDetail = (nextDetail) => {
+    onDetailPatched?.(nextDetail);
+  };
+
+  const liveCtx = {
+    position,
+    detail,
+    constructiveFiles,
+    hideProcurement,
+    onDetailPatched: patchDetail,
+    onUpdated
+  };
+  storePackagePanelContext(position.id, liveCtx);
+
+  bindPackageFileDelete(root, position, liveCtx, { signal });
+  bindConstructivePackageActions(root, position, liveCtx, { signal, notify });
+
+  const zone = root.querySelector("[data-cp-package-drop]");
+  if (!zone) return;
+
+  const uploadFiles = (fileList) => {
+    if (!Array.isArray(fileList) || !fileList.length) return;
+    enqueuePackageUpload(root, position, fileList, notify);
   };
 
   const pickPackageFiles = () => {
-    void pickLocalFile({ multiple: true, accept: packageAccept }).then((files) => {
-      if (!Array.isArray(files) || !files.length) return;
-      addPendingPackageFiles(root, pendingFiles, files, { toastSummary: true });
-    });
+    void pickLocalFile({ multiple: true, accept: PACKAGE_ALL_ACCEPT.join(",") }).then(uploadFiles);
   };
 
   const pickPackageFolder = () => {
-    void pickLocalFile({ directory: true }).then((files) => {
-      if (!Array.isArray(files) || !files.length) return;
-      addPendingPackageFiles(root, pendingFiles, files, { toastSummary: true });
-    });
+    void pickLocalFile({ directory: true }).then(uploadFiles);
   };
 
   root.addEventListener(
@@ -339,100 +764,12 @@ export function bindConstructivePackageBlock(
 
   const dz = createFileDropZone(zone, {
     openPicker: pickPackageFiles,
-    accept: [...CONSTRUCTIVE_ACCEPT_EXT, ...PACKAGE_EXTRA_EXT],
+    accept: PACKAGE_ALL_ACCEPT,
     maxBytes: CONSTRUCTIVE_MAX_BYTES,
     multiple: true,
-    onFile: async (file) => {
-      queueFile(file);
+    onFile: (file) => {
+      uploadFiles([file]);
     }
   });
   packageDropZones.set(root, dz);
-
-  root.querySelector("[data-cp-upload-btn]")?.addEventListener(
-    "click",
-    async () => {
-      if (!pendingFiles.size) return;
-      try {
-        const files = await Promise.all(
-          [...pendingFiles.entries()].map(async ([kind, file]) => ({
-            fileName: file.name,
-            mime: file.type,
-            kind,
-            dataBase64: await readFileAsBase64(file)
-          }))
-        );
-        await api.uploadConstructivePackage(position.id, files);
-        pendingFiles.clear();
-        toastSuccess("Пакет завантажено");
-        notify();
-      } catch (err) {
-        toastError(err.message);
-      }
-    },
-    { signal }
-  );
-
-  root.querySelector("[data-cp-parse-btn]")?.addEventListener(
-    "click",
-    async () => {
-      try {
-        const latest = await api.getConstructivePackageLatest(position.id);
-        const packageId = latest?.package?.id;
-        if (!packageId) return;
-        await api.parseConstructivePackage(position.id, packageId);
-        toastSuccess("Пакет розібрано");
-        notify();
-      } catch (err) {
-        toastError(err.message);
-      }
-    },
-    { signal }
-  );
-
-  root.querySelector("[data-cp-procurement-btn]")?.addEventListener(
-    "click",
-    async () => {
-      try {
-        const latest = await api.getConstructivePackageLatest(position.id);
-        await api.createProcurementFromPackage(position.id, latest.package.id);
-        toastSuccess("Закупівлю створено");
-        notify();
-      } catch (err) {
-        toastError(err.message);
-      }
-    },
-    { signal }
-  );
-
-  root.querySelector("[data-cp-approve-btn]")?.addEventListener(
-    "click",
-    async () => {
-      try {
-        const latest = await api.getConstructivePackageLatest(position.id);
-        await api.approveConstructivePackage(position.id, latest.package.id);
-        toastSuccess("Пакет підтверджено");
-        notify();
-      } catch (err) {
-        toastError(err.message);
-      }
-    },
-    { signal }
-  );
-
-  root.querySelector("[data-cp-release-cnc-btn]")?.addEventListener(
-    "click",
-    async () => {
-      try {
-        const latest = await api.getConstructivePackageLatest(position.id);
-        const packageId = latest?.package?.id;
-        if (!packageId) return;
-        await api.releaseConstructivePackageToCnc(position.id, packageId);
-        toastSuccess("Передано на верстат");
-        notify();
-      } catch (err) {
-        toastError(err.message);
-      }
-    },
-    { signal }
-  );
 }

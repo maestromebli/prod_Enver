@@ -19,6 +19,9 @@ import { buildGodmodeCtaAttrs } from "@enver/shared/production/godmode-ui-helper
 import { formatHistoryTime, renderChangesList } from "./history.js";
 import { STAGES, getStageStatus } from "./workflows.js";
 import { getPositionSubTab, renderPositionOrderTab } from "./position-order-tab.js";
+import { canViewOrder3DTab } from "./order-3d/order-3d-permissions.js";
+import { renderOrder3DTab } from "./order-3d/order-3d-tab.js";
+import { getCachedOrder3DAsset } from "./order-3d/order-3d-bind.js";
 
 function buildDetailTabs(order, related, activeTab) {
   const work = getWorkPositions(order, related);
@@ -31,6 +34,9 @@ function buildDetailTabs(order, related, activeTab) {
   work.forEach((p, i) => {
     tabs.push({ key: `pos-${p.id}`, label: getPositionTabLabel(p, i) });
   });
+  if (canViewOrder3DTab()) {
+    tabs.push({ key: "model-3d", label: "3D модель" });
+  }
   tabs.push({ key: "history", label: "Історія" });
   const buttons = tabs
     .map(
@@ -273,6 +279,8 @@ function renderTabContent(tab, order, allPositions, related, positionBundles = {
     return renderPositionTabSection(position, positionBundles[positionId]);
   }
   switch (tab) {
+    case "model-3d":
+      return renderOrder3DTab(order, getCachedOrder3DAsset(order.id));
     case "positions":
       return renderPositionsSection(order, allPositions, related);
     case "history":

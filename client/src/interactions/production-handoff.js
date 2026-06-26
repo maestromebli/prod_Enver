@@ -1,14 +1,9 @@
 import { canRunNextAction } from "@enver/shared/production/godmode.js";
+import { HANDOFF_ACTION_TYPES } from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { resolvePositionGodmode } from "../godmode-ui.js";
 
-const HANDOFF_TYPES = new Set([
-  "handoff_to_cutting",
-  "handoff_to_edging",
-  "handoff_to_drilling",
-  "handoff_to_assembly",
-  "ready_for_install"
-]);
+const HANDOFF_TYPES = HANDOFF_ACTION_TYPES;
 
 /**
  * Чи дозволено перетягнути позицію в колонку targetStageKey.

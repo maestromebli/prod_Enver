@@ -86,3 +86,46 @@ export function isWorkPosition(position, order, allPositions = []) {
   const id = pid(position);
   return work.some((p) => pid(p) === id);
 }
+
+/**
+ * Позиції, по яких будується workflow (godmode, увага, сповіщення).
+ * Якщо є sub — лише вони; інакше root.
+ */
+export function workflowPositions(order, positions = []) {
+  if (order) return getWorkPositions(order, positions);
+  const related = [...positions];
+  const subs = related.filter((p) => isSubPosition(p));
+  if (subs.length) return subs;
+  return related.filter((p) => isRootPosition(p));
+}
+
+/** Унікальні робочі позиції для набору замовлень. */
+export function workflowPositionsForOrders(orders = [], positions = []) {
+  const seen = new Set();
+  const result = [];
+  for (const order of orders) {
+    for (const p of getWorkPositions(order, positions)) {
+      const id = pid(p);
+      if (id == null || seen.has(id)) continue;
+      seen.add(id);
+      result.push(p);
+    }
+  }
+  if (result.length) return result;
+
+  const byKey = new Map();
+  for (const p of positions) {
+    const key = p.orderId ?? p.order_id ?? p.orderNumber ?? p.order_number ?? `solo-${pid(p)}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(p);
+  }
+  for (const group of byKey.values()) {
+    for (const p of workflowPositions(null, group)) {
+      const id = pid(p);
+      if (id == null || seen.has(id)) continue;
+      seen.add(id);
+      result.push(p);
+    }
+  }
+  return result;
+}

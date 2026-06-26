@@ -1,7 +1,10 @@
 import { escapeHtml, $ } from "./utils.js";
 import { api, constructivePackageFileUrl } from "./api.js";
 import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
-import { packageStatusLabel } from "@enver/shared/production/constructive-package.js";
+import {
+  packageStatusLabel,
+  formatPartDimensionsMm
+} from "@enver/shared/production/constructive-package.js";
 import { toastError, toastSuccess } from "./toast.js";
 
 function renderChecklist(checks = []) {
@@ -27,7 +30,7 @@ function renderPartsDiff(parts = [], limit = 30) {
       <td>${escapeHtml(p.partNo)}</td>
       <td>${escapeHtml(p.partName)}</td>
       <td>${escapeHtml(p.material || "—")}</td>
-      <td>${escapeHtml(`${p.length || "—"}×${p.width || "—"}`)}</td>
+      <td>${escapeHtml(formatPartDimensionsMm(p))}</td>
     </tr>`
     )
     .join("");
@@ -138,7 +141,7 @@ export function renderConstructiveReviewModal(positionId, detail, { canReview = 
               <h3>Деталі з розбору (${summary.counts.parts})</h3>
               <div class="cr-table-wrap">
                 <table class="cp-parts-table">
-                  <thead><tr><th>Блок</th><th>№</th><th>Назва</th><th>Матеріал</th><th>Розмір</th></tr></thead>
+                  <thead><tr><th>Блок</th><th>№</th><th>Назва</th><th>Матеріал</th><th>Розмір, мм</th></tr></thead>
                   <tbody>${renderPartsDiff(detail?.parts || []) || "<tr><td colspan='5'>Немає деталей</td></tr>"}</tbody>
                 </table>
               </div>
@@ -194,7 +197,22 @@ async function reviewAction(positionId, packageId, action) {
       toastSuccess("Пакет відхилено");
     }
     closeConstructiveReviewModal();
-    document.dispatchEvent(new CustomEvent("enver:constructive-package-updated"));
+    const packageDetail = await api.getConstructivePackageLatest(positionId).catch(() => null);
+    document.dispatchEvent(
+      new CustomEvent("enver:constructive-package-updated", {
+        detail: { positionId, packageDetail }
+      })
+    );
+    try {
+      const { refreshAppData } = await import("./data-sync.js");
+      const { notifyUiChanged } = await import("./ui-persistence.js");
+      const { renderApp } = await import("./render.js");
+      await refreshAppData({ includeDirectories: false, syncViews: true });
+      notifyUiChanged();
+      renderApp();
+    } catch {
+      /* UI оновиться при наступному завантаженні */
+    }
   } catch (err) {
     toastError(err.message);
   }

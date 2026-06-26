@@ -23,6 +23,7 @@ import {
 } from "../constructive-package-enrich.js";
 import { MANAGER_FILE_COUNT_SUBQUERY } from "../position-manager-service.js";
 import { deleteOrderWithPositions, syncPositionsFromOrder } from "../order-cascade.js";
+import order3dRouter from "./order-3d.js";
 const router = Router();
 router.use(requireAuth);
 
@@ -320,5 +321,7 @@ router.delete("/:id", requireOrderWrite, async (req, res) => {
 
   res.status(204).send();
 });
+
+router.use("/:orderId/3d", order3dRouter);
 
 export default router;

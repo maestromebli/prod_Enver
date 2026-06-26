@@ -9,11 +9,13 @@ import {
   logout,
   operatorStages,
   refreshCurrentUser,
-  shouldShowProductionFloorByDefault
+  shouldShowProductionFloorByDefault,
+  canViewProcurement
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB, CONSTRUCTOR_DESK_TAB } from "./constants.js";
+import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB, CONSTRUCTOR_DESK_TAB, PROCUREMENT_TAB } from "./constants.js";
 import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-desk.js";
 import { loadProductionFloor } from "./production-floor.js";
+import { loadProcurementList } from "./procurement-view.js";
 import { toastError } from "./toast.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
 import { loadGlobalHistory } from "./history.js";
@@ -465,6 +467,15 @@ async function prepareViewData() {
       toastError(`Не вдалося завантажити історію: ${err.message}`);
     }
   }
+  if (state.activeTab === PROCUREMENT_TAB) {
+    try {
+      await loadProcurementList();
+    } catch (err) {
+      toastError(`Не вдалося завантажити закупівлі: ${err.message}`);
+    }
+  } else if (canViewProcurement() && !state.procurement?.items?.length) {
+    loadProcurementList().catch(() => {});
+  }
 }
 
 async function setTab(tab, { ordersDisplayMode } = {}) {
@@ -523,6 +534,13 @@ async function setTab(tab, { ordersDisplayMode } = {}) {
     } catch (err) {
       state.history = [];
       toastError(`Не вдалося завантажити історію: ${err.message}`);
+    }
+  }
+  if (tab === PROCUREMENT_TAB) {
+    try {
+      await loadProcurementList();
+    } catch (err) {
+      toastError(`Не вдалося завантажити закупівлі: ${err.message}`);
     }
   }
   try {

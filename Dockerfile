@@ -22,6 +22,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
+RUN apk add --no-cache python3 py3-pip
 RUN addgroup -S enver && adduser -S enver -G enver
 
 COPY --from=deps /app/server/node_modules ./server/node_modules
@@ -29,6 +30,11 @@ COPY --from=build /app/server ./server
 COPY --from=build /app/shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 COPY releases/ ./releases/
+COPY tools/b3d-converter ./tools/b3d-converter
+RUN pip3 install --no-cache-dir --break-system-packages ./tools/b3d-converter
+
+ENV B3D_CONVERTER_PYTHON=python3
+ENV PYTHONPATH=/app/tools/b3d-converter
 
 USER enver
 EXPOSE 3000

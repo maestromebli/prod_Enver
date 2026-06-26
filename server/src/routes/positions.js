@@ -168,13 +168,24 @@ router.get("/", async (_req, res) => {
     `${POSITION_SELECT}
      ORDER BY COALESCE(p.parent_id, p.id), CASE WHEN p.parent_id IS NULL THEN 0 ELSE 1 END, p.id`
   );
+  const subsByOrderId = new Set();
+  const subsByOrderNumber = new Set();
+  for (const row of rows) {
+    if (row.parent_id != null) {
+      if (row.order_id != null) subsByOrderId.add(row.order_id);
+      if (row.order_number) subsByOrderNumber.add(row.order_number);
+    }
+  }
   const tsMap = await loadStageTimestampsMap(rows.map((r) => r.id));
   const now = new Date();
   res.json(
     rows.map((row) =>
       mapEnrichedRow(row, planMap, {
         stageTimestamps: stageTimestampsForPosition(tsMap, row.id),
-        now
+        now,
+        orderHasSubPositions:
+          (row.order_id != null && subsByOrderId.has(row.order_id)) ||
+          Boolean(row.order_number && subsByOrderNumber.has(row.order_number))
       })
     )
   );

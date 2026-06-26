@@ -669,7 +669,8 @@ body.enver-v3 {
 }
 
 .orders-view .card-header-row {
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  padding: 12px 20px;
 }
 
 .orders-view .block-title {
@@ -679,6 +680,8 @@ body.enver-v3 {
 .orders-view .positions-hint {
   color: var(--v3-muted);
   font-size: 0.9rem;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .orders-grid {

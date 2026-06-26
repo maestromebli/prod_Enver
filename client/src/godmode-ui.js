@@ -1,5 +1,5 @@
 import { buildOrderGodmode, buildPositionGodmode } from "@enver/shared/production/godmode.js";
-import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
+import { getWorkPositions, workflowPositionsForOrders } from "@enver/shared/production/order-position-model.js";
 import {
   HANDOFF_ACTION_TYPES,
   ORDER_API_ACTION_TYPES,
@@ -12,6 +12,7 @@ import {
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { aggregateOrderAttention } from "./attention.js";
 import { positionsForOrder } from "./workflows.js";
+import { canManageConstructorDesk } from "./auth.js";
 import { CONSTRUCTOR_DESK_TAB } from "./constants.js";
 import { escapeHtml } from "./utils.js";
 
@@ -37,13 +38,32 @@ function isCompletePositionGodmode(gm) {
 }
 
 export function resolvePositionGodmode(position) {
-  if (isCompletePositionGodmode(position?.godmode)) return position.godmode;
-  return buildPositionGodmode(position, {
+  if (isCompletePositionGodmode(position?.godmode)) {
+    return patchAssignConstructorAction(position.godmode);
+  }
+  const gm = buildPositionGodmode(position, {
     planDate: position.planDate,
     hasConstructivePackage: position.hasConstructivePackage,
     packageStatus: position.constructivePackageStatus || null,
-    unmappedPartsCount: position.unmappedPartsCount || 0
+    unmappedPartsCount: position.unmappedPartsCount || 0,
+    orderHasSubPositions: position.orderHasSubPositions
   });
+  return patchAssignConstructorAction(gm);
+}
+
+function patchAssignConstructorAction(gm) {
+  if (gm?.nextAction?.type !== "assign_constructor") return gm;
+  if (canManageConstructorDesk()) return gm;
+  return {
+    ...gm,
+    nextAction: {
+      ...gm.nextAction,
+      allowed: false,
+      reason:
+        "Призначення конструктора виконує начальник виробництва на вкладці «Конструктори».",
+      buttonLabel: ""
+    }
+  };
 }
 
 export function renderHealthBadge(health) {
@@ -153,7 +173,7 @@ export function renderSmartEmptyState({ icon = "✨", title, text, actionLabel, 
 
 /** Блоки для production floor з локального state.positions. */
 export function buildFloorGodmodeBuckets(positions = []) {
-  const roots = positions.filter((p) => !p.parentId);
+  const workflow = workflowPositionsForOrders([], positions);
   const buckets = {
     attention: [],
     overdue: [],
@@ -164,7 +184,7 @@ export function buildFloorGodmodeBuckets(positions = []) {
     activeOperators: []
   };
 
-  for (const p of roots) {
+  for (const p of workflow) {
     const gm = resolvePositionGodmode(p);
     const entry = { position: p, godmode: gm };
     if (gm.attentionScore >= 40) buckets.attention.push(entry);
@@ -251,6 +271,13 @@ export function navigateGodmodeAction(position, actionType, appState) {
   if (!position) return false;
 
   if (actionType === "assign_constructor") {
+    if (canManageConstructorDesk() && position.orderId != null) {
+      appState.selectedOrderId = position.orderId;
+      appState.activeTab = "Замовлення";
+      appState.ordersView.detailTab = `pos-${position.id}`;
+      appState.ordersView.focusResponsiblesPositionId = position.id;
+      return true;
+    }
     appState.activeTab = CONSTRUCTOR_DESK_TAB;
     appState.constructorDesk.detail = null;
     appState.constructorDesk.selectedPositionId = null;

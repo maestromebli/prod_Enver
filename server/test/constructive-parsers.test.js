@@ -39,6 +39,28 @@ describe("mergeParseResults", () => {
   });
 });
 
+describe("parsePackageFiles", () => {
+  it("розбирає файли паралельно", async () => {
+    const { parsePackageFiles } = await import("../src/constructive/parsers/index.js");
+    const started = [];
+    const readFile = async (path) => {
+      started.push(path);
+      await new Promise((r) => setTimeout(r, 30));
+      return Buffer.from("x");
+    };
+    const rows = [
+      { storage_path: "a.bin", mime: "", original_name: "a.bin", kind: "unknown_kind" },
+      { storage_path: "b.bin", mime: "", original_name: "b.bin", kind: "unknown_kind" }
+    ];
+    const t0 = Date.now();
+    const results = await parsePackageFiles(rows, readFile);
+    const elapsed = Date.now() - t0;
+    assert.equal(results.length, 2);
+    assert.deepEqual(started.sort(), ["a.bin", "b.bin"]);
+    assert.ok(elapsed < 55, `очікували паралельний розбір, отримали ${elapsed}ms`);
+  });
+});
+
 describe("parsePackageFile unsupported", () => {
   it("повертає poor для невідомого kind", async () => {
     const { parsePackageFile } = await import("../src/constructive/parsers/index.js");

@@ -117,4 +117,14 @@ describe("API HTTP", () => {
     const res = await fetch(`${baseUrl}/api/users`);
     assert.equal(res.status, 401);
   });
+
+  it("DELETE constructive package file без токена — 401 JSON (маршрут зареєстровано)", async () => {
+    const res = await fetch(`${baseUrl}/api/positions/1/constructive-packages/1/files/1`, {
+      method: "DELETE"
+    });
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.error.code, "UNAUTHORIZED");
+  });
 });

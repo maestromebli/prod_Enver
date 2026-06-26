@@ -7,6 +7,14 @@ import {
   getNextStatus,
   stageStatusClass
 } from "@enver/shared/production/stages.js";
+import {
+  hasStageAssignment,
+  readPositionStageStatus,
+  stageRequiresAssignment
+} from "@enver/shared/production/next-action.js";
+import { positionsForOrder } from "@enver/shared/production/order-position-model.js";
+
+export { positionsForOrder };
 
 export {
   STAGE_STATUSES,
@@ -20,10 +28,7 @@ export {
 const STAGE_DONE = STAGE_STATUS_DONE;
 
 export function getStageStatus(position, stage) {
-  if (stage.type === "constructor") {
-    return position.hasConstructiveFile ? "Передано" : "Не розпочато";
-  }
-  return position[stage.field] || "Не розпочато";
+  return readPositionStageStatus(position, stage);
 }
 
 export function getStageResponsible(position, stage) {
@@ -33,16 +38,7 @@ export function getStageResponsible(position, stage) {
   return position.assemblyResponsible || "—";
 }
 
-export function stageRequiresAssignment(stage) {
-  return stage.type === "constructor" || stage.usesAssembler || stage.key === "drilling";
-}
-
-function hasStageAssignment(position, stage) {
-  if (stage.type === "constructor") {
-    return Boolean(position.hasConstructiveFile);
-  }
-  return Boolean(position.assemblyResponsible?.trim());
-}
+export { stageRequiresAssignment };
 
 export function positionMissingNextAssignment(position) {
   for (const stage of STAGES) {
@@ -54,10 +50,6 @@ export function positionMissingNextAssignment(position) {
     if (status !== "Не розпочато") return false;
   }
   return false;
-}
-
-export function positionsForOrder(order, positions) {
-  return positions.filter((p) => p.orderId === order.id || p.orderNumber === order.orderNumber);
 }
 
 export function isNewOrder(order) {

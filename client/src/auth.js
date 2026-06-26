@@ -102,6 +102,10 @@ export function canManageProcurement() {
   );
 }
 
+export function canViewProcurement() {
+  return canManageProcurement();
+}
+
 export function canReviewConstructive() {
   return Boolean(
     state.currentUser?.role === "admin" || state.currentUser?.permissions?.canReviewConstructive

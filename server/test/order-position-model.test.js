@@ -10,11 +10,13 @@ import {
   isSinglePositionOrder,
   isSubPosition,
   isWorkPosition,
-  shouldUseRootAsWorkPosition
+  shouldUseRootAsWorkPosition,
+  workflowPositionsForOrders
 } from "../../shared/production/order-position-model.js";
 import {
   buildManagerDataFromRow,
   isManagerDataComplete,
+  inferManagerFileKind,
   parseManagerDataJson
 } from "../../shared/production/position-manager-data.js";
 
@@ -83,6 +85,14 @@ describe("order-position-model", () => {
     assert.equal(getPositionDisplayName(positionsWithSubs[1]), "Кухня");
     assert.equal(getPositionTabLabel(positionsWithSubs[1], 0), "Кухня");
   });
+
+  it("workflowPositionsForOrders — лише робочі sub-позиції", () => {
+    const workflow = workflowPositionsForOrders([order], positionsWithSubs);
+    assert.deepEqual(
+      workflow.map((p) => p.id),
+      [11, 12]
+    );
+  });
 });
 
 describe("position-manager-data", () => {
@@ -115,5 +125,12 @@ describe("position-manager-data", () => {
       isManagerDataComplete({ item: "Кухня" }, { delivery: { address: "" }, deadlines: {} }),
       false
     );
+  });
+
+  it("inferManagerFileKind визначає тип за MIME та ім'ям", () => {
+    assert.equal(inferManagerFileKind("photo.jpg", "image/jpeg"), "manager_photo");
+    assert.equal(inferManagerFileKind("plan.pdf", "application/pdf"), "manager_pdf");
+    assert.equal(inferManagerFileKind("заміри_кухні.xlsx", ""), "manager_measurement");
+    assert.equal(inferManagerFileKind("документ.docx", ""), "manager_other");
   });
 });

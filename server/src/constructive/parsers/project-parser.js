@@ -1,30 +1,58 @@
 import { computeChecksum } from "../part-code.js";
+import {
+  collectPrintableStrings,
+  manifestNodesFromProjectXml,
+  manifestNodesFromStrings,
+  uniqueManifestNodes
+} from "./manifest-text.js";
+import { decodeProjectText } from "./project-text.js";
 
-/** Безпечний fallback для .project — без fake parsing. */
+/** .project конструктора — структура деталей для мапінгу 3D (разом із GibLab .b3d). */
 export function parseProjectBuffer(buffer, originalName = "") {
   const checksum = computeChecksum(buffer);
-  const textSample = buffer
-    .toString("utf8", 0, Math.min(buffer.length, 8000))
-    .replace(/[^\x20-\x7E\u0400-\u04FF\n\r\t]/g, " ")
-    .slice(0, 4000);
+  const text = decodeProjectText(buffer);
 
-  const hasXml = textSample.includes("<?xml") || textSample.includes("<Project");
-  const hasJson = textSample.trim().startsWith("{");
+  const hasXml = text.includes("<?xml") || /<(?:Part|Panel|Item|Project|Module)\b/i.test(text);
+  let parts = [];
+  let manifestNodes = [];
+
+  if (hasXml) {
+    const parsed = manifestNodesFromProjectXml(text, "project_xml");
+    parts = parsed.parts;
+    manifestNodes = parsed.manifestNodes;
+  }
+
+  if (!manifestNodes.length) {
+    const strings = collectPrintableStrings(buffer);
+    manifestNodes = manifestNodesFromStrings(strings, "project_string");
+  }
+
+  manifestNodes = uniqueManifestNodes(manifestNodes);
+
+  const warnings = [];
+  if (!parts.length && !manifestNodes.length) {
+    warnings.push(
+      "Файл .project збережено. Для мапінгу 3D потрібен також GibLab .b3d — автоматичний розбір структури обмежений."
+    );
+  }
 
   return {
+    fileKind: "project",
     sourceMeta: {
       originalName,
       sizeBytes: buffer.length,
       checksum,
-      detectedFormat: hasXml ? "xml-like" : hasJson ? "json-like" : "binary",
-      preview: textSample.slice(0, 500)
+      detectedFormat: hasXml ? "xml-like" : "binary"
     },
-    warnings: [
-      "Файл .project збережено як джерело. Автоматичний розбір недоступний — використовуйте XLS/PDF для деталей."
-    ],
-    extractionQuality: "poor",
-    parts: [],
+    warnings,
+    extractionQuality: parts.length || manifestNodes.length ? "partial" : "poor",
+    parts,
     materials: [],
-    hardware: []
+    hardware: [],
+    manifestNodes,
+    modelReadiness: {
+      has3dSource: true,
+      format: "project"
+    }
   };
 }

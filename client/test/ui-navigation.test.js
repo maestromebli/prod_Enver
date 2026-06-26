@@ -48,7 +48,8 @@ describe("UI navigation contracts", () => {
       { type: "assign_constructor", allowed: true },
       { orderId: 5, positionId: 12 }
     );
-    assert.match(byPosition, /data-open-constructor-desk-position="12"/);
+    assert.match(byPosition, /data-order-detail-tab="pos-12"/);
+    assert.match(byPosition, /data-focus-responsibles="1"/);
 
     const byOrder = buildGodmodeCtaAttrs(
       { type: "assign_constructor", allowed: true },
@@ -61,5 +62,9 @@ describe("UI navigation contracts", () => {
     assert.equal(CONSTRUCTOR_DESK_TAB, "Конструктори");
     assert.ok(TABS.includes(CONSTRUCTOR_DESK_TAB));
     assert.ok(!TABS.includes("Конструктив"), "«Конструктив» — підвкладка, не головна вкладка");
+  });
+
+  it("вкладка закупівлі в головній навігації", () => {
+    assert.ok(TABS.includes("Закупівля"));
   });
 });

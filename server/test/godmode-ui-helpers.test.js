@@ -58,7 +58,8 @@ describe("godmode UI helpers", () => {
       { type: "assign_constructor", allowed: true },
       { orderId: 5, positionId: 12 }
     );
-    assert.match(attrs, /data-open-constructor-desk-position="12"/);
+    assert.match(attrs, /data-order-detail-tab="pos-12"/);
+    assert.match(attrs, /data-focus-responsibles="1"/);
   });
 
   it("buildGodmodeCtaAttrs — assign_constructor лише з orderId", () => {

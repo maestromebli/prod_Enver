@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["b3d_converter*"]
+
+[project]
+name = "b3d-converter"
+version = "0.1.0"
+description = "Experimental B3D parser and GLB converter for ENVER OS"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.26.0",
+  "pygltflib>=1.16.2",
+  "pillow>=10.0.0",
+  "typer>=0.12.0",
+  "rich>=13.0.0",
+]
+
+[project.scripts]
+b3d-converter = "b3d_converter.cli:app"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

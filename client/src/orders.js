@@ -252,6 +252,8 @@ async function deleteOrder() {
         state.selectedOrderId = null;
         clearOrderDetailViewState();
       }
+      const { invalidateProcurementListCache } = await import("./procurement-view.js");
+      invalidateProcurementListCache();
       closeOrderModal();
       await onSaved();
     },

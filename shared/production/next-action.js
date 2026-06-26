@@ -17,7 +17,7 @@ function positionStatus(row) {
   return field(row, "position_status", "positionStatus");
 }
 
-function stageStatus(row, stage) {
+export function readPositionStageStatus(row, stage) {
   if (!stage) return "Не розпочато";
   if (stage.type === "constructor") {
     return hasConstructive(row) ? "Передано" : "Не розпочато";
@@ -26,13 +26,17 @@ function stageStatus(row, stage) {
   return field(row, snake, stage.field) || "Не розпочато";
 }
 
-function stageRequiresAssignment(stage) {
+export function stageRequiresAssignment(stage) {
   return stage.type === "constructor" || stage.usesAssembler || stage.key === "drilling";
 }
 
-function hasStageAssignment(row, stage) {
+export function hasStageAssignment(row, stage) {
   if (stage.type === "constructor") return hasConstructive(row);
   return Boolean(field(row, "assembly_responsible", "assemblyResponsible").trim());
+}
+
+function stageStatus(row, stage) {
+  return readPositionStageStatus(row, stage);
 }
 
 const ADVANCE_LABELS = {

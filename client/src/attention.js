@@ -1,14 +1,10 @@
-import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
-import { buildPositionGodmode } from "@enver/shared/production/godmode.js";
 import {
-  deriveNextAction,
-  collectBlockers,
-  collectWarnings
-} from "@enver/shared/production/next-action.js";
+  getWorkPositions,
+  workflowPositionsForOrders
+} from "@enver/shared/production/order-position-model.js";
+import { buildPositionGodmode } from "@enver/shared/production/godmode.js";
 import { activePositions } from "./archive.js";
 import { positionsForOrder, orderMissingNextAssignment } from "./workflows.js";
-
-export { deriveNextAction, collectBlockers, collectWarnings };
 
 const SEVERITY_RANK = { critical: 0, high: 1, warning: 1, normal: 2 };
 
@@ -53,12 +49,13 @@ function positionGodmodeFields(p) {
 /** Усі елементи, що потребують уваги (позиції). */
 export function collectAttentionItems(positions, orders = []) {
   const items = [];
+  const workflow = workflowPositionsForOrders(orders, positions);
 
-  for (const p of positions) {
+  for (const p of workflow) {
     const gmFields = positionGodmodeFields(p);
-    const blockers = gmFields.blockers.length ? gmFields.blockers : collectBlockers(p);
-    const warnings = gmFields.warnings.length ? gmFields.warnings : collectWarnings(p);
-    const nextAction = gmFields.nextAction || p.nextAction || deriveNextAction(p);
+    const blockers = gmFields.blockers;
+    const warnings = gmFields.warnings;
+    const nextAction = gmFields.nextAction || p.nextAction;
     const attentionScore = gmFields.attentionScore;
 
     for (const b of blockers) {
@@ -154,7 +151,7 @@ export function aggregateOrderAttention(order, positions) {
   const maxOverdue = related.reduce((m, p) => Math.max(m, Number(p.overdueDays) || 0), 0);
   const hasProblem = related.some((p) => p.problem?.trim() || p.positionStatus === "Проблема");
   const root = related.find((p) => !p.parentId);
-  const nextAction = root?.nextAction || (root ? deriveNextAction(root) : null);
+  const nextAction = root?.nextAction || (root ? buildPositionGodmode(root).nextAction : null);
 
   return {
     blockers,

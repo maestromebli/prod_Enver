@@ -273,6 +273,21 @@
 
 .constructive-file-item {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.constructive-file-item .constructive-file-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.constructive-file-delete {
+  flex-shrink: 0;
+  min-width: 2rem;
+  padding-inline: 0.5rem;
+  line-height: 1.2;
 }
 
 .constructive-file-link {
@@ -479,6 +494,49 @@
   border: 1px solid var(--enver-border, #e2e8f0);
   border-radius: var(--enver-radius-md, 10px);
   padding: 10px 12px;
+}
+
+.cp-uploaded-files {
+  margin-bottom: 12px;
+}
+
+.cp-unified-upload {
+  margin-top: 8px;
+}
+
+.file-upload-zone.is-uploading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.cp-uploaded-group + .cp-uploaded-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--enver-border, #e2e8f0);
+}
+
+.cp-uploaded-title {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--enver-text-muted, #64748b);
+}
+
+.cp-inner-tabs {
+  margin-bottom: 12px;
+}
+
+.cp-mapping-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-mapping-table code {
+  font-size: 0.8125rem;
+  word-break: break-all;
 }
 
 .cp-package-advanced-summary {

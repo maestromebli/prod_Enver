@@ -10,24 +10,16 @@ import {
 } from "@enver/shared/production/directories.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
-import { canManageProcurement, canReviewConstructive } from "./auth.js";
+import { loadCncJobsSummary, loadProcurementSummary } from "./constructive-pipeline-panel.js";
+import { loadConstructivePackageDetail } from "./constructive-package-ui.js";
 import {
-  loadCncJobsSummary,
-  loadProcurementSummary,
-  renderConstructivePipelinePanel
-} from "./constructive-pipeline-panel.js";
-import { openModelMappingModal } from "./model-mapping-ui.js";
-import { openConstructiveReviewModal } from "./constructive-review-ui.js";
-import {
-  bindConstructivePackageBlock,
-  loadConstructivePackageDetail,
-  renderConstructivePackageBlock
-} from "./constructive-package-ui.js";
-import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
+  bindPositionConstructivePanel,
+  remountPositionConstructivePanel,
+  renderPositionConstructivePanel
+} from "./position-constructive-panel.js";
 import {
   POSITION_DRAWER_SHELL_HTML,
   estimatePositionProgress,
-  renderConstructiveFileList,
   renderPositionPipeline
 } from "./position-drawer-render.js";
 
@@ -167,9 +159,7 @@ function renderDrawerContent() {
       </div>
 
       <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
-        <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, pipelinePanelOptions())}</div>
-        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: true, fileListHtml: renderConstructiveFileList(constructiveFiles, p.id) })}</div>
-        ${renderLegacyAiBlock(p)}
+        <div id="constructiveWorkspaceMount">${renderPositionConstructivePanel(p, buildConstructiveDownstream(), { editable: true })}</div>
       </div>
 
       <div class="drawer-panel ${activePanel === "install" ? "active" : ""}" data-panel="install">
@@ -395,6 +385,8 @@ async function deletePosition() {
     saveFn: () => api.deletePosition(draft.id),
     successMessage: "Позицію видалено",
     onSuccess: async () => {
+      const { invalidateProcurementListCache } = await import("./procurement-view.js");
+      invalidateProcurementListCache();
       closePositionDrawer();
       await onSaved();
     },
@@ -419,131 +411,71 @@ function onDrawerTabSelect(panel) {
   scrollPositionDrawerToTabs();
   if (activePanel === "more") refreshDrawerHistory();
   if (activePanel === "constructive" && draft?.id) {
-    void Promise.all([loadProcurementSummary(draft.id), loadCncJobsSummary(draft.id)]).then(
-      ([proc, jobs]) => {
-        procurementSummary = proc;
-        cncJobsSummary = jobs || [];
-        const pipe = $("#constructivePipelineMount");
-        if (pipe) {
-          pipe.innerHTML = renderConstructivePipelinePanel(
-            constructivePackageDetail,
-            procurementSummary,
-            pipelinePanelOptions()
-          );
-        }
-        bindConstructivePipelinePanel();
-      }
-    );
+    void refreshConstructiveWorkspace();
   }
-  if (activePanel === "constructive") bindConstructivePipelinePanel();
 }
 
-function pipelinePanelOptions() {
+function buildConstructiveDownstream() {
   return {
-    canManageProcurement: canManageProcurement(),
-    cncJobs: cncJobsSummary
+    packageDetail: constructivePackageDetail,
+    procurement: procurementSummary,
+    cncJobs: cncJobsSummary,
+    constructiveFiles
   };
 }
 
-function bindConstructivePipelinePanel() {
-  $("#openConstructiveReviewBtn")?.addEventListener("click", () => {
-    if (constructivePackageDetail?.package?.id && draft?.id) {
-      openConstructiveReviewModal(draft.id, constructivePackageDetail, {
-        canReview: canReviewConstructive()
-      });
-    }
-  });
-
-  $("#openModelMappingBtn")?.addEventListener("click", () => {
-    if (constructivePackageDetail?.package?.id && draft?.id) {
-      openModelMappingModal(draft.id, constructivePackageDetail);
-    }
-  });
-
-  $("#analyzePackageAiBtn")?.addEventListener("click", async () => {
-    const pkgId = constructivePackageDetail?.package?.id;
-    if (!pkgId || !draft?.id) return;
-    const box = $("#packageAiResult");
-    if (box) {
-      box.hidden = false;
-      box.textContent = "ШІ аналізує пакет…";
-    }
-    try {
-      const res = await api.analyzeConstructivePackageAi(draft.id, pkgId);
-      if (box) {
-        box.innerHTML = `<pre class="package-ai-json">${escapeHtml(JSON.stringify(res.analysis || res, null, 2))}</pre>`;
-      }
-    } catch (err) {
-      if (box) box.textContent = err.message;
-    }
-  });
-
-  $("#advanceProcurementBtn")?.addEventListener("click", async () => {
-    const nextStatus = $("#advanceProcurementBtn")?.dataset?.nextStatus;
-    if (!nextStatus || !draft?.id || !procurementSummary?.id) return;
-    try {
-      procurementSummary = await api.updatePositionProcurement(draft.id, procurementSummary.id, {
-        status: nextStatus
-      });
-      const pipe = $("#constructivePipelineMount");
-      if (pipe) {
-        pipe.innerHTML = renderConstructivePipelinePanel(
-          constructivePackageDetail,
-          procurementSummary,
-          pipelinePanelOptions()
-        );
-      }
-      bindConstructivePipelinePanel();
-    } catch (err) {
-      showFormError(err.message);
-    }
-  });
+async function handleConstructivePanelRefresh(opts = {}) {
+  if (!draft?.id) return;
+  if (opts.packageDomOnly) {
+    await refreshConstructiveFiles();
+    remountPositionConstructivePanel($("#constructiveWorkspaceMount"), draft, {
+      getDownstream: buildConstructiveDownstream,
+      onRefresh: handleConstructivePanelRefresh,
+      onPackageDetailPatched: (detail) => {
+        constructivePackageDetail = detail;
+      },
+      editable: true
+    });
+    return;
+  }
+  await refreshConstructiveWorkspace();
 }
 
 async function refreshConstructiveWorkspace() {
   if (!draft?.id) return;
   await refreshConstructiveFiles();
-  const mount = $("#constructivePackageMount");
+  [procurementSummary, cncJobsSummary] = await Promise.all([
+    loadProcurementSummary(draft.id),
+    loadCncJobsSummary(draft.id)
+  ]);
+  const mount = $("#constructiveWorkspaceMount");
   if (mount) {
-    mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail, {
-      editable: true,
-      fileListHtml: renderConstructiveFileList(constructiveFiles, draft.id)
+    mount.innerHTML = renderPositionConstructivePanel(draft, buildConstructiveDownstream(), {
+      editable: true
     });
   }
-  const pipe = $("#constructivePipelineMount");
-  if (pipe) {
-    [procurementSummary, cncJobsSummary] = await Promise.all([
-      loadProcurementSummary(draft.id),
-      loadCncJobsSummary(draft.id)
-    ]);
-    pipe.innerHTML = renderConstructivePipelinePanel(
-      constructivePackageDetail,
-      procurementSummary,
-      pipelinePanelOptions()
-    );
-    bindConstructivePipelinePanel();
-  }
-  bindConstructiveWorkspace();
+  bindConstructivePanel();
 }
 
-function bindConstructiveWorkspace() {
-  const mount = $("#constructivePackageMount");
+function bindConstructivePanel() {
+  const mount = $("#constructiveWorkspaceMount");
   if (!mount || !draft?.id) return;
-  bindConstructivePackageBlock(draft, mount, {
-    editable: true,
-    onUpdated: async () => {
+  bindPositionConstructivePanel(mount, draft, {
+    getDownstream: buildConstructiveDownstream,
+    onRefresh: async (opts = {}) => {
+      if (opts.packageDomOnly) {
+        await handleConstructivePanelRefresh(opts);
+        return;
+      }
       await refreshConstructiveWorkspace();
       draft = { ...draft, hasConstructiveFile: true };
       updateHeader();
       await onSaved();
-    }
-  });
-  bindLegacyAiBlock(mount, draft, {
-    onUpdated: async () => {
-      await refreshConstructiveWorkspace();
-      await onSaved();
     },
-    showError
+    onPackageDetailPatched: (detail) => {
+      constructivePackageDetail = detail;
+    },
+    editable: true
   });
 }
 
@@ -617,16 +549,7 @@ function bindDrawerEvents() {
     });
   });
 
-  bindConstructiveWorkspace();
-  bindConstructivePipelinePanel();
-
-  document.addEventListener(
-    "enver:constructive-package-updated",
-    async () => {
-      if (draft?.id) await refreshConstructiveWorkspace();
-    },
-    { once: false }
-  );
+  bindConstructivePanel();
 
   document.querySelectorAll("[data-run-next-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {

@@ -23,8 +23,14 @@ import {
   getConstructivePackageNextAction,
   getConstructivePackageWarnings
 } from "./constructive-godmode.js";
+import { isPackagePipelineBlocking, canHandoffPackageToCutting } from "./constructive-package.js";
+import { HANDOFF_ACTION_TYPES } from "./godmode-ui-helpers.js";
 import { isManagerDataComplete } from "./position-manager-data.js";
-import { getWorkPositions } from "./order-position-model.js";
+import {
+  getWorkPositions,
+  isRootPosition,
+  workflowPositionsForOrders
+} from "./order-position-model.js";
 
 const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly"];
 
@@ -439,15 +445,50 @@ function shouldRequireManagerData(row, context) {
   if (context.skipManagerDataCheck || context.managerDataComplete === true) return false;
   const stage = field(row, "current_stage", "currentStage") || "constructor";
   if (stage !== "constructor") return false;
-  if (hasConstructive(row) && context?.packageStatus) return false;
+  if (hasConstructive(row) && (context?.packageStatus || context?.hasConstructivePackage)) return false;
   return !managerDataReady(row, context);
 }
 
 function shouldRequireConstructorAssignment(row, context) {
   if (shouldRequireManagerData(row, context)) return false;
+  // Контейнерна root-позиція — призначення лише на робочих (sub) позиціях
+  if (isRootPosition(row) && context.orderHasSubPositions) return false;
   const stage = field(row, "current_stage", "currentStage") || "constructor";
   if (stage !== "constructor" && !context.onConstructorDesk) return false;
   return !hasConstructorAssigned(row);
+}
+
+function isPackageReadyForProduction(row, context = {}) {
+  const status = String(context.packageStatus ?? "").trim();
+  if (status && !isPackagePipelineBlocking(status)) return true;
+  const partsCount = num(row, "constructive_parts_count", "constructivePartsCount");
+  if (
+    (context.hasConstructivePackage || row.has_constructive_package || row.hasConstructivePackage) &&
+    partsCount > 0 &&
+    status &&
+    !isPackagePipelineBlocking(status)
+  ) {
+    return true;
+  }
+  return canHandoffPackageToCutting(context, row);
+}
+
+function cuttingAllowsHandoff(row) {
+  const cutting = stageStatus(row, "cutting");
+  return !cutting || cutting === "Не розпочато" || cutting === "Передано";
+}
+
+/** Чи можна виконати явно запитану дію, навіть якщо вона не перша в черзі godmode. */
+export function isAllowedExplicitPositionAction(row, actionType, context = {}) {
+  const enriched = enrichRow(row, context);
+  switch (actionType) {
+    case "handoff_to_cutting":
+      if (!hasConstructive(enriched) || !cuttingAllowsHandoff(enriched)) return false;
+      if (canHandoffPackageToCutting(context, enriched)) return true;
+      return getPositionNextAction(enriched, context).type === "handoff_to_cutting";
+    default:
+      return false;
+  }
 }
 
 /** Наступна дія для позиції. */
@@ -523,17 +564,13 @@ export function getPositionNextAction(position, context = {}) {
   }
 
   const packageAction = getConstructivePackageNextAction(context);
-  if (
-    packageAction &&
-    context?.packageStatus &&
-    context.packageStatus !== "released_to_cnc" &&
-    context.packageStatus !== "archived" &&
-    !productionHasStarted(row)
-  ) {
+  if (packageAction && context?.packageStatus && !productionHasStarted(row)) {
     return makeAction({ ...packageAction, stageKey: packageAction.stageKey || "constructor" });
   }
 
-  if (!hasAiAnalysis(row, context) && !productionHasStarted(row)) {
+  const packageReadyForProduction = isPackageReadyForProduction(row, context);
+
+  if (!hasAiAnalysis(row, context) && !productionHasStarted(row) && !packageReadyForProduction) {
     return makeAction({
       type: "run_ai_analysis",
       label: "Запустити ШІ-аналіз",
@@ -545,7 +582,7 @@ export function getPositionNextAction(position, context = {}) {
     });
   }
 
-  if (!tasksCreated(row, context) && !productionHasStarted(row)) {
+  if (!tasksCreated(row, context) && !productionHasStarted(row) && !packageReadyForProduction) {
     return makeAction({
       type: "create_tasks_from_ai",
       label: "Створити задачі з рекомендацій ШІ",
@@ -775,13 +812,6 @@ function buildBadges(warnings, blockers, health, attentionScore) {
 function buildAutomationHints(position, context) {
   const hints = [];
   const row = enrichRow(position, context);
-  if (hasConstructive(row) && row.current_stage !== "constructor") {
-    hints.push({
-      type: "part_scan_ready",
-      message:
-        "Оператор сканує етикетки деталей у панелі цеху (порізка, поклейка, присадка, збірка)."
-    });
-  }
   if (hasAiAnalysis(row, context) && !tasksCreated(row, context)) {
     hints.push({
       type: "ai_tasks_ready",
@@ -885,8 +915,7 @@ export function buildNotifications({
     stageTimestamps: {}
   };
 
-  for (const p of positions) {
-    if (p.parentId ?? p.parent_id) continue;
+  for (const p of workflowPositionsForOrders(_orders, positions)) {
     const posCtx = {
       ...ctx,
       hasAiAnalysis: hasAiAnalysis(p, ctx),
@@ -1133,13 +1162,7 @@ export function buildNotifications({
   });
 }
 
-const HANDOFF_TYPES = new Set([
-  "handoff_to_cutting",
-  "handoff_to_edging",
-  "handoff_to_drilling",
-  "handoff_to_assembly",
-  "ready_for_install"
-]);
+const HANDOFF_TYPES = HANDOFF_ACTION_TYPES;
 
 const INPUT_REQUIRED_TYPES = new Set([
   "upload_constructive",
@@ -1188,7 +1211,8 @@ export function canRunNextAction(entity, action, user, context = {}) {
   }
 
   if (HANDOFF_TYPES.has(action.type)) {
-    if (!isProduction && !isAdmin) {
+    const canApproveConstructive = Boolean(user?.permissions?.canApproveConstructive);
+    if (!isProduction && !isAdmin && !(action.type === "handoff_to_cutting" && canApproveConstructive)) {
       return { allowed: false, reason: "Недостатньо прав для передачі між етапами." };
     }
     const blockers = getPositionBlockers(entity, context);

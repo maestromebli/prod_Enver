@@ -25,7 +25,7 @@ const STREAM_INTERVAL_MS = 30_000;
 
 async function loadNotificationsPayload() {
   const orders = await all("SELECT * FROM orders ORDER BY id");
-  const rows = await all(`${POSITION_SELECT} WHERE p.parent_id IS NULL ORDER BY p.id`);
+  const rows = await all(`${POSITION_SELECT} ORDER BY p.id`);
   const planMap = new Map(orders.map((o) => [o.order_number, o.plan_date]));
 
   return buildNotificationsPayloadWithAi({

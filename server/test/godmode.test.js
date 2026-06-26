@@ -8,7 +8,8 @@ import {
   getOrderNextAction,
   getPositionBlockers,
   getPositionNextAction,
-  getPositionWarnings
+  getPositionWarnings,
+  isAllowedExplicitPositionAction
 } from "../../shared/production/godmode.js";
 
 function basePosition(overrides = {}) {
@@ -249,5 +250,52 @@ describe("godmode", () => {
 
     const op = canRunNextAction(pos, { type: "handoff_to_edging" }, { role: "operator" });
     assert.equal(op.allowed, false);
+  });
+
+  it("container root не вимагає assign_constructor", () => {
+    const next = getPositionNextAction(
+      basePosition({ id: 1, parent_id: null, constructor_name: "" }),
+      { orderHasSubPositions: true, onConstructorDesk: true }
+    );
+    assert.notEqual(next.type, "assign_constructor");
+  });
+
+  it("buildNotifications не показує assign_constructor для root якщо sub має конструктора", () => {
+    const order = { id: 5, order_number: "EN-200", status: "Передано" };
+    const positions = [
+      basePosition({
+        id: 1,
+        parent_id: null,
+        item: "Кухня",
+        constructor_name: ""
+      }),
+      basePosition({
+        id: 2,
+        parent_id: 1,
+        item: "Шафа",
+        constructor_name: "Ігор"
+      })
+    ];
+    const notes = buildNotifications({ orders: [order], positions });
+    const assign = notes.filter((n) => n.actionType === "assign_constructor");
+    assert.equal(assign.length, 0);
+  });
+
+  it("явна передача на порізку після підтвердження пакета", () => {
+    const row = basePosition({
+      has_constructive_file: true,
+      has_constructive_package: true,
+      constructive_parts_count: 401,
+      constructor_name: "Ігор"
+    });
+    const ctx = {
+      packageStatus: "approved_by_production",
+      hasConstructivePackage: true,
+      hasAiAnalysis: false,
+      managerDataComplete: true
+    };
+    assert.equal(isAllowedExplicitPositionAction(row, "handoff_to_cutting", ctx), true);
+    const next = getPositionNextAction(row, ctx);
+    assert.equal(next.type, "handoff_to_cutting");
   });
 });

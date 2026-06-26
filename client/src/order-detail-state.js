@@ -15,6 +15,7 @@ export function clearOrderDetailViewState() {
   state.ordersView.positionBundles = {};
   state.ordersView.positionTabDownstream = {};
   state.ordersView.positionSubTab = {};
+  state.ordersView.order3dAssets = {};
   state.ordersView.detailTab = "overview";
 }
 

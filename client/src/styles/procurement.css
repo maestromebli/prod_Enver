@@ -1,0 +1,196 @@
+/* Реєстр заявок на закупівлю */
+.procurement-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.procurement-hero {
+  padding: 0.75rem 1rem;
+}
+
+.procurement-hero-title {
+  margin: 0 0 0.15rem;
+  font-size: 1.15rem;
+}
+
+.procurement-hero-sub {
+  margin: 0 0 0.65rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+}
+
+.procurement-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.procurement-stat {
+  padding: 0.5rem 0.4rem;
+  border-radius: 0.5rem;
+  background: var(--surface-2, #f8fafc);
+  text-align: center;
+}
+
+.procurement-stat strong {
+  display: block;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.procurement-stat span {
+  font-size: 0.68rem;
+  color: var(--text-muted, #64748b);
+}
+
+.procurement-stat--active strong {
+  color: var(--warning, #f59e0b);
+}
+
+.procurement-stat--done strong {
+  color: var(--enver-success, #287a3e);
+}
+
+.procurement-filters {
+  margin-top: 0.25rem;
+}
+
+.procurement-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.procurement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  max-height: min(70vh, 42rem);
+  overflow: auto;
+}
+
+.procurement-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "main status"
+    "meta meta";
+  gap: 0.15rem 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.5rem;
+  background: var(--surface, #fff);
+  text-align: left;
+  cursor: pointer;
+}
+
+.procurement-row:hover {
+  border-color: var(--enver-primary-muted, #93c5fd);
+}
+
+.procurement-row.is-selected {
+  border-color: var(--enver-primary, #2563eb);
+  background: var(--surface-2, #f8fafc);
+}
+
+.procurement-row-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.procurement-row-main strong {
+  font-size: 0.88rem;
+}
+
+.procurement-row-status {
+  grid-area: status;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.procurement-row-meta {
+  grid-area: meta;
+}
+
+.procurement-status--draft,
+.procurement-status--waiting_approval {
+  color: var(--warning, #f59e0b);
+}
+
+.procurement-status--approved,
+.procurement-status--ordered {
+  color: var(--enver-primary, #2563eb);
+}
+
+.procurement-status--partially_received {
+  color: #7c3aed;
+}
+
+.procurement-status--received {
+  color: var(--enver-success, #287a3e);
+}
+
+.procurement-status--rejected,
+.procurement-status--cancelled {
+  color: var(--danger, #dc2626);
+}
+
+.procurement-detail {
+  padding: 0.75rem 1rem;
+}
+
+.procurement-detail--empty,
+.procurement-detail--loading {
+  min-height: 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.procurement-detail-head {
+  margin-bottom: 0.75rem;
+}
+
+.procurement-detail-title {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+
+.procurement-empty {
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.procurement-skeleton-hero {
+  height: 7rem;
+  border-radius: 0.5rem;
+}
+
+.procurement-skeleton-list {
+  min-height: 18rem;
+  border-radius: 0.5rem;
+}
+
+.procurement-skeleton-detail {
+  min-height: 18rem;
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .procurement-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-list {
+    max-height: none;
+  }
+}

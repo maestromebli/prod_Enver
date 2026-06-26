@@ -3,6 +3,7 @@ import {
   NEXT_STAGE_FIELD,
   PRODUCTION_PROGRESS_WEIGHTS,
   STAGE_ACTIVE_STATUSES,
+  STAGE_CLIENT_FIELD,
   STAGE_PATCH_MAP,
   STAGE_STATUS_DONE,
   STAGE_STATUS_FIELD,
@@ -30,16 +31,25 @@ export function stageScore(status, { isConstructor = false, hasConstructor = fal
 }
 
 export function hasConstructive(row) {
-  return Boolean(row.has_constructive_file ?? row.hasConstructiveFile);
+  if (Boolean(row?.has_constructive_file ?? row?.hasConstructiveFile)) return true;
+  if (Boolean(row?.has_constructive_package ?? row?.hasConstructivePackage)) return true;
+  const partsCount = Number(row?.constructive_parts_count ?? row?.constructivePartsCount) || 0;
+  return partsCount > 0;
+}
+
+function readStageStatus(row, stageKey) {
+  const snake = STAGE_STATUS_FIELD[stageKey];
+  const camel = STAGE_CLIENT_FIELD[stageKey];
+  return row?.[snake] ?? row?.[camel] ?? "";
 }
 
 export function computeProgress(row) {
   const w = PRODUCTION_PROGRESS_WEIGHTS;
   const weighted =
-    w.cutting * stageScore(row.cutting_status) +
-    w.edging * stageScore(row.edging_status) +
-    w.drilling * stageScore(row.drilling_status) +
-    w.assembly * stageScore(row.assembly_status);
+    w.cutting * stageScore(readStageStatus(row, "cutting")) +
+    w.edging * stageScore(readStageStatus(row, "edging")) +
+    w.drilling * stageScore(readStageStatus(row, "drilling")) +
+    w.assembly * stageScore(readStageStatus(row, "assembly"));
   return Math.round(weighted / 100);
 }
 
@@ -120,7 +130,7 @@ export function applyStageHandoff(row, stageKey, patch = {}) {
   const copy = { ...row };
 
   if (stageKey === "constructor") {
-    const hasFile = Boolean(copy.has_constructive_file);
+    const hasFile = hasConstructive(copy);
     const forwarded = patch.status ? patch.status !== "Не розпочато" : hasFile;
     if (hasFile && forwarded && isStageIdle(copy.cutting_status)) {
       copy.cutting_status = "Передано";

@@ -528,6 +528,22 @@ button.step-dot[data-pipeline-jump] {
 
 /* ——— Дані менеджера по позиції ——— */
 
+.position-responsibles-panel {
+  margin-bottom: var(--enver-space-4, 16px);
+  padding: var(--enver-space-4, 16px);
+}
+
+.position-responsibles-panel .pr-assign-grid {
+  margin-top: var(--enver-space-3, 12px);
+}
+
+.position-responsibles-panel .pr-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--enver-space-2, 8px);
+  margin-top: var(--enver-space-3, 12px);
+}
+
 .position-manager-panel {
   padding: var(--enver-space-4, 16px);
 }
@@ -551,9 +567,10 @@ button.step-dot[data-pipeline-jump] {
   font-size: 0.9375rem;
 }
 
-.pm-files-grid {
+.pm-files-grid,
+.pm-file-previews {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--enver-space-3, 12px);
 }
 
@@ -565,6 +582,61 @@ button.step-dot[data-pipeline-jump] {
   border: 1px solid var(--enver-border, var(--border));
   border-radius: var(--enver-radius-sm, 8px);
   background: var(--enver-surface-soft, var(--surface-muted));
+}
+
+.pm-file-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-file-card-head strong {
+  flex: 1 1 100%;
+  font-size: 0.875rem;
+  word-break: break-word;
+}
+
+.pm-file-preview {
+  min-height: 80px;
+}
+
+.pm-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pm-preview-img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--enver-surface, var(--surface));
+}
+
+.pm-preview-pdf {
+  width: 100%;
+  min-height: 240px;
+  border: none;
+  border-radius: 6px;
+  background: var(--enver-surface, var(--surface));
+}
+
+.pm-upload-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--enver-space-3, 12px);
+  margin-top: var(--enver-space-3, 12px);
+}
+
+.pm-link-add {
+  align-items: end;
+}
+
+.pm-link-add-btn {
+  display: flex;
+  align-items: flex-end;
 }
 
 .pm-file-thumb {

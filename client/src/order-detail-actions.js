@@ -19,6 +19,11 @@ import {
   getPositionSubTab,
   loadPositionOrderTabData
 } from "./position-order-tab.js";
+import {
+  bindOrder3DTab,
+  loadOrder3DAsset,
+  teardownOrder3DTab
+} from "./order-3d/order-3d-bind.js";
 import { focusOrderInlineAddInput, openPositionInOrderDetail } from "./order-detail-state.js";
 
 async function patchPositionStage(positionId, stageKey, payload, onRefresh) {
@@ -146,6 +151,9 @@ export function bindOrderDetail(root, handlers = {}) {
           [positionId]: btn.dataset.posSubJump
         };
       }
+      if (btn.dataset.focusResponsibles === "1" && tabKey.startsWith("pos-")) {
+        state.ordersView.focusResponsiblesPositionId = Number(tabKey.slice(4));
+      }
       onRefresh?.({ contentOnly: false });
       if (btn.dataset.focusInlineAdd) focusOrderInlineAddInput();
     });
@@ -180,6 +188,20 @@ export function bindOrderDetail(root, handlers = {}) {
   });
 
   const tab = state.ordersView.detailTab || "";
+  if (tab === "model-3d") {
+    const order = state.orders.find((o) => o.id === state.selectedOrderId);
+    if (order) {
+      loadOrder3DAsset(order.id)
+        .then(() => {
+          bindOrder3DTab(root, order, { onRefresh });
+          onRefresh?.({ contentOnly: true });
+        })
+        .catch(() => bindOrder3DTab(root, order, { onRefresh }));
+    }
+  } else {
+    teardownOrder3DTab();
+  }
+
   if (tab.startsWith("pos-")) {
     const positionId = Number(tab.slice(4));
     const order = state.orders.find((o) => o.id === state.selectedOrderId) || {};
@@ -277,6 +299,13 @@ export function bindOrderDetail(root, handlers = {}) {
 
       if (position && !HANDOFF_ACTION_TYPES.has(actionType)) {
         if (actionType === "assign_constructor") {
+          const { canManageConstructorDesk } = await import("./auth.js");
+          if (canManageConstructorDesk()) {
+            if (navigateGodmodeAction(position, actionType, state)) {
+              await onRefresh?.({ contentOnly: false });
+              return;
+            }
+          }
           const { openConstructorDeskForAssignment } = await import("./constructor-desk.js");
           await openConstructorDeskForAssignment({ positionId });
           return;

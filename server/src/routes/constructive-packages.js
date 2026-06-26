@@ -3,6 +3,7 @@ import {
   auditActor,
   requireAuth,
   requireConstructorDeskWrite,
+  requireConstructivePackageWrite,
   requirePermission,
   requirePermissionOrAdmin,
   requirePositionAccess,
@@ -11,7 +12,6 @@ import {
 import { one } from "../db.js";
 import {
   approvePackage,
-  createConstructivePackage,
   getLatestPackage,
   getPackageDetail,
   getPackageFileForDownload,
@@ -20,9 +20,11 @@ import {
   parseConstructivePackage,
   rejectPackage,
   releasePackageToCnc,
+  deletePackageFile,
   saveModelManifest,
   updatePartModelMapping,
-  autoMapManifestNodes
+  autoMapManifestNodes,
+  uploadConstructivePackageFiles
 } from "../constructive/constructive-package-service.js";
 import {
   createProcurementFromPackage,
@@ -51,6 +53,8 @@ function decodeFilePayload(body) {
         originalName: f.fileName,
         mime: f.mime || "application/octet-stream",
         kind: f.kind || detectPackageFileKind(f.fileName),
+        materialType: f.materialType || "",
+        materialDecor: f.materialDecor || "",
         buffer: Buffer.from(String(f.dataBase64), "base64")
       });
     }
@@ -59,6 +63,8 @@ function decodeFilePayload(body) {
       originalName: body.fileName,
       mime: body.mime || "application/octet-stream",
       kind: body.kind || detectPackageFileKind(body.fileName),
+      materialType: body.materialType || "",
+      materialDecor: body.materialDecor || "",
       buffer: Buffer.from(String(body.dataBase64), "base64")
     });
   }
@@ -73,6 +79,7 @@ router.get("/", requirePositionAccess, async (req, res) => {
 });
 
 router.get("/latest", requirePositionAccess, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const positionId = Number(req.params.id);
   const latest = await getLatestPackage(positionId);
   if (!latest) {
@@ -82,7 +89,7 @@ router.get("/latest", requirePositionAccess, async (req, res) => {
   res.json(await getPackageDetail(latest.id));
 });
 
-router.post("/", requireConstructorDeskWrite, async (req, res) => {
+router.post("/", requireConstructivePackageWrite, async (req, res) => {
   const positionId = Number(req.params.id);
   const position = await loadPosition(positionId);
   if (!position) {
@@ -97,20 +104,20 @@ router.post("/", requireConstructorDeskWrite, async (req, res) => {
   }
 
   try {
-    const result = await createConstructivePackage({
+    const detail = await uploadConstructivePackageFiles({
       positionId,
       positionRow: position,
       files,
       uploadedBy: auditActor(req)?.id,
       actor: auditActor(req)
     });
-    res.status(201).json(result);
+    res.status(201).json(detail);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
 });
 
-router.post("/:packageId/parse", requireConstructorDeskWrite, async (req, res) => {
+router.post("/:packageId/parse", requireConstructivePackageWrite, async (req, res) => {
   const packageId = Number(req.params.packageId);
   try {
     const detail = await parseConstructivePackage(packageId, auditActor(req));
@@ -226,22 +233,46 @@ router.post(
   }
 );
 
+router.delete("/:packageId/files/:fileId", requireConstructivePackageWrite, async (req, res) => {
+  const packageId = Number(req.params.packageId);
+  const fileId = Number(req.params.fileId);
+  const positionId = Number(req.params.id);
+  const pkgRow = await one(`SELECT position_id FROM constructive_packages WHERE id = $1`, [
+    packageId
+  ]);
+  if (!pkgRow || Number(pkgRow.position_id) !== positionId) {
+    res.status(404).json({ error: "Пакет не знайдено" });
+    return;
+  }
+  try {
+    const detail = await deletePackageFile(packageId, fileId, auditActor(req));
+    res.json(detail);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+async function sendPackageFileDownload(res, packageId, fileId) {
+  const payload = await getPackageFileForDownload(packageId, fileId);
+  if (!payload) {
+    res.status(404).json({ error: "Файл не знайдено" });
+    return;
+  }
+  res.setHeader("Content-Type", payload.row.mime || "application/octet-stream");
+  const name = payload.row.original_name || "file";
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="${encodeURIComponent(name)}"; filename*=UTF-8''${encodeURIComponent(name)}`
+  );
+  const fs = await import("fs");
+  fs.createReadStream(payload.fullPath).pipe(res);
+}
+
 router.get("/:packageId/files/:fileId", requirePositionAccess, async (req, res) => {
   const packageId = Number(req.params.packageId);
   const fileId = Number(req.params.fileId);
   try {
-    const payload = await getPackageFileForDownload(packageId, fileId);
-    if (!payload) {
-      res.status(404).json({ error: "Файл не знайдено" });
-      return;
-    }
-    res.setHeader("Content-Type", payload.row.mime || "application/octet-stream");
-    const name = payload.row.original_name || "file";
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${encodeURIComponent(name)}"; filename*=UTF-8''${encodeURIComponent(name)}`
-    );
-    import("fs").then((fs) => fs.createReadStream(payload.fullPath).pipe(res));
+    await sendPackageFileDownload(res, packageId, fileId);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -302,19 +333,7 @@ packageFilesRouter.get("/:packageId/files/:fileId", async (req, res) => {
   const packageId = Number(req.params.packageId);
   const fileId = Number(req.params.fileId);
   try {
-    const payload = await getPackageFileForDownload(packageId, fileId);
-    if (!payload) {
-      res.status(404).json({ error: "Файл не знайдено" });
-      return;
-    }
-    res.setHeader("Content-Type", payload.row.mime || "application/octet-stream");
-    const name = payload.row.original_name || "file";
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${encodeURIComponent(name)}"; filename*=UTF-8''${encodeURIComponent(name)}`
-    );
-    const fs = await import("fs");
-    fs.createReadStream(payload.fullPath).pipe(res);
+    await sendPackageFileDownload(res, packageId, fileId);
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

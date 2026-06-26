@@ -62,6 +62,14 @@ async function start() {
     try {
       await pool.query("SELECT 1");
       dbConnected = true;
+      try {
+        const { resumePending3DConversionJobs } = await import(
+          "./features/order-3d/conversion-queue.js"
+        );
+        await resumePending3DConversionJobs();
+      } catch (err) {
+        console.warn("order-3d queue resume:", err?.message || err);
+      }
     } catch (err) {
       if (!isDev) throw err;
       const hint =

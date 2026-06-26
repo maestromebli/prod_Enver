@@ -3,7 +3,7 @@ import {
   orderDetailSubTabForGodmodeAction,
   panelForGodmodeAction
 } from "@enver/shared/production/godmode-ui-helpers.js";
-import { canWorkConstructorDesk } from "./auth.js";
+import { canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
 import { resolvePositionGodmode } from "./godmode-ui.js";
 import { state } from "./state.js";
 
@@ -12,6 +12,13 @@ export async function openGodmodePositionTarget(position, actionType) {
   if (!position?.id || !actionType) return { kind: "none" };
 
   if (actionType === "assign_constructor") {
+    if (canManageConstructorDesk()) {
+      const { openPositionInOrderDetail } = await import("./order-detail.js");
+      if (openPositionInOrderDetail(position.id)) {
+        state.ordersView.focusResponsiblesPositionId = position.id;
+        return { kind: "order_detail", subTab: "responsibles" };
+      }
+    }
     const { openConstructorDeskForAssignment } = await import("./constructor-desk.js");
     await openConstructorDeskForAssignment({ positionId: position.id });
     return { kind: "constructor_desk", level: "assignment" };

@@ -392,39 +392,39 @@ table {
 
 /* Другорядні колонки — ховаємо на вузьких екранах (без горизонтального скролу) */
 @media (max-width: 1280px) {
-  .table-wrap .col-opt-note,
-  .table-wrap .col-opt-problem,
-  .table-wrap .col-opt-comment {
+  .table-wrap:not(.positions-table-wrap) .col-opt-note,
+  .table-wrap:not(.positions-table-wrap) .col-opt-problem,
+  .table-wrap:not(.positions-table-wrap) .col-opt-comment {
     display: none;
   }
 }
 
 @media (max-width: 1100px) {
-  .table-wrap .col-opt-type,
-  .table-wrap .col-opt-edging,
-  .table-wrap .col-opt-drilling,
-  .table-wrap .col-opt-overdue,
-  .table-wrap .col-opt-client,
-  .table-wrap .col-opt-fact-date {
+  .table-wrap:not(.positions-table-wrap) .col-opt-type,
+  .table-wrap:not(.positions-table-wrap) .col-opt-edging,
+  .table-wrap:not(.positions-table-wrap) .col-opt-drilling,
+  .table-wrap:not(.positions-table-wrap) .col-opt-overdue,
+  .table-wrap:not(.positions-table-wrap) .col-opt-client,
+  .table-wrap:not(.positions-table-wrap) .col-opt-fact-date {
     display: none;
   }
 }
 
 @media (max-width: 900px) {
-  .table-wrap .col-opt-manager,
-  .table-wrap .col-opt-constructor,
-  .table-wrap .col-opt-ready,
-  .table-wrap .col-opt-plan-date,
-  .table-wrap .col-opt-start-date,
-  .table-wrap .col-opt-priority {
+  .table-wrap:not(.positions-table-wrap) .col-opt-manager,
+  .table-wrap:not(.positions-table-wrap) .col-opt-constructor,
+  .table-wrap:not(.positions-table-wrap) .col-opt-ready,
+  .table-wrap:not(.positions-table-wrap) .col-opt-plan-date,
+  .table-wrap:not(.positions-table-wrap) .col-opt-start-date,
+  .table-wrap:not(.positions-table-wrap) .col-opt-priority {
     display: none;
   }
 }
 
 @media (max-width: 767px) {
-  .table-wrap .col-opt-install-date,
-  .table-wrap .col-opt-id,
-  .table-wrap .col-opt-object {
+  .table-wrap:not(.positions-table-wrap) .col-opt-install-date,
+  .table-wrap:not(.positions-table-wrap) .col-opt-id,
+  .table-wrap:not(.positions-table-wrap) .col-opt-object {
     display: none;
   }
 }
@@ -437,35 +437,43 @@ table {
 }
 
 .positions-table .col-w-id {
-  width: 48px;
+  width: 52px;
 }
 
 .positions-table .col-w-order {
-  width: 92px;
+  width: 108px;
 }
 
 .positions-table .col-w-object {
-  width: 120px;
+  width: 124px;
 }
 
 .positions-table .col-w-item {
-  width: 160px;
+  width: 168px;
 }
 
 .positions-table .col-w-type {
-  width: 88px;
+  width: 96px;
 }
 
 .positions-table .col-w-person {
-  width: 88px;
+  width: 96px;
 }
 
 .positions-table .col-w-stage {
-  width: 76px;
+  width: 80px;
+}
+
+.positions-table .col-w-stage-wide {
+  width: 104px;
 }
 
 .positions-table .col-w-date {
-  width: 96px;
+  width: 108px;
+}
+
+.positions-table .col-w-date-wide {
+  width: 116px;
 }
 
 .positions-table .col-w-status {
@@ -473,19 +481,19 @@ table {
 }
 
 .positions-table .col-w-progress {
-  width: 96px;
+  width: 84px;
 }
 
 .positions-table .col-w-overdue {
-  width: 72px;
+  width: 96px;
 }
 
 .positions-table .col-w-text {
-  width: 120px;
+  width: 128px;
 }
 
 .positions-table .col-w-actions {
-  width: 88px;
+  width: 92px;
 }
 
 .table-wrap td.col-item {
@@ -601,7 +609,7 @@ tbody tr.row-order-new.row-order-no-assignment:hover td {
 
 .positions-hint {
   margin: 0;
-  padding: 10px 14px 0;
+  padding: 12px 20px 0;
   font-size: 12px;
   font-weight: 700;
   color: var(--muted);

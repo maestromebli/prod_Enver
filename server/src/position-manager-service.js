@@ -7,6 +7,7 @@ import {
   buildManagerDataFromRow,
   defaultManagerDataJson,
   isManagerDataComplete,
+  inferManagerFileKind,
   isManagerFileKind,
   managerDataCompletionPercent,
   parseManagerDataJson
@@ -31,17 +32,19 @@ const WORKSPACE_MANAGER_KINDS = ["tech", "measurements", "manager_image", "custo
 const MAX_MANAGER_FILE_BYTES = 80 * 1024 * 1024;
 
 function mapManagerFileRow(row) {
+  const externalUrl = String(row.external_url || "").trim() || null;
   return {
     id: row.id,
     positionId: row.position_id,
     kind: row.kind,
     kindLabel: MANAGER_FILE_KIND_LABELS[row.kind] || row.kind,
-    fileName: row.original_name,
-    mime: row.mime || "application/octet-stream",
+    fileName: row.original_name || externalUrl || "файл",
+    mime: row.mime || (externalUrl ? "text/uri-list" : "application/octet-stream"),
     sizeBytes: Number(row.size_bytes) || 0,
     uploadedBy: row.uploaded_by,
     createdAt: row.created_at,
     source: "position_files",
+    externalUrl,
     readOnly: false
   };
 }
@@ -138,6 +141,9 @@ export async function getManagerFileForDownload(positionId, fileIdRaw) {
     [fileId, positionId]
   );
   if (!row) return null;
+  if (String(row.external_url || "").trim()) {
+    return { externalUrl: row.external_url.trim(), row };
+  }
   const fullPath = resolveStoredPath(row.storage_path);
   if (!fs.existsSync(fullPath)) {
     const err = new Error("Файл відсутній на диску");
@@ -259,7 +265,7 @@ export async function saveManagerData(positionId, body, actor, { markComplete = 
 
 export async function uploadManagerFile(
   positionId,
-  { fileName, mime, dataBase64, kind = "manager_other", comment = "" },
+  { fileName, mime, dataBase64, kind = "manager_other", comment = "", externalUrl = "" },
   actor
 ) {
   const existing = await one(`SELECT id, order_number, item FROM positions WHERE id = $1`, [
@@ -271,7 +277,41 @@ export async function uploadManagerFile(
     throw err;
   }
 
-  const fileKind = isManagerFileKind(kind) ? kind : "manager_other";
+  const url = String(externalUrl || "").trim();
+  if (url && !dataBase64) {
+    if (!/^https?:\/\//i.test(url)) {
+      const err = new Error("Посилання має починатися з http:// або https://");
+      err.status = 400;
+      throw err;
+    }
+    const title = String(fileName || url).trim() || url;
+    const fileKind =
+      kind && isManagerFileKind(kind) ? kind : inferManagerFileKind(title || url, mime || "");
+    const row = await one(
+      `INSERT INTO position_files (
+        position_id, kind, original_name, storage_path, external_url, mime, size_bytes, uploaded_by
+      ) VALUES ($1, $2, $3, '', $4, $5, 0, $6)
+      RETURNING *`,
+      [positionId, fileKind, title, url, mime || "text/uri-list", actor?.id || null]
+    );
+
+    await recordHistory({
+      entityType: "position",
+      entityId: positionId,
+      action: "update",
+      meta: {
+        summary: `Додано посилання менеджера: ${title}`,
+        orderNumber: existing.order_number,
+        item: existing.item
+      },
+      actor
+    });
+
+    return mapManagerFileRow(row);
+  }
+
+  const fileKind =
+    kind && isManagerFileKind(kind) ? kind : inferManagerFileKind(fileName, mime);
   if (!fileName || !dataBase64) {
     const err = new Error("fileName та dataBase64 обов'язкові");
     err.status = 400;

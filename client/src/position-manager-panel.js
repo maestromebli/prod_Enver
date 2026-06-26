@@ -1,13 +1,12 @@
-import {
-  MANAGER_FILE_KINDS,
-  MANAGER_FILE_KIND_LABELS
-} from "@enver/shared/production/position-manager-data.js";
+import { inferManagerFileKind } from "@enver/shared/production/position-manager-data.js";
 import { api, getStoredToken } from "./api.js";
 import { runSave } from "./save-flow.js";
 import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
 import { canEditPositionManagerData } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
+import { state } from "./state.js";
+import { renderManagerFilePreview } from "./manager-file-preview.js";
 
 const panelCache = new Map();
 
@@ -17,10 +16,16 @@ export function managerFileDownloadUrl(positionId, fileId) {
   return `/api/positions/${positionId}/files/${fileId}/download${q}`;
 }
 
-function kindOptions() {
-  return MANAGER_FILE_KINDS.map(
-    (k) => `<option value="${k}">${escapeHtml(MANAGER_FILE_KIND_LABELS[k] || k)}</option>`
-  ).join("");
+function fileOpenHref(positionId, file) {
+  if (file.externalUrl) return file.externalUrl;
+  return managerFileDownloadUrl(positionId, file.id);
+}
+
+function renderFilePreview(positionId, file) {
+  return renderManagerFilePreview(positionId, file, {
+    classPrefix: "pm",
+    downloadUrl: managerFileDownloadUrl
+  });
 }
 
 function renderAppliances(appliances = []) {
@@ -39,35 +44,42 @@ function renderAppliances(appliances = []) {
     .join("")}</ul>`;
 }
 
-function renderFiles(positionId, files = []) {
+export function renderFiles(positionId, files = [], { editable } = {}) {
+  const canDelete = editable ?? canEditPositionManagerData();
   if (!files.length) {
     return `<p class="field-hint">Файлів ще немає.</p>`;
   }
-  return `<div class="pm-files-grid">${files
+  return `<div class="pm-file-previews">${files
     .map((f) => {
-      const href = managerFileDownloadUrl(positionId, f.id);
-      const isImg = String(f.mime || "").startsWith("image/");
-      const preview = isImg
-        ? `<img class="pm-file-thumb" src="${href}" alt="" loading="lazy" />`
-        : `<span class="pm-file-icon">📄</span>`;
+      const href = fileOpenHref(positionId, f);
+      const isLink = Boolean(f.externalUrl);
       return `
         <article class="pm-file-card">
-          ${preview}
-          <div class="pm-file-meta">
+          <div class="pm-file-card-head">
             <span class="enver-badge">${escapeHtml(f.kindLabel || f.kind)}</span>
+            ${isLink ? `<span class="enver-badge enver-badge-info">Посилання</span>` : ""}
             <strong>${escapeHtml(f.fileName || "файл")}</strong>
           </div>
-          <a class="btn btn-sm" href="${href}" target="_blank" rel="noopener">Відкрити</a>
-          ${
-            canEditPositionManagerData() && !f.readOnly
-              ? `<button type="button" class="btn btn-sm btn-danger" data-delete-manager-file="${f.id}">Видалити</button>`
-              : f.source === "workspace"
-                ? `<span class="enver-meta">Стіл конструктора</span>`
-                : ""
-          }
+          <div class="pm-file-preview">${renderFilePreview(positionId, f)}</div>
+          <div class="pm-file-actions">
+            <a class="btn btn-sm" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${isLink ? "Відкрити" : "Переглянути"}</a>
+            ${
+              canDelete && !f.readOnly
+                ? `<button type="button" class="btn btn-sm btn-danger" data-delete-manager-file="${f.id}">Видалити</button>`
+                : f.source === "workspace"
+                  ? `<span class="enver-meta">Стіл конструктора</span>`
+                  : ""
+            }
+          </div>
         </article>`;
     })
     .join("")}</div>`;
+}
+
+function renderHeaderBadge(bundle) {
+  const pct = bundle?.managerDataPercent ?? 0;
+  const complete = bundle?.managerDataComplete ?? false;
+  return `<span class="enver-badge ${complete ? "enver-badge-success" : "enver-badge-warning"}">${pct}% · ${complete ? "Заповнено" : "Потрібно доповнити"}</span>`;
 }
 
 export function renderPositionManagerPanel(position, bundle = null) {
@@ -82,26 +94,22 @@ export function renderPositionManagerPanel(position, bundle = null) {
       sourceLinks: []
     };
   const files = bundle?.files || position?.managerFiles || [];
-  const pct = bundle?.managerDataPercent ?? position?.managerDataPercent ?? 0;
-  const complete = bundle?.managerDataComplete ?? position?.managerDataComplete ?? false;
-  const needsTech = Boolean(data.requirements?.needsTech);
-  const needsLed = Boolean(data.requirements?.needsLed);
 
   return `
     <section class="position-manager-panel card" data-position-manager="${position.id}">
       <header class="pm-header">
         <h3 class="enver-section-title">Дані менеджера</h3>
-        <span class="enver-badge ${complete ? "enver-badge-success" : "enver-badge-warning"}">${pct}% · ${complete ? "Заповнено" : "Потрібно доповнити"}</span>
+        <span data-pm-header-badge="${position.id}">${renderHeaderBadge(bundle || position)}</span>
       </header>
 
       <form class="pm-form" data-pm-form="${position.id}">
         <div class="pm-requirements form-grid span-2">
           <label class="checkbox-label">
-            <input type="checkbox" id="pmNeedsTech-${position.id}" data-pm-needs-tech ${needsTech ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            <input type="checkbox" id="pmNeedsTech-${position.id}" data-pm-needs-tech ${data.requirements?.needsTech ? "checked" : ""} ${canEdit ? "" : "disabled"} />
             Потрібна техніка
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="pmNeedsLed-${position.id}" data-pm-needs-led ${needsLed ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            <input type="checkbox" id="pmNeedsLed-${position.id}" data-pm-needs-led ${data.requirements?.needsLed ? "checked" : ""} ${canEdit ? "" : "disabled"} />
             Потрібен LED
           </label>
         </div>
@@ -152,7 +160,7 @@ export function renderPositionManagerPanel(position, bundle = null) {
         }
       </form>
 
-      <div class="pm-block pm-tech-block" data-pm-tech-block="${position.id}" ${needsTech ? "" : "hidden"}>
+      <div class="pm-block pm-tech-block" data-pm-tech-block="${position.id}" ${data.requirements?.needsTech ? "" : "hidden"}>
         <h4>Техніка / посилання</h4>
         ${renderAppliances(data.appliances)}
         ${
@@ -171,19 +179,21 @@ export function renderPositionManagerPanel(position, bundle = null) {
         <div class="pm-files" data-pm-files="${position.id}">${renderFiles(position.id, files)}</div>
         ${
           canEdit
-            ? `<div class="pm-upload">
+            ? `<div class="pm-upload-tools">
+            <div class="pm-link-add form-grid">
+              <div class="form-field"><input id="pmLinkTitle-${position.id}" placeholder="Назва посилання" /></div>
+              <div class="form-field"><input id="pmLinkUrl-${position.id}" type="url" placeholder="https://…" /></div>
+              <div class="form-field pm-link-add-btn"><button type="button" class="btn btn-sm" data-pm-add-link="${position.id}">Додати посилання</button></div>
+            </div>
+            <div class="pm-upload">
             ${renderFileUploadZone({
               zoneAttr: `data-pm-drop="${position.id}"`,
               inputAttr: `data-pm-file-input="${position.id}"`,
               compact: true,
               multiple: true,
               title: "Додати файли",
-              hint: "Перетягніть або натисніть",
-              formats: "PDF, зображення, документи"
+              hint: "Перетягніть або натисніть — тип визначиться автоматично"
             })}
-            <div class="form-field pm-upload-kind">
-              <label>Тип файлу</label>
-              <select data-pm-file-kind="${position.id}">${kindOptions()}</select>
             </div>
           </div>`
             : ""
@@ -219,16 +229,64 @@ function readForm(positionId) {
   };
 }
 
-async function uploadFiles(positionId, fileList, kind) {
+async function uploadLink(positionId, { title, url }) {
+  return api.uploadPositionManagerFile(positionId, {
+    fileName: title || url,
+    externalUrl: url,
+    kind: inferManagerFileKind(title || url, "")
+  });
+}
+
+async function uploadFiles(positionId, fileList) {
+  const uploaded = [];
   for (const file of fileList) {
     const dataBase64 = await readFileAsBase64(file);
-    await api.uploadPositionManagerFile(positionId, {
+    const row = await api.uploadPositionManagerFile(positionId, {
       fileName: file.name,
       mime: file.type,
       dataBase64,
-      kind
+      kind: inferManagerFileKind(file.name, file.type)
     });
+    uploaded.push(row);
   }
+  return uploaded;
+}
+
+function mergeBundle(positionId, partial = {}) {
+  const prev = panelCache.get(positionId) || state.ordersView.positionBundles?.[positionId] || {};
+  const files = partial.files ?? prev.files ?? [];
+  const bundle = { ...prev, ...partial, files };
+  panelCache.set(positionId, bundle);
+  state.ordersView.positionBundles = {
+    ...(state.ordersView.positionBundles || {}),
+    [positionId]: bundle
+  };
+  return bundle;
+}
+
+function patchFilesList(panel, positionId, files) {
+  const filesEl = panel.querySelector(`[data-pm-files="${positionId}"]`);
+  if (filesEl) filesEl.innerHTML = renderFiles(positionId, files);
+}
+
+function patchHeaderBadge(panel, positionId, bundle) {
+  const badgeEl = panel.querySelector(`[data-pm-header-badge="${positionId}"]`);
+  if (badgeEl) badgeEl.innerHTML = renderHeaderBadge(bundle);
+}
+
+function bindDeleteFileButtons(panel, positionId, onSaved) {
+  panel.querySelectorAll(`[data-delete-manager-file]`).forEach((btn) => {
+    if (btn.dataset.pmDeleteBound === "1") return;
+    btn.dataset.pmDeleteBound = "1";
+    btn.addEventListener("click", async () => {
+      const fileId = btn.dataset.deleteManagerFile;
+      if (String(fileId).startsWith("ws-")) return;
+      if (!window.confirm("Видалити файл?")) return;
+      await api.deletePositionManagerFile(positionId, fileId);
+      toastSuccess("Файл видалено");
+      await onSaved?.();
+    });
+  });
 }
 
 export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
@@ -246,12 +304,16 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
   panel.querySelector(`[data-pm-form="${positionId}"]`)?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = readForm(positionId);
+    const submitBtn =
+      e.submitter || panel.querySelector(`[data-pm-form="${positionId}"] button[type="submit"]`);
     await runSave("Дані позиції", {
+      submitEl: submitBtn,
       saveFn: () => api.savePositionManagerData(positionId, body),
       successMessage: "Дані збережено",
       onSuccess: async (result) => {
-        panelCache.set(positionId, result);
-        await onSaved?.(result);
+        const bundle = mergeBundle(positionId, result);
+        patchHeaderBadge(panel, positionId, bundle);
+        await onSaved?.(bundle);
       },
       onError: (err) => toastError(err.message)
     }).catch(() => {});
@@ -263,8 +325,7 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
     if (!title && !url) return;
     const cached = panelCache.get(positionId) || { managerData: { appliances: [] } };
     const appliances = [...(cached.managerData?.appliances || []), { title, url, note: "" }];
-    panelCache.set(positionId, {
-      ...cached,
+    mergeBundle(positionId, {
       managerData: { ...(cached.managerData || {}), appliances }
     });
     const list = panel.querySelector(".pm-appliance-list")?.parentElement;
@@ -274,30 +335,58 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
     }
   });
 
-  panel.querySelectorAll(`[data-delete-manager-file]`).forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const fileId = btn.dataset.deleteManagerFile;
-      if (String(fileId).startsWith("ws-")) return;
-      if (!window.confirm("Видалити файл?")) return;
-      await api.deletePositionManagerFile(positionId, fileId);
-      toastSuccess("Файл видалено");
-      await onSaved?.();
-    });
+  panel.querySelector(`[data-pm-add-link="${positionId}"]`)?.addEventListener("click", async () => {
+    const title = document.getElementById(`pmLinkTitle-${positionId}`)?.value?.trim() || "";
+    const url = document.getElementById(`pmLinkUrl-${positionId}`)?.value?.trim() || "";
+    if (!url) {
+      toastError("Вкажіть посилання (https://…)");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      toastError("Посилання має починатися з http:// або https://");
+      return;
+    }
+    await runSave("Посилання", {
+      saveFn: () => uploadLink(positionId, { title, url }),
+      successMessage: "Посилання додано",
+      onSuccess: async (uploaded) => {
+        const prev =
+          panelCache.get(positionId) || state.ordersView.positionBundles?.[positionId] || {};
+        const files = [...(prev.files || []), uploaded];
+        const bundle = mergeBundle(positionId, { files });
+        patchFilesList(panel, positionId, files);
+        patchHeaderBadge(panel, positionId, bundle);
+        bindDeleteFileButtons(panel, positionId, onSaved);
+        document.getElementById(`pmLinkTitle-${positionId}`).value = "";
+        document.getElementById(`pmLinkUrl-${positionId}`).value = "";
+        await onSaved?.(bundle);
+      },
+      onError: (err) => toastError(err.message)
+    }).catch(() => {});
   });
 
+  bindDeleteFileButtons(panel, positionId, onSaved);
+
   const dropSelector = `[data-pm-drop="${positionId}"]`;
-  const kindSelect = panel.querySelector(`[data-pm-file-kind="${positionId}"]`);
 
   bindFileUploadZone(panel, {
     zoneSelector: dropSelector,
     inputSelector: `[data-pm-file-input="${positionId}"]`,
     multiple: true,
     onFile: async (file) => {
-      const kind = kindSelect?.value || "manager_other";
       await runSave("Файли", {
-        saveFn: () => uploadFiles(positionId, [file], kind),
+        saveFn: () => uploadFiles(positionId, [file]),
         successMessage: "Файл завантажено",
-        onSuccess: () => onSaved?.()
+        onSuccess: async (uploaded) => {
+          const prev =
+            panelCache.get(positionId) || state.ordersView.positionBundles?.[positionId] || {};
+          const files = [...(prev.files || []), ...uploaded];
+          const bundle = mergeBundle(positionId, { files });
+          patchFilesList(panel, positionId, files);
+          patchHeaderBadge(panel, positionId, bundle);
+          bindDeleteFileButtons(panel, positionId, onSaved);
+          await onSaved?.(bundle);
+        }
       }).catch(() => {});
     }
   });
@@ -305,10 +394,10 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
 
 export async function loadPositionManagerBundle(positionId) {
   const bundle = await api.getPositionManagerData(positionId);
-  panelCache.set(positionId, bundle);
+  mergeBundle(positionId, bundle);
   return bundle;
 }
 
 export function setPositionManagerCache(positionId, bundle) {
-  panelCache.set(positionId, bundle);
+  mergeBundle(positionId, bundle);
 }

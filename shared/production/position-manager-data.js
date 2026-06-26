@@ -160,3 +160,26 @@ export function managerDataCompletionPercent(
 export function isManagerFileKind(kind) {
   return MANAGER_FILE_KINDS.includes(kind);
 }
+
+/** Визначає тип файлу менеджера за MIME та ім'ям (без ручного вибору в UI). */
+export function inferManagerFileKind(fileName = "", mime = "") {
+  const name = String(fileName).toLowerCase();
+  const type = String(mime).toLowerCase();
+
+  if (type.startsWith("image/") || /\.(jpe?g|png|gif|webp|heic|bmp|tiff?)$/i.test(name)) {
+    return "manager_photo";
+  }
+  if (type === "application/pdf" || name.endsWith(".pdf")) {
+    return "manager_pdf";
+  }
+  if (/замір|обмір|measure/i.test(name)) {
+    return "manager_measurement";
+  }
+  if (/референс|reference|\bref\b/i.test(name)) {
+    return "manager_reference";
+  }
+  if (/техніка|appliance|\bтех\b/i.test(name)) {
+    return "manager_appliance";
+  }
+  return "manager_other";
+}

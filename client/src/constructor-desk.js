@@ -6,12 +6,13 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { runSave } from "./save-flow.js";
-import { managerFileDownloadUrl } from "./position-manager-panel.js";
+import { managerFileDownloadUrl, renderFiles } from "./position-manager-panel.js";
+import { renderManagerFilePreview } from "./manager-file-preview.js";
 import {
   mergeConstructorAssignees,
-  normalizePersonName,
   parseConstructorAssigneeValue
 } from "@enver/shared/production/constructor-assignees.js";
+import { renderConstructorSelectOptions } from "./constructor-assignee-ui.js";
 import {
   CONSTRUCTORS_DIRECTORY_KEY,
   getDirectoryList
@@ -21,7 +22,7 @@ import {
   renderPositionConstructivePanel
 } from "./position-constructive-panel.js";
 import { loadConstructivePackageDetail } from "./constructive-package-ui.js";
-import { loadCncJobsSummary, loadProcurementSummary } from "./constructive-pipeline-panel.js";
+import { loadCncJobsSummary } from "./constructive-pipeline-panel.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
 
@@ -45,30 +46,11 @@ export function constructorDeskFileUrl(positionId, fileId) {
   return `/api/constructor-desk/positions/${positionId}/files/${fileId}${q}`;
 }
 
-function isImageMime(mime = "") {
-  return String(mime).startsWith("image/");
-}
-
-function isPdfMime(mime = "", name = "") {
-  return String(mime).includes("pdf") || String(name).toLowerCase().endsWith(".pdf");
-}
-
 function renderFilePreview(positionId, file) {
-  if (file.externalUrl) {
-    const url = escapeHtml(file.externalUrl);
-    if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(file.externalUrl)) {
-      return `<a href="${url}" target="_blank" rel="noopener"><img class="cd-preview-img" src="${url}" alt="" loading="lazy" /></a>`;
-    }
-    return `<a class="btn btn-sm" href="${url}" target="_blank" rel="noopener">Відкрити посилання</a>`;
-  }
-  const href = managerFileDownloadUrl(positionId, file.id);
-  if (isImageMime(file.mime) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.fileName)) {
-    return `<a href="${href}" target="_blank" rel="noopener"><img class="cd-preview-img" src="${href}" alt="" loading="lazy" /></a>`;
-  }
-  if (isPdfMime(file.mime, file.fileName)) {
-    return `<iframe class="cd-preview-pdf" src="${href}" title="${escapeHtml(file.fileName)}"></iframe>`;
-  }
-  return `<a class="btn btn-sm" href="${href}" target="_blank" rel="noopener" download>Завантажити ${escapeHtml(file.fileName || "файл")}</a>`;
+  return renderManagerFilePreview(positionId, file, {
+    classPrefix: "cd",
+    downloadUrl: managerFileDownloadUrl
+  });
 }
 
 function completionBadge(completion) {
@@ -101,58 +83,6 @@ function findConstructorOrder(orderId) {
   return (state.constructorDesk.orders || []).find(
     (o) => o.orderId === id || String(o.orderNumber) === String(orderId)
   );
-}
-
-function constructorAssigneeKey(entry) {
-  if (entry?.id != null) return `u:${entry.id}`;
-  return `n:${String(entry?.name || "").trim()}`;
-}
-
-function selectedConstructorAssigneeValue(position, entry) {
-  if (entry.id != null && position.constructorUserId === entry.id) {
-    return constructorAssigneeKey(entry);
-  }
-  const assignedName = normalizePersonName(
-    position.constructorUserName || position.constructor || ""
-  );
-  if (!position.constructorUserId && assignedName === normalizePersonName(entry.name)) {
-    return constructorAssigneeKey(entry);
-  }
-  return null;
-}
-
-function constructorOptionsForPosition(position, constructors = []) {
-  const list = [...constructors];
-  if (!position.constructorUserId && String(position.constructor || "").trim()) {
-    const name = position.constructor.trim();
-    if (!list.some((u) => normalizePersonName(u.name) === normalizePersonName(name))) {
-      list.unshift({ id: null, name });
-    }
-  } else if (
-    position.constructorUserId &&
-    !list.some((user) => user.id === position.constructorUserId)
-  ) {
-    list.unshift({
-      id: position.constructorUserId,
-      name: position.constructorUserName || position.constructor || `#${position.constructorUserId}`
-    });
-  }
-  return list;
-}
-
-function renderConstructorOptions(position, constructors = []) {
-  const options = constructorOptionsForPosition(position, constructors);
-  if (!options.length) {
-    return `<option value="" disabled>Додайте імена в довідник «Конструктори»</option>`;
-  }
-  return options
-    .map((entry) => {
-      const value = constructorAssigneeKey(entry);
-      const selected = selectedConstructorAssigneeValue(position, entry) === value;
-      const hint = entry.id == null ? " (без облікового запису)" : "";
-      return `<option value="${escapeHtml(value)}" ${selected ? "selected" : ""}>${escapeHtml(entry.name)}${hint}</option>`;
-    })
-    .join("");
 }
 
 function constructorDirectoryNames() {
@@ -337,7 +267,7 @@ function renderConstructorOrderDetail(order) {
       const assignCell = isChief
         ? `<select class="cd-assign-select" data-cd-assign-user="${p.id}">
             <option value="">— не призначено —</option>
-            ${renderConstructorOptions(p, state.constructorDesk.constructors || [])}
+            ${renderConstructorSelectOptions(p, state.constructorDesk.constructors || [])}
           </select>
           <input type="datetime-local" class="cd-due-input" data-cd-due="${p.id}" value="${p.constructorDueAt ? p.constructorDueAt.slice(0, 16) : ""}" />
           <input type="number" class="cd-hours-input" data-cd-hours="${p.id}" min="0" step="0.5" placeholder="год" value="${p.constructorEstimatedHours ?? ""}" />
@@ -429,7 +359,7 @@ function renderWorkspacePackage(position, downstream) {
   }
   return `
     <div class="card cd-package-panel" data-cd-package-mount>
-      ${renderPositionConstructivePanel(position, downstream, { editable: true })}
+      ${renderPositionConstructivePanel(position, downstream, { editable: true, hideProcurement: true })}
     </div>`;
 }
 
@@ -448,7 +378,7 @@ function renderWorkspaceWork(detail, constructors) {
         <div class="cd-assign-grid">
           <select id="cdWsAssignUser">
             <option value="">— конструктор —</option>
-            ${renderConstructorOptions(p, constructors)}
+            ${renderConstructorSelectOptions(p, constructors)}
           </select>
           <input type="datetime-local" id="cdWsDue" value="${p.constructorDueAt ? p.constructorDueAt.slice(0, 16) : ""}" />
           <input type="number" id="cdWsHours" min="0" step="0.5" placeholder="години" value="${p.constructorEstimatedHours ?? ""}" />
@@ -469,13 +399,9 @@ function renderWorkspaceWork(detail, constructors) {
         </div>
         <div class="cd-manager-files">
           ${
-            (detail.managerFiles || [])
-              .map(
-                (f) =>
-                  `<a class="btn btn-sm" href="${managerFileDownloadUrl(p.id, f.id)}" target="_blank" rel="noopener">${escapeHtml(f.fileName || f.kind)}</a>`
-              )
-              .join("") ||
-            '<span class="enver-meta">Файлів менеджера ще немає — попросіть менеджера заповнити картку позиції.</span>'
+            (detail.managerFiles || []).length
+              ? renderFiles(p.id, detail.managerFiles, { editable: false })
+              : '<span class="enver-meta">Файлів менеджера ще немає — попросіть менеджера заповнити картку позиції.</span>'
           }
         </div>
       </div>
@@ -573,10 +499,12 @@ function renderWorkspace(detail, constructors) {
   const downstream = packageDetail
     ? {
         packageDetail,
-        procurement: packageDetail.procurement ?? null,
-        cncJobs: state.constructorDesk.packageCncJobs || []
+        cncJobs: state.constructorDesk.packageCncJobs || [],
+        constructiveFiles: state.constructorDesk.packageConstructiveFiles || []
       }
-    : null;
+    : {
+        constructiveFiles: state.constructorDesk.packageConstructiveFiles || []
+      };
 
   return `
     <div class="constructor-workspace">
@@ -752,14 +680,13 @@ export async function openConstructorWorkspace(positionId, { workspaceTab = "wor
 async function loadConstructorDeskPackage(positionId) {
   state.constructorDesk.packageLoading = true;
   try {
-    const [packageDetail, procurement, cncJobs] = await Promise.all([
+    const [packageDetail, cncJobs, constructiveFiles] = await Promise.all([
       loadConstructivePackageDetail(positionId),
-      loadProcurementSummary(positionId),
-      loadCncJobsSummary(positionId)
+      loadCncJobsSummary(positionId),
+      api.getConstructiveFiles(positionId).catch(() => [])
     ]);
-    state.constructorDesk.packageDetail = packageDetail
-      ? { ...packageDetail, procurement: procurement || packageDetail.procurement }
-      : null;
+    state.constructorDesk.packageDetail = packageDetail || null;
+    state.constructorDesk.packageConstructiveFiles = constructiveFiles || [];
     state.constructorDesk.packageCncJobs = cncJobs || [];
   } finally {
     state.constructorDesk.packageLoading = false;
@@ -842,6 +769,7 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
               : "Призначення збережено"
           );
           await refreshConstructorWorkspace(positionId, { showLoading: false });
+          await refreshAppData({ syncViews: true });
           void loadConstructorDesk({ silent: true }).then(() => onChange());
           onChange();
         } catch (err) {
@@ -911,12 +839,19 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
 
   bindPositionConstructivePanel(mount, position, {
     editable: true,
+    hideProcurement: true,
+    getDownstream: () => ({
+      packageDetail: state.constructorDesk.packageDetail,
+      cncJobs: state.constructorDesk.packageCncJobs || [],
+      constructiveFiles: state.constructorDesk.packageConstructiveFiles || []
+    }),
     downstream: {
       packageDetail: state.constructorDesk.packageDetail,
-      procurement: state.constructorDesk.packageDetail?.procurement,
-      cncJobs: state.constructorDesk.packageCncJobs
+      cncJobs: state.constructorDesk.packageCncJobs,
+      constructiveFiles: state.constructorDesk.packageConstructiveFiles || []
     },
-    onRefresh: async () => {
+    onRefresh: async (opts = {}) => {
+      if (opts.packageDomOnly) return;
       await loadConstructorDeskPackage(positionId);
       await refreshAppData({ syncViews: true });
       onChange();

@@ -54,8 +54,11 @@ export const state = {
     /** overview | pos-{id} | history */
     detailTab: "overview",
     positionBundles: {},
+    constructorAssignees: [],
+    focusResponsiblesPositionId: null,
     positionSubTab: {},
     positionTabDownstream: {},
+    order3dAssets: {},
     /** Фільтр пріоритету на реєстрі замовлень */
     priorityFilter: ""
   },
@@ -78,5 +81,7 @@ export const state = {
     filter: "all",
     /** cards | list — перегляд реєстру замовлень у конструктиві */
     displayMode: "cards"
-  }
+  },
+  /** Реєстр заявок на закупівлю */
+  procurement: null
 };

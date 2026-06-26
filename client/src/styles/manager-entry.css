@@ -21,10 +21,12 @@
 @import "./responsive.css";
 @import "./install-calendar.css";
 @import "./order-detail.css";
+@import "./order-3d.css";
 @import "./ai-assistant.css";
 @import "./attention.css";
 @import "./godmode.css";
 @import "./godmode-notifications.css";
+@import "./procurement.css";
 @import "./app-shell.css";
 @import "./operator.css";
 @import "./visual-polish.css";

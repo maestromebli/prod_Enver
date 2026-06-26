@@ -53,7 +53,7 @@ async function request(path, options = {}) {
 
   let response;
   try {
-    response = await fetch(apiUrl(path), { headers, ...options });
+    response = await fetch(apiUrl(path), { cache: "no-store", headers, ...options });
   } catch (err) {
     const msg = err?.message === "Failed to fetch" ? networkErrorHelp() : err?.message;
     throw new Error(msg || networkErrorHelp());
@@ -80,6 +80,7 @@ async function request(path, options = {}) {
     const err = new Error(msg);
     err.status = response.status;
     err.code = raw?.code || raw?.error?.code;
+    err.nextAction = raw?.nextAction || null;
     throw err;
   }
 
@@ -89,6 +90,24 @@ async function request(path, options = {}) {
 export const api = {
   getOrders: () => request("/api/orders"),
   getOrder: (id) => request(`/api/orders/${id}`),
+  getOrder3DAsset: (orderId) => request(`/api/orders/${orderId}/3d`),
+  uploadOrder3DAsset: (orderId, body) =>
+    request(`/api/orders/${orderId}/3d/upload`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  retryOrder3DConversion: (orderId, assetId) =>
+    request(`/api/orders/${orderId}/3d/retry`, {
+      method: "POST",
+      body: JSON.stringify({ assetId })
+    }),
+  uploadOrder3DWebModel: (orderId, assetId, body) =>
+    request(`/api/orders/${orderId}/3d/${assetId}/web-model`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  deleteOrder3DAsset: (orderId, assetId) =>
+    request(`/api/orders/${orderId}/3d/${assetId}`, { method: "DELETE" }),
   createOrder: (body) => request("/api/orders", { method: "POST", body: JSON.stringify(body) }),
   updateOrder: (id, body) =>
     request(`/api/orders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -273,6 +292,12 @@ export const api = {
     request(`/api/positions/${positionId}/constructive-packages/${packageId}/parse`, {
       method: "POST"
     }),
+  deleteConstructivePackageFile: (positionId, packageId, fileId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/files/${fileId}`, {
+      method: "DELETE"
+    }),
+  deleteConstructiveFile: (positionId, fileId) =>
+    request(`/api/positions/${positionId}/constructive-file/${fileId}`, { method: "DELETE" }),
   approveConstructivePackage: (positionId, packageId) =>
     request(`/api/positions/${positionId}/constructive-packages/${packageId}/approve`, {
       method: "POST"
@@ -305,7 +330,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body)
     }),
-  getPositionCncJobs: (positionId) => request(`/api/positions/${positionId}/cnc-jobs`)
+  getPositionCncJobs: (positionId) => request(`/api/positions/${positionId}/cnc-jobs`),
+  listProcurementRequests: ({ status = "all" } = {}) => {
+    const q = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+    return request(`/api/procurement${q}`);
+  },
+  getProcurementRequest: (requestId) => request(`/api/procurement/${requestId}`)
 };
 
 export function getPartLabelsUrl(positionId) {

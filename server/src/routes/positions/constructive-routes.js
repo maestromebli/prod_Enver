@@ -5,6 +5,7 @@ import { applyStageHandoff, detectAutoHandoffs } from "../../position-logic.js";
 import { saveConstructiveFile } from "../../file-storage.js";
 import {
   CONSTRUCTIVE_MAX_BYTES,
+  deleteConstructiveFile,
   getConstructiveFileForDownload,
   isConstructiveExtension,
   listConstructiveFiles,
@@ -137,5 +138,28 @@ export function registerConstructiveRoutes(
       files,
       position: mapEnrichedRow(afterRow, planMap)
     });
+  });
+
+  router.delete("/:id/constructive-file/:fileId", requirePositionWrite, async (req, res) => {
+    const id = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
+    const existing = await loadRow(id);
+    if (!existing) {
+      res.status(404).json({ error: "Позицію не знайдено" });
+      return;
+    }
+    try {
+      const result = await deleteConstructiveFile(id, fileId);
+      const files = await listConstructiveFiles(id);
+      if (!result.hasFilesLeft) {
+        existing.has_constructive_file = false;
+        const planMap = await planDateByOrderNumber();
+        const planDate = planMap.get(existing.order_number);
+        await saveRow(id, existing, planDate);
+      }
+      res.json({ ...result, files });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
   });
 }

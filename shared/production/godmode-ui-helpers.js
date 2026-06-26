@@ -85,7 +85,9 @@ export function buildGodmodeCtaAttrs(next, { positionId = null, orderId = null }
   }
 
   if (next.type === "assign_constructor") {
-    if (positionId != null) return `data-open-constructor-desk-position="${positionId}"`;
+    if (positionId != null) {
+      return `data-order-detail-tab="pos-${positionId}" data-focus-responsibles="1"`;
+    }
     if (orderId != null) return `data-open-constructor-desk-order="${orderId}"`;
     return `data-open-constructor-desk="1"`;
   }

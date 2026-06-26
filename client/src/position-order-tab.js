@@ -1,7 +1,7 @@
 import { api } from "./api.js";
-import { canManageProcurement } from "./auth.js";
+import { canManageProcurement, canManageConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
-import { renderPositionManagerPanel, bindPositionManagerPanel } from "./position-manager-panel.js";
+import { renderPositionManagerPanel, bindPositionManagerPanel, loadPositionManagerBundle } from "./position-manager-panel.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import {
   loadCncJobsSummary,
@@ -19,6 +19,12 @@ import {
   bindPositionOperatorPanel,
   renderPositionOperatorPanel
 } from "./position-operator-panel.js";
+import {
+  bindPositionResponsiblesPanel,
+  loadResponsiblesPanelData,
+  renderPositionResponsiblesPanel,
+  shouldShowResponsiblesPanel
+} from "./position-responsibles-panel.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
 import { state } from "./state.js";
 
@@ -77,6 +83,7 @@ export function renderPositionOrderTab(
 ) {
   const gm = resolvePositionGodmode(position);
   const activeSub = subTab || "manager";
+  const constructors = state.ordersView.constructorAssignees || [];
   let body = "";
 
   if (activeSub === "manager") {
@@ -89,7 +96,9 @@ export function renderPositionOrderTab(
   } else if (activeSub === "procurement") {
     body = renderProcurementPanel(downstream?.procurement, { canManage: canManageProcurement() });
   } else if (activeSub === "cnc") {
-    body = renderCncQueuePanel(downstream?.cncJobs || []);
+    body = renderCncQueuePanel(downstream?.cncJobs || [], {
+      packageFiles: downstream?.packageFiles || []
+    });
   } else if (activeSub === "install") {
     body = renderPositionInstallPanel(position);
   } else if (activeSub === "operator") {
@@ -101,6 +110,7 @@ export function renderPositionOrderTab(
   return `
     <section class="order-position-tab card" role="tabpanel" data-position-tab="${position.id}">
       ${renderNextActionBanner(gm, { positionId: position.id, showCta: true })}
+      ${renderPositionResponsiblesPanel(position, constructors)}
       ${renderSubTabs(position.id, activeSub)}
       <div class="pos-sub-panel" data-pos-sub-panel="${position.id}">${body}</div>
       <div class="order-position-meta">
@@ -126,7 +136,11 @@ export async function loadPositionOrderTabData(positionId, subTab) {
   } else if (subTab === "procurement") {
     data.procurement = await loadProcurementSummary(positionId);
   } else if (subTab === "cnc") {
-    data.cncJobs = await loadCncJobsSummary(positionId);
+    const [cncJobs, packageDetail] = await Promise.all([
+      loadCncJobsSummary(positionId),
+      api.getConstructivePackageLatest(positionId).catch(() => null)
+    ]);
+    data = { cncJobs, packageFiles: packageDetail?.files || [] };
   }
 
   tabDataCache.set(key, data);
@@ -204,9 +218,42 @@ export function bindPositionOrderTab(
       positionId,
       onSaved: async () => {
         clearPositionOrderTabCache(positionId);
-        await handlePositionRefresh({ contentOnly: false });
+        const bundle = await loadPositionManagerBundle(positionId);
+        state.ordersView.positionBundles = {
+          ...(state.ordersView.positionBundles || {}),
+          [positionId]: bundle
+        };
+        await handlePositionRefresh({ contentOnly: true });
       }
     });
+  }
+
+  if (shouldShowResponsiblesPanel(position)) {
+    bindPositionResponsiblesPanel(root, position, {
+      onSaved: async () => {
+        const { refreshAppData } = await import("./data-sync.js");
+        await refreshAppData({ includeDirectories: false, syncViews: true });
+        await handlePositionRefresh({ contentOnly: true });
+      }
+    });
+    if (!state.ordersView.constructorAssignees?.length && canManageConstructorDesk()) {
+      loadResponsiblesPanelData()
+        .then((list) => {
+          state.ordersView.constructorAssignees = list;
+          onRefresh?.({ contentOnly: true });
+        })
+        .catch(() => {});
+    }
+    const focusId = state.ordersView.focusResponsiblesPositionId;
+    if (focusId === positionId) {
+      state.ordersView.focusResponsiblesPositionId = null;
+      requestAnimationFrame(() => {
+        document.getElementById(`positionResponsibles-${positionId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      });
+    }
   }
 
   if (activeSub === "install") {

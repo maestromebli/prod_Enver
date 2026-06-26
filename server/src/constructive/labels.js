@@ -1,4 +1,5 @@
 import { renderQrSvg } from "./barcode.js";
+import { formatPartDimensionsMm } from "../../../shared/production/constructive-package.js";
 
 function escapeHtml(s) {
   return String(s || "")
@@ -17,7 +18,7 @@ export async function renderPartLabelsHtml({ position, parts = [] }) {
         <div class="label-order">${escapeHtml(position.order_number)} · ${escapeHtml(position.item)}</div>
         <div class="label-block">${escapeHtml(p.blockCode || "—")} · №${escapeHtml(p.partNo)}</div>
         <div class="label-name">${escapeHtml(p.partName)}</div>
-        <div class="label-size">${escapeHtml(p.length)}×${escapeHtml(p.width)} ${escapeHtml(p.thickness)}</div>
+        <div class="label-size">${escapeHtml(formatPartDimensionsMm(p))}</div>
         <div class="label-material">${escapeHtml(p.material)}</div>
         ${p.edgeCode ? `<div class="label-edge">${escapeHtml(p.edgeCode)}</div>` : ""}
         <div class="label-qr">${qr}</div>

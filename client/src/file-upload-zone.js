@@ -26,6 +26,7 @@ export function readFileAsBase64(file) {
  *   hasFiles?: boolean,
  *   title?: string,
  *   hint?: string,
+ *   hintHtml?: string,
  *   formats?: string,
  *   accept?: string,
  *   fileListHtml?: string,
@@ -39,6 +40,7 @@ export function renderFileUploadZone({
   hasFiles = false,
   title = "Перетягніть файл сюди",
   hint = "або натисніть для вибору",
+  hintHtml = "",
   formats = "",
   accept = "",
   fileListHtml = "",
@@ -63,7 +65,13 @@ export function renderFileUploadZone({
         <div class="constructive-upload-inner">
           <span class="constructive-upload-icon" aria-hidden="true">${hasFiles ? "✓" : "📎"}</span>
           <p class="constructive-upload-title">${escapeHtml(title)}</p>
-          <p class="constructive-upload-hint">${escapeHtml(hint)}</p>
+          ${
+            hintHtml
+              ? `<p class="constructive-upload-hint">${hintHtml}</p>`
+              : hint
+                ? `<p class="constructive-upload-hint">${escapeHtml(hint)}</p>`
+                : ""
+          }
           ${formats ? `<p class="constructive-upload-formats">${escapeHtml(formats)}</p>` : ""}
           <p class="constructive-upload-status" aria-live="polite"></p>
         </div>

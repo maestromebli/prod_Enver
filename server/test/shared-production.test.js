@@ -92,6 +92,13 @@ describe("shared/production", () => {
     assert.equal(deriveCurrentStage(row), "constructor");
   });
 
+  it("hasConstructive — пакет конструктива без legacy-прапорця", async () => {
+    const { hasConstructive } = await import("../../shared/production/position-logic.js");
+    assert.equal(hasConstructive({ has_constructive_file: false, has_constructive_package: true }), true);
+    assert.equal(hasConstructive({ has_constructive_file: false, constructive_parts_count: 5 }), true);
+    assert.equal(hasConstructive({ has_constructive_file: false }), false);
+  });
+
   it("enrichPositionRow додає progress і current_stage", () => {
     const enriched = enrichPositionRow({
       has_constructive_file: true,

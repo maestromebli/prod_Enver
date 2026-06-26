@@ -15,6 +15,8 @@ const ICON_PATHS = {
     '<path d="M2 20h20"/><path d="M5 20V10l4-3v13"/><path d="M9 20V6l6-3v17"/><path d="M15 20V9l4-2v13"/>',
   constructor:
     '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+  procurement:
+    '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
   install: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/>',
@@ -45,6 +47,7 @@ const NAV_TAB_ICONS = {
   "Потребує уваги": "attention",
   "Цех зараз": "production",
   Конструктори: "constructor",
+  Закупівля: "procurement",
   Встановлення: "install",
   "Історія змін": "history"
 };

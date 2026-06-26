@@ -1,6 +1,5 @@
 import { constructiveFileDownloadUrl } from "./api.js";
 import {
-  PRODUCTION_PROGRESS_WEIGHTS,
   STAGE_STATUSES,
   STAGES,
   getNextStatus,
@@ -8,6 +7,7 @@ import {
   stageStatusClass
 } from "./workflows.js";
 import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
+import { computeProgress } from "@enver/shared/production/position-logic.js";
 import { badge, escapeHtml } from "./utils.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
 
@@ -39,21 +39,10 @@ export const POSITION_DRAWER_SHELL_HTML = `
 
 /** Оцінка прогресу позиції за вагами етапів (0–100). */
 export function estimatePositionProgress(position) {
-  let weighted = 0;
-  for (const stage of STAGES) {
-    if (!Object.hasOwn(PRODUCTION_PROGRESS_WEIGHTS, stage.key)) continue;
-    const w = PRODUCTION_PROGRESS_WEIGHTS[stage.key];
-    const st = getStageStatus(position, stage);
-    let score = 0;
-    if (st === "Готово" || st === "Не потрібно") score = 100;
-    else if (st === "В роботі") score = 65;
-    else if (st === "Передано") score = 35;
-    weighted += w * score;
-  }
-  return Math.round(weighted / 100);
+  return computeProgress(position);
 }
 
-export function renderConstructiveFileList(files, positionId) {
+export function renderConstructiveFileList(files, positionId, { editable = false } = {}) {
   if (!files?.length) return "";
   const items = files
     .map(
@@ -63,6 +52,11 @@ export function renderConstructiveFileList(files, positionId) {
         <span class="constructive-file-name">${escapeHtml(f.fileName)}</span>
         <span class="constructive-file-size enver-meta">${escapeHtml(formatConstructiveSize(f.sizeBytes))}</span>
       </a>
+      ${
+        editable
+          ? `<button type="button" class="btn btn-sm btn-danger constructive-file-delete" data-delete-legacy-file="${f.id}" title="Видалити" aria-label="Видалити файл">×</button>`
+          : ""
+      }
     </li>`
     )
     .join("");

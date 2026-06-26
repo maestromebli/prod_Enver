@@ -1,7 +1,7 @@
 /**
  * Розширення godmode для pipeline пакета конструктива.
  */
-import { packageStatusLabel } from "./constructive-package.js";
+import { isPackagePipelineBlocking, packageStatusLabel } from "./constructive-package.js";
 
 const PACKAGE_ACTIONS = {
   uploaded: {
@@ -16,50 +16,14 @@ const PACKAGE_ACTIONS = {
     allowed: false
   },
   parsed: {
-    type: "create_procurement",
-    label: "Створити закупівлю з конструктива",
-    buttonLabel: "Закупівля"
+    type: "review_constructive",
+    label: "Перевірити конструктив",
+    buttonLabel: "Перевірити"
   },
   needs_review: {
     type: "review_constructive",
     label: "Перевірити конструктив",
     buttonLabel: "Перевірити"
-  },
-  sent_to_procurement: {
-    type: "wait_procurement",
-    label: "Очікує закупівлю",
-    buttonLabel: "Закупівля",
-    allowed: false
-  },
-  procurement_done: {
-    type: "review_constructive",
-    label: "Перевірити конструктив",
-    buttonLabel: "Перевірити"
-  },
-  approved_by_constructor: {
-    type: "release_to_cnc",
-    label: "Передати на верстат",
-    buttonLabel: "На верстат"
-  },
-  approved_by_production: {
-    type: "release_to_cnc",
-    label: "Передати на верстат",
-    buttonLabel: "На верстат"
-  },
-  cnc_ready: {
-    type: "release_to_cnc",
-    label: "Передати на верстат",
-    buttonLabel: "На верстат"
-  },
-  sent_to_cnc: {
-    type: "release_to_cnc",
-    label: "Передати на верстат",
-    buttonLabel: "На верстат"
-  },
-  released_to_cnc: {
-    type: "handoff_to_cutting",
-    label: "Передати на виробництво",
-    buttonLabel: "Передати"
   },
   rejected: {
     type: "upload_constructive_package",
@@ -71,7 +35,7 @@ const PACKAGE_ACTIONS = {
 /** Якщо є пакет — повертає nextAction для pipeline, інакше null. */
 export function getConstructivePackageNextAction(context = {}) {
   const status = context.packageStatus;
-  if (!status) return null;
+  if (!status || !isPackagePipelineBlocking(status)) return null;
 
   const cfg = PACKAGE_ACTIONS[status];
   if (!cfg) return null;

@@ -65,7 +65,9 @@ export async function analyzeConstructivePackage(packageId, { orderNumber, item 
     };
   }
 
-  const hasGlb = detail.files?.some((f) => f.kind === "glb_model" || f.kind === "gltf_model");
+  const hasGlb = detail.files?.some(
+    (f) => f.kind === "glb_model" || f.kind === "gltf_model" || f.kind === "wrl_model"
+  );
   const hasB3d = detail.files?.some((f) => f.kind === "b3d");
   const mappedCount = (detail.parts || []).filter((p) => p.modelNodeId || p.modelMeshName).length;
 
