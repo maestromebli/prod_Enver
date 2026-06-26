@@ -22,7 +22,9 @@ export function renderPositionConstructivePanel(
   if (!editable) {
     return `
       <div class="position-constructive-stack position-constructive-stack--readonly" data-position-constructive="${position.id}">
-        ${renderConstructivePackageReadOnly(position, detail)}
+        ${renderConstructivePackageReadOnly(position, detail, {
+          legacyFiles: downstream?.constructiveFiles || []
+        })}
       </div>`;
   }
 

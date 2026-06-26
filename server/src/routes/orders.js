@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { all, one, run, withTransaction } from "../db.js";
-import { logOrderCreate, logOrderDelete, logOrderUpdate } from "../audit.js";
+import { logOrderCreate, logOrderUpdate } from "../audit.js";
 import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
 import { bootstrapOrderPositions, syncOrderStatusWorkflow } from "../order-status-sync.js";
@@ -22,6 +22,7 @@ import {
   UNMAPPED_PARTS_SUBQUERY
 } from "../constructive-package-enrich.js";
 import { MANAGER_FILE_COUNT_SUBQUERY } from "../position-manager-service.js";
+import { deleteOrderWithPositions, syncPositionsFromOrder } from "../order-cascade.js";
 const router = Router();
 router.use(requireAuth);
 
@@ -281,20 +282,7 @@ router.put("/:id", requireOrderWrite, async (req, res) => {
       RETURNING *`,
       { ...data, id }
     );
-    await run(
-      `UPDATE positions SET order_number = @order_number, object = @object
-       WHERE order_id = @order_id`,
-      { order_id: id, order_number: data.order_number, object: data.object }
-    );
-    await run(
-      `UPDATE positions SET order_number = @order_number, object = @object
-       WHERE order_number = @old_order_number`,
-      {
-        order_number: data.order_number,
-        object: data.object,
-        old_order_number: existing.order_number
-      }
-    );
+    await syncPositionsFromOrder(existing, { ...updated, id });
     if (updated.status === ORDER_DONE_STATUS) {
       await archiveOrderPositions(id);
     }
@@ -318,11 +306,17 @@ router.delete("/:id", requireOrderWrite, async (req, res) => {
     return;
   }
 
-  await withTransaction(async (tx) => {
-    await logOrderDelete(existing, auditActor(req));
-    await tx.run("UPDATE positions SET order_id = NULL WHERE order_id = $1", [id]);
-    await tx.run("DELETE FROM orders WHERE id = $1", [id]);
-  });
+  try {
+    await withTransaction(async (tx) => {
+      await deleteOrderWithPositions(existing, auditActor(req), tx);
+    });
+  } catch (err) {
+    if (err.status) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
 
   res.status(204).send();
 });

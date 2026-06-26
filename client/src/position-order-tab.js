@@ -116,12 +116,13 @@ export async function loadPositionOrderTabData(positionId, subTab) {
 
   let data = {};
   if (subTab === "constructive") {
-    const [packageDetail, procurement, cncJobs] = await Promise.all([
+    const [packageDetail, procurement, cncJobs, constructiveFiles] = await Promise.all([
       api.getConstructivePackageLatest(positionId).catch(() => null),
       loadProcurementSummary(positionId),
-      loadCncJobsSummary(positionId)
+      loadCncJobsSummary(positionId),
+      api.getConstructiveFiles(positionId).catch(() => [])
     ]);
-    data = { packageDetail, procurement, cncJobs };
+    data = { packageDetail, procurement, cncJobs, constructiveFiles };
   } else if (subTab === "procurement") {
     data.procurement = await loadProcurementSummary(positionId);
   } else if (subTab === "cnc") {

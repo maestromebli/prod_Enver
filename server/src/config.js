@@ -19,7 +19,10 @@ export const config = {
   buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
   uploadsDir: process.env.UPLOADS_DIR || null,
   /** Ліміт JSON-тіла (base64-завантаження). Перевизначити через JSON_BODY_LIMIT. */
-  jsonBodyLimit: process.env.JSON_BODY_LIMIT || "200mb"
+  jsonBodyLimit: process.env.JSON_BODY_LIMIT || "200mb",
+  /** Rate limit входу: спроб за вікно (LOGIN_RATE_LIMIT_*). */
+  loginRateLimitMax: Number(process.env.LOGIN_RATE_LIMIT_MAX) || 12,
+  loginRateLimitWindowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS) || 60_000
 };
 
 /** Помилки безпеки production — для assertProductionSafety і тестів. */

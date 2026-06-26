@@ -6,7 +6,8 @@ import {
   defaultPositionRow,
   defaultSubPositionRow,
   normalizeOrderSubItems,
-  orderStatusStagePreset
+  orderStatusStagePreset,
+  positionStagesChanged
 } from "../src/order-status-workflow.js";
 
 describe("applyStageHandoff", () => {
@@ -50,6 +51,32 @@ describe("orderStatusStagePreset", () => {
     );
     assert.equal(row.cutting_status, "Передано");
     assert.equal(row.edging_status, "Не розпочато");
+  });
+
+  it("«У виробництві» також відкриває порізку", () => {
+    const preset = orderStatusStagePreset("У виробництві");
+    assert.deepEqual(preset, { cutting_status: "Передано" });
+  });
+
+  it("невідомий статус — порожній preset", () => {
+    assert.deepEqual(orderStatusStagePreset("Закрито"), {});
+    assert.deepEqual(applyOrderStatusPreset({ cutting_status: "Готово" }, {}), {
+      cutting_status: "Готово"
+    });
+  });
+});
+
+describe("positionStagesChanged", () => {
+  it("виявляє зміну етапу", () => {
+    const before = {
+      cutting_status: "Очікує",
+      edging_status: "Очікує",
+      drilling_status: "Очікує",
+      assembly_status: "Очікує"
+    };
+    const after = { ...before, cutting_status: "В роботі" };
+    assert.equal(positionStagesChanged(before, after), true);
+    assert.equal(positionStagesChanged(before, before), false);
   });
 });
 

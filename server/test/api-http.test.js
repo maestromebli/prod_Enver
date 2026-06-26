@@ -87,4 +87,34 @@ describe("API HTTP", () => {
     assert.equal(body.ok, false);
     assert.equal(body.error.code, "UNAUTHORIZED");
   });
+
+  it("GET /api/directories без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/directories`);
+    assert.equal(res.status, 401);
+  });
+
+  it("GET /api/kpis без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/kpis`);
+    assert.equal(res.status, 401);
+  });
+
+  it("GET /api/history без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/history`);
+    assert.equal(res.status, 401);
+  });
+
+  it("GET /api/settings/ai без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/settings/ai`);
+    assert.equal(res.status, 401);
+  });
+
+  it("GET /api/production/floor без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/production/floor`);
+    assert.equal(res.status, 401);
+  });
+
+  it("GET /api/users без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/users`);
+    assert.equal(res.status, 401);
+  });
 });

@@ -120,4 +120,24 @@ describeIntegration("integration: order + position flow", () => {
     assert.ok(posBody.data.managerData, "managerData у GET позиції");
     assert.ok(Array.isArray(posBody.data.managerFiles), "managerFiles у GET позиції");
   });
+
+  it("PATCH етапу позиції і QR deep link", async () => {
+    assert.ok(subId);
+
+    const patchRes = await fetch(`${baseUrl}/api/positions/${subId}/stage/cutting`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ status: "В роботі", assemblyResponsible: "Тест" })
+    });
+    assert.equal(patchRes.status, 200);
+    const patched = await patchRes.json();
+    assert.equal(patched.data.cuttingStatus, "В роботі");
+
+    const qrRes = await fetch(`${baseUrl}/api/positions/${subId}/qr?format=json`, {
+      headers: authHeaders(token)
+    });
+    assert.equal(qrRes.status, 200);
+    const qrBody = await qrRes.json();
+    assert.ok(qrBody.data.url || qrBody.url);
+  });
 });

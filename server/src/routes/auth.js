@@ -4,25 +4,30 @@ import { authenticate, createSession, deleteSession, mapUser } from "../auth-ser
 import { requireAuth } from "../middleware/auth.js";
 import { rateLimitLogin } from "../middleware/rate-limit.js";
 import { sendError, sendOk } from "../http/api-response.js";
+import { config } from "../config.js";
 
 const router = Router();
 
-router.post("/login", rateLimitLogin(), async (req, res) => {
-  const { login, password } = req.body || {};
-  if (!login?.trim() || !password) {
-    sendError(res, 400, "VALIDATION_ERROR", "Вкажіть логін і пароль");
-    return;
-  }
+router.post(
+  "/login",
+  rateLimitLogin(config.loginRateLimitMax, config.loginRateLimitWindowMs),
+  async (req, res) => {
+    const { login, password } = req.body || {};
+    if (!login?.trim() || !password) {
+      sendError(res, 400, "VALIDATION_ERROR", "Вкажіть логін і пароль");
+      return;
+    }
 
-  const user = await authenticate(login, password);
-  if (!user) {
-    sendError(res, 401, "AUTH_FAILED", "Невірний логін або пароль");
-    return;
-  }
+    const user = await authenticate(login, password);
+    if (!user) {
+      sendError(res, 401, "AUTH_FAILED", "Невірний логін або пароль");
+      return;
+    }
 
-  const { token, expiresAt } = await createSession(user.id);
-  sendOk(res, { user, token, expiresAt });
-});
+    const { token, expiresAt } = await createSession(user.id);
+    sendOk(res, { user, token, expiresAt });
+  }
+);
 
 router.post("/logout", requireAuth, async (req, res) => {
   await deleteSession(req.authToken);

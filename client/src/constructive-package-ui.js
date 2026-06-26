@@ -15,6 +15,7 @@ import {
 } from "@enver/shared/production/constructive-package.js";
 import { canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
+import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { runSave } from "./save-flow.js";
 
@@ -143,17 +144,31 @@ function renderPackageFilesDownloadList(positionId, packageId, files = []) {
 }
 
 /** Перегляд пакета в замовленні — без завантаження та дій. */
-export function renderConstructivePackageReadOnly(position, detail = null) {
+export function renderConstructivePackageReadOnly(
+  position,
+  detail = null,
+  { legacyFiles = [] } = {}
+) {
   const pkg = detail?.package;
   const status = pkg?.status || null;
   const statusLabel = pkg ? packageStatusLabel(status) : null;
   const files = detail?.files || [];
   const positionId = position?.id;
   const packageId = pkg?.id;
+  const legacyList = renderConstructiveFileList(legacyFiles, positionId);
+  const hasLegacy = legacyFiles.length > 0 || position?.hasConstructiveFile;
 
   return `
     <section class="constructive-package-block constructive-package-block--readonly">
       <h3 class="enver-section-title">Пакет конструктива</h3>
+      ${
+        hasLegacy
+          ? `<div class="cp-legacy-files">
+              <h4 class="enver-meta">Файли конструктива</h4>
+              ${legacyList || `<p class="enver-meta">Завантаження списку файлів…</p>`}
+            </div>`
+          : ""
+      }
       ${pkg ? renderPipeline(status) : ""}
       ${
         pkg

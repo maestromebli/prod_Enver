@@ -1,7 +1,9 @@
 import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
 import {
   getWorkPositions,
-  getPositionTabLabel
+  getPositionTabLabel,
+  getRootPositions,
+  getSubPositions
 } from "@enver/shared/production/order-position-model.js";
 import { canEditOrders, canEditPositions } from "./auth.js";
 import { buildVisiblePositionRows } from "./position-tree.js";
@@ -20,7 +22,12 @@ import { getPositionSubTab, renderPositionOrderTab } from "./position-order-tab.
 
 function buildDetailTabs(order, related, activeTab) {
   const work = getWorkPositions(order, related);
+  const roots = getRootPositions(order, related);
+  const subs = getSubPositions(order, related);
   const tabs = [{ key: "overview", label: "Огляд" }];
+  if (subs.length && roots.length) {
+    tabs.push({ key: `pos-${roots[0].id}`, label: "Основна" });
+  }
   work.forEach((p, i) => {
     tabs.push({ key: `pos-${p.id}`, label: getPositionTabLabel(p, i) });
   });

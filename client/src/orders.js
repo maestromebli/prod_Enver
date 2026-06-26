@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { clearOrderDetailViewState } from "./order-detail.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
 import { $, fillSelect, showFormError } from "./utils.js";
@@ -230,7 +231,9 @@ async function deleteOrder() {
   const order = state.orders.find((o) => String(o.id) === String(id));
   const label = order?.orderNumber || id;
   if (
-    !window.confirm(`Видалити замовлення «${label}»? Позиції залишаться в системі без прив’язки.`)
+    !window.confirm(
+      `Видалити замовлення «${label}» разом із усіма позиціями та файлами? Цю дію не можна скасувати.`
+    )
   ) {
     return;
   }
@@ -239,6 +242,16 @@ async function deleteOrder() {
     saveFn: () => api.deleteOrder(id),
     successMessage: "Замовлення видалено",
     onSuccess: async () => {
+      const { removeOrder, removePosition } = await import("./data-sync.js");
+      const orderNumber = order?.orderNumber;
+      state.positions
+        .filter((p) => p.orderId === Number(id) || (orderNumber && p.orderNumber === orderNumber))
+        .forEach((p) => removePosition(p.id));
+      removeOrder(Number(id));
+      if (state.selectedOrderId === Number(id)) {
+        state.selectedOrderId = null;
+        clearOrderDetailViewState();
+      }
       closeOrderModal();
       await onSaved();
     },

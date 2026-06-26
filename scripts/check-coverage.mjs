@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const min = Number(process.env.COVERAGE_MIN_LINES || 44);
+const min = Number(process.env.COVERAGE_MIN_LINES || 55);
 const serverDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server");
 
 const result = spawnSync("npm", ["run", "test:coverage"], {

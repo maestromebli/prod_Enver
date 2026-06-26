@@ -44,4 +44,9 @@ describe("production config safety", () => {
   it("jsonBodyLimit має розумний дефолт", () => {
     assert.equal(config.jsonBodyLimit, "200mb");
   });
+
+  it("login rate limit — дефолти для production", () => {
+    assert.equal(config.loginRateLimitMax, 12);
+    assert.equal(config.loginRateLimitWindowMs, 60_000);
+  });
 });

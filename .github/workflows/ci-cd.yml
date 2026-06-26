@@ -48,10 +48,10 @@ jobs:
       - name: Tests
         run: npm test
 
-      - name: Coverage (server)
+      - name: Coverage (unit, без БД)
         run: npm run test:coverage:check
         env:
-          COVERAGE_MIN_LINES: "44"
+          COVERAGE_MIN_LINES: "46"
 
   e2e:
     needs: validate
@@ -84,6 +84,15 @@ jobs:
 
       - name: Install
         run: npm run install:all
+
+      - name: Integration tests + coverage
+        env:
+          CI: true
+          RUN_INTEGRATION_TESTS: "1"
+          DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
+          DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
+          COVERAGE_MIN_LINES: "55"
+        run: npm run test:coverage:check
 
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
