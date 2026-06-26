@@ -15,7 +15,8 @@ import {
   STAGE_STATUS_FIELD,
   STAGE_ACTIVE_STATUSES,
   getNextStatus,
-  stageLabel
+  stageLabel,
+  isStageIdle
 } from "./stages.js";
 import {
   getConstructivePackageNextAction,
@@ -75,6 +76,10 @@ function field(row, snake, camel) {
 
 function num(row, snake, camel) {
   return Number(row?.[snake] ?? row?.[camel]) || 0;
+}
+
+function productionHasStarted(row) {
+  return PRODUCTION_KEYS.some((k) => !isStageIdle(stageStatus(row, k)));
 }
 
 function positionStatus(row) {
@@ -524,12 +529,13 @@ export function getPositionNextAction(position, context = {}) {
     packageAction &&
     context?.packageStatus &&
     context.packageStatus !== "released_to_cnc" &&
-    context.packageStatus !== "archived"
+    context.packageStatus !== "archived" &&
+    !productionHasStarted(row)
   ) {
     return makeAction({ ...packageAction, stageKey: packageAction.stageKey || "constructor" });
   }
 
-  if (!hasAiAnalysis(row, context)) {
+  if (!hasAiAnalysis(row, context) && !productionHasStarted(row)) {
     return makeAction({
       type: "run_ai_analysis",
       label: "Запустити ШІ-аналіз",
@@ -541,7 +547,7 @@ export function getPositionNextAction(position, context = {}) {
     });
   }
 
-  if (!tasksCreated(row, context)) {
+  if (!tasksCreated(row, context) && !productionHasStarted(row)) {
     return makeAction({
       type: "create_tasks_from_ai",
       label: "Створити задачі з рекомендацій ШІ",

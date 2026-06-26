@@ -49,7 +49,7 @@ export const state = {
   },
   godmodeNotifications: { items: [], fetchedAt: null },
   ordersView: {
-    /** cards | list */
+    /** cards | list | positions */
     displayMode: "cards",
     /** overview | pos-{id} | history */
     detailTab: "overview",

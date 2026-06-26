@@ -32,18 +32,13 @@ import {
   loadConstructivePackageDetail,
   renderConstructivePackageBlock
 } from "./constructive-package-ui.js";
-import { pulseSuccess, shakeError } from "./interactions/motion.js";
-import { createFileDropZone } from "./interactions/drag-drop.js";
-import {
-  CONSTRUCTIVE_ACCEPT_EXT,
-  CONSTRUCTIVE_MAX_BYTES,
-  formatConstructiveSize
-} from "@enver/shared/production/constructive-files.js";
+import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
+
+import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
 
 let onSaved = () => {};
 let draft = null;
 let activePanel = "general";
-let constructiveDropZone = null;
 let constructiveFiles = [];
 let constructivePackageDetail = null;
 let procurementSummary = null;
@@ -52,10 +47,6 @@ let cncJobsSummary = [];
 export function setPositionSaveHandler(handler) {
   onSaved = handler;
 }
-
-import { renderAiAnalysisResult, bindAiAnalysisEvents } from "./ai-analysis-ui.js";
-
-const CONSTRUCTIVE_MAX_MB = Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
 
 async function refreshConstructiveFiles() {
   if (!draft?.id) {
@@ -86,44 +77,6 @@ function renderConstructiveFileList(positionId) {
     )
     .join("");
   return `<ul class="constructive-files-list" aria-label="Файли конструктива">${items}</ul>`;
-}
-
-function renderConstructiveUploadBlock(p) {
-  if (!p.id) {
-    return `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`;
-  }
-
-  const hasFiles = constructiveFiles.length > 0 || p.hasConstructiveFile;
-  const state = hasFiles ? "success" : "idle";
-  const fileLine = hasFiles
-    ? `<p class="constructive-upload-title">${constructiveFiles.length ? `${constructiveFiles.length} файл(ів)` : escapeHtml(p.constructiveFileName || "завантажено")}</p>
-       <p class="constructive-upload-hint">Натисніть або перетягніть, щоб додати ще файл</p>`
-    : `<p class="constructive-upload-title">Перетягніть конструктив сюди</p>
-       <p class="constructive-upload-hint">або натисніть, щоб вибрати файл</p>`;
-
-  return `
-    <div class="constructive-upload-wrap">
-      ${renderConstructiveFileList(p.id)}
-      <div
-        id="constructiveUploadZone"
-        class="constructive-upload-zone enver-interactive enver-pressable enver-drop-target"
-        data-state="${state}"
-        data-prev-state="${state}"
-        aria-label="Завантаження конструктива"
-      >
-        <input type="file" id="constructiveFileInput" class="enver-file-input-offscreen" accept="${CONSTRUCTIVE_ACCEPT_EXT.join(",")}" tabindex="-1" aria-hidden="true" />
-        <div class="constructive-upload-inner">
-          <span class="constructive-upload-icon" aria-hidden="true">${hasFiles ? "✓" : "📎"}</span>
-          ${fileLine}
-          <p class="constructive-upload-formats">PDF, ZIP, XML, DWG, XLS, PROJECT, B3D · до ${CONSTRUCTIVE_MAX_MB} МБ</p>
-          <p class="constructive-upload-status" aria-live="polite"></p>
-        </div>
-      </div>
-      <div class="constructive-actions constructive-actions--cta">
-        <button type="button" class="btn btn-primary constructive-analyze-cta enver-pressable" id="analyzeConstructiveBtn" ${hasFiles ? "" : "disabled"}>Запустити ШІ-аналіз</button>
-      </div>
-      <div id="constructiveAnalysis" class="constructive-analysis"></div>
-    </div>`;
 }
 
 function backdrop() {
@@ -288,8 +241,8 @@ function renderDrawerContent() {
 
       <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
         <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, pipelinePanelOptions())}</div>
-        ${renderConstructiveUploadBlock(p)}
-        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: false })}</div>
+        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: true, fileListHtml: renderConstructiveFileList(p.id) })}</div>
+        ${renderLegacyAiBlock(p)}
       </div>
 
       <div class="drawer-panel ${activePanel === "install" ? "active" : ""}" data-panel="install">
@@ -635,71 +588,50 @@ function bindConstructivePipelinePanel() {
   });
 }
 
-async function uploadConstructiveFromFile(file) {
-  if (!file || !draft?.id) return;
-  const zone = $("#constructiveUploadZone");
-
-  const dataBase64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = String(reader.result || "");
-      resolve(raw.includes(",") ? raw.split(",")[1] : raw);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-  try {
-    await runSave("Конструктив", {
-      saveFn: () =>
-        api.uploadConstructiveFile(draft.id, {
-          fileName: file.name,
-          mime: file.type,
-          dataBase64
-        }),
-      successMessage: "Файл завантажено",
-      onSuccess: async (res) => {
-        draft = { ...draft, ...res.position, hasConstructiveFile: true };
-        constructiveFiles = res.files || constructiveFiles;
-        if (!constructiveFiles.length && draft.id) await refreshConstructiveFiles();
-        updateHeader();
-        pulseSuccess(zone);
-        renderDrawerContent();
-        await onSaved();
-      }
+async function refreshConstructiveWorkspace() {
+  if (!draft?.id) return;
+  await refreshConstructiveFiles();
+  const mount = $("#constructivePackageMount");
+  if (mount) {
+    mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail, {
+      editable: true,
+      fileListHtml: renderConstructiveFileList(draft.id)
     });
-  } catch (err) {
-    shakeError(zone);
-    throw err;
   }
+  const pipe = $("#constructivePipelineMount");
+  if (pipe) {
+    [procurementSummary, cncJobsSummary] = await Promise.all([
+      loadProcurementSummary(draft.id),
+      loadCncJobsSummary(draft.id)
+    ]);
+    pipe.innerHTML = renderConstructivePipelinePanel(
+      constructivePackageDetail,
+      procurementSummary,
+      pipelinePanelOptions()
+    );
+    bindConstructivePipelinePanel();
+  }
+  bindConstructiveWorkspace();
 }
 
-function bindConstructiveUpload() {
-  constructiveDropZone?.destroy();
-  constructiveDropZone = null;
-
-  const zone = $("#constructiveUploadZone");
-  const input = $("#constructiveFileInput");
-  if (!zone || !input || !draft?.id) return;
-
-  constructiveDropZone = createFileDropZone(zone, {
-    inputEl: input,
-    accept: CONSTRUCTIVE_ACCEPT_EXT,
-    maxBytes: CONSTRUCTIVE_MAX_BYTES,
-    onFile: (file) => uploadConstructiveFromFile(file),
-    onReject: (reason) => {
-      shakeError(zone);
-      if (reason === "too-large") {
-        showError(`Файл завеликий (макс. ${CONSTRUCTIVE_MAX_MB} МБ)`);
-      } else if (reason === "unsupported") {
-        showError("Непідтримуваний тип файлу");
-      }
-    },
-    onStateChange: (state) => {
-      if (state !== "dragover") {
-        zone.dataset.prevState = state === "idle" ? zone.dataset.prevState || "idle" : state;
-      }
+function bindConstructiveWorkspace() {
+  const mount = $("#constructivePackageMount");
+  if (!mount || !draft?.id) return;
+  bindConstructivePackageBlock(draft, mount, {
+    editable: true,
+    onUpdated: async () => {
+      await refreshConstructiveWorkspace();
+      draft = { ...draft, hasConstructiveFile: true };
+      updateHeader();
+      await onSaved();
     }
+  });
+  bindLegacyAiBlock(mount, draft, {
+    onUpdated: async () => {
+      await refreshConstructiveWorkspace();
+      await onSaved();
+    },
+    showError
   });
 }
 
@@ -773,39 +705,13 @@ function bindDrawerEvents() {
     });
   });
 
-  bindConstructiveUpload();
-  bindConstructivePackageBlock(draft, $("#constructivePackageMount") || document.body, {
-    editable: false
-  });
+  bindConstructiveWorkspace();
   bindConstructivePipelinePanel();
 
   document.addEventListener(
     "enver:constructive-package-updated",
     async () => {
-      if (draft?.id) {
-        constructivePackageDetail = await loadConstructivePackageDetail(draft.id);
-        const mount = $("#constructivePackageMount");
-        if (mount)
-          mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail, {
-            editable: false
-          });
-        const pipe = $("#constructivePipelineMount");
-        if (pipe) {
-          if (draft?.id) {
-            [procurementSummary, cncJobsSummary] = await Promise.all([
-              loadProcurementSummary(draft.id),
-              loadCncJobsSummary(draft.id)
-            ]);
-          }
-          pipe.innerHTML = renderConstructivePipelinePanel(
-            constructivePackageDetail,
-            procurementSummary,
-            pipelinePanelOptions()
-          );
-        }
-        bindConstructivePackageBlock(draft, mount, { editable: false });
-        bindConstructivePipelinePanel();
-      }
+      if (draft?.id) await refreshConstructiveWorkspace();
     },
     { once: false }
   );
@@ -832,51 +738,6 @@ function bindDrawerEvents() {
         }
       }).catch(() => {});
     });
-  });
-
-  $("#analyzeConstructiveBtn")?.addEventListener("click", async () => {
-    if (!draft.id) return;
-    const analyzeBtn = $("#analyzeConstructiveBtn");
-    const box = $("#constructiveAnalysis");
-    if (box) {
-      box.innerHTML = `
-        <div class="ai-skeleton" aria-busy="true">
-          <div class="enver-skeleton" style="height:16px;width:70%;margin-bottom:10px"></div>
-          <div class="enver-skeleton" style="height:12px;width:90%;margin-bottom:8px"></div>
-          <div class="enver-skeleton enver-skeleton-card" style="height:88px"></div>
-        </div>`;
-    }
-    try {
-      const result = await runSave("ШІ-аналіз", {
-        submitEl: analyzeBtn,
-        saveFn: () => api.analyzeConstructive(draft.id),
-        successMessage: "Аналіз завершено"
-      });
-      if (box) {
-        box.innerHTML = renderAiAnalysisResult(result);
-        bindAiAnalysisEvents(box, {
-          positionId: draft.id,
-          showError,
-          onRepeat: () => $("#analyzeConstructiveBtn")?.click(),
-          onTasksCreated: async (stages, submitEl) => {
-            await runSave("Задачі", {
-              submitEl,
-              saveFn: () => api.createProductionTasks(draft.id, stages),
-              successMessage: "Виробничі задачі створено",
-              onSuccess: async (pos) => {
-                draft = { ...draft, ...pos };
-                updateHeader();
-                renderDrawerContent();
-                await onSaved();
-              },
-              onError: (err) => showError(err.message)
-            }).catch(() => {});
-          }
-        });
-      }
-    } catch (err) {
-      if (box) box.innerHTML = `<p class="form-error visible">${escapeHtml(err.message)}</p>`;
-    }
   });
 }
 

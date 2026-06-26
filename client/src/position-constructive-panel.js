@@ -2,10 +2,8 @@ import { canManageProcurement } from "./auth.js";
 import { state } from "./state.js";
 import {
   bindConstructivePackageBlock,
-  bindLegacyConstructiveUpload,
   renderConstructivePackageBlock,
-  renderConstructivePackageReadOnly,
-  renderLegacyConstructiveUpload
+  renderConstructivePackageReadOnly
 } from "./constructive-package-ui.js";
 import {
   bindConstructivePipelinePanel,
@@ -40,7 +38,6 @@ export function renderPositionConstructivePanel(
     <div class="position-constructive-stack" data-position-constructive="${position.id}">
       ${pipeline}
       ${renderConstructivePackageBlock(position, detail, { editable: true })}
-      ${renderLegacyConstructiveUpload(position, { editable: true })}
       ${renderLegacyAiBlock(position)}
     </div>`;
 }
@@ -68,7 +65,6 @@ export function bindPositionConstructivePanel(
   };
 
   bindConstructivePackageBlock(position, stack, { editable: true, onUpdated: notifyUpdated });
-  bindLegacyConstructiveUpload(stack, position, { editable: true, onUploaded: notifyUpdated });
   bindLegacyAiBlock(stack, position, {
     onUpdated: notifyUpdated,
     showError: (msg) => {

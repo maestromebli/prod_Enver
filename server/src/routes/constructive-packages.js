@@ -205,7 +205,7 @@ router.post(
 
 router.post(
   "/:packageId/model-mapping",
-  requirePermissionOrAdmin("canReviewConstructive"),
+  requirePermissionOrAdmin("canMap3dParts"),
   async (req, res) => {
     const packageId = Number(req.params.packageId);
     const { mappings } = req.body || {};

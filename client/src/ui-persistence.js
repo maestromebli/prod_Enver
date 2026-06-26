@@ -19,7 +19,7 @@ const SUPPORTED_VERSIONS = new Set([3, 4, 5]);
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
-const VALID_ORDERS_DISPLAY = new Set(["cards", "list"]);
+const VALID_ORDERS_DISPLAY = new Set(["cards", "list", "positions"]);
 const VALID_CD_ORDERS_DISPLAY = new Set(["cards", "list"]);
 const LEGACY_TAB_ALIASES = {
   "Виробництво за етапами": PRODUCTION_FLOOR_TAB,
@@ -33,6 +33,7 @@ let operatorScrollRestore = null;
 
 function resolveActiveTab(tab) {
   if (!tab) return null;
+  if (tab === "Позиції") return "Замовлення";
   const resolved = LEGACY_TAB_ALIASES[tab] || tab;
   return TABS.includes(resolved) ? resolved : null;
 }
@@ -184,6 +185,9 @@ export function applyUiState(snapshot) {
   if (VALID_VIEWS.has(snapshot.view)) state.view = snapshot.view;
   const activeTab = resolveActiveTab(snapshot.activeTab);
   if (activeTab) state.activeTab = activeTab;
+  if (snapshot.activeTab === "Позиції") {
+    state.ordersView.displayMode = "positions";
+  }
   const settingsSections = new Set([
     "users",
     "access",

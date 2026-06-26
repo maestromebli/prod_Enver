@@ -29,6 +29,7 @@ import {
   renderOperatorScanActionButton,
   renderOperatorScanPanel
 } from "./part-scan.js";
+import { isCuttingOneScreen } from "./operator-ui.js";
 
 async function afterOperatorMutation(result, onChange) {
   const { propagatePositionMutation } = await import("./data-sync.js");
@@ -423,8 +424,10 @@ export function renderOperatorView() {
     .map((p) => renderQueueItem(p, field, freshQueueIds))
     .join("");
 
+  const oneScreenClass = isCuttingOneScreen(stageKey) ? " op-one-screen" : "";
+
   return `
-    <div class="operator-shell v3-operator" data-stage="${escapeHtml(stageKey)}"
+    <div class="operator-shell v3-operator${oneScreenClass}" data-stage="${escapeHtml(stageKey)}"
       style="--op-accent:${theme.accent};--op-gradient:${theme.gradient}">
       <header class="op-header">
         <div class="op-header-brand">

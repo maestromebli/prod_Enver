@@ -145,7 +145,13 @@ export function collectLocalHints(state) {
   }
 
   if (state.activeTab === "Замовлення" && !state.selectedOrderId) {
-    if (state.orders.length === 0 && canEditOrders()) {
+    if (state.ordersView.displayMode === "positions") {
+      hints.push({
+        priority: "normal",
+        text: "Режим «Позиції» — повна таблиця з етапами, відповідальними та експортом CSV.",
+        source: "local"
+      });
+    } else if (state.orders.length === 0 && canEditOrders()) {
       hints.push({
         priority: "high",
         text: "Створіть перше замовлення — кнопка «+ Нове замовлення» у панелі інструментів.",
@@ -180,7 +186,12 @@ export function collectLocalHints(state) {
     }
   }
 
-  if (state.activeTab === "Позиції" || state.selectedOrderId) {
+  if (
+    (state.activeTab === "Замовлення" &&
+      !state.selectedOrderId &&
+      state.ordersView.displayMode === "positions") ||
+    state.selectedOrderId
+  ) {
     const noFile = withoutConstructive(positions);
     if (noFile.length > 0 && canEditPositions()) {
       hints.push({

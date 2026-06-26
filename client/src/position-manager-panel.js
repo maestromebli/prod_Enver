@@ -3,8 +3,9 @@ import {
   MANAGER_FILE_KIND_LABELS
 } from "@enver/shared/production/position-manager-data.js";
 import { api, getStoredToken } from "./api.js";
-import { canEditPositionManagerData } from "./auth.js";
 import { runSave } from "./save-flow.js";
+import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
+import { canEditPositionManagerData } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 
@@ -171,11 +172,16 @@ export function renderPositionManagerPanel(position, bundle = null) {
         ${
           canEdit
             ? `<div class="pm-upload">
-            <div class="pm-drop" data-pm-drop="${position.id}">
-              <p>Перетягніть файли сюди або оберіть</p>
-              <input type="file" multiple data-pm-file-input="${position.id}" />
-            </div>
-            <div class="form-field">
+            ${renderFileUploadZone({
+              zoneAttr: `data-pm-drop="${position.id}"`,
+              inputAttr: `data-pm-file-input="${position.id}"`,
+              compact: true,
+              multiple: true,
+              title: "Додати файли",
+              hint: "Перетягніть або натисніть",
+              formats: "PDF, зображення, документи"
+            })}
+            <div class="form-field pm-upload-kind">
               <label>Тип файлу</label>
               <select data-pm-file-kind="${position.id}">${kindOptions()}</select>
             </div>
@@ -215,12 +221,7 @@ function readForm(positionId) {
 
 async function uploadFiles(positionId, fileList, kind) {
   for (const file of fileList) {
-    const dataBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const dataBase64 = await readFileAsBase64(file);
     await api.uploadPositionManagerFile(positionId, {
       fileName: file.name,
       mime: file.type,
@@ -284,30 +285,21 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
     });
   });
 
-  const drop = panel.querySelector(`[data-pm-drop="${positionId}"]`);
-  const input = panel.querySelector(`[data-pm-file-input="${positionId}"]`);
+  const dropSelector = `[data-pm-drop="${positionId}"]`;
   const kindSelect = panel.querySelector(`[data-pm-file-kind="${positionId}"]`);
 
-  async function handleFiles(files) {
-    if (!files?.length) return;
-    const kind = kindSelect?.value || "manager_other";
-    await runSave("Файли", {
-      saveFn: () => uploadFiles(positionId, files, kind),
-      successMessage: "Файли завантажено",
-      onSuccess: () => onSaved?.()
-    }).catch(() => {});
-  }
-
-  input?.addEventListener("change", () => handleFiles(input.files));
-  drop?.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    drop.classList.add("pm-drop--active");
-  });
-  drop?.addEventListener("dragleave", () => drop.classList.remove("pm-drop--active"));
-  drop?.addEventListener("drop", (e) => {
-    e.preventDefault();
-    drop.classList.remove("pm-drop--active");
-    handleFiles(e.dataTransfer?.files);
+  bindFileUploadZone(panel, {
+    zoneSelector: dropSelector,
+    inputSelector: `[data-pm-file-input="${positionId}"]`,
+    multiple: true,
+    onFile: async (file) => {
+      const kind = kindSelect?.value || "manager_other";
+      await runSave("Файли", {
+        saveFn: () => uploadFiles(positionId, [file], kind),
+        successMessage: "Файл завантажено",
+        onSuccess: () => onSaved?.()
+      }).catch(() => {});
+    }
   });
 }
 

@@ -102,7 +102,8 @@ export function validateAssistantActions(actions) {
 export function buildActionsPromptBlock() {
   return `
 Можеш запропонувати дії (actions) — лише з цього списку type:
-- open_tab { tab: "Замовлення"|"Позиції"|"Потребує уваги"|"Цех зараз"|"Встановлення" }
+- open_tab { tab: "Замовлення"|"Потребує уваги"|"Цех зараз"|"Встановлення" }
+- Для реєстру позицій використовуй tab "Замовлення" (клієнт перемкне режим «Позиції» за контекстом)
 - open_order { orderId: number }
 - open_position { positionId: number }
 - open_attention {}

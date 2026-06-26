@@ -40,7 +40,11 @@ export function syncListFiltersToDom() {
   }
   if (stageEl) {
     if (state.activeTab === "Замовлення" && !state.selectedOrderId) {
-      stageEl.value = state.ordersView.priorityFilter ?? "";
+      if (state.ordersView.displayMode === "positions") {
+        stageEl.value = state.productionStageFilter ?? "";
+      } else {
+        stageEl.value = state.ordersView.priorityFilter ?? "";
+      }
     } else {
       stageEl.value = state.productionStageFilter ?? "";
     }

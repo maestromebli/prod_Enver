@@ -36,8 +36,10 @@ test("enver-file-input-offscreen не використовує display:none", ()
   assert.doesNotMatch(block, /display:\s*none/);
 });
 
-test("стіл конструктора: кнопка вибору файлу відокремлена від input", () => {
-  const source = readFileSync(new URL("../src/constructor-desk.js", import.meta.url), "utf8");
-  assert.match(source, /data-cd-pick-file/);
-  assert.match(source, /enver-file-input-offscreen/);
+test("стіл конструктора: зона завантаження через спільний file-upload-zone", () => {
+  const desk = readFileSync(new URL("../src/constructor-desk.js", import.meta.url), "utf8");
+  const zone = readFileSync(new URL("../src/file-upload-zone.js", import.meta.url), "utf8");
+  assert.match(desk, /data-cd-drop/);
+  assert.match(desk, /renderFileUploadZone/);
+  assert.match(zone, /enver-file-input-offscreen/);
 });

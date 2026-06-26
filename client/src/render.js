@@ -26,7 +26,7 @@ import {
   clearOrderDetailViewState,
   renderOrderDetailView
 } from "./order-detail.js";
-import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
+import { bindOrdersGrid, renderOrdersGrid, renderOrdersModeBar } from "./orders-view.js";
 import { bindSettingsActions, getSettingsHeaderMeta, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import {
@@ -62,6 +62,14 @@ import {
 } from "./godmode-notifications.js";
 
 export { filteredPositions };
+
+function isOrdersRegistry() {
+  return state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
+}
+
+function isOrdersPositionsMode() {
+  return isOrdersRegistry() && state.ordersView.displayMode === "positions";
+}
 
 function emptyRow(colspan = 10) {
   return `<tr><td colspan="${colspan}">
@@ -172,12 +180,11 @@ function visibleTabs() {
 
 const TAB_META = {
   [OVERVIEW_TAB]: { icon: "◎", subtitle: "Ключові показники та швидкі переходи" },
-  Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
+  Замовлення: { icon: "◫", subtitle: "Картки, список замовлень або реєстр позицій" },
   [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
   [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Картки або список замовлень у конструктиві" },
   Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
-  Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
   "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
 };
 
@@ -340,7 +347,12 @@ function fillStatusFilterOptions(options, labels) {
   else select.value = "";
 
   if (labelEl) {
-    labelEl.textContent = state.activeTab === "Замовлення" ? "Статус замовлення" : "Статус";
+    const positionsMode =
+      state.activeTab === "Замовлення" &&
+      !state.selectedOrderId &&
+      state.ordersView.displayMode === "positions";
+    labelEl.textContent =
+      state.activeTab === "Замовлення" && !positionsMode ? "Статус замовлення" : "Статус";
   }
 }
 
@@ -351,8 +363,8 @@ export function renderToolbarFilters() {
   const statusField = document.querySelector("#statusFilter")?.closest(".filter-field");
   const responsibleField = document.querySelector("#responsibleFilter")?.closest(".filter-field");
   const searchField = document.querySelector("#searchInput")?.closest(".filter-field");
-  const onOrdersRegistry =
-    state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
+  const onOrdersRegistry = isOrdersRegistry();
+  const positionsMode = isOrdersPositionsMode();
 
   if (searchField) {
     const input = searchField.querySelector("#searchInput");
@@ -363,7 +375,7 @@ export function renderToolbarFilters() {
     }
   }
 
-  if (onOrdersRegistry) {
+  if (onOrdersRegistry && !positionsMode) {
     const orderStatuses = state.directories["Статуси замовлення"] || [
       "Новий",
       "У конструктиві",
@@ -389,6 +401,17 @@ export function renderToolbarFilters() {
       `;
       stageSelect.value = priorities.includes(current) ? current : "";
     }
+  } else if (positionsMode) {
+    fillStatusFilterOptions(
+      POSITION_STATUS_OPTIONS,
+      POSITION_STATUS_OPTIONS.map((v) => v || "Усі статуси")
+    );
+
+    if (stageSelect && stageField) {
+      stageSelect.hidden = true;
+      stageField.hidden = true;
+      if (stageLabel) stageLabel.textContent = "Етап";
+    }
   } else {
     fillStatusFilterOptions(
       POSITION_STATUS_OPTIONS,
@@ -412,18 +435,20 @@ export function renderToolbarFilters() {
 export function renderToolbarActions() {
   const el = document.querySelector("#toolbarActions");
   if (!el) return;
+  const onOrdersRegistry = isOrdersRegistry();
+  const positionsMode = isOrdersPositionsMode();
   const parts = [];
-  if (state.activeTab === "Замовлення" && !state.selectedOrderId && canEditOrders()) {
+  if (onOrdersRegistry && !positionsMode && canEditOrders()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
     );
   }
-  if (state.activeTab === "Позиції" && canEditPositions()) {
+  if (positionsMode && canEditPositions()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
     );
   }
-  if (state.activeTab === "Позиції") {
+  if (positionsMode) {
     parts.push(`<button type="button" class="btn btn-sm" id="exportCsvBtn">Експорт CSV</button>`);
   }
   parts.push(renderTourCoach());
@@ -451,13 +476,16 @@ function renderOrderDetail() {
 }
 
 function renderContent() {
-  const data = filteredPositions();
   const tab = state.activeTab;
   const ordersData = filteredOrders();
 
   if (tab === OVERVIEW_TAB) return renderDashboard();
   if (tab === "Замовлення") {
     if (state.selectedOrderId) return renderOrderDetail();
+    if (state.ordersView.displayMode === "positions") {
+      const positionsData = filteredPositions();
+      return `<div class="orders-view">${renderOrdersModeBar()}${positionsTable(positionsData, "Позиції", true)}</div>`;
+    }
     return renderOrdersGrid(ordersData, state.positions, {
       filtersActive: hasActiveFilters()
     });
@@ -465,7 +493,6 @@ function renderContent() {
   if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === CONSTRUCTOR_DESK_TAB) return renderConstructorDeskTab();
-  if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Історія змін") return historyTab();
   return renderOrdersGrid(ordersData, state.positions, {

@@ -8,12 +8,6 @@ export function renderLegacyAiBlock(position) {
   const hasFiles = position?.hasConstructiveFile;
   return `
     <section class="legacy-ai-block" data-legacy-ai="${position.id}">
-      <h4 class="enver-section-title">ШІ-аналіз конструктива</h4>
-      <p class="enver-meta">${
-        hasFiles
-          ? "Рекомендації етапів виробництва на основі завантаженого файлу."
-          : "Спочатку завантажте файл конструктива вище."
-      }</p>
       <button type="button" class="btn btn-sm btn-primary" data-legacy-analyze-btn ${hasFiles ? "" : "disabled"}>
         Запустити ШІ-аналіз
       </button>

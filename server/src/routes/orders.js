@@ -162,10 +162,13 @@ router.post("/:id/run-next-action", requireOrderWrite, async (req, res) => {
   }
 
   if (requestedType === "close_order") {
-    const roots = mappedPositions.filter((p) => !p.parentId);
+    const workPositions = getWorkPositions(order, mappedPositions);
+    const closeTargets = workPositions.length
+      ? workPositions
+      : mappedPositions.filter((p) => !p.parentId);
     const allDone =
-      roots.length > 0 &&
-      roots.every((p) => (p.positionStatus || p.position_status) === "Завершено");
+      closeTargets.length > 0 &&
+      closeTargets.every((p) => (p.positionStatus || p.position_status) === "Завершено");
     if (!allDone) {
       res.status(400).json({ error: "Не всі позиції завершені — замовлення не можна закрити." });
       return;

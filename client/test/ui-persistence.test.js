@@ -75,7 +75,8 @@ describe("ui-persistence", () => {
   });
 
   it("captureUiState зберігає listFilters і detailTab у sessionStorage", () => {
-    state.activeTab = "Позиції";
+    state.activeTab = "Замовлення";
+    state.ordersView.displayMode = "positions";
     state.listFilters = { search: "abc", status: "В роботі", responsible: "Петро" };
     state.ordersView.detailTab = "pos-3";
     state.showArchived = true;

@@ -1,6 +1,7 @@
 import { api, constructivePackageFileUrl, getPartLabelsUrl } from "./api.js";
 import { createFileDropZone } from "./interactions/drag-drop.js";
 import { pickLocalFile } from "./file-picker.js";
+import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
 import {
   CONSTRUCTIVE_ACCEPT_EXT,
   CONSTRUCTIVE_MAX_BYTES,
@@ -18,7 +19,7 @@ import { toastError, toastSuccess } from "./toast.js";
 import { runSave } from "./save-flow.js";
 
 const packageDropZones = new WeakMap();
-const legacyDropZones = new WeakMap();
+const quickUploadZones = new WeakMap();
 const pendingFilesByRoot = new WeakMap();
 const packageBindAbort = new WeakMap();
 
@@ -67,17 +68,40 @@ function addPendingPackageFiles(root, pendingFiles, fileList, { toastSummary = f
   return { added, skipped };
 }
 
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = String(reader.result || "");
-      resolve(raw.includes(",") ? raw.split(",")[1] : raw);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+function readFileAsBase64FromFile(file) {
+  return readFileAsBase64(file);
 }
+
+export function bindQuickConstructiveUpload(root, position, { onUploaded, editable = false } = {}) {
+  if (!editable || !position?.id || !root) return;
+
+  quickUploadZones.get(root)?.destroy();
+
+  const ctl = bindFileUploadZone(root, {
+    zoneSelector: "[data-quick-constructive]",
+    inputSelector: "[data-quick-constructive-input]",
+    accept: CONSTRUCTIVE_ACCEPT_EXT,
+    maxBytes: CONSTRUCTIVE_MAX_BYTES,
+    onFile: async (file) => {
+      await runSave("Конструктив", {
+        saveFn: async () => {
+          const dataBase64 = await readFileAsBase64FromFile(file);
+          return api.uploadConstructiveFile(position.id, {
+            fileName: file.name,
+            mime: file.type,
+            dataBase64
+          });
+        },
+        successMessage: "Файл завантажено",
+        onSuccess: () => onUploaded?.()
+      }).catch(() => {});
+    }
+  });
+  quickUploadZones.set(root, ctl);
+}
+
+/** @deprecated Використовуйте bindQuickConstructiveUpload */
+export const bindLegacyConstructiveUpload = bindQuickConstructiveUpload;
 
 function renderPipeline(status) {
   const steps = CONSTRUCTIVE_PIPELINE_STEPS.map((s) => {
@@ -147,7 +171,37 @@ export function renderConstructivePackageReadOnly(position, detail = null) {
     </section>`;
 }
 
-export function renderConstructivePackageBlock(position, detail = null, { editable = false } = {}) {
+function constructiveFormatsLabel() {
+  const mb = Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
+  return `PDF, ZIP, XML, DWG, XLS, B3D · до ${mb} МБ`;
+}
+
+/** Швидке завантаження одного файлу конструктива — спільний UI. */
+export function renderQuickConstructiveUpload(position, { fileListHtml = "" } = {}) {
+  if (!position?.id) {
+    return `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`;
+  }
+  const has = position.hasConstructiveFile;
+  return renderFileUploadZone({
+    zoneAttr: "data-quick-constructive",
+    inputAttr: "data-quick-constructive-input",
+    hasFiles: has,
+    title: has ? "Додати ще файл" : "Завантажити конструктив",
+    hint: "Перетягніть або натисніть",
+    formats: constructiveFormatsLabel(),
+    accept: CONSTRUCTIVE_ACCEPT_EXT.join(","),
+    fileListHtml
+  });
+}
+
+/** @deprecated Використовуйте renderQuickConstructiveUpload */
+export const renderLegacyConstructiveUpload = renderQuickConstructiveUpload;
+
+export function renderConstructivePackageBlock(
+  position,
+  detail = null,
+  { editable = false, fileListHtml = "" } = {}
+) {
   if (!editable) {
     return renderConstructivePackageReadOnly(position, detail);
   }
@@ -158,49 +212,31 @@ export function renderConstructivePackageBlock(position, detail = null, { editab
 
   return `
     <section class="constructive-package-block">
-      <h3 class="enver-section-title">Пакет конструктива</h3>
-      ${pkg ? renderPipeline(status) : ""}
-      <p class="cp-status">${pkg ? `v${pkg.version} · ${escapeHtml(statusLabel)}` : "Файли не завантажені"}</p>
-      <div data-cp-package-drop class="constructive-upload-zone enver-drop-target" tabindex="0">
-        <p class="constructive-upload-title">Перетягніть файли або папку</p>
-        <p class="constructive-upload-hint">XLS · Project · B3D · PDF · GLB · ЧПК</p>
-      </div>
-      <div class="cp-pick-actions">
-        <button type="button" class="btn btn-sm" data-cp-pick-files>Обрати файли</button>
-        <button type="button" class="btn btn-sm" data-cp-pick-folder>Обрати папку</button>
-      </div>
-      <div class="cp-file-slots">${renderFileSlots()}</div>
-      <div class="constructive-actions constructive-actions--cta cp-actions">
-        <button type="button" class="btn btn-primary" data-cp-upload-btn disabled>Завантажити пакет</button>
-        <button type="button" class="btn" data-cp-parse-btn ${pkg ? "" : "disabled"}>Розібрати</button>
-        <button type="button" class="btn" data-cp-procurement-btn ${pkg?.status === "parsed" || pkg?.status === "needs_review" ? "" : "disabled"}>Створити закупівлю</button>
-        <button type="button" class="btn" data-cp-approve-btn ${detail?.parts?.length ? "" : "disabled"}>Підтвердити</button>
-        <button type="button" class="btn" data-cp-release-cnc-btn ${["approved_by_constructor", "approved_by_production", "cnc_ready", "sent_to_cnc"].includes(status) ? "" : "disabled"}>На верстат</button>
-        <a class="btn" data-cp-labels-btn href="${position?.id ? getPartLabelsUrl(position.id) : "#"}" target="_blank" ${detail?.parts?.length ? "" : "hidden"}>Друк етикеток</a>
-      </div>
-      ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
-      ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
-    </section>`;
-}
-
-export function renderLegacyConstructiveUpload(position, { editable = false } = {}) {
-  if (!editable) return "";
-  const has = position?.hasConstructiveFile;
-  return `
-    <section class="legacy-constructive-upload">
-      <h4 class="enver-section-title">Файл конструктива (швидкий)</h4>
-      <p class="enver-meta">${has ? "Файл уже є — можна додати ще." : "PDF, ZIP, XML, DWG, XLS, B3D — для запуску етапу виробництва."}</p>
-      <div class="constructive-upload-wrap">
-        <div data-legacy-constructive-drop class="constructive-upload-zone enver-drop-target" tabindex="0">
-          <input type="file" class="enver-file-input-offscreen" data-legacy-constructive-input accept="${CONSTRUCTIVE_ACCEPT_EXT.join(",")}" tabindex="-1" aria-hidden="true" />
-          <div class="constructive-upload-inner">
-            <span class="constructive-upload-icon" aria-hidden="true">${has ? "✓" : "📎"}</span>
-            <p class="constructive-upload-title">${has ? "Додати файл" : "Перетягніть конструктив"}</p>
-            <p class="constructive-upload-hint">або натисніть для вибору</p>
-            <p class="constructive-upload-status" aria-live="polite"></p>
-          </div>
+      <h3 class="enver-section-title">Конструктив</h3>
+      ${renderQuickConstructiveUpload(position, { fileListHtml })}
+      <details class="cp-package-advanced"${pkg ? " open" : ""}>
+        <summary class="cp-package-advanced-summary">Пакет ЧПК${pkg ? ` · v${pkg.version} · ${escapeHtml(statusLabel)}` : ""}</summary>
+        ${pkg ? renderPipeline(status) : ""}
+        <div data-cp-package-drop class="constructive-upload-zone file-upload-zone file-upload-zone--compact enver-drop-target" tabindex="0">
+          <p class="constructive-upload-title">Файли пакета</p>
+          <p class="constructive-upload-hint">Перетягніть сюди або <button type="button" class="btn-link" data-cp-pick-files>оберіть файли</button> · <button type="button" class="btn-link" data-cp-pick-folder>папку</button></p>
+          <p class="constructive-upload-formats">XLS · Project · B3D · PDF · GLB · ЧПК</p>
         </div>
-      </div>
+        <details class="cp-slots-details">
+          <summary>Слоти файлів</summary>
+          <div class="cp-file-slots">${renderFileSlots()}</div>
+        </details>
+        <div class="constructive-actions constructive-actions--cta cp-actions">
+          <button type="button" class="btn btn-primary" data-cp-upload-btn disabled>Завантажити пакет</button>
+          <button type="button" class="btn btn-sm" data-cp-parse-btn ${pkg ? "" : "disabled"}>Розібрати</button>
+          <button type="button" class="btn btn-sm" data-cp-procurement-btn ${pkg?.status === "parsed" || pkg?.status === "needs_review" ? "" : "disabled"}>Закупівля</button>
+          <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length ? "" : "disabled"}>Підтвердити</button>
+          <button type="button" class="btn btn-sm" data-cp-release-cnc-btn ${["approved_by_constructor", "approved_by_production", "cnc_ready", "sent_to_cnc"].includes(status) ? "" : "disabled"}>На верстат</button>
+          <a class="btn btn-sm" data-cp-labels-btn href="${position?.id ? getPartLabelsUrl(position.id) : "#"}" target="_blank" ${detail?.parts?.length ? "" : "hidden"}>Етикетки</a>
+        </div>
+        ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
+        ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
+      </details>
     </section>`;
 }
 
@@ -228,6 +264,8 @@ export function bindConstructivePackageBlock(
   { onUpdated, editable = false } = {}
 ) {
   if (!editable || !position?.id || !root) return;
+
+  bindQuickConstructiveUpload(root, position, { editable: true, onUploaded: onUpdated });
 
   const zone = root.querySelector("[data-cp-package-drop]");
   if (!zone) return;
@@ -382,38 +420,4 @@ export function bindConstructivePackageBlock(
     },
     { signal }
   );
-}
-
-export function bindLegacyConstructiveUpload(
-  root,
-  position,
-  { onUploaded, editable = false } = {}
-) {
-  if (!editable || !position?.id || !root) return;
-
-  legacyDropZones.get(root)?.destroy();
-  const zone = root.querySelector("[data-legacy-constructive-drop]");
-  const input = root.querySelector("[data-legacy-constructive-input]");
-  if (!zone) return;
-
-  const dz = createFileDropZone(zone, {
-    inputEl: input,
-    accept: CONSTRUCTIVE_ACCEPT_EXT,
-    maxBytes: CONSTRUCTIVE_MAX_BYTES,
-    onFile: async (file) => {
-      await runSave("Конструктив", {
-        saveFn: async () => {
-          const dataBase64 = await readFileAsBase64(file);
-          return api.uploadConstructiveFile(position.id, {
-            fileName: file.name,
-            mime: file.type,
-            dataBase64
-          });
-        },
-        successMessage: "Файл завантажено",
-        onSuccess: () => onUploaded?.()
-      }).catch(() => {});
-    }
-  });
-  legacyDropZones.set(root, dz);
 }

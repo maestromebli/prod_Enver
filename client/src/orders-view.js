@@ -14,7 +14,7 @@ import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 
-const DISPLAY_LABELS = { cards: "Картки", list: "Список" };
+const DISPLAY_LABELS = { cards: "Картки", list: "Список", positions: "Позиції" };
 
 function toggleOrderExpanded(orderId) {
   const id = Number(orderId);
@@ -87,7 +87,7 @@ function mainPositionForOrder(order, rootPositions) {
   return rootPositions.find((p) => p.orderId === order.id || p.orderNumber === order.orderNumber);
 }
 
-function ordersModeBarHtml() {
+export function renderOrdersModeBar() {
   const mode = state.ordersView.displayMode || "cards";
   const buttons = Object.entries(DISPLAY_LABELS)
     .map(
@@ -300,7 +300,7 @@ export function renderOrdersGrid(orders, positions, { filtersActive = false } = 
       ? renderOrdersList(sorted, rootPositions, positions, filtersActive)
       : renderOrdersCards(sorted, rootPositions, positions, filtersActive);
 
-  return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
+  return `<div class="orders-view">${renderOrdersModeBar()}${body}</div>`;
 }
 
 export function renderOrderDetailHeader(order, positions, { canEditOrder = false } = {}) {
@@ -469,15 +469,18 @@ function bindOrdersList(root, handlers) {
 export function bindOrdersGrid(root, handlers) {
   root?.querySelectorAll("[data-orders-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.ordersView.displayMode = btn.dataset.ordersMode;
-      window.__enverRender?.({ contentOnly: true });
+      const prev = state.ordersView.displayMode || "cards";
+      const next = btn.dataset.ordersMode;
+      state.ordersView.displayMode = next;
+      const chromeChanged = (prev === "positions") !== (next === "positions");
+      window.__enverRender?.({ contentOnly: !chromeChanged });
     });
   });
 
   const mode = state.ordersView.displayMode || "cards";
   if (mode === "list") {
     bindOrdersList(root, handlers);
-  } else {
+  } else if (mode !== "positions") {
     bindOrderCards(root, { ...handlers, allPositions: handlers.positions });
   }
 }

@@ -44,7 +44,7 @@ import {
   openSettings
 } from "./settings.js";
 import { refreshAppData } from "./data-sync.js";
-import { watchAppBuildUpdates } from "./operator-ui.js";
+import { redirectPureOperatorToClientPage, watchAppBuildUpdates } from "./operator-ui.js";
 import {
   initializeRoleNotificationBaselines,
   primeRoleNotifications,
@@ -254,7 +254,7 @@ function bindContentActions() {
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
       const step = startTour();
-      if (step?.tab) await setTab(step.tab);
+      if (step?.tab) await setTab(step.tab, { ordersDisplayMode: step.ordersDisplayMode });
       else renderApp();
     });
   });
@@ -263,7 +263,7 @@ function bindContentActions() {
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
       const step = nextTourStep();
-      if (step?.tab) await setTab(step.tab);
+      if (step?.tab) await setTab(step.tab, { ordersDisplayMode: step.ordersDisplayMode });
       else renderApp();
     });
   });
@@ -468,17 +468,16 @@ async function prepareViewData() {
   }
 }
 
-async function setTab(tab) {
+async function setTab(tab, { ordersDisplayMode } = {}) {
   const prevTab = state.activeTab;
   if (tab !== "Замовлення") {
     state.selectedOrderId = null;
   }
   state.activeTab = tab;
-  if (
-    state.constructorDesk.stale &&
-    prevTab !== tab &&
-    (tab === "Замовлення" || tab === "Позиції")
-  ) {
+  if (tab === "Замовлення" && ordersDisplayMode) {
+    state.ordersView.displayMode = ordersDisplayMode;
+  }
+  if (state.constructorDesk.stale && prevTab !== tab && tab === "Замовлення") {
     try {
       await refreshAppData({ syncViews: false });
     } catch (err) {
@@ -546,23 +545,29 @@ function applyQuickFilters({ status = "", search = "", responsible = "" } = {}) 
 async function handleAiNavigate(destination) {
   const route = resolveDashboardNav(destination);
   applyQuickFilters({ status: route.status || "" });
+  if (route.ordersDisplayMode) {
+    state.ordersView.displayMode = route.ordersDisplayMode;
+  }
   if (route.archived) {
     state.showArchived = true;
   } else if (destination !== "Архів") {
     state.showArchived = false;
   }
-  await setTab(route.tab);
+  await setTab(route.tab, { ordersDisplayMode: route.ordersDisplayMode });
 }
 
 async function handleDashboardNav(destination) {
   const route = resolveDashboardNav(destination);
   applyQuickFilters({ status: route.status || "" });
+  if (route.ordersDisplayMode) {
+    state.ordersView.displayMode = route.ordersDisplayMode;
+  }
   if (route.archived) {
     state.showArchived = true;
   } else {
     state.showArchived = false;
   }
-  await setTab(route.tab);
+  await setTab(route.tab, { ordersDisplayMode: route.ordersDisplayMode });
 }
 
 async function openSettingsView() {
@@ -603,7 +608,7 @@ initCommandPalette({
     if (state.currentUser) openOrderModal();
   },
   focusSearch: () => $("#searchInput")?.focus(),
-  setTab: (tab) => void setTab(tab),
+  setTab: (tab, options) => void setTab(tab, options),
   openSettings: () => void openSettingsView(),
   openOperatorPanel: async () => {
     const { enterOperatorView } = await import("./operator-panel.js");
@@ -735,6 +740,7 @@ $("#loginForm")?.addEventListener("submit", async (e) => {
   setLoginSubmitting(true);
   try {
     await login(loginName, password);
+    if (redirectPureOperatorToClientPage()) return;
     clearPersistedUiState();
     await loadData();
     await afterAuth();
@@ -780,6 +786,7 @@ async function bootstrap() {
       showLoginModal(true);
       return;
     }
+    if (redirectPureOperatorToClientPage()) return;
 
     const persisted = loadPersistedUiState();
     const restoreNavigation = applyUiState(persisted);

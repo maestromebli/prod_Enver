@@ -12,6 +12,5 @@ export const TABS = [
   PRODUCTION_FLOOR_TAB,
   CONSTRUCTOR_DESK_TAB,
   "Встановлення",
-  "Позиції",
   "Історія змін"
 ];

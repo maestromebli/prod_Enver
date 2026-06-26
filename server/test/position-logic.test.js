@@ -49,6 +49,19 @@ describe("computeProgress", () => {
     assert.equal(derivePositionStatus(row), "У виробництві");
   });
 
+  it("зберігає статус «Завершено»", () => {
+    const row = {
+      cutting_status: "Готово",
+      edging_status: "Готово",
+      drilling_status: "Готово",
+      assembly_status: "Готово",
+      packaging_status: "Готово",
+      has_constructive_file: true,
+      position_status: "Завершено"
+    };
+    assert.equal(derivePositionStatus(row), "Завершено");
+  });
+
   it("конструктив не впливає на прогрес", () => {
     const without = {
       cutting_status: "Готово",
