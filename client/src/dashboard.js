@@ -1,3 +1,4 @@
+import { formatInstallPeriod } from "./install-utils.js";
 import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
@@ -280,7 +281,7 @@ export function renderDashboard() {
     listRow({
       id: p.id,
       title: p.item || p.object,
-      subtitle: p.installDate || "Дата не призначена",
+      subtitle: p.installDate ? formatInstallPeriod(p) : "Дата не призначена",
       meta: p.installResponsible || "—"
     })
   );

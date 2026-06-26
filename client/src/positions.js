@@ -246,13 +246,14 @@ function renderDrawerContent() {
       </div>
 
       <div class="drawer-panel ${activePanel === "install" ? "active" : ""}" data-panel="install">
-        <div class="form-grid">
+        <p class="drawer-section-title">Період монтажу</p>
+        <div class="form-grid install-period-grid">
           <div class="form-field">
-            <label for="posInstallDate">Початок монтажу</label>
+            <label for="posInstallDate">з</label>
             <input id="posInstallDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.installDate)}" />
           </div>
           <div class="form-field">
-            <label for="posInstallEndDate">Кінець монтажу</label>
+            <label for="posInstallEndDate">по</label>
             <input id="posInstallEndDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.installEndDate || p.installDate || "")}" />
           </div>
           <div class="form-field span-2">

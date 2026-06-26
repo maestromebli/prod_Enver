@@ -1,4 +1,5 @@
 import { escapeHtml, $ } from "./utils.js";
+import { iconSvg } from "./icons.js";
 import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
 import { toastError, toastSuccess } from "./toast.js";
 
@@ -33,8 +34,16 @@ export function renderModelMappingModal(detail) {
                 .join("")}
             </ul>
           </aside>
-          <div class="model-mapping-viewer">
-            <div id="modelMappingViewer3d" class="part-viewer-3d"></div>
+          <div class="model-mapping-viewer ${glbFile ? "model-mapping-viewer--has-model" : ""}">
+            ${
+              glbFile
+                ? '<div id="modelMappingViewer3d" class="part-viewer-3d"></div>'
+                : `<div class="model-mapping-viewer-empty" id="modelMappingViewerEmpty">
+              ${iconSvg("cube3d", "enver-icon enver-icon--3d")}
+              <strong>3D-модель не завантажена</strong>
+              <p>Додайте GLB або GLTF у пакет конструктива — тоді можна звʼязати mesh з деталями списку.</p>
+            </div>`
+            }
             <p class="enver-meta" id="modelMappingHint">
               ${glbFile ? "Оберіть деталь зліва, потім введіть імʼя mesh з моделі." : "Завантажте GLB/GLTF для мапінгу."}
             </p>

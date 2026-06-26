@@ -1,3 +1,4 @@
+import { formatInstallPeriod } from "./install-utils.js";
 import { buildVisiblePositionRows } from "./position-tree.js";
 import { positionActionButtons } from "./positions.js";
 import { renderHealthBadge, resolvePositionGodmode } from "./godmode-ui.js";
@@ -45,7 +46,7 @@ function positionRowCells(p, row, showActions) {
     <td>${badge(p.assemblyStatus)}</td>
     <td>${badge(p.packagingStatus)}</td>
     <td class="col-opt-ready">${escapeHtml(p.readyDate || "—")}</td>
-    <td class="col-opt-install-date">${escapeHtml(p.installDate || "—")}</td>
+    <td class="col-opt-install-date">${escapeHtml(formatInstallPeriod(p))}</td>
     <td>${escapeHtml(p.installResponsible || "—")}</td>
     <td>${badge(p.positionStatus)}</td>
     <td>${progress(p.progress)}</td>

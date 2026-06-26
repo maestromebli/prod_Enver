@@ -83,6 +83,7 @@ import { resolveDashboardNav } from "./dashboard-routes.js";
 import { setListFilters } from "./filters.js";
 import { $ } from "./utils.js";
 import "./styles/app-shell.css";
+import "./styles/visual-polish.css";
 import "./styles/brand-logo.css";
 import "./styles/operator.css";
 

@@ -34,10 +34,10 @@ body.view-dashboard #content {
 .dash-hero {
   display: flex;
   flex-direction: column;
-  gap: var(--enver-space-3, 12px);
-  margin-bottom: var(--enver-space-5, 20px);
-  padding: var(--enver-space-4, 16px);
-  border-radius: var(--enver-radius-md, 20px);
+  gap: var(--enver-space-2, 8px);
+  margin-bottom: var(--enver-space-3, 12px);
+  padding: var(--enver-space-3, 12px);
+  border-radius: var(--enver-radius-md, 16px);
   border: 1px solid var(--enver-border, var(--border-soft));
   background:
     radial-gradient(
@@ -66,7 +66,7 @@ body.view-dashboard #content {
 
 .dash-hero-title {
   margin: var(--space-1) 0 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
@@ -256,10 +256,10 @@ body.view-dashboard #content {
 .dash-alert {
   display: flex;
   align-items: center;
-  gap: var(--enver-space-3, 12px);
-  margin-bottom: var(--enver-space-4, 16px);
-  padding: var(--enver-space-3, 12px) var(--enver-space-4, 16px);
-  border-radius: var(--enver-radius-sm, 14px);
+  gap: var(--enver-space-2, 8px);
+  margin-bottom: var(--enver-space-3, 12px);
+  padding: var(--enver-space-2, 8px) var(--enver-space-3, 12px);
+  border-radius: var(--enver-radius-sm, 10px);
   border: 1px solid color-mix(in srgb, var(--enver-primary, #245c3b) 25%, var(--enver-border));
   background: color-mix(in srgb, var(--enver-primary-soft, #e8f3ec) 55%, var(--enver-surface));
 }
@@ -355,9 +355,9 @@ body.view-dashboard #content {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: var(--space-4);
-  min-height: 108px;
-  border-radius: 16px;
+  padding: var(--space-3);
+  min-height: 88px;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--tile-accent, var(--blue)) 18%, var(--border-soft));
   background: var(--surface);
   cursor: pointer;
@@ -429,8 +429,8 @@ body.view-dashboard #content {
 
 .dash-tile-value {
   margin-top: auto;
-  padding-top: var(--space-2);
-  font-size: 1.75rem;
+  padding-top: var(--space-1);
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;

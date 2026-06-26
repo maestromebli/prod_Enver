@@ -60,6 +60,7 @@ import {
   syncGodmodeNotifyForView,
   updateGodmodeNotifyBadge
 } from "./godmode-notifications.js";
+import { emptyStateIcon, navIconSvg, iconSvg } from "./icons.js";
 
 export { filteredPositions };
 
@@ -74,7 +75,7 @@ function isOrdersPositionsMode() {
 function emptyRow(colspan = 10) {
   return `<tr><td colspan="${colspan}">
     <div class="enver-empty-state positions-table-empty">
-      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
       <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
       <p class="enver-empty-state-text">Немає позицій за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
     </div>
@@ -153,7 +154,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th>Збірка</th>
               <th>Пакування</th>
               <th class="col-opt-ready">Дата готовності</th>
-              <th class="col-opt-install-date">Дата встановлення</th>
+              <th class="col-opt-install-date">Період монтажу</th>
               <th>Монтажник</th>
               <th>Статус позиції</th>
               <th>Готово, %</th>
@@ -179,14 +180,20 @@ function visibleTabs() {
 }
 
 const TAB_META = {
-  [OVERVIEW_TAB]: { icon: "◎", subtitle: "Ключові показники та швидкі переходи" },
-  Замовлення: { icon: "◫", subtitle: "Картки, список замовлень або реєстр позицій" },
-  [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
-  [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
-  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Картки або список замовлень у конструктиві" },
-  Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
-  "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
+  [OVERVIEW_TAB]: { subtitle: "Ключові показники та швидкі переходи" },
+  Замовлення: { subtitle: "Картки, список замовлень або реєстр позицій" },
+  [ATTENTION_TAB]: { subtitle: "Блокери, попередження та наступні кроки" },
+  [PRODUCTION_FLOOR_TAB]: { subtitle: "Черги, сесії та проблеми" },
+  [CONSTRUCTOR_DESK_TAB]: { subtitle: "Картки або список замовлень у конструктиві" },
+  Встановлення: { subtitle: "Календар монтажу" },
+  "Історія змін": { subtitle: "Аудит дій у системі" }
 };
+
+function shouldShowMainToolbar() {
+  if (state.view !== "main") return false;
+  if (state.activeTab !== "Замовлення") return false;
+  return true;
+}
 
 function renderPageChrome() {
   const meta = TAB_META[state.activeTab] || { subtitle: "" };
@@ -249,14 +256,13 @@ export function renderTabs() {
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
   document.querySelector("#tabs").innerHTML = visibleTabs()
     .map((tab) => {
-      const meta = TAB_META[tab] || { icon: "•" };
       return `
       <button
         type="button"
         class="tab-btn ${tab === state.activeTab ? "active" : ""} ${tour?.tab === tab ? "tour-target" : ""}"
         data-tab="${escapeHtml(tab)}"
       >
-        <span class="app-shell-nav-icon" aria-hidden="true">${meta.icon}</span>
+        <span class="app-shell-nav-icon" aria-hidden="true">${navIconSvg(tab)}</span>
         <span class="app-shell-nav-label">${escapeHtml(tab)}</span>
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
         ${tab === ATTENTION_TAB ? tabBadge(attentionCount) : ""}
@@ -504,7 +510,6 @@ export function renderHeaderChrome() {
   const user = state.currentUser;
   const chip = document.querySelector("#userChip");
   const gear = document.querySelector("#settingsGearBtn");
-  const notifyBtn = document.querySelector("#notifySettingsBtn");
   const logout = document.querySelector("#logoutBtn");
   const appHeader = document.querySelector(".app-shell-header");
   const appRoot = document.querySelector("#appRoot");
@@ -522,8 +527,10 @@ export function renderHeaderChrome() {
     chip.hidden = !user;
     if (user) chip.textContent = user.name;
   }
-  if (gear) gear.hidden = !user || !canViewSettings();
-  if (notifyBtn) notifyBtn.hidden = !user;
+  if (gear) {
+    gear.hidden = !user || !canViewSettings();
+    if (!gear.querySelector(".enver-icon")) gear.innerHTML = iconSvg("settings");
+  }
   if (logout) logout.hidden = !user;
 
   if (user && state.view === "main") {
@@ -565,8 +572,9 @@ export function renderHeaderChrome() {
   if (appHeader) {
     appHeader.style.display = immersiveOperator ? "none" : "";
   }
+  const showToolbar = showMainChrome && shouldShowMainToolbar();
   if (toolbar) {
-    toolbar.style.display = showMainChrome ? "" : "none";
+    toolbar.style.display = showToolbar ? "" : "none";
     toolbar.classList.toggle(
       "toolbar--calendar",
       showMainChrome &&
@@ -581,6 +589,7 @@ export function renderHeaderChrome() {
     "view-dashboard",
     state.view === "main" && state.activeTab === OVERVIEW_TAB
   );
+  document.body.classList.toggle("view-tab-no-toolbar", showMainChrome && !shouldShowMainToolbar());
 }
 
 export function renderApp(options = {}) {

@@ -1,3 +1,4 @@
+import { emptyStateIcon, iconSvg } from "./icons.js";
 import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import {
@@ -130,10 +131,10 @@ function statusPill(order, attn) {
     return '<span class="order-card-status-pill">Готово до монтажу</span>';
   }
   if (attn.maxOverdue > 0) {
-    return `<span class="order-card-status-pill" style="background:var(--enver-warning-soft);color:var(--enver-warning)">Прострочено</span>`;
+    return `<span class="order-card-status-pill order-card-status-pill--warning">Прострочено</span>`;
   }
   if (attn.hasProblem) {
-    return '<span class="order-card-status-pill" style="background:var(--enver-danger-soft);color:var(--enver-danger)">Проблема</span>';
+    return '<span class="order-card-status-pill order-card-status-pill--danger">Проблема</span>';
   }
   return `<span class="order-card-status-pill">${escapeHtml(status || "Активний")}</span>`;
 }
@@ -157,7 +158,7 @@ function orderCardWarnings(attn) {
   const count = attn.blockers.length + attn.warnings.length;
   if (!count) return "";
   const label = count === 1 ? "1 попередження" : `${count} попередження`;
-  return `<p class="order-card-warnings" aria-label="${label}">⚠ ${label}</p>`;
+  return `<p class="order-card-warnings" aria-label="${label}">${iconSvg("alertTriangle", "enver-icon")}<span>${label}</span></p>`;
 }
 
 function orderCardActions(order, attn) {
@@ -172,13 +173,13 @@ function orderCardActions(order, attn) {
 function ordersEmptyHtml(filtersActive = false) {
   if (filtersActive) {
     return `<div class="enver-empty-state orders-empty">
-      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
       <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
       <p class="enver-empty-state-text">Немає замовлень за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
     </div>`;
   }
   return `<div class="enver-empty-state orders-empty">
-    <span class="enver-empty-state-icon" aria-hidden="true">📋</span>
+    <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("clipboard")}</span>
     <h3 class="enver-empty-state-title">Поки немає замовлень</h3>
     <p class="enver-empty-state-text">Створіть перше замовлення, щоб запустити виробничий workflow.</p>
   </div>`;

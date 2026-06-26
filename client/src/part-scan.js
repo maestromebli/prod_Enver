@@ -2,6 +2,7 @@ import { api, apiUrl, getStoredToken } from "./api.js";
 import { createPartViewerLazy as createPartViewer } from "./part-viewer-lazy.js";
 import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
+import { iconSvg } from "./icons.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { CNC_PROBLEM_REASONS } from "@enver/shared/production/constructive-package.js";
 
@@ -36,7 +37,7 @@ export function renderOperatorScanActionButton(stageKey) {
         id="operatorWorkScanBtn"
         title="Сканування штрихридером"
       >
-        <span class="op-scan-glyph" aria-hidden="true">▮▮</span>
+        <span class="op-scan-glyph" aria-hidden="true">${iconSvg("barcode")}</span>
         <span>Штрихридер</span>
       </button>
       <button
@@ -45,7 +46,7 @@ export function renderOperatorScanActionButton(stageKey) {
         id="operatorWorkCameraBtn"
         title="Сканування камерою"
       >
-        <span class="op-camera-glyph" aria-hidden="true">📷</span>
+        <span class="op-camera-glyph" aria-hidden="true">${iconSvg("camera")}</span>
         <span>Камера</span>
       </button>
     </div>`;

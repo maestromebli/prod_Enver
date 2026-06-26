@@ -108,6 +108,18 @@ function installDate(row) {
   return field(row, "install_date", "installDate").trim();
 }
 
+function installEndDate(row) {
+  return field(row, "install_end_date", "installEndDate").trim();
+}
+
+function installPeriodLabel(row) {
+  const start = installDate(row);
+  if (!start) return "";
+  const end = installEndDate(row);
+  if (end && end !== start) return `${start} – ${end}`;
+  return start;
+}
+
 function planDate(row, context) {
   return field(row, "plan_date", "planDate").trim() || context?.planDate?.trim() || "";
 }
@@ -651,7 +663,7 @@ export function getPositionNextAction(position, context = {}) {
       type: "wait_install",
       label: "Очікує монтаж",
       description: installDate(row)
-        ? `Монтаж заплановано на ${installDate(row)}.`
+        ? `Монтаж заплановано: ${installPeriodLabel(row)}.`
         : "Очікується монтаж.",
       buttonLabel: "Переглянути",
       priority: "normal",

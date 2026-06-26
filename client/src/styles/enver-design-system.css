@@ -60,6 +60,7 @@
 
   /* ——— Типографіка ——— */
   --enver-font: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --enver-font-sans: var(--enver-font);
   --enver-font-size: 16px;
   --enver-line-height: 1.5;
 
@@ -202,7 +203,7 @@ body {
 
 .enver-page-title {
   margin: 0;
-  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
@@ -226,9 +227,9 @@ body {
 }
 
 .enver-meta {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: var(--enver-text-muted);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .enver-muted {
@@ -477,8 +478,11 @@ body {
 }
 
 .enver-empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   font-size: 2.5rem;
-  line-height: 1;
   opacity: 0.5;
 }
 
