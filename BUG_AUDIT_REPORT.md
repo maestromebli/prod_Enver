@@ -337,13 +337,21 @@ Status: fixed
 
 ## Залишилось (needs-review / Low)
 
-### BUG-012 — npm audit: вразливості залежностей
+### BUG-012 — npm audit: xlsx
 
 Severity: Low  
 Area: deploy / security  
-Status: fixed (частково)
+Status: fixed
 
-Root: `npm audit fix` усунув root (js-yaml, shell-quote) і client (vite). **Залишилось:** server `xlsx` — немає патчу від npm (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9). Потребує заміни бібліотеки або ізоляції імпорту Excel.
+`xlsx` замінено на `exceljs` у `xls-parser.js`. Legacy `.xls` — підказка зберегти як `.xlsx`.
+
+### BUG-017 — E2E Playwright security
+
+Severity: Low  
+Area: tests  
+Status: fixed
+
+`e2e/specs/security-rbac.spec.js` — RBAC, PDF з `access_token`, IDOR, operator UI. Порт E2E за замовчуванням `3010`.
 
 ### BUG-013 — ESLint no-unused-vars (34 warnings)
 
@@ -373,9 +381,9 @@ Status: mitigated
 
 Severity: Low  
 Area: security  
-Status: mitigated
+Status: fixed
 
-`sheetRows` + `MAX_XLS_ROWS=5000` у `xls-parser.js`. Повна заміна бібліотеки — окремий етап.
+Заміна на `exceljs`; виправлено хибне спрацьовування заголовка матеріалів на слово «лист» у колонці одиниці виміру.
 
 ---
 

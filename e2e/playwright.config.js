@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = Number(process.env.E2E_PORT) || 3000;
+const port = Number(process.env.E2E_PORT) || 3010;
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${port}`;
 
 export default defineConfig({
@@ -22,11 +22,12 @@ export default defineConfig({
     : {
         command: "npm run dev",
         url: `${baseURL}/api/health`,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
         timeout: 120_000,
         env: {
           ...process.env,
-          NODE_ENV: "development"
+          NODE_ENV: "development",
+          PORT: String(port)
         }
       }
 });

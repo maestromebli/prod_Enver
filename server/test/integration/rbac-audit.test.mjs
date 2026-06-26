@@ -49,8 +49,8 @@ describeIntegration("integration: RBAC audit regressions", () => {
     operatorUserId = opUser.id;
     ({ token: operatorToken } = await loginAs(baseUrl, operatorLogin, "op-rbac-pass"));
 
-    const orderA = await createTestOrder(baseUrl, adminToken, orderNumberA);
-    const orderB = await createTestOrder(baseUrl, adminToken, orderNumberB);
+    await createTestOrder(baseUrl, adminToken, orderNumberA);
+    await createTestOrder(baseUrl, adminToken, orderNumberB);
 
     const listRes = await fetch(`${baseUrl}/api/positions`, { headers: authHeaders(adminToken) });
     const positions = (await listRes.json()).data;

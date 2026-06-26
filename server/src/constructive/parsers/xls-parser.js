@@ -1,10 +1,18 @@
 /**
  * XLS/XLSX parser — матеріали та фурнітура зі специфікації.
- * Використовує простий парсинг через xlsx (якщо доступний) або fallback.
+ * .xlsx через exceljs (без вразливого пакета xlsx); legacy .xls — підказка конвертувати.
  */
 
 function cellStr(v) {
   if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "object" && Array.isArray(v.richText)) {
+    return v.richText
+      .map((t) => t?.text || "")
+      .join("")
+      .trim();
+  }
+  if (typeof v === "object" && v.result != null) return String(v.result).trim();
   return String(v).trim();
 }
 
@@ -18,8 +26,7 @@ function looksLikeMaterialHeader(row) {
   return (
     joined.includes("матеріал") ||
     joined.includes("material") ||
-    joined.includes("товщ") ||
-    joined.includes("лист")
+    (joined.includes("товщ") && (joined.includes("код") || joined.includes("лист")))
   );
 }
 
@@ -105,26 +112,48 @@ function extractFromRows(rows) {
 
 const MAX_XLS_ROWS = 5000;
 
+function isLegacyXlsName(originalName = "") {
+  const n = String(originalName).toLowerCase();
+  return n.endsWith(".xls") && !n.endsWith(".xlsx");
+}
+
+async function rowsFromExcelJsBuffer(buffer) {
+  const { default: ExcelJS } = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const allRows = [];
+  workbook.eachSheet((sheet) => {
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = row.values ? row.values.slice(1).map(cellStr) : [];
+      if (values.some(Boolean)) allRows.push(values);
+    });
+  });
+  return allRows;
+}
+
 export async function parseXlsBuffer(buffer, originalName = "") {
+  if (isLegacyXlsName(originalName)) {
+    return {
+      materials: [],
+      hardware: [],
+      warnings: [
+        `Формат .xls (${originalName}) не підтримується — збережіть файл як .xlsx і завантажте знову.`
+      ],
+      extractionQuality: "poor"
+    };
+  }
+
   try {
-    const mod = await import("xlsx");
-    const XLSX = mod.default || mod;
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true, sheetRows: MAX_XLS_ROWS });
-    const allRows = [];
-    for (const name of wb.SheetNames) {
-      const sheet = wb.Sheets[name];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-      allRows.push(...parseSheetRows(rows));
-      if (allRows.length > MAX_XLS_ROWS) {
-        return {
-          materials: [],
-          hardware: [],
-          warnings: [
-            `XLS занадто великий (${originalName}) — обмеження ${MAX_XLS_ROWS} рядків. Завантажте менший файл або PDF.`
-          ],
-          extractionQuality: "poor"
-        };
-      }
+    const allRows = parseSheetRows(await rowsFromExcelJsBuffer(buffer));
+    if (allRows.length > MAX_XLS_ROWS) {
+      return {
+        materials: [],
+        hardware: [],
+        warnings: [
+          `XLS занадто великий (${originalName}) — обмеження ${MAX_XLS_ROWS} рядків. Завантажте менший файл або PDF.`
+        ],
+        extractionQuality: "poor"
+      };
     }
     return extractFromRows(allRows);
   } catch (err) {
