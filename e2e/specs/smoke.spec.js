@@ -1,28 +1,15 @@
 import { expect, test } from "@playwright/test";
-
-const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || "admin";
-
-async function login(page) {
-  await page.goto("/");
-  const modal = page.locator("#loginModal");
-  if (await modal.isVisible()) {
-    await page.locator("#loginInput").fill("admin");
-    await page.locator("#loginPassword").fill(adminPassword);
-    await page.locator("#loginForm button[type='submit']").click();
-    await expect(modal).toBeHidden({ timeout: 15_000 });
-  }
-  await expect(page.locator("#appRoot")).toBeVisible();
-}
+import { loginManager } from "../helpers/auth.js";
 
 test.describe("ENVER smoke", () => {
   test("login і головна вкладка Замовлення", async ({ page }) => {
-    await login(page);
+    await loginManager(page);
     await expect(page.locator("#pageTitle")).toContainText("Замовлення");
     await expect(page.locator("#tabs .tab-btn.active")).toContainText("Замовлення");
   });
 
   test("налаштування → сповіщення без перекриття панелі", async ({ page }) => {
-    await login(page);
+    await loginManager(page);
     const gear = page.locator("#settingsGearBtn");
     if (await gear.isVisible()) {
       await gear.click();

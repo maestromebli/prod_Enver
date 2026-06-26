@@ -13,5 +13,9 @@ server/data/*.db-*
 *.log
 .env
 
+# Playwright
+test-results/
+playwright-report/
+
 # Локальні завантаження (dev)
 /data/

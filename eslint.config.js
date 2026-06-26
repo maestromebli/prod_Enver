@@ -34,6 +34,12 @@ export default [
     }
   },
   {
+    files: ["e2e/helpers/visual-audit.js"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser }
+    }
+  },
+  {
     files: ["desktop/**/*.js", "desktop/**/*.mjs"],
     languageOptions: {
       globals: { ...globals.node }

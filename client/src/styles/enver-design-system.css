@@ -158,9 +158,13 @@
   --enver-primary-hover: #5cb47c;
   --enver-primary-soft: rgba(74, 158, 106, 0.14);
 
+  --enver-warning: #e8b85c;
   --enver-warning-soft: rgba(183, 121, 31, 0.14);
+  --enver-danger: #f97066;
   --enver-danger-soft: rgba(180, 35, 24, 0.14);
+  --enver-success: #5cb87a;
   --enver-success-soft: rgba(40, 122, 62, 0.14);
+  --enver-info: #7eb8e8;
   --enver-info-soft: rgba(40, 94, 142, 0.14);
 
   --enver-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);

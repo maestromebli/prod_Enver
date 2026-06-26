@@ -246,14 +246,14 @@
 }
 
 .btn-ghost {
-  background: #f8fafc;
+  background: var(--surface-muted);
   border: 1px solid var(--border);
-  color: var(--navy);
+  color: var(--text);
 }
 
 .btn-ghost:hover {
-  background: #eff6ff;
-  border-color: #93c5fd;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .btn-success {

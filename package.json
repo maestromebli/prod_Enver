@@ -19,6 +19,7 @@
     "test:coverage:check": "node scripts/check-coverage.mjs",
     "test:client": "node --test client/test/*.test.js",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
+    "test:e2e:visual": "playwright test -c e2e/playwright.config.js e2e/specs/visual-audit.spec.js",
     "typecheck": "tsc -p shared/tsconfig.json && tsc -p server/tsconfig.json",
     "migrate": "npm run migrate --prefix server",
     "seed": "npm run migrate --prefix server",

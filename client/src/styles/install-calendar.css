@@ -909,7 +909,7 @@
   font-size: 0.78rem;
   color: var(--muted);
   border-top: 1px solid var(--border-soft);
-  background: #fafbfc;
+  background: var(--surface-muted);
 }
 
 /* ——— Заповнення по днях ——— */

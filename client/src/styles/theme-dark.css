@@ -258,6 +258,24 @@
   background: var(--op-surface-2);
 }
 
+[data-theme="dark"] .btn-ghost {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+[data-theme="dark"] .ical-hint {
+  background: var(--surface-muted);
+  color: var(--muted);
+  border-top-color: var(--border-soft);
+}
+
 [data-theme="dark"] .op-empty-queue {
   background: var(--op-surface-2);
 }
