@@ -24,7 +24,23 @@ save_previous_tag() {
   fi
 }
 
+dump_deploy_diagnostics() {
+  echo "── діагностика контейнера enver ──"
+  docker compose ps enver 2>/dev/null || true
+  docker inspect enver --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' 2>/dev/null || true
+  echo "── останні логи enver (80 рядків) ──"
+  docker compose logs enver --tail 80 2>/dev/null || docker logs enver --tail 80 2>/dev/null || true
+}
+
 check_health() {
+  if ! docker compose ps -q enver 2>/dev/null | grep -q .; then
+    return 1
+  fi
+  local state
+  state=$(docker inspect enver --format '{{.State.Status}}' 2>/dev/null || echo "missing")
+  if [[ "$state" != "running" ]]; then
+    return 1
+  fi
   docker compose exec -T enver node -e "
     fetch('http://127.0.0.1:3000/api/health')
       .then((r) => r.json())
@@ -50,6 +66,7 @@ rollback() {
     return 0
   fi
   echo "✗ rollback не відновив health"
+  dump_deploy_diagnostics
   return 1
 }
 
@@ -69,9 +86,14 @@ for attempt in $(seq 1 30); do
     docker image prune -f >/dev/null
     exit 0
   fi
+  if (( attempt % 5 == 0 )); then
+    echo "  … спроба ${attempt}/30"
+    dump_deploy_diagnostics
+  fi
   sleep 2
 done
 
 echo "✗ health check провалився після деплою"
+dump_deploy_diagnostics
 rollback || true
 exit 1

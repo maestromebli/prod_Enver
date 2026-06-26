@@ -225,6 +225,15 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           IMAGE="${{ steps.repo.outputs.name }}:${{ github.sha }}"
+          docker run --rm \
+            -e NODE_ENV=production \
+            -e SESSION_SECRET=ci-production-smoke-secret \
+            -e UPLOADS_DIR=/tmp/enver-uploads \
+            "$IMAGE" node -e "
+              import { assertProductionSafety } from './server/src/config.js';
+              assertProductionSafety();
+              console.log('production safety ok');
+            "
           docker run -d --name enver-smoke-main -p 13001:3000 \
             -e NODE_ENV=development \
             -e UPLOADS_DIR=/tmp/enver-uploads \

@@ -75,7 +75,7 @@ npm run dev               # сервер + Vite на :3000
 ### Безпека production
 
 - `SESSION_SECRET` — задайте власний випадковий рядок; сервер не стартує з dev-дефолтом.
-- `ADMIN_DEFAULT_PASSWORD` — змініть перед першим deploy; значення `admin` блокує старт у production.
+- `ADMIN_DEFAULT_PASSWORD` — пароль admin лише при першому seed; у production не використовуйте `admin` для нового admin-користувача.
 
 ## Команди
 

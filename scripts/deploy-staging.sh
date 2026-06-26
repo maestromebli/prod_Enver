@@ -21,12 +21,27 @@ save_previous_tag() {
 }
 
 check_health() {
+  if ! docker compose -f "$COMPOSE_FILE" ps -q enver 2>/dev/null | grep -q .; then
+    return 1
+  fi
+  local state
+  state=$(docker inspect enver-staging --format '{{.State.Status}}' 2>/dev/null || echo "missing")
+  if [[ "$state" != "running" ]]; then
+    return 1
+  fi
   docker compose -f "$COMPOSE_FILE" exec -T enver node -e "
     fetch('http://127.0.0.1:3000/api/health')
       .then((r) => r.json())
       .then((d) => process.exit(d.ok === true ? 0 : 1))
       .catch(() => process.exit(1));
   "
+}
+
+dump_deploy_diagnostics() {
+  echo "── staging: діагностика enver-staging ──"
+  docker compose -f "$COMPOSE_FILE" ps enver 2>/dev/null || true
+  docker inspect enver-staging --format 'status={{.State.Status}} exit={{.State.ExitCode}}' 2>/dev/null || true
+  docker compose -f "$COMPOSE_FILE" logs enver --tail 80 2>/dev/null || true
 }
 
 save_previous_tag
@@ -40,8 +55,13 @@ for attempt in $(seq 1 30); do
     echo "$IMAGE_TAG" >"$PREV_TAG_FILE"
     exit 0
   fi
+  if (( attempt % 5 == 0 )); then
+    echo "  … спроба ${attempt}/30"
+    dump_deploy_diagnostics
+  fi
   sleep 2
 done
 
 echo "✗ staging health check failed"
+dump_deploy_diagnostics
 exit 1

@@ -26,15 +26,20 @@ describe("production config safety", () => {
       sessionSecret: INSECURE_DEFAULTS.sessionSecret
     });
     assert.ok(errors.some((e) => e.includes("SESSION_SECRET")));
+  });
 
+  it("ADMIN_DEFAULT_PASSWORD не блокує runtime — лише seed", () => {
     const prev = process.env.ADMIN_DEFAULT_PASSWORD;
     process.env.ADMIN_DEFAULT_PASSWORD = "admin";
     try {
-      const adminErrors = getProductionSecurityErrors({
+      const runtimeErrors = getProductionSecurityErrors({
         isProduction: true,
         sessionSecret: "strong-random-secret"
       });
-      assert.ok(adminErrors.some((e) => e.includes("ADMIN_DEFAULT_PASSWORD")));
+      assert.equal(
+        runtimeErrors.some((e) => e.includes("ADMIN_DEFAULT_PASSWORD")),
+        false
+      );
     } finally {
       if (prev === undefined) delete process.env.ADMIN_DEFAULT_PASSWORD;
       else process.env.ADMIN_DEFAULT_PASSWORD = prev;

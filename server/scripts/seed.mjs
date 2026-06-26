@@ -38,6 +38,13 @@ async function seedAdminUser(client) {
     ADMIN_LOGIN
   ]);
   if (existing.rowCount > 0) return;
+
+  if (process.env.NODE_ENV === "production" && ADMIN_DEFAULT_PASSWORD === "admin") {
+    console.error(
+      "[security] ADMIN_DEFAULT_PASSWORD=admin у production — задайте надійний пароль перед seed"
+    );
+    process.exit(1);
+  }
   await client.query(
     `INSERT INTO users (name, login, password_hash, role, stages_json, active)
      VALUES ($1, $2, $3, 'admin', '[]', TRUE)`,

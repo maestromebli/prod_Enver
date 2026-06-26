@@ -35,11 +35,6 @@ export function getProductionSecurityErrors(cfg = config) {
       "SESSION_SECRET обов'язковий у production — задайте власний секрет (не enver-dev-secret)"
     );
   }
-  if (process.env.ADMIN_DEFAULT_PASSWORD === "admin") {
-    errors.push(
-      "ADMIN_DEFAULT_PASSWORD=admin заборонено у production — задайте надійний пароль адміністратора"
-    );
-  }
   return errors;
 }
 
