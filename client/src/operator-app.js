@@ -45,6 +45,7 @@ import {
 } from "./ui-persistence.js";
 import { setAppLoading } from "./loading-ui.js";
 import { $ } from "./utils.js";
+import { initModalFocusTraps } from "./focus-trap.js";
 import "./styles/operator-entry.css";
 
 function setLoading(visible, options) {
@@ -217,6 +218,7 @@ initAuthFromStorage();
 markNativeOperatorShell();
 initOperatorKioskEarly();
 initUiPersistence({ scope: "operator" });
+initModalFocusTraps();
 
 async function bootstrap() {
   const hasToken = Boolean(localStorage.getItem("enver_token"));

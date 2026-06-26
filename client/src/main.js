@@ -79,6 +79,7 @@ import {
 import { initOrderDetailDrawer } from "./order-detail-drawer.js";
 import { initCommandPalette } from "./command-palette.js";
 import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
+import { initModalFocusTraps } from "./focus-trap.js";
 import { resolveDashboardNav } from "./dashboard-routes.js";
 import { setListFilters } from "./filters.js";
 import { $ } from "./utils.js";
@@ -626,6 +627,8 @@ initKeyboardShortcuts({
     document.querySelector(".modal-backdrop.open")?.classList.remove("open");
   }
 });
+
+initModalFocusTraps();
 
 async function reloadAfterSave() {
   try {

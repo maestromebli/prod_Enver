@@ -40,4 +40,8 @@ describe("production config safety", () => {
       else process.env.ADMIN_DEFAULT_PASSWORD = prev;
     }
   });
+
+  it("jsonBodyLimit має розумний дефолт", () => {
+    assert.equal(config.jsonBodyLimit, "200mb");
+  });
 });

@@ -32,6 +32,7 @@ import {
 } from "./install-calendar-days.js";
 import { isInstallRelevant, READY_STATUS } from "./install-utils.js";
 import { openInstallScheduleModal } from "./install-schedule-modal.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 import { state } from "./state.js";
 import { badge, escapeHtml } from "./utils.js";
 import { runSave } from "./save-flow.js";
@@ -69,6 +70,10 @@ function installerColor(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return INSTALLER_COLORS[Math.abs(hash) % INSTALLER_COLORS.length];
+}
+
+function objectLabel(p) {
+  return resolveObjectNameFromOrders(p, state.orders) || "—";
 }
 
 function calendarPositions() {
@@ -175,7 +180,7 @@ function compactEventHtml(ev) {
 function unscheduledItemHtml(p) {
   return `<button type="button" class="ical-queue-item" draggable="${canEditPositions()}" data-install-event="${p.id}">
     <span class="ical-queue-title">${escapeHtml(eventTitle(p))}</span>
-    <span class="ical-queue-sub">${escapeHtml(p.object || "—")}</span>
+    <span class="ical-queue-sub">${escapeHtml(objectLabel(p))}</span>
     ${p.installResponsible ? `<span class="ical-queue-installer">${escapeHtml(p.installResponsible)}</span>` : ""}
   </button>`;
 }
@@ -270,7 +275,7 @@ function agendaRow(event) {
   const range = event.startDate ? formatDayRange(event.startDate, event.endDate) : "—";
   return `<button type="button" class="ical-agenda-row" data-install-event="${p.id}" style="--event-color:${installerColor(p.installResponsible)}">
     <span class="ical-agenda-date">${escapeHtml(range)}</span>
-    <span class="ical-agenda-main"><strong>${escapeHtml(eventTitle(p))}</strong><small>${escapeHtml(p.object || "")}</small></span>
+    <span class="ical-agenda-main"><strong>${escapeHtml(eventTitle(p))}</strong><small>${escapeHtml(objectLabel(p))}</small></span>
     <span class="ical-agenda-installer">${escapeHtml(p.installResponsible || "—")}</span>
   </button>`;
 }
@@ -437,7 +442,7 @@ function renderInstallList() {
           return `<tr class="install-list-row row-clickable" data-install-list-row="${p.id}">
             <td>${p.id}</td>
             <td>${escapeHtml(p.orderNumber || "—")}</td>
-            <td>${escapeHtml(p.object || "—")}</td>
+            <td>${escapeHtml(objectLabel(p))}</td>
             <td class="left">${escapeHtml(p.item || "—")}</td>
             <td>${escapeHtml(p.readyDate || "—")}</td>
             <td><strong>${escapeHtml(range)}</strong></td>

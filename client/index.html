@@ -17,6 +17,7 @@
     />
   </head>
   <body class="enver-v3">
+    <a class="skip-link" href="#content">Перейти до вмісту</a>
     <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="false">
       <div class="enver-loading-inner">
         <div class="enver-loading-skeletons" aria-hidden="true">
@@ -287,7 +288,7 @@
           <div class="toolbar-actions" id="toolbarActions"></div>
         </div>
 
-        <main id="content" class="app-shell-content"></main>
+        <main id="content" class="app-shell-content" aria-label="Основний вміст"></main>
       </div>
     </div>
 
@@ -312,12 +313,12 @@
                 <input id="orderNumber" name="orderNumber" required placeholder="2026-014" />
               </div>
               <div class="form-field">
-                <label for="orderObject">Об'єкт / адреса</label>
+                <label for="orderObject">Назва об'єкта</label>
                 <input
                   id="orderObject"
                   name="object"
                   required
-                  placeholder="Адреса або назва об'єкта"
+                  placeholder="Напр. Юрківська, ЖК Ліпінка"
                 />
               </div>
               <div class="form-field">
@@ -353,6 +354,17 @@
                 <div class="form-field" id="orderStatusField" hidden>
                   <label for="orderStatus">Статус</label>
                   <select id="orderStatus" name="status"></select>
+                </div>
+                <div class="form-field">
+                  <label for="orderDeliveryAddress">Адреса доставки</label>
+                  <input
+                    id="orderDeliveryAddress"
+                    name="defaultDeliveryAddress"
+                    placeholder="м. Київ, вул. …"
+                  />
+                  <p class="form-hint">
+                    Не плутати з назвою об'єкта — адреса для монтажу та логістики.
+                  </p>
                 </div>
                 <div class="form-field">
                   <label for="orderManager">Менеджер</label>

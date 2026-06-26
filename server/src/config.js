@@ -17,7 +17,9 @@ export const config = {
   domain: process.env.DOMAIN || null,
   adminDefaultPassword: process.env.ADMIN_DEFAULT_PASSWORD || null,
   buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
-  uploadsDir: process.env.UPLOADS_DIR || null
+  uploadsDir: process.env.UPLOADS_DIR || null,
+  /** Ліміт JSON-тіла (base64-завантаження). Перевизначити через JSON_BODY_LIMIT. */
+  jsonBodyLimit: process.env.JSON_BODY_LIMIT || "200mb"
 };
 
 /** Помилки безпеки production — для assertProductionSafety і тестів. */
@@ -38,7 +40,7 @@ export function getProductionSecurityErrors(cfg = config) {
   return errors;
 }
 
-/** У production перевіряє критичну конфігурацію; небезпечні секрети — попередження (не ламаємо існуючі .env). */
+/** У production перевіряє критичну конфігурацію; небезпечні секрети — fail-fast. */
 export function assertProductionSafety() {
   if (!config.isProduction) return;
 
@@ -47,7 +49,11 @@ export function assertProductionSafety() {
     process.exit(1);
   }
 
-  for (const message of getProductionSecurityErrors()) {
-    console.warn(`[security] ${message}`);
+  const securityErrors = getProductionSecurityErrors();
+  if (securityErrors.length > 0) {
+    for (const message of securityErrors) {
+      console.error(`[security] ${message}`);
+    }
+    process.exit(1);
   }
 }

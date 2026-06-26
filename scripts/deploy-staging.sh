@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Деплой на staging-сервер (/opt/enver-staging). Викликається з workflow staging-deploy.yml.
+set -euo pipefail
+
+export IMAGE_REPO="${1:?IMAGE_REPO}"
+export IMAGE_TAG="${2:-staging}"
+
+cd /opt/enver-staging
+chmod +x deploy-staging.sh 2>/dev/null || true
+
+COMPOSE_FILE="docker-compose.staging.yml"
+PREV_TAG_FILE=".previous-staging-tag"
+
+save_previous_tag() {
+  if docker compose -f "$COMPOSE_FILE" ps -q enver 2>/dev/null | grep -q .; then
+    current_image=$(docker inspect enver-staging --format '{{.Config.Image}}' 2>/dev/null || true)
+    if [[ -n "$current_image" && "$current_image" == *:* ]]; then
+      echo "${current_image##*:}" >"$PREV_TAG_FILE"
+    fi
+  fi
+}
+
+check_health() {
+  docker compose -f "$COMPOSE_FILE" exec -T enver node -e "
+    fetch('http://127.0.0.1:3000/api/health')
+      .then((r) => r.json())
+      .then((d) => process.exit(d.ok === true ? 0 : 1))
+      .catch(() => process.exit(1));
+  "
+}
+
+save_previous_tag
+echo "→ staging pull ${IMAGE_REPO}:${IMAGE_TAG}"
+docker compose -f "$COMPOSE_FILE" pull
+docker compose -f "$COMPOSE_FILE" up -d
+
+for attempt in $(seq 1 30); do
+  if check_health; then
+    echo "✓ staging ${IMAGE_REPO}:${IMAGE_TAG} (health ok)"
+    echo "$IMAGE_TAG" >"$PREV_TAG_FILE"
+    exit 0
+  fi
+  sleep 2
+done
+
+echo "✗ staging health check failed"
+exit 1

@@ -1,3 +1,4 @@
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { escapeHtml } from "./utils.js";
 import { attentionFromState, countAttentionItems } from "./attention.js";
@@ -131,7 +132,7 @@ function installTodayRow(position) {
       <span class="attention-badge attention-badge--next">Монтаж</span>
       <span class="attention-body">
         <strong class="attention-title">${escapeHtml(position.orderNumber)} · ${escapeHtml(position.item || "—")}</strong>
-        <span class="attention-msg">${escapeHtml(position.object || "—")}${time ? ` · ${escapeHtml(time)}` : ""}</span>
+        <span class="attention-msg">${escapeHtml(resolveObjectNameFromOrders(position, state.orders) || "—")}${time ? ` · ${escapeHtml(time)}` : ""}</span>
       </span>
       <span class="attention-chevron" aria-hidden="true">›</span>
     </button>`;

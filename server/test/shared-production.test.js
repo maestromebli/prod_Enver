@@ -13,8 +13,29 @@ import {
   STAGE_STATUSES
 } from "../../shared/production/stages.js";
 import { parseUaDate } from "../../shared/dates/ua-date.js";
+import {
+  looksLikeAddressFragment,
+  resolveObjectName
+} from "../../shared/production/object-display.js";
 
 describe("shared/production", () => {
+  it("resolveObjectName: назва замовлення замість міста в позиції", () => {
+    const order = { object: "Меблі на Юрківську" };
+    const position = { object: "київ", deliveryAddress: "київ" };
+    assert.equal(resolveObjectName(position, order), "Меблі на Юрківську");
+  });
+
+  it("resolveObjectName: не підміняє коректну назву позиції", () => {
+    const order = { object: "Меблі на Юрківську" };
+    const position = { object: "Меблі на Юрківську", deliveryAddress: "м. Київ, вул. Юрківська 1" };
+    assert.equal(resolveObjectName(position, order), "Меблі на Юрківську");
+  });
+
+  it("looksLikeAddressFragment визначає місто", () => {
+    assert.equal(looksLikeAddressFragment("Київ"), true);
+    assert.equal(looksLikeAddressFragment("м. Київ"), true);
+    assert.equal(looksLikeAddressFragment("ЖК Ліпінка"), false);
+  });
   it("ваги етапів = 100%", () => {
     const sum = Object.values(PRODUCTION_PROGRESS_WEIGHTS).reduce((a, b) => a + b, 0);
     assert.equal(sum, 100);

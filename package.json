@@ -15,6 +15,8 @@
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server && npm run test:client",
+    "test:coverage": "npm run test:coverage --prefix server",
+    "test:coverage:check": "node scripts/check-coverage.mjs",
     "test:client": "node --test client/test/*.test.js",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
     "typecheck": "tsc -p shared/tsconfig.json && tsc -p server/tsconfig.json",

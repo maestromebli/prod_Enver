@@ -7,6 +7,7 @@ import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole
 } from "./role-notifications.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
 import { activeOrders, activePositions, archivedOrders, archivedPositions } from "./archive.js";
@@ -258,7 +259,7 @@ export function renderDashboard() {
       >
         <span class="dash-list-body">
           <span class="dash-list-title">${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</span>
-          <span class="dash-list-sub">${escapeHtml(p.object)}</span>
+          <span class="dash-list-sub">${escapeHtml(resolveObjectNameFromOrders(p, state.orders))}</span>
           ${miniProgress(pct)}
         </span>
         <span class="dash-list-meta">${pct}%</span>

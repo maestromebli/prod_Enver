@@ -92,7 +92,7 @@ function ensureModal() {
     const id = getSelectedPositionId();
     if (id && search) {
       const position = state.positions.find((p) => p.id === id);
-      const label = position ? positionInstallLabel(position) : "";
+      const label = position ? positionInstallLabel(position, state.orders) : "";
       if (search.value !== label) setSelectedPositionId(null);
     }
     renderPositionPicker(getSelectedPositionId());
@@ -168,7 +168,7 @@ function positionMatchesFilter(position, filter) {
     position.orderNumber,
     position.item,
     position.object,
-    positionInstallLabel(position)
+    positionInstallLabel(position, state.orders)
   ]
     .join(" ")
     .toLowerCase();
@@ -197,7 +197,7 @@ function renderPositionPicker(selectedId) {
       .map((p) => {
         const selected = selectedNum != null && p.id === selectedNum;
         return `<button type="button" class="install-position-option${selected ? " is-selected" : ""}" data-position-id="${p.id}" role="option" aria-selected="${selected}">
-          <span class="install-position-option-title">${escapeHtml(positionInstallLabel(p))}</span>
+          <span class="install-position-option-title">${escapeHtml(positionInstallLabel(p, state.orders))}</span>
         </button>`;
       })
       .join("");
@@ -216,7 +216,7 @@ function selectInstallSchedulePosition(positionId) {
   if (!positionId) return;
   const position = state.positions.find((p) => p.id === positionId);
   const search = $("#installSchedulePositionSearch");
-  if (search && position) search.value = positionInstallLabel(position);
+  if (search && position) search.value = positionInstallLabel(position, state.orders);
   setSelectedPositionId(positionId);
   renderPositionPicker(positionId);
   syncInstallScheduleFieldsFromPosition(positionId);
@@ -238,7 +238,7 @@ function fillPositionOptions(selectedId) {
   if (search) {
     if (selectedNum) {
       const position = state.positions.find((p) => p.id === selectedNum);
-      search.value = position ? positionInstallLabel(position) : "";
+      search.value = position ? positionInstallLabel(position, state.orders) : "";
     } else {
       search.value = "";
     }

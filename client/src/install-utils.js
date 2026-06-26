@@ -1,4 +1,5 @@
 import { formatDayRange, getInstallDayRange } from "./install-calendar-days.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 
 export const READY_STATUS = "Готово до встановлення";
 export const ON_INSTALL_STATUS = "На встановленні";
@@ -23,10 +24,10 @@ export function isInstallScheduleCandidate(position) {
   return Boolean(position?.id);
 }
 
-export function positionInstallLabel(position) {
+export function positionInstallLabel(position, orders = []) {
   const parts = [position.orderNumber, position.item].filter(Boolean);
   const title = parts.join(" — ") || `Позиція #${position.id}`;
-  const object = String(position.object || "").trim();
+  const object = resolveObjectNameFromOrders(position, orders);
   return object ? `${title} (${object})` : title;
 }
 

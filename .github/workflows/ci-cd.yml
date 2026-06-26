@@ -42,8 +42,58 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Tests
         run: npm test
+
+      - name: Coverage (server)
+        run: npm run test:coverage:check
+        env:
+          COVERAGE_MIN_LINES: "44"
+
+  e2e:
+    needs: validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: enver_dev
+          POSTGRES_DB: enver
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d enver"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install
+        run: npm run install:all
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke
+        env:
+          CI: true
+          DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
+          DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
+        run: npm run test:e2e
 
   build-android:
     needs: validate
@@ -106,10 +156,27 @@ jobs:
         with:
           context: .
           push: false
+          load: true
+          tags: enver:ci
           build-args: |
             APP_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke Docker (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run -d --name enver-smoke -p 13000:3000 -e NODE_ENV=development enver:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:13000/api/health | grep -q '"ok":true'; then
+              docker rm -f enver-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs enver-smoke
+          docker rm -f enver-smoke
+          exit 1
 
       - name: Build & push (main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -117,16 +184,33 @@ jobs:
         with:
           context: .
           push: true
-          build-args: |
-            APP_BUILD_SHA=${{ github.sha }}
+          load: true
           tags: |
             ${{ steps.repo.outputs.name }}:latest
             ${{ steps.repo.outputs.name }}:${{ github.sha }}
+            enver:ci
+          build-args: |
+            APP_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Smoke Docker (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker run -d --name enver-smoke-main -p 13001:3000 -e NODE_ENV=development enver:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:13001/api/health | grep -q '"ok":true'; then
+              docker rm -f enver-smoke-main
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs enver-smoke-main
+          docker rm -f enver-smoke-main
+          exit 1
+
   migrate:
-    needs: build
+    needs: [build, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:

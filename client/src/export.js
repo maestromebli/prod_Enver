@@ -1,4 +1,6 @@
 import { filteredPositions } from "./render.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
+import { state } from "./state.js";
 import { toastSuccess } from "./toast.js";
 
 function csvEscape(value) {
@@ -28,7 +30,7 @@ export function exportPositionsCsv() {
       [
         p.id,
         p.orderNumber,
-        p.object,
+        resolveObjectNameFromOrders(p, state.orders),
         p.item,
         p.positionStatus,
         p.progress,

@@ -1,0 +1,56 @@
+name: Staging deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker tag (за замовчуванням — SHA останнього коміту)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPO: ghcr.io/${{ github.repository }}
+
+jobs:
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Перевірка staging compose
+        run: docker compose -f docker-compose.staging.yml config
+
+  deploy-staging:
+    needs: validate-compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy (якщо налаштовано STAGING_SSH_HOST)
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_KEY" ]; then
+            echo "STAGING_SSH_* secrets не налаштовано — лише validate-compose пройшов успішно"
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/staging_key
+          chmod 600 ~/.ssh/staging_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          REPO_LOWER=$(echo "$IMAGE_REPO" | tr '[:upper:]' '[:lower:]')
+          ssh -i ~/.ssh/staging_key "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/enver-staging"
+          scp -i ~/.ssh/staging_key docker-compose.staging.yml deploy/Caddyfile.staging scripts/deploy-staging.sh \
+            "${SSH_USER}@${SSH_HOST}:/opt/enver-staging/"
+          ssh -i ~/.ssh/staging_key "${SSH_USER}@${SSH_HOST}" \
+            "cd /opt/enver-staging && \
+             mv -f docker-compose.staging.yml docker-compose.yml && \
+             mv -f Caddyfile.staging Caddyfile && \
+             chmod +x deploy-staging.sh && \
+             bash deploy-staging.sh '${REPO_LOWER}' '${IMAGE_TAG}'"
+          rm -f ~/.ssh/staging_key

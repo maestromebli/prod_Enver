@@ -60,6 +60,7 @@ function syncOrderFormMoreOpen(order = null) {
     order.startDate?.trim() ||
     order.planDate?.trim() ||
     order.comment?.trim() ||
+    order.defaultDeliveryAddress?.trim() ||
     (order.priority && order.priority !== "Звичайний")
   );
   details.open = hasExtra;
@@ -99,6 +100,7 @@ export function openOrderModal(order = null) {
   $("#orderNumber").value = order?.orderNumber ?? "";
   $("#orderObject").value = order?.object ?? "";
   $("#orderClient").value = order?.client ?? "";
+  $("#orderDeliveryAddress").value = order?.defaultDeliveryAddress ?? "";
   $("#orderManager").value = order?.manager ?? "";
   $("#orderStartDate").value = order?.startDate ?? "";
   $("#orderPlanDate").value = order?.planDate ?? "";
@@ -133,6 +135,7 @@ function readForm() {
     orderNumber: $("#orderNumber").value.trim(),
     object: $("#orderObject").value.trim(),
     client: $("#orderClient").value.trim(),
+    defaultDeliveryAddress: $("#orderDeliveryAddress")?.value.trim() ?? "",
     manager: $("#orderManager").value.trim(),
     startDate: $("#orderStartDate").value.trim(),
     planDate: $("#orderPlanDate").value.trim(),
@@ -168,6 +171,9 @@ export function restoreOrderModalState(saved) {
   $("#orderNumber").value = saved.orderNumber ?? "";
   $("#orderObject").value = saved.object ?? "";
   $("#orderClient").value = saved.client ?? "";
+  if (saved.defaultDeliveryAddress != null) {
+    $("#orderDeliveryAddress").value = saved.defaultDeliveryAddress;
+  }
   $("#orderManager").value = saved.manager ?? "";
   $("#orderStartDate").value = saved.startDate ?? "";
   $("#orderPlanDate").value = saved.planDate ?? "";

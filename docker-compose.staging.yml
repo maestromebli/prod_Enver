@@ -1,0 +1,40 @@
+# Staging-оточення ENVER (окремий каталог на сервері: /opt/enver-staging).
+# DOMAIN у .env — піддомен staging (напр. staging.example.com).
+services:
+  enver:
+    image: ${IMAGE_REPO}:${IMAGE_TAG:-staging}
+    container_name: enver-staging
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_BUILD_SHA: ${IMAGE_TAG:-staging}
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - enver-staging-uploads:/data/uploads
+    networks:
+      - enver-staging-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy-staging
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-staging-data:/data
+      - caddy-staging-config:/config
+    networks:
+      - enver-staging-net
+    depends_on:
+      - enver
+
+networks:
+  enver-staging-net:
+
+volumes:
+  enver-staging-uploads:
+  caddy-staging-data:
+  caddy-staging-config:

@@ -79,4 +79,12 @@ describe("API HTTP", () => {
     const res = await fetch(`${baseUrl}/api/ai/analyses/1`);
     assert.equal(res.status, 401);
   });
+
+  it("GET /api/metrics без токена — 401", async () => {
+    const res = await fetch(`${baseUrl}/api/metrics`);
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.error.code, "UNAUTHORIZED");
+  });
 });

@@ -25,6 +25,7 @@ import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
 import { apiFormatMiddleware } from "./http/api-format-middleware.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import { requireAdmin, requireAuth } from "./middleware/auth.js";
 import { metricsMiddleware, metricsSnapshot } from "./metrics.js";
 import { createLogger } from "./logger.js";
 
@@ -44,6 +45,10 @@ function buildCorsOptions() {
 
 export function createApiApp({ dbConfigured, dbConnected }) {
   const app = express();
+
+  if (config.isProduction) {
+    app.set("trust proxy", 1);
+  }
 
   app.use(requestIdMiddleware);
   app.use(metricsMiddleware);
@@ -71,7 +76,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
     })
   );
   app.use(cors(buildCorsOptions()));
-  app.use(express.json({ limit: "700mb" }));
+  app.use(express.json({ limit: config.jsonBodyLimit }));
   app.use("/api", apiFormatMiddleware);
 
   app.get("/api/health", (_req, res) => {
@@ -89,7 +94,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
     });
   });
 
-  app.get("/api/metrics", (_req, res) => {
+  app.get("/api/metrics", requireAuth, requireAdmin, (_req, res) => {
     res.json({ ok: true, data: metricsSnapshot() });
   });
 

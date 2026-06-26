@@ -1127,3 +1127,24 @@ body {
     transform: none;
   }
 }
+
+/* ——— Skip link (a11y) ——— */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.75rem;
+  z-index: 10000;
+  padding: 0.5rem 1rem;
+  border-radius: var(--enver-radius-sm);
+  background: var(--enver-primary);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--enver-shadow-md);
+}
+
+.skip-link:focus {
+  left: 0.75rem;
+  outline: none;
+  box-shadow: var(--enver-focus);
+}

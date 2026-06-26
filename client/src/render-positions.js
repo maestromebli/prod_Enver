@@ -2,8 +2,14 @@ import { formatInstallPeriod } from "./install-utils.js";
 import { buildVisiblePositionRows } from "./position-tree.js";
 import { positionActionButtons } from "./positions.js";
 import { renderHealthBadge, resolvePositionGodmode } from "./godmode-ui.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
+import { state } from "./state.js";
 import { badge, escapeHtml, overdue, progressBar } from "./utils.js";
+
+function objectLabel(position) {
+  return resolveObjectNameFromOrders(position, state.orders) || "—";
+}
 
 function progress(value) {
   return progressBar(value);
@@ -35,7 +41,7 @@ function positionRowCells(p, row, showActions) {
   return `
     <td class="col-opt-id">${p.id}</td>
     <td>${isSub ? "—" : escapeHtml(p.orderNumber)}</td>
-    <td class="col-opt-object">${isSub ? "—" : escapeHtml(p.object)}</td>
+    <td class="col-opt-object">${isSub ? "—" : escapeHtml(objectLabel(p))}</td>
     <td class="left col-item" title="${escapeHtml(p.item)}">${treeControls(row)}${itemCell}</td>
     <td class="col-opt-type">${escapeHtml(p.itemType || "—")}</td>
     <td class="col-opt-manager">${escapeHtml(p.manager || "—")}</td>
@@ -130,7 +136,7 @@ function positionCard(row, showActions) {
           ${healthBadge}
           ${problem}
         </div>
-        <p class="position-card-meta">${escapeHtml(p.orderNumber || "—")} · ${escapeHtml(p.object || "—")}</p>
+        <p class="position-card-meta">${escapeHtml(p.orderNumber || "—")} · ${escapeHtml(objectLabel(p))}</p>
       </div>
       <div class="position-card-body">
         ${progressBar(p.progress)}

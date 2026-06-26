@@ -10,6 +10,7 @@ import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
 import { brandLogoHtml } from "./brand-logo.js";
 import { STAGE_STATUS_FIELD, stageClientField } from "@enver/shared/production/stages.js";
+import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
 import {
   emitRoleNotifications,
   initializeOperatorStageBaseline,
@@ -196,7 +197,7 @@ function workPosition() {
   return {
     id: sess.position_id,
     orderNumber: sess.order_number ?? "",
-    object: sess.object ?? "",
+    object: resolveObjectNameFromOrders(sess, state.orders) || (sess.object ?? ""),
     item: sess.item ?? "",
     progress: 0,
     overdueDays: 0,
@@ -480,7 +481,7 @@ export function renderOperatorView() {
             <div class="op-task-hero">
               <div class="op-task-hero-top"><span>#${pos.id}</span>${badge(pos[field])}</div>
               <h2>${escapeHtml(pos.item)}</h2>
-              <p class="op-task-subtitle">${escapeHtml(pos.orderNumber)} · ${escapeHtml(pos.object)}</p>
+              <p class="op-task-subtitle">${escapeHtml(pos.orderNumber)} · ${escapeHtml(resolveObjectNameFromOrders(pos, state.orders) || "—")}</p>
               <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span>Загальний прогрес</span></div>
               ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
             </div>

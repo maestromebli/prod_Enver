@@ -1,18 +1,9 @@
-import { api, constructiveFileDownloadUrl, getPartLabelsUrl } from "./api.js";
+import { api } from "./api.js";
 import { runSave } from "./save-flow.js";
 import { loadPositionHistory, renderDrawerHistory } from "./history.js";
 import { expandPosition, getParentPosition } from "./position-tree.js";
 import { state } from "./state.js";
-import {
-  POSITION_STATUSES,
-  PRODUCTION_PROGRESS_WEIGHTS,
-  STAGE_STATUSES,
-  STAGES,
-  getNextStatus,
-  getStageStatus,
-  stageStatusClass
-} from "./workflows.js";
-import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
+import { POSITION_STATUSES, STAGES, getNextStatus, getStageStatus } from "./workflows.js";
 import {
   CONSTRUCTORS_DIRECTORY_KEY,
   getDirectoryList
@@ -33,8 +24,12 @@ import {
   renderConstructivePackageBlock
 } from "./constructive-package-ui.js";
 import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
-
-import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
+import {
+  POSITION_DRAWER_SHELL_HTML,
+  estimatePositionProgress,
+  renderConstructiveFileList,
+  renderPositionPipeline
+} from "./position-drawer-render.js";
 
 let onSaved = () => {};
 let draft = null;
@@ -63,20 +58,8 @@ async function refreshConstructiveFiles() {
   }
 }
 
-function renderConstructiveFileList(positionId) {
-  if (!constructiveFiles.length) return "";
-  const items = constructiveFiles
-    .map(
-      (f) => `
-    <li class="constructive-file-item">
-      <a class="constructive-file-link" href="${constructiveFileDownloadUrl(positionId, f.id)}" download>
-        <span class="constructive-file-name">${escapeHtml(f.fileName)}</span>
-        <span class="constructive-file-size enver-meta">${escapeHtml(formatConstructiveSize(f.sizeBytes))}</span>
-      </a>
-    </li>`
-    )
-    .join("");
-  return `<ul class="constructive-files-list" aria-label="Файли конструктива">${items}</ul>`;
+function renderPipeline() {
+  return renderPositionPipeline(draft);
 }
 
 function backdrop() {
@@ -114,62 +97,6 @@ function applyOrderDefaults(orderNumber) {
   draft.orderNumber = order.orderNumber;
   draft.object = order.object;
   if (!draft.manager) draft.manager = order.manager;
-}
-
-function renderPipeline() {
-  const currentKey = draft.currentStage || "constructor";
-  const currentStage = STAGES.find((s) => s.key === currentKey) || STAGES[0];
-  const currentStatus = getStageStatus(draft, currentStage);
-  const next = getNextStatus(currentStatus);
-  const canAdvance = currentStatus !== "Готово" && currentStatus !== "Не потрібно";
-
-  const track = PIPELINE_STAGES.map((stage) => {
-    const status = getStageStatus(draft, stage);
-    let dotCls = "step-dot";
-    if (status === "Проблема") dotCls += " step-dot--problem";
-    else if (STAGE_STATUS_DONE.has(status)) dotCls += " step-dot--done";
-    else if (stage.key === currentKey) dotCls += " step-dot--current";
-    else if (status !== "Не розпочато") dotCls += " step-dot--active";
-    return `<button type="button" class="${dotCls}" data-pipeline-jump="${stage.key}" title="${escapeHtml(stage.label)}: ${escapeHtml(status)}"></button>`;
-  }).join('<span class="step-line" aria-hidden="true"></span>');
-
-  const manualSteps = STAGES.filter((s) => s.field)
-    .map((stage) => {
-      const status = getStageStatus(draft, stage);
-      const cls = stageStatusClass(status);
-      return `
-        <div class="pipeline-manual-row ${cls}">
-          <span class="pipeline-manual-label">${escapeHtml(stage.label)}</span>
-          <select class="pipeline-select" data-pipeline-status="${stage.key}" aria-label="${escapeHtml(stage.label)}">
-            ${STAGE_STATUSES.map(
-              (s) =>
-                `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
-            ).join("")}
-          </select>
-        </div>`;
-    })
-    .join("");
-
-  return `
-    <div class="pipeline-compact">
-      <div class="pipeline-compact-now">
-        <span class="pipeline-compact-icon">${currentStage.icon}</span>
-        <div class="pipeline-compact-text">
-          <strong>${escapeHtml(currentStage.label)}</strong>
-          <span>${badge(currentStatus)}</span>
-        </div>
-        ${
-          canAdvance
-            ? `<button type="button" class="btn btn-primary btn-sm" data-pipeline-advance="${currentStage.key}" data-next="${escapeHtml(next)}">Далі → ${escapeHtml(next)}</button>`
-            : ""
-        }
-      </div>
-      <div class="step-track step-track--drawer">${track}</div>
-      <details class="pipeline-manual">
-        <summary>Змінити етап вручну</summary>
-        <div class="pipeline-manual-grid">${manualSteps}</div>
-      </details>
-    </div>`;
 }
 
 function renderDrawerContent() {
@@ -241,7 +168,7 @@ function renderDrawerContent() {
 
       <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
         <div id="constructivePipelineMount">${renderConstructivePipelinePanel(constructivePackageDetail, procurementSummary, pipelinePanelOptions())}</div>
-        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: true, fileListHtml: renderConstructiveFileList(p.id) })}</div>
+        <div id="constructivePackageMount">${renderConstructivePackageBlock(p, constructivePackageDetail, { editable: true, fileListHtml: renderConstructiveFileList(constructiveFiles, p.id) })}</div>
         ${renderLegacyAiBlock(p)}
       </div>
 
@@ -378,22 +305,7 @@ function readForm() {
 
 function syncDraftFromForm() {
   Object.assign(draft, readForm());
-  draft.progress = estimateProgress(draft);
-}
-
-function estimateProgress(p) {
-  let weighted = 0;
-  for (const stage of STAGES) {
-    const w = PRODUCTION_PROGRESS_WEIGHTS[stage.key];
-    if (!w) continue;
-    const st = getStageStatus(p, stage);
-    let score = 0;
-    if (st === "Готово" || st === "Не потрібно") score = 100;
-    else if (st === "В роботі") score = 65;
-    else if (st === "Передано") score = 35;
-    weighted += w * score;
-  }
-  return Math.round(weighted / 100);
+  draft.progress = estimatePositionProgress(draft);
 }
 
 async function patchStage(stageKey, payload) {
@@ -595,7 +507,7 @@ async function refreshConstructiveWorkspace() {
   if (mount) {
     mount.innerHTML = renderConstructivePackageBlock(draft, constructivePackageDetail, {
       editable: true,
-      fileListHtml: renderConstructiveFileList(draft.id)
+      fileListHtml: renderConstructiveFileList(constructiveFiles, draft.id)
     });
   }
   const pipe = $("#constructivePipelineMount");
@@ -867,30 +779,7 @@ export function initPositionDrawer() {
   el.id = "positionDrawer";
   el.className = "drawer-backdrop";
   el.setAttribute("aria-hidden", "true");
-  el.innerHTML = `
-    <div class="drawer" role="dialog" aria-labelledby="positionDrawerTitle">
-      <div class="drawer-header">
-        <div class="drawer-header-main">
-          <h2 id="positionDrawerTitle">Позиція</h2>
-          <div class="drawer-meta" id="positionDrawerSubtitle"></div>
-          <div class="drawer-progress">
-            <div class="drawer-progress-label">
-              <span>Прогрес виробництва</span>
-              <span id="positionDrawerProgressLabel">0%</span>
-            </div>
-            <div id="positionDrawerProgress"></div>
-          </div>
-        </div>
-        <button type="button" class="modal-close" id="closePositionDrawer" aria-label="Закрити">×</button>
-      </div>
-      <div class="drawer-body" id="positionDrawerBody"></div>
-      <div class="drawer-footer">
-        <button type="button" class="btn btn-danger" id="deletePositionBtn" style="margin-right: auto; display: none">Видалити</button>
-        <button type="button" class="btn" id="cancelPositionBtn">Закрити</button>
-        <button type="submit" form="positionForm" class="btn btn-primary">Зберегти</button>
-      </div>
-    </div>
-  `;
+  el.innerHTML = POSITION_DRAWER_SHELL_HTML;
   document.body.appendChild(el);
 
   $("#positionDrawerBody")?.addEventListener("click", (e) => {
