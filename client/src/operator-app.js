@@ -45,6 +45,7 @@ import {
 } from "./ui-persistence.js";
 import { setAppLoading } from "./loading-ui.js";
 import { $ } from "./utils.js";
+import "./styles/operator-entry.css";
 
 function setLoading(visible, options) {
   setAppLoading(visible, options);

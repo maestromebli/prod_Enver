@@ -82,10 +82,7 @@ import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { resolveDashboardNav } from "./dashboard-routes.js";
 import { setListFilters } from "./filters.js";
 import { $ } from "./utils.js";
-import "./styles/app-shell.css";
-import "./styles/visual-polish.css";
-import "./styles/brand-logo.css";
-import "./styles/operator.css";
+import "./styles/manager-entry.css";
 
 import { setAppLoading } from "./loading-ui.js";
 
