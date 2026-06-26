@@ -19,11 +19,7 @@ import {
   getPositionSubTab,
   loadPositionOrderTabData
 } from "./position-order-tab.js";
-import {
-  bindOrder3DTab,
-  loadOrder3DAsset,
-  teardownOrder3DTab
-} from "./order-3d/order-3d-bind.js";
+import { bindOrder3DTab, loadOrder3DAsset, teardownOrder3DTab } from "./order-3d/order-3d-bind.js";
 import { focusOrderInlineAddInput, openPositionInOrderDetail } from "./order-detail-state.js";
 
 async function patchPositionStage(positionId, stageKey, payload, onRefresh) {

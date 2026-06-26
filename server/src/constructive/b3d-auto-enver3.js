@@ -23,9 +23,7 @@ export function isEnverAssemblyJsonName(name = "") {
 export function findAssemblyJsonFileRow(fileRows = []) {
   return (
     fileRows.find(
-      (f) =>
-        f.kind === "other" &&
-        isEnverAssemblyJsonName(f.original_name || f.originalName || "")
+      (f) => f.kind === "other" && isEnverAssemblyJsonName(f.original_name || f.originalName || "")
     ) || null
   );
 }

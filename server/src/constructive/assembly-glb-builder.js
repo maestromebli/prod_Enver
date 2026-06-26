@@ -84,9 +84,7 @@ function panelScaleFromAssembly(projectPanel, asmPanel) {
 
 /** Панелі з .project + координати збірки → позиції для GLB. */
 export function layoutAssemblyPanels(projectPanels = [], assemblyExport) {
-  const asmMap = new Map(
-    (assemblyExport?.panels || []).map((p) => [normalizePartCode(p.code), p])
-  );
+  const asmMap = new Map((assemblyExport?.panels || []).map((p) => [normalizePartCode(p.code), p]));
 
   const laidOut = [];
   const missing = [];
@@ -133,9 +131,7 @@ export function buildAssemblyGlbFromProject(projectPanels, assemblyExport, optio
 /** Fallback: панелі без координат — плоска сітка. */
 export function buildMixedPreviewGlb(projectPanels, assemblyExport, options = {}) {
   const { panels: assembled, missing } = layoutAssemblyPanels(projectPanels, assemblyExport);
-  const flat = layoutPreviewPanels(
-    projectPanels.filter((p) => missing.includes(p.code))
-  );
+  const flat = layoutPreviewPanels(projectPanels.filter((p) => missing.includes(p.code)));
   const all = [...assembled, ...flat];
   const glb = buildPreviewGlbFromPanels(all, {
     ...options,

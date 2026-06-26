@@ -24,8 +24,12 @@ export function inferCncFileMaterialMeta(fileName = "") {
   }
 
   const decorMatch =
-    base.match(/(?:^|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])([WUHKF]\d{2,4}[A-Z]{0,4})(?=$|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])/i) ||
-    base.match(/(?:^|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])(\d{3,4}\s?[A-Z]{2,4})(?=$|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])/i);
+    base.match(
+      /(?:^|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])([WUHKF]\d{2,4}[A-Z]{0,4})(?=$|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])/i
+    ) ||
+    base.match(
+      /(?:^|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])(\d{3,4}\s?[A-Z]{2,4})(?=$|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])/i
+    );
   const materialDecor = decorMatch ? String(decorMatch[1]).trim().toUpperCase() : "";
 
   return { materialType, materialDecor };

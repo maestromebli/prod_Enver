@@ -35,14 +35,8 @@ describe("project-glb-builder", () => {
     const gltf = JSON.parse(json);
     assert.equal(gltf.nodes.length, 2);
     assert.equal(gltf.meshes.length, 2);
-    assert.deepEqual(
-      gltf.nodes.map((n) => n.name).sort(),
-      ["10", "11"]
-    );
-    assert.deepEqual(
-      gltf.nodes.map((n) => n.mesh).sort(),
-      [0, 1]
-    );
+    assert.deepEqual(gltf.nodes.map((n) => n.name).sort(), ["10", "11"]);
+    assert.deepEqual(gltf.nodes.map((n) => n.mesh).sort(), [0, 1]);
     assert.equal(gltf.materials?.length, 1);
     assert.equal(isLegacySharedMeshPreviewGlb(buffer), false);
   });

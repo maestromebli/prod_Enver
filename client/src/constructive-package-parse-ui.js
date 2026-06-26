@@ -124,7 +124,9 @@ export async function runPackageParseWithProgress(positionId, packageId, ctx = {
   const { root, position, liveCtx, notify, onComplete } = ctx;
   const block = root?.querySelector?.(".constructive-package-block");
 
-  const optimistic = withParsingStatus(liveCtx?.detail || { package: { status: "parsing", id: packageId } });
+  const optimistic = withParsingStatus(
+    liveCtx?.detail || { package: { status: "parsing", id: packageId } }
+  );
   if (block && position) {
     applyPackageParseUi(block, position, optimistic);
   }
@@ -169,7 +171,8 @@ export function applyPackageParseUi(block, position, detail, constructiveFiles) 
 
   const pkg = detail?.package;
   if (pkg) {
-    const pipeline = block.querySelector("[data-cp-pipeline]") || block.querySelector(".cp-pipeline");
+    const pipeline =
+      block.querySelector("[data-cp-pipeline]") || block.querySelector(".cp-pipeline");
     if (pipeline) {
       pipeline.outerHTML = renderConstructivePipeline(pkg.status);
     }

@@ -149,9 +149,11 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
   const pipelineGodmodeBtn =
     pkgAction &&
     pkgAction.allowed !== false &&
-    !["wait_parse", "wait_procurement", ...(hideProcurement ? ["create_procurement"] : [])].includes(
-      pkgAction.type
-    )
+    ![
+      "wait_parse",
+      "wait_procurement",
+      ...(hideProcurement ? ["create_procurement"] : [])
+    ].includes(pkgAction.type)
       ? `<button type="button" class="btn btn-sm btn-primary" id="pipelineGodmodeBtn" data-pipeline-action="${escapeHtml(pkgAction.type)}">${escapeHtml(pkgAction.buttonLabel)}</button>`
       : "";
 
@@ -268,7 +270,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
   root.querySelector("#pipelineGodmodeBtn")?.addEventListener("click", async () => {
     const btn = root.querySelector("#pipelineGodmodeBtn");
     const action = btn?.dataset?.pipelineAction;
-    const detail = getPackageDetail();
+    let detail = getPackageDetail();
     const pkgId = detail?.package?.id;
     if (!action) return;
 
@@ -277,7 +279,12 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
     try {
       if (action === "parse_constructive_package" && pkgId) {
         const panel = root.closest(".constructive-pipeline-panel")?.parentElement || root;
-        const liveCtx = { detail, onDetailPatched: (d) => { detail = d; } };
+        const liveCtx = {
+          detail,
+          onDetailPatched: (d) => {
+            detail = d;
+          }
+        };
         await runPackageParseWithProgress(positionId, pkgId, {
           root: panel,
           position: { id: positionId },

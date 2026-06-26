@@ -98,12 +98,8 @@ describe("constructive-package shared", () => {
   });
 
   it("has3dPreviewFile і preview3dLayout для .wrl", async () => {
-    const {
-      has3dPreviewFile,
-      preview3dLayout,
-      findPackagePreview3dFile,
-      preview3dLoadFormat
-    } = await import("../../shared/production/constructive-package.js");
+    const { has3dPreviewFile, preview3dLayout, findPackagePreview3dFile, preview3dLoadFormat } =
+      await import("../../shared/production/constructive-package.js");
     const detail = {
       files: [{ kind: "wrl_model", originalName: "111.wrl" }]
     };
@@ -128,14 +124,8 @@ describe("constructive-package shared", () => {
     assert.equal(parts.project.length, 1);
     assert.equal(parts.b3d.length, 1);
     assert.equal(canCreateModelMapping({ files }), true);
-    assert.equal(
-      canAutoParsePackageForMapping({ files, package: { status: "uploaded" } }),
-      true
-    );
-    assert.equal(
-      canAutoParsePackageForMapping({ files, package: { status: "parsed" } }),
-      false
-    );
+    assert.equal(canAutoParsePackageForMapping({ files, package: { status: "uploaded" } }), true);
+    assert.equal(canAutoParsePackageForMapping({ files, package: { status: "parsed" } }), false);
     assert.equal(shouldShowModelMappingTab({ files, parts: [{ id: 1, partNo: "21" }] }), true);
     assert.equal(shouldShowModelMappingTab({ files, parts: [] }), true);
     assert.equal(shouldShowModelMappingTab({ files: [files[0]], parts: [{ id: 1 }] }), false);
@@ -152,12 +142,14 @@ describe("constructive-package shared", () => {
   });
 
   it("formatPartDimensionsMm — розміри в мм", async () => {
-    const { formatPartDimensionsMm, stripMmUnit } = await import(
-      "../../shared/production/constructive-package.js"
-    );
+    const { formatPartDimensionsMm, stripMmUnit } =
+      await import("../../shared/production/constructive-package.js");
     assert.equal(stripMmUnit("16 мм"), "16");
     assert.equal(formatPartDimensionsMm({ length: "580", width: "720" }), "580×720 мм");
-    assert.equal(formatPartDimensionsMm({ length: "500", width: "400", thickness: "16" }), "500×400×16 мм");
+    assert.equal(
+      formatPartDimensionsMm({ length: "500", width: "400", thickness: "16" }),
+      "500×400×16 мм"
+    );
     assert.equal(formatPartDimensionsMm({ length: "", width: "" }), "—");
   });
 
@@ -239,16 +231,16 @@ describe("constructive-package shared continued", () => {
   });
 
   it("canHandoffPackageToCutting для підтвердженого пакета", async () => {
-    const { canHandoffPackageToCutting, PACKAGE_HANDOFF_TO_CUTTING_STATUSES } = await import(
-      "../../shared/production/constructive-package.js"
-    );
+    const { canHandoffPackageToCutting, PACKAGE_HANDOFF_TO_CUTTING_STATUSES } =
+      await import("../../shared/production/constructive-package.js");
     assert.ok(PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes("approved_by_production"));
     assert.equal(canHandoffPackageToCutting({ packageStatus: "approved_by_production" }), true);
     assert.equal(canHandoffPackageToCutting({ packageStatus: "parsed" }), false);
   });
 
   it("validateHandoffToCutting для підтвердженого пакета без legacy-прапорця", async () => {
-    const { validateHandoffToCutting } = await import("../../shared/production/constructive-package.js");
+    const { validateHandoffToCutting } =
+      await import("../../shared/production/constructive-package.js");
     const row = {
       has_constructive_file: false,
       has_constructive_package: true,
@@ -265,7 +257,8 @@ describe("constructive-package shared continued", () => {
   });
 
   it("validateHandoffToCutting блокує непідтверджений пакет", async () => {
-    const { validateHandoffToCutting } = await import("../../shared/production/constructive-package.js");
+    const { validateHandoffToCutting } =
+      await import("../../shared/production/constructive-package.js");
     const check = validateHandoffToCutting(
       {
         has_constructive_package: true,
@@ -358,7 +351,11 @@ describe("packageGodmodeContextFromRow", () => {
         current_stage: "constructor",
         constructor_name: "Ігор"
       },
-      { packageStatus: "approved_by_constructor", hasConstructivePackage: true, managerDataComplete: true }
+      {
+        packageStatus: "approved_by_constructor",
+        hasConstructivePackage: true,
+        managerDataComplete: true
+      }
     );
     assert.equal(action.type, "handoff_to_cutting");
   });
@@ -539,9 +536,8 @@ DEF TLine3D_1 LineSet {}
 
 describe("procurement from constructor XLS", () => {
   it("canCreateProcurement — з XLS після розбору, без ЧПК", async () => {
-    const { canCreateProcurement, hasConstructorProcurementSource } = await import(
-      "../../shared/production/constructive-package.js"
-    );
+    const { canCreateProcurement, hasConstructorProcurementSource } =
+      await import("../../shared/production/constructive-package.js");
     const detail = {
       package: { status: "parsed" },
       files: [{ kind: "spec_xls", originalName: "spec.xls" }],
@@ -600,10 +596,8 @@ describe("procurement from constructor XLS", () => {
   });
 
   it("findSplitMappingPackages та pickComplementMappingPackage", async () => {
-    const {
-      findSplitMappingPackages,
-      pickComplementMappingPackage
-    } = await import("../../shared/production/constructive-package.js");
+    const { findSplitMappingPackages, pickComplementMappingPackage } =
+      await import("../../shared/production/constructive-package.js");
 
     const split = findSplitMappingPackages([
       {

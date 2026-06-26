@@ -1,4 +1,8 @@
-import { decodeProjectText, pickXmlAttr, buildOperationThicknessMap } from "./parsers/project-text.js";
+import {
+  decodeProjectText,
+  pickXmlAttr,
+  buildOperationThicknessMap
+} from "./parsers/project-text.js";
 
 const MM = 0.001;
 const PREVIEW_GAP_M = 0.04;
@@ -80,12 +84,12 @@ export function layoutPreviewPanels(panels = []) {
 
 function unitBoxGeometry() {
   const p = [
-    -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, 0.5,
-    -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5
+    -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5,
+    0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5
   ];
   const indices = [
-    0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 0, 4, 7, 7, 3, 0, 1, 5, 6, 6, 2, 1, 3, 2, 6, 6, 7, 3,
-    0, 1, 5, 5, 4, 0
+    0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 0, 4, 7, 7, 3, 0, 1, 5, 6, 6, 2, 1, 3, 2, 6, 6, 7, 3, 0, 1,
+    5, 5, 4, 0
   ];
   return { positions: new Float32Array(p), indices: new Uint16Array(indices) };
 }
@@ -98,11 +102,7 @@ function gltfNodeFromPanel(panel, meshIndex) {
   const node = {
     name: panel.code,
     mesh: meshIndex,
-    translation: [
-      panel.position.x,
-      panel.position.y,
-      panel.position.z
-    ],
+    translation: [panel.position.x, panel.position.y, panel.position.z],
     scale: [panel.scale.x, panel.scale.y, panel.scale.z]
   };
   const rot = panel.rotation;
@@ -144,7 +144,9 @@ export function buildPreviewGlbFromPanels(
     asset: {
       version: "2.0",
       generator:
-        previewLayout === "assembly" ? "enver-project-preview-assembly" : "enver-project-preview-flat"
+        previewLayout === "assembly"
+          ? "enver-project-preview-assembly"
+          : "enver-project-preview-flat"
     },
     scene: 0,
     scenes: [{ name: productName || "preview", nodes: nodes.map((_, i) => i) }],

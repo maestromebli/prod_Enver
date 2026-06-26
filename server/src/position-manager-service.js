@@ -310,8 +310,7 @@ export async function uploadManagerFile(
     return mapManagerFileRow(row);
   }
 
-  const fileKind =
-    kind && isManagerFileKind(kind) ? kind : inferManagerFileKind(fileName, mime);
+  const fileKind = kind && isManagerFileKind(kind) ? kind : inferManagerFileKind(fileName, mime);
   if (!fileName || !dataBase64) {
     const err = new Error("fileName та dataBase64 обов'язкові");
     err.status = 400;

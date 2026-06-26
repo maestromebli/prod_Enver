@@ -47,19 +47,29 @@ export function renderOrder3DTab(order, asset) {
 
   const actions = [];
   if (isFailed && canRetry3DConversion()) {
-    actions.push(`<button type="button" class="btn btn-sm btn-primary" data-order-3d-retry>Повторити обробку</button>`);
+    actions.push(
+      `<button type="button" class="btn btn-sm btn-primary" data-order-3d-retry>Повторити обробку</button>`
+    );
   }
   if ((isFailed || isManual) && canUpload3DAsset()) {
-    actions.push(`<button type="button" class="btn btn-sm" data-order-3d-reupload>Завантажити новий файл</button>`);
+    actions.push(
+      `<button type="button" class="btn btn-sm" data-order-3d-reupload>Завантажити новий файл</button>`
+    );
   }
   if (isManual && canUpload3DAsset()) {
-    actions.push(`<button type="button" class="btn btn-sm" data-order-3d-glb-upload>Завантажити .glb</button>`);
+    actions.push(
+      `<button type="button" class="btn btn-sm" data-order-3d-glb-upload>Завантажити .glb</button>`
+    );
   }
   if (isFailed && canUpload3DAsset()) {
-    actions.push(`<button type="button" class="btn btn-sm btn-link" data-order-3d-constructor>Передати конструктору</button>`);
+    actions.push(
+      `<button type="button" class="btn btn-sm btn-link" data-order-3d-constructor>Передати конструктору</button>`
+    );
   }
   if (canDelete3DAsset()) {
-    actions.push(`<button type="button" class="btn btn-sm btn-danger" data-order-3d-delete>Видалити</button>`);
+    actions.push(
+      `<button type="button" class="btn btn-sm btn-danger" data-order-3d-delete>Видалити</button>`
+    );
   }
 
   return `<section class="order-3d-tab" data-order-3d-tab data-order-3d-asset-id="${asset.id}">

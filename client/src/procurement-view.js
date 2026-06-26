@@ -225,7 +225,9 @@ export function bindProcurementTab(root, { onRefresh, onOpenPosition } = {}) {
   });
 
   root.querySelector("[data-procurement-open-position]")?.addEventListener("click", () => {
-    const positionId = Number(root.querySelector("[data-procurement-open-position]")?.dataset.procurementOpenPosition);
+    const positionId = Number(
+      root.querySelector("[data-procurement-open-position]")?.dataset.procurementOpenPosition
+    );
     if (positionId) onOpenPosition?.(positionId);
   });
 

@@ -20,9 +20,7 @@ function renderPreviewCaption(detail) {
       return `<p class="b3d-preview-caption enver-meta">Повна 3D-збірка з VRML експорту Базіс (.wrl)</p>`;
     }
     return `<p class="b3d-preview-caption enver-meta">${
-      fromEnver3
-        ? "Повна 3D-збірка з координат Базіс (ENVER3 у .b3d)"
-        : "Повна 3D-збірка"
+      fromEnver3 ? "Повна 3D-збірка з координат Базіс (ENVER3 у .b3d)" : "Повна 3D-збірка"
     }</p>`;
   }
   if (layout === "flat") {

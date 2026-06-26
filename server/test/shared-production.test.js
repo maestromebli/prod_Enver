@@ -94,8 +94,14 @@ describe("shared/production", () => {
 
   it("hasConstructive — пакет конструктива без legacy-прапорця", async () => {
     const { hasConstructive } = await import("../../shared/production/position-logic.js");
-    assert.equal(hasConstructive({ has_constructive_file: false, has_constructive_package: true }), true);
-    assert.equal(hasConstructive({ has_constructive_file: false, constructive_parts_count: 5 }), true);
+    assert.equal(
+      hasConstructive({ has_constructive_file: false, has_constructive_package: true }),
+      true
+    );
+    assert.equal(
+      hasConstructive({ has_constructive_file: false, constructive_parts_count: 5 }),
+      true
+    );
     assert.equal(hasConstructive({ has_constructive_file: false }), false);
   });
 

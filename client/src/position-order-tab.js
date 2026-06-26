@@ -1,7 +1,11 @@
 import { api } from "./api.js";
 import { canManageProcurement, canManageConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
-import { renderPositionManagerPanel, bindPositionManagerPanel, loadPositionManagerBundle } from "./position-manager-panel.js";
+import {
+  renderPositionManagerPanel,
+  bindPositionManagerPanel,
+  loadPositionManagerBundle
+} from "./position-manager-panel.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import {
   loadCncJobsSummary,

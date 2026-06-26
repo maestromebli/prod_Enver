@@ -26,7 +26,9 @@ function normalizeBazisVrml(text) {
 function detectModelFormat(url, format) {
   const explicit = String(format || "").toLowerCase();
   if (explicit && explicit !== "unknown") return explicit;
-  const path = String(url || "").split("?")[0].toLowerCase();
+  const path = String(url || "")
+    .split("?")[0]
+    .toLowerCase();
   if (path.endsWith(".wrl")) return "wrl";
   if (path.endsWith(".gltf")) return "gltf";
   return "glb";
@@ -104,7 +106,11 @@ export function createPartViewer(container, { onReady, onError } = {}) {
     zoomVector.subVectors(camera.position, controls.target);
     const distance = zoomVector.length();
     if (!distance) return;
-    const next = THREE.MathUtils.clamp(distance * factor, controls.minDistance, controls.maxDistance);
+    const next = THREE.MathUtils.clamp(
+      distance * factor,
+      controls.minDistance,
+      controls.maxDistance
+    );
     zoomVector.setLength(next);
     camera.position.copy(controls.target).add(zoomVector);
     controls.update();
@@ -248,12 +254,7 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   function loadGltfBuffer(buffer) {
     const loader = new GLTFLoader();
     return new Promise((resolve, reject) => {
-      loader.parse(
-        buffer,
-        "",
-        (gltf) => resolve(frameModel(gltf.scene)),
-        reject
-      );
+      loader.parse(buffer, "", (gltf) => resolve(frameModel(gltf.scene)), reject);
     });
   }
 

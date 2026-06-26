@@ -728,228 +728,228 @@ export async function parseConstructivePackage(packageId, actor) {
   );
 
   try {
-  const fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
-    packageId
-  ]);
-  const parseResults = await parsePackageFiles(fileRows, readStoredFile);
+    const fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
+      packageId
+    ]);
+    const parseResults = await parsePackageFiles(fileRows, readStoredFile);
 
-  const merged = mergeParseResults(parseResults);
-  const position = await one(`SELECT * FROM positions WHERE id = $1`, [pkg.position_id]);
+    const merged = mergeParseResults(parseResults);
+    const position = await one(`SELECT * FROM positions WHERE id = $1`, [pkg.position_id]);
 
-  await withTransaction(async (client) => {
-    await client.query(`DELETE FROM constructive_parts WHERE package_id = $1`, [packageId]);
-    await client.query(`DELETE FROM constructive_materials WHERE package_id = $1`, [packageId]);
-    await client.query(`DELETE FROM constructive_hardware WHERE package_id = $1`, [packageId]);
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM constructive_parts WHERE package_id = $1`, [packageId]);
+      await client.query(`DELETE FROM constructive_materials WHERE package_id = $1`, [packageId]);
+      await client.query(`DELETE FROM constructive_hardware WHERE package_id = $1`, [packageId]);
 
-    for (const m of merged.materials) {
-      await client.query(
-        `INSERT INTO constructive_materials
+      for (const m of merged.materials) {
+        await client.query(
+          `INSERT INTO constructive_materials
          (package_id, material_name, material_code, thickness, sheet_size, qty_estimated, unit, source)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [
-          packageId,
-          m.materialName || "",
-          m.materialCode || "",
-          m.thickness || "",
-          m.sheetSize || "",
-          String(m.qtyEstimated || ""),
-          m.unit || "",
-          m.source || "parser"
-        ]
-      );
-    }
+          [
+            packageId,
+            m.materialName || "",
+            m.materialCode || "",
+            m.thickness || "",
+            m.sheetSize || "",
+            String(m.qtyEstimated || ""),
+            m.unit || "",
+            m.source || "parser"
+          ]
+        );
+      }
 
-    for (const h of merged.hardware) {
-      await client.query(
-        `INSERT INTO constructive_hardware (package_id, block_code, name, article, qty, unit, note)
+      for (const h of merged.hardware) {
+        await client.query(
+          `INSERT INTO constructive_hardware (package_id, block_code, name, article, qty, unit, note)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [
-          packageId,
-          h.blockCode || "",
-          h.name || "",
-          h.article || "",
-          String(h.qty || ""),
-          h.unit || "",
-          h.note || ""
-        ]
-      );
-    }
+          [
+            packageId,
+            h.blockCode || "",
+            h.name || "",
+            h.article || "",
+            String(h.qty || ""),
+            h.unit || "",
+            h.note || ""
+          ]
+        );
+      }
 
-    const partNoCounts = new Map();
-    for (const p of merged.parts) {
-      const key = `${p.blockCode || ""}:${p.partNo || ""}`;
-      partNoCounts.set(key, (partNoCounts.get(key) || 0) + 1);
-    }
+      const partNoCounts = new Map();
+      for (const p of merged.parts) {
+        const key = `${p.blockCode || ""}:${p.partNo || ""}`;
+        partNoCounts.set(key, (partNoCounts.get(key) || 0) + 1);
+      }
 
-    const usedBarcodes = new Set();
-    const insertedParts = [];
-    for (const p of merged.parts) {
-      const key = `${p.blockCode || ""}:${p.partNo || ""}`;
-      const needsBlock = (partNoCounts.get(key) || 0) > 1 || !p.partNo;
-      const partCode = buildPartCode({
-        orderNumber: position.order_number,
-        blockCode: p.blockCode,
-        partNo: p.partNo
-      });
+      const usedBarcodes = new Set();
+      const insertedParts = [];
+      for (const p of merged.parts) {
+        const key = `${p.blockCode || ""}:${p.partNo || ""}`;
+        const needsBlock = (partNoCounts.get(key) || 0) > 1 || !p.partNo;
+        const partCode = buildPartCode({
+          orderNumber: position.order_number,
+          blockCode: p.blockCode,
+          partNo: p.partNo
+        });
 
-      let barcode = buildBarcodeValue({
-        orderNumber: position.order_number,
-        positionId: pkg.position_id,
-        packageId,
-        partNo: p.partNo || "0",
-        blockCode: needsBlock ? p.blockCode : ""
-      });
-
-      let suffix = 0;
-      while (usedBarcodes.has(barcode)) {
-        suffix += 1;
-        barcode = buildBarcodeValue({
+        let barcode = buildBarcodeValue({
           orderNumber: position.order_number,
           positionId: pkg.position_id,
           packageId,
           partNo: p.partNo || "0",
-          blockCode: p.blockCode || "",
-          suffix: String(suffix)
+          blockCode: needsBlock ? p.blockCode : ""
         });
-      }
-      usedBarcodes.add(barcode);
 
-      const partInsert = await client.query(
-        `INSERT INTO constructive_parts
+        let suffix = 0;
+        while (usedBarcodes.has(barcode)) {
+          suffix += 1;
+          barcode = buildBarcodeValue({
+            orderNumber: position.order_number,
+            positionId: pkg.position_id,
+            packageId,
+            partNo: p.partNo || "0",
+            blockCode: p.blockCode || "",
+            suffix: String(suffix)
+          });
+        }
+        usedBarcodes.add(barcode);
+
+        const partInsert = await client.query(
+          `INSERT INTO constructive_parts
          (package_id, order_id, position_id, block_code, part_no, part_code, part_name,
           material, thickness, qty, length, width, edge_code, note, barcode_value, qr_value, cnc_status)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'waiting')
          RETURNING id`,
-        [
-          packageId,
-          position.order_id,
-          pkg.position_id,
-          p.blockCode || "",
-          String(p.partNo || ""),
-          partCode,
-          p.partName || "",
-          p.material || "",
-          p.thickness || "",
-          Number(p.qty) || 1,
-          String(p.length || ""),
-          String(p.width || ""),
-          p.edgeCode || "",
-          p.note || "",
-          barcode,
-          barcode
-        ]
-      );
+          [
+            packageId,
+            position.order_id,
+            pkg.position_id,
+            p.blockCode || "",
+            String(p.partNo || ""),
+            partCode,
+            p.partName || "",
+            p.material || "",
+            p.thickness || "",
+            Number(p.qty) || 1,
+            String(p.length || ""),
+            String(p.width || ""),
+            p.edgeCode || "",
+            p.note || "",
+            barcode,
+            barcode
+          ]
+        );
 
-      const partId = partInsert.rows[0]?.id;
-      if (partId) {
-        insertedParts.push({
-          id: partId,
-          blockCode: p.blockCode || "",
-          partNo: String(p.partNo || ""),
-          partName: p.partName || ""
-        });
-      }
-      const qty = Math.max(1, Number(p.qty) || 1);
+        const partId = partInsert.rows[0]?.id;
+        if (partId) {
+          insertedParts.push({
+            id: partId,
+            blockCode: p.blockCode || "",
+            partNo: String(p.partNo || ""),
+            partName: p.partName || ""
+          });
+        }
+        const qty = Math.max(1, Number(p.qty) || 1);
 
-      if (partId && qty > 1) {
-        for (let i = 1; i <= qty; i += 1) {
-          const instBarcode = i === 1 ? barcode : buildInstanceBarcode(barcode, i);
-          await client.query(
-            `INSERT INTO constructive_part_instances (part_id, instance_no, barcode_value, status)
+        if (partId && qty > 1) {
+          for (let i = 1; i <= qty; i += 1) {
+            const instBarcode = i === 1 ? barcode : buildInstanceBarcode(barcode, i);
+            await client.query(
+              `INSERT INTO constructive_part_instances (part_id, instance_no, barcode_value, status)
              VALUES ($1,$2,$3,'active')`,
-            [partId, i, instBarcode]
-          );
+              [partId, i, instBarcode]
+            );
+          }
         }
       }
-    }
 
-    const mappingSources = {
-      project: fileRows.filter((f) => f.kind === "project").length,
-      b3d: fileRows.filter((f) => f.kind === "b3d").length
-    };
-    const allowModelMapping = mappingSources.project > 0 && mappingSources.b3d > 0;
+      const mappingSources = {
+        project: fileRows.filter((f) => f.kind === "project").length,
+        b3d: fileRows.filter((f) => f.kind === "b3d").length
+      };
+      const allowModelMapping = mappingSources.project > 0 && mappingSources.b3d > 0;
 
-    const autoMapped = allowModelMapping
-      ? autoMapManifestNodes(insertedParts, merged.manifestNodes || [])
-      : [];
-    for (const m of autoMapped) {
-      await client.query(
-        `UPDATE constructive_parts SET model_node_id = $1, model_mesh_name = $2, updated_at = now() WHERE id = $3`,
-        [m.modelNodeId || "", m.modelMeshName || "", m.partId]
+      const autoMapped = allowModelMapping
+        ? autoMapManifestNodes(insertedParts, merged.manifestNodes || [])
+        : [];
+      for (const m of autoMapped) {
+        await client.query(
+          `UPDATE constructive_parts SET model_node_id = $1, model_mesh_name = $2, updated_at = now() WHERE id = $3`,
+          [m.modelNodeId || "", m.modelMeshName || "", m.partId]
+        );
+      }
+
+      const previewGlbRow = await ensureB3dPreviewGlb(packageId, pkg.position_id, fileRows, client);
+      const glbFile =
+        previewGlbRow ||
+        fileRows.find((f) => f.kind === "wrl_model") ||
+        fileRows.find((f) => f.kind === "glb_model" || f.kind === "gltf_model");
+      const b3dFile = fileRows.find((f) => f.kind === "b3d");
+      const modelSourceFile = glbFile || b3dFile;
+      const manifestPayload = JSON.stringify({
+        nodes: merged.manifestNodes || [],
+        autoMapped: autoMapped.length > 0,
+        autoMappedCount: autoMapped.length,
+        mappingSources,
+        allowModelMapping,
+        previewGlb: previewGlbRow
+          ? {
+              fileId: previewGlbRow.id,
+              panelCount: previewGlbRow.panelCount || null,
+              auto: true
+            }
+          : null
+      });
+      const existingManifest = await client.query(
+        `SELECT id FROM model_manifests WHERE package_id = $1 LIMIT 1`,
+        [packageId]
       );
-    }
-
-    const previewGlbRow = await ensureB3dPreviewGlb(packageId, pkg.position_id, fileRows, client);
-    const glbFile =
-      previewGlbRow ||
-      fileRows.find((f) => f.kind === "wrl_model") ||
-      fileRows.find((f) => f.kind === "glb_model" || f.kind === "gltf_model");
-    const b3dFile = fileRows.find((f) => f.kind === "b3d");
-    const modelSourceFile = glbFile || b3dFile;
-    const manifestPayload = JSON.stringify({
-      nodes: merged.manifestNodes || [],
-      autoMapped: autoMapped.length > 0,
-      autoMappedCount: autoMapped.length,
-      mappingSources,
-      allowModelMapping,
-      previewGlb: previewGlbRow
-        ? {
-            fileId: previewGlbRow.id,
-            panelCount: previewGlbRow.panelCount || null,
-            auto: true
-          }
-        : null
-    });
-    const existingManifest = await client.query(
-      `SELECT id FROM model_manifests WHERE package_id = $1 LIMIT 1`,
-      [packageId]
-    );
-    if (existingManifest.rows[0]?.id) {
-      await client.query(
-        `UPDATE model_manifests SET manifest_json = $1, glb_file_id = COALESCE($2, glb_file_id) WHERE package_id = $3`,
-        [manifestPayload, modelSourceFile?.id || null, packageId]
-      );
-    } else if (modelSourceFile || autoMapped.length > 0 || allowModelMapping) {
-      await client.query(
-        `INSERT INTO model_manifests (package_id, source_file_id, glb_file_id, manifest_json)
+      if (existingManifest.rows[0]?.id) {
+        await client.query(
+          `UPDATE model_manifests SET manifest_json = $1, glb_file_id = COALESCE($2, glb_file_id) WHERE package_id = $3`,
+          [manifestPayload, modelSourceFile?.id || null, packageId]
+        );
+      } else if (modelSourceFile || autoMapped.length > 0 || allowModelMapping) {
+        await client.query(
+          `INSERT INTO model_manifests (package_id, source_file_id, glb_file_id, manifest_json)
          VALUES ($1, $2, $2, $3)`,
-        [packageId, modelSourceFile?.id || null, manifestPayload]
+          [packageId, modelSourceFile?.id || null, manifestPayload]
+        );
+      }
+
+      const newStatus = merged.extractionQuality === "poor" ? "needs_review" : "parsed";
+      await client.query(
+        `UPDATE constructive_packages SET status = $1, parsed_at = now(), updated_at = now() WHERE id = $2`,
+        [newStatus, packageId]
       );
+    });
+
+    await run(`UPDATE positions SET has_constructive_file = TRUE WHERE id = $1`, [pkg.position_id]);
+
+    await recordHistory({
+      entityType: "position",
+      entityId: pkg.position_id,
+      action: "update",
+      meta: {
+        summary: `Пакет конструктива v${pkg.version} розібрано (${merged.parts.length} деталей)`,
+        orderNumber: position.order_number,
+        item: position.item
+      },
+      actor
+    });
+
+    let detail = await getPackageDetail(packageId);
+    let autoProcurement = false;
+    let autoProcurementError = null;
+    const procurementResult = await tryAutoCreateProcurementFromPackage(packageId, actor);
+    if (procurementResult.created) {
+      autoProcurement = true;
+      detail = await getPackageDetail(packageId);
+    } else if (procurementResult.error) {
+      autoProcurementError = procurementResult.error;
     }
 
-    const newStatus = merged.extractionQuality === "poor" ? "needs_review" : "parsed";
-    await client.query(
-      `UPDATE constructive_packages SET status = $1, parsed_at = now(), updated_at = now() WHERE id = $2`,
-      [newStatus, packageId]
-    );
-  });
-
-  await run(`UPDATE positions SET has_constructive_file = TRUE WHERE id = $1`, [pkg.position_id]);
-
-  await recordHistory({
-    entityType: "position",
-    entityId: pkg.position_id,
-    action: "update",
-    meta: {
-      summary: `Пакет конструктива v${pkg.version} розібрано (${merged.parts.length} деталей)`,
-      orderNumber: position.order_number,
-      item: position.item
-    },
-    actor
-  });
-
-  let detail = await getPackageDetail(packageId);
-  let autoProcurement = false;
-  let autoProcurementError = null;
-  const procurementResult = await tryAutoCreateProcurementFromPackage(packageId, actor);
-  if (procurementResult.created) {
-    autoProcurement = true;
-    detail = await getPackageDetail(packageId);
-  } else if (procurementResult.error) {
-    autoProcurementError = procurementResult.error;
-  }
-
-  return { ...detail, autoProcurement, autoProcurementError };
+    return { ...detail, autoProcurement, autoProcurementError };
   } catch (err) {
     await run(
       `UPDATE constructive_packages SET status = 'uploaded', updated_at = now() WHERE id = $1 AND status = 'parsing'`,
@@ -1139,8 +1139,7 @@ export function autoMapManifestNodes(parts, nodes = []) {
   for (const part of parts) {
     const partNo = String(part.partNo || "").trim();
     const blockCode = String(part.blockCode || "").trim();
-    const compositeKey =
-      blockCode && partNo ? `${blockCode}-${partNo}` : partNo ? partNo : "";
+    const compositeKey = blockCode && partNo ? `${blockCode}-${partNo}` : partNo ? partNo : "";
 
     const match =
       (compositeKey &&
@@ -1167,10 +1166,7 @@ export function autoMapManifestNodes(parts, nodes = []) {
       nodes.find((n) => n.meshName && partNo && n.meshName.includes(partNo)) ||
       nodes.find((n) => n.partNo && partNo && String(n.partNo) === partNo) ||
       nodes.find(
-        (n) =>
-          n.meshName &&
-          blockCode &&
-          n.meshName.toLowerCase().includes(blockCode.toLowerCase())
+        (n) => n.meshName && blockCode && n.meshName.toLowerCase().includes(blockCode.toLowerCase())
       );
     if (match) {
       mapped.push({

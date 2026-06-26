@@ -31,8 +31,8 @@ export function stageScore(status, { isConstructor = false, hasConstructor = fal
 }
 
 export function hasConstructive(row) {
-  if (Boolean(row?.has_constructive_file ?? row?.hasConstructiveFile)) return true;
-  if (Boolean(row?.has_constructive_package ?? row?.hasConstructivePackage)) return true;
+  if (row?.has_constructive_file ?? row?.hasConstructiveFile) return true;
+  if (row?.has_constructive_package ?? row?.hasConstructivePackage) return true;
   const partsCount = Number(row?.constructive_parts_count ?? row?.constructivePartsCount) || 0;
   return partsCount > 0;
 }

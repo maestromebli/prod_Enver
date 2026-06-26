@@ -14,7 +14,11 @@ import {
 } from "../constructive/constructive-package-service.js";
 import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
-import { CNC_PROBLEM_REASONS, findPackagePreview3dFile, preview3dLoadFormat } from "../../../shared/production/constructive-package.js";
+import {
+  CNC_PROBLEM_REASONS,
+  findPackagePreview3dFile,
+  preview3dLoadFormat
+} from "../../../shared/production/constructive-package.js";
 import { recordHistory } from "../audit.js";
 import { config } from "../config.js";
 

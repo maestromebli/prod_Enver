@@ -4,7 +4,12 @@ import { glbConverterAdapter } from "./converters/glb-converter-adapter.js";
 import { meshConverterAdapter } from "./converters/mesh-converter-adapter.js";
 import { wrlConverterAdapter } from "./converters/wrl-converter-adapter.js";
 
-const CONVERTERS = [glbConverterAdapter, wrlConverterAdapter, b3dConverterAdapter, meshConverterAdapter];
+const CONVERTERS = [
+  glbConverterAdapter,
+  wrlConverterAdapter,
+  b3dConverterAdapter,
+  meshConverterAdapter
+];
 
 function pickConverter(fileType) {
   return CONVERTERS.find((c) => c.canHandle(fileType)) || null;
@@ -21,10 +26,10 @@ export async function create3DConversionJob(assetId) {
 }
 
 export async function mark3DConversionProgress(assetId, message) {
-  await run(
-    `UPDATE order_3d_assets SET error_message = $2, updated_at = now() WHERE id = $1`,
-    [assetId, message]
-  );
+  await run(`UPDATE order_3d_assets SET error_message = $2, updated_at = now() WHERE id = $1`, [
+    assetId,
+    message
+  ]);
 }
 
 export async function mark3DConversionPartialReady(
@@ -125,10 +130,9 @@ export async function process3DConversionJob(jobId) {
     `UPDATE order_3d_conversion_jobs SET status = 'processing', attempts = attempts + 1, updated_at = now() WHERE id = $1`,
     [jobId]
   );
-  await run(
-    `UPDATE order_3d_assets SET status = 'CONVERTING', updated_at = now() WHERE id = $1`,
-    [asset.id]
-  );
+  await run(`UPDATE order_3d_assets SET status = 'CONVERTING', updated_at = now() WHERE id = $1`, [
+    asset.id
+  ]);
 
   const converter = pickConverter(asset.original_file_type);
   if (!converter) {

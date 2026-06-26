@@ -12,7 +12,12 @@ import {
   shouldShowProductionFloorByDefault,
   canViewProcurement
 } from "./auth.js";
-import { PRODUCTION_FLOOR_TAB, ATTENTION_TAB, CONSTRUCTOR_DESK_TAB, PROCUREMENT_TAB } from "./constants.js";
+import {
+  PRODUCTION_FLOOR_TAB,
+  ATTENTION_TAB,
+  CONSTRUCTOR_DESK_TAB,
+  PROCUREMENT_TAB
+} from "./constants.js";
 import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-desk.js";
 import { loadProductionFloor } from "./production-floor.js";
 import { loadProcurementList } from "./procurement-view.js";

@@ -46,6 +46,27 @@ export default [
     }
   },
   {
+    files: ["scripts/enver-b3d-assembly-export.js"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "script",
+      globals: {
+        ...globals.node,
+        Model: "readonly",
+        system: "readonly",
+        AxisX: "readonly",
+        AxisY: "readonly",
+        AxisZ: "readonly",
+        alert: "readonly",
+        ENVER_AUTO_B3D_PATH: "writable",
+        ENVER_AUTO_SILENT: "writable"
+      }
+    },
+    rules: {
+      "no-unused-vars": "off"
+    }
+  },
+  {
     ignores: [
       "node_modules/**",
       "**/node_modules/**",

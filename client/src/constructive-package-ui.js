@@ -136,7 +136,11 @@ export function isPackageUploadFile(file) {
   return detectPackageFileKind(file.name) !== "other";
 }
 
-function handlePackageUploadResult(root, result, { onDetailPatched, hideProcurement = false } = {}) {
+function handlePackageUploadResult(
+  root,
+  result,
+  { onDetailPatched, hideProcurement = false } = {}
+) {
   onDetailPatched?.(result);
 
   if (result?.autoParseError) {
@@ -218,7 +222,12 @@ export function hasConstructiveModelMapping(detail) {
   return shouldShowModelMappingTab(detail);
 }
 
-function renderUploadedConstructiveFiles(positionId, detail, legacyFiles = [], { editable = false } = {}) {
+function renderUploadedConstructiveFiles(
+  positionId,
+  detail,
+  legacyFiles = [],
+  { editable = false } = {}
+) {
   const pkg = detail?.package;
   const packageFiles = detail?.files || [];
   const hasLegacy = legacyFiles.length > 0;
@@ -540,9 +549,7 @@ function bindPackageFileDelete(root, position, liveCtx, { signal }) {
 
       if (pkgBtn) {
         const fileId = Number(btn.getAttribute("data-cp-delete-file"));
-        const packageId = Number(
-          btn.getAttribute("data-package-id") || block.dataset.packageId
-        );
+        const packageId = Number(btn.getAttribute("data-package-id") || block.dataset.packageId);
         if (!fileId || !packageId) {
           toastError("Не вдалося визначити файл для видалення");
           return;
@@ -578,8 +585,7 @@ function bindPackageFileDelete(root, position, liveCtx, { signal }) {
       try {
         const result = await api.deleteConstructiveFile(positionId, fileId);
         const legacyFiles = result.files || (await api.getConstructiveFiles(positionId)) || [];
-        const detail =
-          liveCtx.detail || (await api.getConstructivePackageLatest(positionId));
+        const detail = liveCtx.detail || (await api.getConstructivePackageLatest(positionId));
         await refreshAfterPackageFileChange(root, position, liveCtx, detail, legacyFiles);
         toastSuccess("Файл видалено");
       } catch (err) {

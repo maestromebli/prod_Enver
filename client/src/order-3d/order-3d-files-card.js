@@ -1,5 +1,9 @@
 import { escapeHtml } from "../utils.js";
-import { canDownloadWebModel, canViewOriginalB3D, canViewB3DReport } from "./order-3d-permissions.js";
+import {
+  canDownloadWebModel,
+  canViewOriginalB3D,
+  canViewB3DReport
+} from "./order-3d-permissions.js";
 import { order3dFileUrl } from "./order-3d-api.js";
 
 export function renderOrder3DFilesCard(orderId, asset) {

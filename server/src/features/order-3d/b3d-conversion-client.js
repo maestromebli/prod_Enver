@@ -46,8 +46,7 @@ export function runB3DConverter(input) {
   const reportFull = path.join(input.outputDir, `${input.assetId}.report.json`);
   const previewFull = path.join(input.outputDir, `${input.assetId}.preview.png`);
 
-  const rel = (name) =>
-    input.storageBase ? path.posix.join(input.storageBase, name) : null;
+  const rel = (name) => (input.storageBase ? path.posix.join(input.storageBase, name) : null);
 
   if (!converterAvailable()) {
     return Promise.resolve({
@@ -131,9 +130,7 @@ export function runB3DConverter(input) {
       const previewRel = fs.existsSync(previewFull)
         ? rel(`${input.assetId}.preview.png`)
         : undefined;
-      const reportRel = fs.existsSync(reportFull)
-        ? rel(`${input.assetId}.report.json`)
-        : undefined;
+      const reportRel = fs.existsSync(reportFull) ? rel(`${input.assetId}.report.json`) : undefined;
 
       if (workerStatus === "PARTIAL_READY" || workerStatus === "FALLBACK_READY") {
         resolve({
@@ -166,9 +163,7 @@ export function runB3DConverter(input) {
         reportStoragePath: reportRel,
         previewStoragePath: previewRel,
         errorMessage:
-          stderr ||
-          stdout ||
-          "Парсер знайшов дані, але не зміг зібрати надійну 3D-модель."
+          stderr || stdout || "Парсер знайшов дані, але не зміг зібрати надійну 3D-модель."
       });
     });
   });

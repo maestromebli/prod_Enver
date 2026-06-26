@@ -226,12 +226,11 @@ export function validateHandoffToCutting(row = {}, context = {}) {
     context.hasConstructivePackage ?? row.has_constructive_package ?? row.hasConstructivePackage
   );
   const partsCount =
-    Number(context.constructivePartsCount ?? row.constructive_parts_count ?? row.constructivePartsCount) ||
-    0;
+    Number(
+      context.constructivePartsCount ?? row.constructive_parts_count ?? row.constructivePartsCount
+    ) || 0;
   const hasConstructiveData =
-    Boolean(row.has_constructive_file ?? row.hasConstructiveFile) ||
-    hasPackage ||
-    partsCount > 0;
+    Boolean(row.has_constructive_file ?? row.hasConstructiveFile) || hasPackage || partsCount > 0;
 
   if (!hasConstructiveData) {
     return { ok: false, error: "Потрібно завантажити конструктив." };
@@ -276,7 +275,9 @@ export const CONSTRUCTIVE_PIPELINE_STEPS = [
 
 /** Пакет підтверджено — можна передавати на порізку. */
 export function isPackageApprovedStatus(status) {
-  return ["approved_by_constructor", "approved_by_production"].includes(String(status || "").trim());
+  return ["approved_by_constructor", "approved_by_production"].includes(
+    String(status || "").trim()
+  );
 }
 
 export function packageStatusLabel(status) {

@@ -1,6 +1,6 @@
 /** Мінімальний розбір VRML (.wrl) з Базіс — 3D-збірка без деталей закупівлі. */
 
-const DEF_RE = /\bDEF\s+([A-Za-z0-9_\-]+)/g;
+const DEF_RE = /\bDEF\s+([A-Za-z0-9_-]+)/g;
 const VRML_MARKER = /#VRML/i;
 
 function collectManifestNodes(text) {

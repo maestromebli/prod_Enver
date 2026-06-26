@@ -42,7 +42,12 @@ function extractEmbeddedPng(buffer) {
  * @param {string} [input.productName]
  * @returns {Promise<B3DNodeConvertResult>}
  */
-export async function convertB3dWithNode({ b3dBuffer, orderId, productName = "", b3dFileName = "" }) {
+export async function convertB3dWithNode({
+  b3dBuffer,
+  orderId,
+  productName = "",
+  b3dFileName = ""
+}) {
   if (!b3dBuffer?.length) {
     return { status: "FAILED", errorMessage: "Порожній файл .b3d" };
   }
@@ -181,8 +186,7 @@ export async function runFullB3DConversion(input) {
       storageBase: input.storageBase,
       result: nodeResult
     });
-    const panelHint =
-      nodeResult.panelCount != null ? ` (${nodeResult.panelCount} панелей)` : "";
+    const panelHint = nodeResult.panelCount != null ? ` (${nodeResult.panelCount} панелей)` : "";
     const isPartial = nodeResult.status === "PARTIAL_READY" || nodeResult.isFallback;
     return {
       status: isPartial ? "PARTIAL_READY" : "READY",

@@ -1,10 +1,6 @@
 import fs from "fs";
 import path from "path";
-import {
-  ensureUploadsDir,
-  resolveStoredPath,
-  readStoredFile
-} from "../../file-storage.js";
+import { ensureUploadsDir, resolveStoredPath, readStoredFile } from "../../file-storage.js";
 
 export function order3dStoragePath(orderId, originalName) {
   const safe = String(originalName || "file")

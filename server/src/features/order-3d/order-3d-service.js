@@ -10,19 +10,14 @@ import {
   isOrder3DUploadAllowed,
   ORDER_3D_MAX_BYTES
 } from "../../../../shared/production/order-3d.js";
-import {
-  create3DConversionJob
-} from "./conversion-service.js";
+import { create3DConversionJob } from "./conversion-service.js";
 import { schedule3DConversionJob } from "./conversion-queue.js";
 import { findConstructiveContextForOrder } from "./constructive-context.js";
 import {
   buildPatchedB3dWithEnver3,
   loadAssemblyExportFromJsonBuffer
 } from "../../constructive/b3d-auto-enver3.js";
-import {
-  deleteStoredFile,
-  uploadOrder3DFile
-} from "./order-3d-storage.js";
+import { deleteStoredFile, uploadOrder3DFile } from "./order-3d-storage.js";
 
 function pathBasename(storagePath = "") {
   const normalized = String(storagePath).replace(/\\/g, "/");
@@ -43,8 +38,7 @@ export function mapOrder3DAssetRow(row, user, { orderId } = {}) {
   const showOriginal = canViewOriginalB3D(user);
   const webPath = row.web_model_storage_path || "";
   const webExt = webPath ? detectOrder3DFileType(pathBasename(webPath)) : null;
-  const webModelFormat =
-    webExt && webExt !== "unknown" ? webExt : row.original_file_type || "glb";
+  const webModelFormat = webExt && webExt !== "unknown" ? webExt : row.original_file_type || "glb";
   return {
     id: row.id,
     orderId: row.order_id,
@@ -62,7 +56,9 @@ export function mapOrder3DAssetRow(row, user, { orderId } = {}) {
     webModelFormat: webModelFormat === "unknown" ? "glb" : webModelFormat,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    originalFileUrl: showOriginal ? `/api/orders/${orderId || row.order_id}/3d/${row.id}/original` : null,
+    originalFileUrl: showOriginal
+      ? `/api/orders/${orderId || row.order_id}/3d/${row.id}/original`
+      : null,
     webModelUrl: row.web_model_storage_path
       ? `/api/orders/${orderId || row.order_id}/3d/${row.id}/web-model`
       : null,

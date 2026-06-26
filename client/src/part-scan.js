@@ -4,7 +4,10 @@ import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
 import { iconSvg } from "./icons.js";
 import { toastError, toastSuccess } from "./toast.js";
-import { CNC_PROBLEM_REASONS, formatPartDimensionsMm } from "@enver/shared/production/constructive-package.js";
+import {
+  CNC_PROBLEM_REASONS,
+  formatPartDimensionsMm
+} from "@enver/shared/production/constructive-package.js";
 
 /** Етапи зі скануванням етикеток (верстат і етапи працюють без штрихкодів у системі). */
 export const PART_SCAN_OPERATOR_STAGES = [];

@@ -31,7 +31,11 @@ describe("b3d-glb-extractor", () => {
         "utf8"
       )
     );
-    const wrapper = Buffer.concat([Buffer.from("BZ85Furniture\x00"), glb.buffer, Buffer.from("END")]);
+    const wrapper = Buffer.concat([
+      Buffer.from("BZ85Furniture\x00"),
+      glb.buffer,
+      Buffer.from("END")
+    ]);
     const embedded = findEmbeddedGlb(wrapper);
     assert.ok(embedded);
     const result = extractGlbFromB3d(wrapper);

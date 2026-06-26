@@ -25,7 +25,8 @@ export function renderOrder3DStatusCard(asset) {
           : ""
       }
       ${
-        (asset.status === "READY" || asset.status === "PARTIAL_READY") && asset.conversionSourceLabel
+        (asset.status === "READY" || asset.status === "PARTIAL_READY") &&
+        asset.conversionSourceLabel
           ? `<p class="order-3d-status-text order-3d-status-text--source enver-meta">Джерело: ${escapeHtml(asset.conversionSourceLabel)}</p>`
           : ""
       }

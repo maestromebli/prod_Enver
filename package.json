@@ -15,7 +15,7 @@
     "demo:workflow": "node server/scripts/demo-workflow.mjs",
     "start": "npm run build --prefix client && npm run start --prefix server",
     "test": "npm run test --prefix server && npm run test:client && npm run test:b3d-converter",
-    "test:b3d-converter": "pip install -q -e ./tools/b3d-converter[dev] && cd tools/b3d-converter && python -m pytest -q",
+    "test:b3d-converter": "python3 -m pip install -q ./tools/b3d-converter[dev] && cd tools/b3d-converter && python3 -m pytest -q",
     "test:coverage": "npm run test:coverage --prefix server",
     "test:coverage:check": "node scripts/check-coverage.mjs",
     "test:client": "node --test client/test/*.test.js",

@@ -1,5 +1,8 @@
 import { buildOrderGodmode, buildPositionGodmode } from "@enver/shared/production/godmode.js";
-import { getWorkPositions, workflowPositionsForOrders } from "@enver/shared/production/order-position-model.js";
+import {
+  getWorkPositions,
+  workflowPositionsForOrders
+} from "@enver/shared/production/order-position-model.js";
 import {
   HANDOFF_ACTION_TYPES,
   ORDER_API_ACTION_TYPES,
@@ -59,8 +62,7 @@ function patchAssignConstructorAction(gm) {
     nextAction: {
       ...gm.nextAction,
       allowed: false,
-      reason:
-        "Призначення конструктора виконує начальник виробництва на вкладці «Конструктори».",
+      reason: "Призначення конструктора виконує начальник виробництва на вкладці «Конструктори».",
       buttonLabel: ""
     }
   };

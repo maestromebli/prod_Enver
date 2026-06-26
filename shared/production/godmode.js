@@ -445,7 +445,8 @@ function shouldRequireManagerData(row, context) {
   if (context.skipManagerDataCheck || context.managerDataComplete === true) return false;
   const stage = field(row, "current_stage", "currentStage") || "constructor";
   if (stage !== "constructor") return false;
-  if (hasConstructive(row) && (context?.packageStatus || context?.hasConstructivePackage)) return false;
+  if (hasConstructive(row) && (context?.packageStatus || context?.hasConstructivePackage))
+    return false;
   return !managerDataReady(row, context);
 }
 
@@ -463,7 +464,9 @@ function isPackageReadyForProduction(row, context = {}) {
   if (status && !isPackagePipelineBlocking(status)) return true;
   const partsCount = num(row, "constructive_parts_count", "constructivePartsCount");
   if (
-    (context.hasConstructivePackage || row.has_constructive_package || row.hasConstructivePackage) &&
+    (context.hasConstructivePackage ||
+      row.has_constructive_package ||
+      row.hasConstructivePackage) &&
     partsCount > 0 &&
     status &&
     !isPackagePipelineBlocking(status)
@@ -1212,7 +1215,11 @@ export function canRunNextAction(entity, action, user, context = {}) {
 
   if (HANDOFF_TYPES.has(action.type)) {
     const canApproveConstructive = Boolean(user?.permissions?.canApproveConstructive);
-    if (!isProduction && !isAdmin && !(action.type === "handoff_to_cutting" && canApproveConstructive)) {
+    if (
+      !isProduction &&
+      !isAdmin &&
+      !(action.type === "handoff_to_cutting" && canApproveConstructive)
+    ) {
       return { allowed: false, reason: "Недостатньо прав для передачі між етапами." };
     }
     const blockers = getPositionBlockers(entity, context);

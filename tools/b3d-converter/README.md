@@ -41,12 +41,12 @@ python -m b3d_converter.worker --input input.b3d --output out/model.glb --report
 
 ## Статуси конвертації
 
-| Статус | Опис |
-|--------|------|
-| `READY` | GLB з детектованої геометрії |
-| `PARTIAL_READY` | Fallback / експериментальна модель — не точна геометрія |
-| `FAILED` | Конвертація не вдалась |
-| `NEED_MANUAL_RESEARCH` | Є preview/report, але надійний GLB не зібрано |
+| Статус                 | Опис                                                    |
+| ---------------------- | ------------------------------------------------------- |
+| `READY`                | GLB з детектованої геометрії                            |
+| `PARTIAL_READY`        | Fallback / експериментальна модель — не точна геометрія |
+| `FAILED`               | Конвертація не вдалась                                  |
+| `NEED_MANUAL_RESEARCH` | Є preview/report, але надійний GLB не зібрано           |
 
 ## Інтеграція з ENVER CRM (Express)
 

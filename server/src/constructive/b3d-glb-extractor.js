@@ -1,13 +1,18 @@
 import zlib from "zlib";
-import { buildPreviewGlbFromPanels, extractProjectPanels, layoutPreviewPanels } from "./project-glb-builder.js";
-import { buildAssemblyGlbFromProject } from "./assembly-glb-builder.js";
 import {
-  extractEnverAssemblyFromB3d,
-  parseAssemblyExportJson
-} from "./parsers/assembly-export.js";
+  buildPreviewGlbFromPanels,
+  extractProjectPanels,
+  layoutPreviewPanels
+} from "./project-glb-builder.js";
+import { buildAssemblyGlbFromProject } from "./assembly-glb-builder.js";
+import { extractEnverAssemblyFromB3d, parseAssemblyExportJson } from "./parsers/assembly-export.js";
 
 const GLB_MAGIC = 0x46546c67;
-const ZLIB_SIGNATURES = [Buffer.from([0x78, 0x9c]), Buffer.from([0x78, 0xda]), Buffer.from([0x78, 0x01])];
+const ZLIB_SIGNATURES = [
+  Buffer.from([0x78, 0x9c]),
+  Buffer.from([0x78, 0xda]),
+  Buffer.from([0x78, 0x01])
+];
 
 function isGlbBuffer(buf) {
   return buf && buf.length >= 12 && buf.readUInt32LE(0) === GLB_MAGIC;

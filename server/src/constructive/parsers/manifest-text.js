@@ -96,7 +96,16 @@ export function manifestNodesFromProjectXml(text, source = "project_xml") {
     while ((m = re.exec(text))) {
       const attrs = m[1] || "";
       const partNo =
-        pickXmlAttr(attrs, ["code", "part.code", "Number", "Num", "PartNo", "PartNumber", "No", "Index"]) ||
+        pickXmlAttr(attrs, [
+          "code",
+          "part.code",
+          "Number",
+          "Num",
+          "PartNo",
+          "PartNumber",
+          "No",
+          "Index"
+        ]) ||
         pickXmlAttr(attrs, ["Id"]) ||
         "";
       const partName = pickXmlAttr(attrs, ["name", "Name", "Title", "Caption", "Label"]) || "";

@@ -42,9 +42,7 @@ function parsePanelRow(row) {
 /** JSON збірки з Базіс (або enver-assembly.json). */
 export function parseAssemblyExportJson(text) {
   const data = typeof text === "string" ? JSON.parse(text) : text;
-  const panels = (data?.panels || [])
-    .map(parsePanelRow)
-    .filter(Boolean);
+  const panels = (data?.panels || []).map(parsePanelRow).filter(Boolean);
   if (!panels.length) {
     const err = new Error("У файлі збірки немає панелей з координатами");
     err.code = "EMPTY_ASSEMBLY";

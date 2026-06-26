@@ -6,3 +6,5 @@ releases
 package-lock.json
 *.min.js
 .github
+tools/b3d-converter/out
+tools/b3d-converter/.pytest_cache

@@ -169,9 +169,7 @@ router.get("/:assetId/original", (req, res) =>
 router.get("/:assetId/web-model", (req, res) =>
   streamAssetFile(req, res, "web_model_storage_path")
 );
-router.get("/:assetId/preview", (req, res) =>
-  streamAssetFile(req, res, "preview_storage_path")
-);
+router.get("/:assetId/preview", (req, res) => streamAssetFile(req, res, "preview_storage_path"));
 router.get("/:assetId/report", async (req, res) => {
   if (!canViewB3DReport(req.user)) {
     res.status(403).json({ error: "Недостатньо прав для B3D report" });

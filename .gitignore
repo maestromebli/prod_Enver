@@ -19,3 +19,7 @@ playwright-report/
 
 # Локальні завантаження (dev)
 /data/
+
+# B3D converter — локальні артефакти RE
+tools/b3d-converter/out/
+tools/b3d-converter/.pytest_cache/
