@@ -243,16 +243,32 @@ body.view-operator .app {
 
 .op-stage-tab.is-active {
   color: #fff;
-  background: linear-gradient(
+  background-color: var(--tab-accent, #3d8f5c);
+  background-image: linear-gradient(
     135deg,
-    var(--tab-accent),
-    color-mix(in srgb, var(--tab-accent) 75%, #000)
+    var(--tab-accent, #3d8f5c),
+    color-mix(in srgb, var(--tab-accent, #3d8f5c) 75%, #000)
   );
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--tab-accent) 35%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--tab-accent, #3d8f5c) 35%, transparent);
 }
 
 .op-stage-tab.is-active .op-stage-tab-icon {
   opacity: 1;
+}
+
+.op-supervisor-banner {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: var(--op-radius-sm);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a5f;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.op-supervisor-banner strong {
+  color: #0f2d4d;
 }
 
 /* Layout */

@@ -280,6 +280,20 @@
   background: var(--op-surface-2);
 }
 
+[data-theme="dark"] .op-supervisor-banner {
+  background: #1e3a5f;
+  border-color: #3b82f6;
+  color: #e0f2fe;
+}
+
+[data-theme="dark"] .op-supervisor-banner strong {
+  color: #f0f9ff;
+}
+
+[data-theme="dark"] body.operator-client-mode {
+  background: #0c1018;
+}
+
 /* install calendar */
 [data-theme="dark"] .install-mode-switch,
 [data-theme="dark"] .orders-mode-switch,
