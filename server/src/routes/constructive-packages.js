@@ -146,8 +146,21 @@ router.post("/:packageId/analyze-ai", requireConstructorDeskWrite, async (req, r
   }
 });
 
+async function assertPackageForPosition(packageId, positionId) {
+  const pkgRow = await one(`SELECT position_id FROM constructive_packages WHERE id = $1`, [
+    packageId
+  ]);
+  return pkgRow && Number(pkgRow.position_id) === positionId;
+}
+
 router.get("/:packageId", requirePositionAccess, async (req, res) => {
-  const detail = await getPackageDetail(Number(req.params.packageId));
+  const packageId = Number(req.params.packageId);
+  const positionId = Number(req.params.id);
+  if (!(await assertPackageForPosition(packageId, positionId))) {
+    res.status(404).json({ error: "Пакет не знайдено" });
+    return;
+  }
+  const detail = await getPackageDetail(packageId);
   if (!detail) {
     res.status(404).json({ error: "Пакет не знайдено" });
     return;
@@ -271,6 +284,11 @@ async function sendPackageFileDownload(res, packageId, fileId) {
 router.get("/:packageId/files/:fileId", requirePositionAccess, async (req, res) => {
   const packageId = Number(req.params.packageId);
   const fileId = Number(req.params.fileId);
+  const positionId = Number(req.params.id);
+  if (!(await assertPackageForPosition(packageId, positionId))) {
+    res.status(404).json({ error: "Файл не знайдено" });
+    return;
+  }
   try {
     await sendPackageFileDownload(res, packageId, fileId);
   } catch (err) {
@@ -332,9 +350,19 @@ packageFilesRouter.use(requireAuth, requirePositionAccess);
 packageFilesRouter.get("/:packageId/files/:fileId", async (req, res) => {
   const packageId = Number(req.params.packageId);
   const fileId = Number(req.params.fileId);
-  try {
-    await sendPackageFileDownload(res, packageId, fileId);
-  } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
+  const pkgRow = await one(`SELECT position_id FROM constructive_packages WHERE id = $1`, [
+    packageId
+  ]);
+  if (!pkgRow) {
+    res.status(404).json({ error: "Файл не знайдено" });
+    return;
   }
+  const positionId = Number(pkgRow.position_id);
+  const token = req.query.access_token
+    ? `?access_token=${encodeURIComponent(String(req.query.access_token))}`
+    : "";
+  res.redirect(
+    307,
+    `/api/positions/${positionId}/constructive-packages/${packageId}/files/${fileId}${token}`
+  );
 });

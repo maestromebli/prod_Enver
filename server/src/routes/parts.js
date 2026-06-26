@@ -44,7 +44,7 @@ async function buildScanResponse(part) {
 
   const host = config.domain ? `https://${config.domain}` : "";
   const viewerUrl = previewFile
-    ? `${host}/api/constructive/packages/${part.packageId}/files/${previewFile.id}`
+    ? `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${previewFile.id}`
     : null;
 
   return {
@@ -68,7 +68,7 @@ async function buildScanResponse(part) {
       manifest: detail?.manifest?.manifestJson || null,
       mapped: Boolean(part.modelNodeId || part.modelMeshName),
       assemblyPdfUrl: pdfFile
-        ? `${host}/api/constructive/packages/${part.packageId}/files/${pdfFile.id}`
+        ? `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${pdfFile.id}`
         : null
     },
     nextAction: part.cncStatus === "in_progress" ? "finish_cnc" : "start_cnc"

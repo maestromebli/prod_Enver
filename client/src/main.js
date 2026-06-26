@@ -89,7 +89,7 @@ import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { initModalFocusTraps } from "./focus-trap.js";
 import { resolveDashboardNav } from "./dashboard-routes.js";
 import { setListFilters } from "./filters.js";
-import { $ } from "./utils.js";
+import { $, escapeHtml } from "./utils.js";
 import "./styles/manager-entry.css";
 
 import { setAppLoading } from "./loading-ui.js";
@@ -419,7 +419,7 @@ async function loadData({ silent = false, preserveScroll = false } = {}) {
   } catch (err) {
     $("#content").innerHTML = `
       <div class="note" style="border-color:#fecaca;background:#fef2f2;color:#991b1b">
-        Не вдалося завантажити дані: ${err.message}. Запустіть сервер командою <code>npm run dev</code> у корені проєкту.
+        Не вдалося завантажити дані: ${escapeHtml(err.message)}. Запустіть сервер командою <code>npm run dev</code> у корені проєкту.
       </div>
     `;
   } finally {
@@ -841,3 +841,9 @@ async function bootstrap() {
 
 bootstrap();
 watchAppBuildUpdates();
+
+window.addEventListener("enver:session-expired", async () => {
+  await logout();
+  showLoginModal(true);
+  renderApp();
+});

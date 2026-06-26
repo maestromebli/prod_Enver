@@ -1,7 +1,8 @@
 import { escapeHtml } from "../utils.js";
 import { ORDER_3D_STATUS_LABELS } from "@enver/shared/production/order-3d.js";
+import { order3dFileUrl } from "./order-3d-api.js";
 
-export function renderOrder3DStatusCard(asset) {
+export function renderOrder3DStatusCard(asset, orderId) {
   if (!asset) return "";
 
   const label = ORDER_3D_STATUS_LABELS[asset.status] || asset.status;
@@ -46,7 +47,7 @@ export function renderOrder3DStatusCard(asset) {
              ${asset.errorMessage ? `<p class="enver-meta">${escapeHtml(asset.errorMessage)}</p>` : ""}
              ${
                asset.previewImageUrl
-                 ? `<div class="order-3d-preview-fallback"><img src="${escapeHtml(asset.previewImageUrl)}" alt="PNG превʼю з .b3d" class="order-3d-preview-img" /></div>`
+                 ? `<div class="order-3d-preview-fallback"><img src="${escapeHtml(order3dFileUrl(orderId ?? asset.orderId, asset.id, "preview"))}" alt="PNG превʼю з .b3d" class="order-3d-preview-img" /></div>`
                  : ""
              }`
           : ""

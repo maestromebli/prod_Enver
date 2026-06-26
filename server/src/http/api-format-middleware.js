@@ -7,7 +7,7 @@ export function apiFormatMiddleware(req, res, next) {
     if (body === null || body === undefined) {
       return originalJson(body);
     }
-    if (typeof body === "object" && "ok" in body) {
+    if (typeof body === "object" && "ok" in body && ("data" in body || "error" in body)) {
       return originalJson(body);
     }
     if (typeof body === "object" && "error" in body) {

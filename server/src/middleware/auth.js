@@ -8,7 +8,10 @@ const QUERY_TOKEN_PATHS = [
   /^\/api\/positions\/\d+\/constructive-file\/\d+$/,
   /^\/api\/constructor-desk\/positions\/\d+\/files\/\d+$/,
   /^\/api\/positions\/\d+\/files\/\d+\/download$/,
-  /^\/api\/orders\/\d+\/3d\/\d+\/(original|web-model|preview)$/
+  /^\/api\/positions\/\d+\/part-labels$/,
+  /^\/api\/positions\/\d+\/constructive-packages\/\d+\/files\/\d+$/,
+  /^\/api\/constructive\/packages\/\d+\/files\/\d+$/,
+  /^\/api\/orders\/\d+\/3d\/\d+\/(original|web-model|preview|report)$/
 ];
 
 function allowQueryToken(method, path) {
@@ -41,6 +44,31 @@ export function canAccessPositions(user) {
     p.canWorkConstructorDesk ||
     p.canManageConstructorDesk
   );
+}
+
+/** Список замовлень/позицій — не для чистого оператора цеху. */
+export function canViewBusinessData(user) {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  const p = user.permissions || {};
+  return Boolean(
+    p.canEditOrders ||
+    p.canEditPositions ||
+    p.canViewProductionFloor ||
+    p.canWorkConstructorDesk ||
+    p.canManageConstructorDesk ||
+    p.canManageProcurement ||
+    p.canReviewConstructive ||
+    p.canApproveConstructive
+  );
+}
+
+export function requireBusinessDataAccess(req, res, next) {
+  if (canViewBusinessData(req.user)) {
+    next();
+    return;
+  }
+  forbidden(res, "Недостатньо прав для перегляду замовлень і позицій");
 }
 
 function forbidden(res, message = "Недостатньо прав доступу") {

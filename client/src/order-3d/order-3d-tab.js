@@ -75,7 +75,7 @@ export function renderOrder3DTab(order, asset) {
   return `<section class="order-3d-tab" data-order-3d-tab data-order-3d-asset-id="${asset.id}">
     <div class="order-3d-layout">
       <div class="order-3d-main">
-        ${renderOrder3DStatusCard(asset)}
+        ${renderOrder3DStatusCard(asset, orderId)}
         ${
           isReady
             ? `<div class="order-3d-viewer-wrap card">

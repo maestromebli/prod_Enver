@@ -89,6 +89,18 @@ describe("apiFormatMiddleware", () => {
     res.json(payload);
     assert.deepEqual(res.body, payload);
   });
+
+  it("обгортає legacy success з полем ok без data/error", () => {
+    const req = {};
+    const res = mockRes();
+    res.json = res.json.bind(res);
+    apiFormatMiddleware(req, res, () => {});
+    res.json({ ok: true, cncStatus: "in_progress" });
+    assert.deepEqual(res.body, {
+      ok: true,
+      data: { ok: true, cncStatus: "in_progress" }
+    });
+  });
 });
 
 describe("json-utils", () => {

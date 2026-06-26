@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { clearOrderDetailViewState } from "./order-detail.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
-import { $, fillSelect, showFormError } from "./utils.js";
+import { $, fillSelect, showFormError, escapeHtml } from "./utils.js";
 
 let onSaved = () => {};
 
@@ -20,7 +20,9 @@ function showError(message) {
 
 function fillDatalists() {
   const managers = state.directories["Менеджери"] || [];
-  $("#managersList").innerHTML = managers.map((m) => `<option value="${m}"></option>`).join("");
+  $("#managersList").innerHTML = managers
+    .map((m) => `<option value="${escapeHtml(m)}"></option>`)
+    .join("");
 }
 
 function syncOrderModalChrome(order = null) {

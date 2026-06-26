@@ -44,7 +44,7 @@ import {
   schedulePersistUiState
 } from "./ui-persistence.js";
 import { setAppLoading } from "./loading-ui.js";
-import { $ } from "./utils.js";
+import { $, escapeHtml } from "./utils.js";
 import { initModalFocusTraps } from "./focus-trap.js";
 import "./styles/operator-entry.css";
 
@@ -100,7 +100,7 @@ async function refreshOperatorData({ silent = false } = {}) {
   } catch (err) {
     toastError(err.message);
     const content = $("#content");
-    if (content) content.innerHTML = `<div class="note">${err.message}</div>`;
+    if (content) content.innerHTML = `<div class="note">${escapeHtml(err.message)}</div>`;
   } finally {
     if (!silent) setLoading(false);
   }
@@ -248,5 +248,11 @@ async function startOperatorApp() {
   await bootstrap();
   registerOperatorServiceWorker();
 }
+
+window.addEventListener("enver:session-expired", async () => {
+  await logout();
+  showLoginModal(true);
+  renderOperatorClient();
+});
 
 startOperatorApp();

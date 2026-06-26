@@ -69,6 +69,9 @@ async function request(path, options = {}) {
       raw?.error?.message ||
       (typeof raw?.error === "string" ? raw.error : null) ||
       "Сесія закінчилась — увійдіть знову";
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("enver:session-expired", { detail: { message: msg } }));
+    }
     throw new Error(msg);
   }
 

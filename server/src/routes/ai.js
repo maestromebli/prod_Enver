@@ -5,6 +5,7 @@ import {
   requireAdmin,
   requireAuth,
   requirePermissionOrAdmin,
+  requirePositionAccess,
   requirePositionWrite,
   auditActor
 } from "../middleware/auth.js";
@@ -75,7 +76,7 @@ router.post("/analyze-constructive/:positionId", requirePositionWrite, async (re
   res.status(400).json({ error: "Спочатку завантажте файл конструктива" });
 });
 
-router.get("/analyses/:positionId", async (req, res) => {
+router.get("/analyses/:positionId", requirePositionAccess, async (req, res) => {
   const positionId = Number(req.params.positionId);
   const analyses = await listAnalysesForPosition(positionId);
   res.json(analyses);
@@ -91,7 +92,7 @@ router.get("/status", async (_req, res) => {
   res.json({ ...status, available: status.enabled && status.hasApiKey });
 });
 
-router.post("/assist", async (req, res) => {
+router.post("/assist", requirePermissionOrAdmin("canEditPositions"), async (req, res) => {
   const { mode = "hints", message, context, history } = req.body || {};
 
   if (mode === "chat") {

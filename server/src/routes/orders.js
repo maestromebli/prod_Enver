@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { all, one, run, withTransaction } from "../db.js";
 import { logOrderCreate, logOrderUpdate } from "../audit.js";
-import { auditActor, requireAuth, requireOrderWrite } from "../middleware/auth.js";
+import {
+  auditActor,
+  requireAuth,
+  requireOrderWrite,
+  requireBusinessDataAccess
+} from "../middleware/auth.js";
 import { mapOrder, orderToDb } from "../mappers.js";
 import { bootstrapOrderPositions, syncOrderStatusWorkflow } from "../order-status-sync.js";
 import { normalizeOrderSubItems } from "../order-status-workflow.js";
@@ -75,7 +80,7 @@ async function archiveOrderPositions(orderId) {
   );
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", requireBusinessDataAccess, async (_req, res) => {
   const rows = await all("SELECT * FROM orders ORDER BY id");
   const positionRows = await all(`${ORDER_POSITIONS_SELECT} FROM positions p`);
   const planMap = new Map(rows.map((o) => [o.order_number, o.plan_date]));
@@ -101,7 +106,7 @@ router.get("/", async (_req, res) => {
   );
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireBusinessDataAccess, async (req, res) => {
   const row = await one("SELECT * FROM orders WHERE id = $1", [req.params.id]);
   if (!row) {
     res.status(404).json({ error: "Замовлення не знайдено" });

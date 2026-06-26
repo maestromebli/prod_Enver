@@ -7,7 +7,12 @@ import {
   logPositionUpdate,
   logStageChangeWithAutoHandoffs
 } from "../audit.js";
-import { auditActor, requireAuth, requirePositionWrite } from "../middleware/auth.js";
+import {
+  auditActor,
+  requireAuth,
+  requirePositionWrite,
+  requireBusinessDataAccess
+} from "../middleware/auth.js";
 import {
   STAGE_PATCH_MAP,
   applyStageHandoff,
@@ -162,7 +167,7 @@ registerManagerRoutes(router, routeCtx);
 router.use("/:id/constructive-packages", constructivePackageRouter);
 registerConstructivePackagePositionRoutes(router);
 
-router.get("/", async (_req, res) => {
+router.get("/", requireBusinessDataAccess, async (_req, res) => {
   const planMap = await planDateByOrderNumber();
   const rows = await all(
     `${POSITION_SELECT}
@@ -210,7 +215,7 @@ router.get("/:id/qr", async (req, res) => {
   res.type("image/svg+xml").send(svg);
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireBusinessDataAccess, async (req, res) => {
   const row = await one(`${POSITION_SELECT} WHERE p.id = $1`, [req.params.id]);
   if (!row) {
     res.status(404).json({ error: "Позицію не знайдено" });
