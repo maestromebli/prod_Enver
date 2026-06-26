@@ -182,7 +182,10 @@ jobs:
       - name: Smoke Docker (PR)
         if: github.event_name == 'pull_request'
         run: |
-          docker run -d --name enver-smoke -p 13000:3000 -e NODE_ENV=development enver:ci
+          docker run -d --name enver-smoke -p 13000:3000 \
+            -e NODE_ENV=development \
+            -e UPLOADS_DIR=/tmp/enver-uploads \
+            enver:ci
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:13000/api/health | grep -q '"ok":true'; then
               docker rm -f enver-smoke
@@ -213,7 +216,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           IMAGE="${{ steps.repo.outputs.name }}:${{ github.sha }}"
-          docker run -d --name enver-smoke-main -p 13001:3000 -e NODE_ENV=development "$IMAGE"
+          docker run -d --name enver-smoke-main -p 13001:3000 \
+            -e NODE_ENV=development \
+            -e UPLOADS_DIR=/tmp/enver-uploads \
+            "$IMAGE"
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:13001/api/health | grep -q '"ok":true'; then
               docker rm -f enver-smoke-main
