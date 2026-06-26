@@ -22,6 +22,7 @@ import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-d
 import { loadProductionFloor } from "./production-floor.js";
 import { loadProcurementList } from "./procurement-view.js";
 import { toastError } from "./toast.js";
+import { syncOperatorBuildChip } from "./operator-ui.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
 import { loadGlobalHistory } from "./history.js";
 import {
@@ -802,6 +803,7 @@ async function applyProductionUi() {
 }
 
 async function bootstrap() {
+  void syncOperatorBuildChip("appBuildChip");
   applyProductionUi();
   const hasToken = Boolean(localStorage.getItem("enver_token"));
   if (hasToken && loadStoredUser()) {
