@@ -36,30 +36,25 @@ const PACKAGE_ACTIONS = {
     label: "Перевірити конструктив",
     buttonLabel: "Перевірити"
   },
-  finance_ready: {
-    type: "review_constructive",
-    label: "Перевірити конструктив",
-    buttonLabel: "Перевірити"
-  },
   approved_by_constructor: {
-    type: "send_to_gitlab",
-    label: "Відправити в GitLab / ЧПК",
-    buttonLabel: "GitLab"
+    type: "release_to_cnc",
+    label: "Передати на верстат",
+    buttonLabel: "На верстат"
   },
   approved_by_production: {
-    type: "send_to_gitlab",
-    label: "Відправити в GitLab / ЧПК",
-    buttonLabel: "GitLab"
+    type: "release_to_cnc",
+    label: "Передати на верстат",
+    buttonLabel: "На верстат"
   },
   cnc_ready: {
-    type: "send_to_gitlab",
-    label: "Відправити в GitLab / ЧПК",
-    buttonLabel: "GitLab"
+    type: "release_to_cnc",
+    label: "Передати на верстат",
+    buttonLabel: "На верстат"
   },
-  sent_to_gitlab: {
-    type: "print_part_labels",
-    label: "Надрукувати етикетки деталей",
-    buttonLabel: "Етикетки"
+  sent_to_cnc: {
+    type: "release_to_cnc",
+    label: "Передати на верстат",
+    buttonLabel: "На верстат"
   },
   released_to_cnc: {
     type: "handoff_to_cutting",

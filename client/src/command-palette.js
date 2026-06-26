@@ -28,7 +28,11 @@ const COMMANDS = [
   { id: "operator", label: "Панель цеху", run: () => handlers.openOperatorPanel?.() },
   { id: "settings", label: "Відкрити налаштування", run: () => handlers.openSettings?.() },
   { id: "orders", label: "Замовлення", run: () => handlers.setTab?.("Замовлення") },
-  { id: "positions", label: "Позиції", run: () => handlers.setTab?.("Позиції") },
+  {
+    id: "positions",
+    label: "Позиції",
+    run: () => handlers.setTab?.("Замовлення", { ordersDisplayMode: "positions" })
+  },
   {
     id: "upload",
     label: "Завантажити конструктив",

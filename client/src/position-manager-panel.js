@@ -3,8 +3,9 @@ import {
   MANAGER_FILE_KIND_LABELS
 } from "@enver/shared/production/position-manager-data.js";
 import { api, getStoredToken } from "./api.js";
-import { canEditPositionManagerData } from "./auth.js";
 import { runSave } from "./save-flow.js";
+import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
+import { canEditPositionManagerData } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 
@@ -77,11 +78,14 @@ export function renderPositionManagerPanel(position, bundle = null) {
       deadlines: {},
       comments: {},
       appliances: [],
+      requirements: { needsTech: false, needsLed: false },
       sourceLinks: []
     };
   const files = bundle?.files || position?.managerFiles || [];
   const pct = bundle?.managerDataPercent ?? position?.managerDataPercent ?? 0;
   const complete = bundle?.managerDataComplete ?? position?.managerDataComplete ?? false;
+  const needsTech = Boolean(data.requirements?.needsTech);
+  const needsLed = Boolean(data.requirements?.needsLed);
 
   return `
     <section class="position-manager-panel card" data-position-manager="${position.id}">
@@ -91,6 +95,16 @@ export function renderPositionManagerPanel(position, bundle = null) {
       </header>
 
       <form class="pm-form" data-pm-form="${position.id}">
+        <div class="pm-requirements form-grid span-2">
+          <label class="checkbox-label">
+            <input type="checkbox" id="pmNeedsTech-${position.id}" data-pm-needs-tech ${needsTech ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            Потрібна техніка
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="pmNeedsLed-${position.id}" data-pm-needs-led ${needsLed ? "checked" : ""} ${canEdit ? "" : "disabled"} />
+            Потрібен LED
+          </label>
+        </div>
         <div class="form-grid">
           <div class="form-field span-2">
             <label for="pmDelivery-${position.id}">Адреса доставки *</label>
@@ -138,7 +152,7 @@ export function renderPositionManagerPanel(position, bundle = null) {
         }
       </form>
 
-      <div class="pm-block">
+      <div class="pm-block pm-tech-block" data-pm-tech-block="${position.id}" ${needsTech ? "" : "hidden"}>
         <h4>Техніка / посилання</h4>
         ${renderAppliances(data.appliances)}
         ${
@@ -158,11 +172,16 @@ export function renderPositionManagerPanel(position, bundle = null) {
         ${
           canEdit
             ? `<div class="pm-upload">
-            <div class="pm-drop" data-pm-drop="${position.id}">
-              <p>Перетягніть файли сюди або оберіть</p>
-              <input type="file" multiple data-pm-file-input="${position.id}" />
-            </div>
-            <div class="form-field">
+            ${renderFileUploadZone({
+              zoneAttr: `data-pm-drop="${position.id}"`,
+              inputAttr: `data-pm-file-input="${position.id}"`,
+              compact: true,
+              multiple: true,
+              title: "Додати файли",
+              hint: "Перетягніть або натисніть",
+              formats: "PDF, зображення, документи"
+            })}
+            <div class="form-field pm-upload-kind">
               <label>Тип файлу</label>
               <select data-pm-file-kind="${position.id}">${kindOptions()}</select>
             </div>
@@ -191,6 +210,10 @@ function readForm(positionId) {
       manager: document.getElementById(`pmManagerNotes-${positionId}`)?.value?.trim() || "",
       technical: document.getElementById(`pmTechNotes-${positionId}`)?.value?.trim() || ""
     },
+    requirements: {
+      needsTech: Boolean(document.getElementById(`pmNeedsTech-${positionId}`)?.checked),
+      needsLed: Boolean(document.getElementById(`pmNeedsLed-${positionId}`)?.checked)
+    },
     appliances: panelCache.get(positionId)?.managerData?.appliances || [],
     markComplete: true
   };
@@ -198,12 +221,7 @@ function readForm(positionId) {
 
 async function uploadFiles(positionId, fileList, kind) {
   for (const file of fileList) {
-    const dataBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const dataBase64 = await readFileAsBase64(file);
     await api.uploadPositionManagerFile(positionId, {
       fileName: file.name,
       mime: file.type,
@@ -216,6 +234,14 @@ async function uploadFiles(positionId, fileList, kind) {
 export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
   const panel = root.querySelector(`[data-position-manager="${positionId}"]`);
   if (!panel) return;
+
+  const syncTechBlockVisibility = () => {
+    const needsTech = Boolean(document.getElementById(`pmNeedsTech-${positionId}`)?.checked);
+    const block = panel.querySelector(`[data-pm-tech-block="${positionId}"]`);
+    if (block) block.hidden = !needsTech;
+  };
+
+  panel.querySelector(`[data-pm-needs-tech]`)?.addEventListener("change", syncTechBlockVisibility);
 
   panel.querySelector(`[data-pm-form="${positionId}"]`)?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -259,30 +285,21 @@ export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
     });
   });
 
-  const drop = panel.querySelector(`[data-pm-drop="${positionId}"]`);
-  const input = panel.querySelector(`[data-pm-file-input="${positionId}"]`);
+  const dropSelector = `[data-pm-drop="${positionId}"]`;
   const kindSelect = panel.querySelector(`[data-pm-file-kind="${positionId}"]`);
 
-  async function handleFiles(files) {
-    if (!files?.length) return;
-    const kind = kindSelect?.value || "manager_other";
-    await runSave("Файли", {
-      saveFn: () => uploadFiles(positionId, files, kind),
-      successMessage: "Файли завантажено",
-      onSuccess: () => onSaved?.()
-    }).catch(() => {});
-  }
-
-  input?.addEventListener("change", () => handleFiles(input.files));
-  drop?.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    drop.classList.add("pm-drop--active");
-  });
-  drop?.addEventListener("dragleave", () => drop.classList.remove("pm-drop--active"));
-  drop?.addEventListener("drop", (e) => {
-    e.preventDefault();
-    drop.classList.remove("pm-drop--active");
-    handleFiles(e.dataTransfer?.files);
+  bindFileUploadZone(panel, {
+    zoneSelector: dropSelector,
+    inputSelector: `[data-pm-file-input="${positionId}"]`,
+    multiple: true,
+    onFile: async (file) => {
+      const kind = kindSelect?.value || "manager_other";
+      await runSave("Файли", {
+        saveFn: () => uploadFiles(positionId, [file], kind),
+        successMessage: "Файл завантажено",
+        onSuccess: () => onSaved?.()
+      }).catch(() => {});
+    }
   });
 }
 

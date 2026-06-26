@@ -1,25 +1,19 @@
 import { canEditPositions } from "./auth.js";
 import { openInstallScheduleModal } from "./install-schedule-modal.js";
-import { READY_STATUS, ON_INSTALL_STATUS } from "./install-utils.js";
+import { formatInstallPeriod, READY_STATUS, ON_INSTALL_STATUS } from "./install-utils.js";
 import { escapeHtml } from "./utils.js";
 
 /** Вкладка «Монтаж» у картці позиції замовлення. */
 export function renderPositionInstallPanel(position) {
   const installDate = position.installDate || "";
-  const installEnd = position.installDateEnd || position.installEndDate || "";
-  const installer = position.installer || "";
+  const installer = position.installResponsible || "";
   const status = position.positionStatus || "";
   const ready =
     status === READY_STATUS ||
     status === ON_INSTALL_STATUS ||
     String(status).toLowerCase().includes("встановлення");
 
-  const range =
-    installDate && installEnd && installEnd !== installDate
-      ? `${escapeHtml(installDate)} — ${escapeHtml(installEnd)}`
-      : installDate
-        ? escapeHtml(installDate)
-        : "—";
+  const range = escapeHtml(formatInstallPeriod(position));
 
   return `
     <section class="position-install-panel card">
@@ -27,7 +21,7 @@ export function renderPositionInstallPanel(position) {
       <div class="order-install-summary">
         <div class="order-install-stat">
           <span class="enver-kpi-value">${range}</span>
-          <span class="enver-kpi-label">Дата монтажу</span>
+          <span class="enver-kpi-label">Період монтажу</span>
         </div>
         <div class="order-install-stat">
           <span class="enver-kpi-value">${installer ? escapeHtml(installer) : "—"}</span>
@@ -48,7 +42,7 @@ export function renderPositionInstallPanel(position) {
       ${
         canEditPositions()
           ? `<button type="button" class="btn btn-sm btn-primary" data-schedule-install="${position.id}">
-              ${installDate ? "Змінити дату монтажу" : "Запланувати монтаж"}
+              ${installDate ? "Змінити період" : "Запланувати монтаж"}
             </button>`
           : ""
       }

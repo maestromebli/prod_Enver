@@ -7,7 +7,8 @@ const QUERY_TOKEN_PATHS = [
   /^\/api\/positions\/\d+\/constructive-file$/,
   /^\/api\/positions\/\d+\/constructive-file\/\d+$/,
   /^\/api\/constructor-desk\/positions\/\d+\/files\/\d+$/,
-  /^\/api\/positions\/\d+\/files\/\d+\/download$/
+  /^\/api\/positions\/\d+\/files\/\d+\/download$/,
+  /^\/api\/positions\/\d+\/constructive-packages\/\d+\/files\/\d+$/
 ];
 
 function allowQueryToken(method, path) {
@@ -111,6 +112,16 @@ export function requirePositionAccess(req, res, next) {
     return;
   }
   forbidden(res, "Недостатньо прав для доступу до позицій");
+}
+
+/** Завантаження та розбір пакета конструктива — лише стіл конструктора. */
+export function requireConstructorDeskWrite(req, res, next) {
+  const p = req.user?.permissions || {};
+  if (req.user?.role === "admin" || p.canWorkConstructorDesk || p.canManageConstructorDesk) {
+    next();
+    return;
+  }
+  forbidden(res, "Завантаження пакета доступне лише на столі конструктора");
 }
 
 /** Повний CRUD позицій або PATCH етапу в межах своїх stages (оператор). */

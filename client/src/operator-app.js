@@ -22,7 +22,7 @@ import {
   openOperatorView,
   renderOperatorView
 } from "./operator-panel.js";
-import { bindOperatorScanPanel, syncOperatorClientScanButton } from "./part-scan.js";
+import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
@@ -45,6 +45,7 @@ import {
 } from "./ui-persistence.js";
 import { setAppLoading } from "./loading-ui.js";
 import { $ } from "./utils.js";
+import "./styles/operator-entry.css";
 
 function setLoading(visible, options) {
   setAppLoading(visible, options);
@@ -84,7 +85,7 @@ function renderOperatorClient() {
   if (content) content.innerHTML = renderOperatorView();
   bindOperatorQueueSwipe();
   bindOperatorScanPanel(state.operatorStage);
-  syncOperatorClientScanButton(state.operatorStage);
+  syncOperatorClientScanButtons(state.operatorStage);
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
   schedulePersistUiState();

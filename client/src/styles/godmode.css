@@ -19,8 +19,8 @@
   color: var(--enver-danger, #c41e3a);
 }
 .godmode-health--overdue {
-  background: #fdecec;
-  color: #9a3412;
+  background: var(--enver-danger-soft, #fdecec);
+  color: var(--enver-warning, #9a3412);
 }
 .godmode-attention {
   display: inline-flex;
@@ -28,8 +28,8 @@
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
-  background: #fff4e5;
-  color: #b45309;
+  background: var(--enver-warning-soft, #fff4e5);
+  color: var(--enver-warning, #b45309);
 }
 .godmode-summary {
   margin-bottom: 12px;
@@ -56,20 +56,21 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: var(--enver-primary-soft, linear-gradient(135deg, #eef6ff, #f8fbff));
-  border: 1px solid var(--enver-border, #dbeafe);
+  background: var(--enver-primary-soft, #e2efe7);
+  border: 1px solid
+    color-mix(in srgb, var(--enver-primary, #245c3b) 22%, var(--enver-border, #dfe4d8));
   margin-top: 10px;
 }
 .godmode-next-banner--blocked {
   background: var(--enver-danger-soft, #fef2f2);
-  border-color: #fecaca;
+  border-color: color-mix(in srgb, var(--enver-danger, #b42318) 28%, var(--enver-border));
 }
 .godmode-next-kicker {
   display: block;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--enver-text-muted, #64748b);
 }
 .godmode-next-label {
   display: block;
@@ -79,10 +80,10 @@
 .godmode-next-reason {
   margin: 4px 0 0;
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--enver-text-muted, #64748b);
 }
 .godmode-next-reason {
-  color: #b45309;
+  color: var(--enver-warning, #b45309);
 }
 .godmode-warnings,
 .godmode-blockers {
@@ -94,7 +95,7 @@
 .godmode-blocker {
   padding: 6px 0;
   font-size: 0.85rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--enver-border, #f1f5f9);
 }
 .godmode-blocker strong {
   color: var(--enver-danger, #c41e3a);
@@ -106,9 +107,9 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--enver-border, #e2e8f0);
   border-radius: 10px;
-  background: #fff;
+  background: var(--enver-surface, #fff);
   text-align: left;
   cursor: pointer;
 }
@@ -124,17 +125,17 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 10px;
-  border: 1px solid var(--enver-accent, #0071e3);
-  background: var(--enver-accent-soft, #eff6ff);
-  color: var(--enver-accent, #0071e3);
+  border: 1px solid var(--enver-primary, #245c3b);
+  background: var(--enver-primary-soft, #e2efe7);
+  color: var(--enver-primary, #245c3b);
   cursor: pointer;
 }
 .pf-godmode-run:hover {
-  background: var(--enver-accent, #0071e3);
+  background: var(--enver-primary, #245c3b);
   color: #fff;
 }
 .pf-godmode-row span {
   flex: 1;
-  color: #64748b;
+  color: var(--enver-text-muted, #64748b);
   font-size: 0.85rem;
 }

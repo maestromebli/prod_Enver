@@ -52,11 +52,11 @@ function ensureModal() {
           </div>
           <div class="form-grid">
             <div class="form-field">
-              <label for="installScheduleDateStart">Початок (день)</label>
+              <label for="installScheduleDateStart">з</label>
               <input id="installScheduleDateStart" type="date" required />
             </div>
             <div class="form-field">
-              <label for="installScheduleDateEnd">Кінець (день)</label>
+              <label for="installScheduleDateEnd">по</label>
               <input id="installScheduleDateEnd" type="date" required />
             </div>
             <div class="form-field span-2">

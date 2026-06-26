@@ -445,7 +445,7 @@ export async function parseConstructivePackage(packageId, actor) {
       await client.query(
         `INSERT INTO model_manifests (package_id, source_file_id, glb_file_id, manifest_json)
          VALUES ($1, $2, $2, $3)`,
-        [packageId, glbFile?.id || null, glbFile?.id || null, manifestPayload]
+        [packageId, glbFile?.id || null, manifestPayload]
       );
     }
 

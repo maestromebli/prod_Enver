@@ -1,7 +1,7 @@
 /* ENVER v2 — дизайн-токени (office + operator) */
 
 :root {
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-xs: 6px;
@@ -19,35 +19,35 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-soft: #eff6ff;
-  --success: #16a34a;
-  --success-soft: #ecfdf5;
-  --warning: #f59e0b;
-  --warning-soft: #fffbeb;
-  --danger: #dc2626;
-  --danger-soft: #fef2f2;
+  --accent: #245c3b;
+  --accent-hover: #1d4b31;
+  --accent-soft: #e2efe7;
+  --success: #287a3e;
+  --success-soft: #e1f3e6;
+  --warning: #b7791f;
+  --warning-soft: #fff4da;
+  --danger: #b42318;
+  --danger-soft: #fde7e4;
 
-  --stage-cutting: #d97706;
-  --stage-edging: #2563eb;
-  --stage-drilling: #7c3aed;
-  --stage-assembly: #059669;
+  --stage-cutting: #b7791f;
+  --stage-edging: #285e8e;
+  --stage-drilling: #6b4c9a;
+  --stage-assembly: #287a3e;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --shadow-sm: 0 1px 2px rgba(20, 30, 20, 0.06);
+  --shadow-md: 0 10px 30px rgba(20, 30, 20, 0.08);
+  --shadow-lg: 0 24px 70px rgba(20, 30, 20, 0.12);
 
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.28);
+  --focus-ring: 0 0 0 3px rgba(36, 92, 59, 0.28);
   --transition-fast: 0.15s ease;
   --transition-normal: 0.22s ease;
 }
 
 [data-theme="dark"] {
-  --accent-soft: rgba(37, 99, 235, 0.14);
-  --success-soft: rgba(22, 163, 74, 0.12);
-  --warning-soft: rgba(245, 158, 11, 0.12);
-  --danger-soft: rgba(220, 38, 38, 0.12);
+  --accent-soft: rgba(36, 92, 59, 0.14);
+  --success-soft: rgba(40, 122, 62, 0.12);
+  --warning-soft: rgba(183, 121, 31, 0.12);
+  --danger-soft: rgba(180, 35, 24, 0.12);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.28);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.35);

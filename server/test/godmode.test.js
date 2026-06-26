@@ -57,6 +57,22 @@ describe("godmode", () => {
     assert.equal(next.type, "create_tasks_from_ai");
   });
 
+  it("nextAction без AI після старту виробництва — не run_ai_analysis", () => {
+    const next = getPositionNextAction(
+      basePosition({
+        has_constructive_file: true,
+        cutting_status: "Готово",
+        edging_status: "Готово",
+        drilling_status: "Готово",
+        assembly_status: "Готово",
+        packaging_status: "Готово",
+        position_status: "Готово до встановлення"
+      }),
+      { hasAiAnalysis: false, tasksCreated: true }
+    );
+    assert.equal(next.type, "schedule_install");
+  });
+
   it("handoff cutting → edging", () => {
     const next = getPositionNextAction(
       basePosition({
@@ -104,7 +120,12 @@ describe("godmode", () => {
   it("close_order коли всі позиції завершені", () => {
     const order = { id: 5, orderNumber: "EN-200", manager: "Іван" };
     const positions = [
-      basePosition({ id: 1, orderNumber: "EN-200", order_number: "EN-200", position_status: "Завершено" }),
+      basePosition({
+        id: 1,
+        orderNumber: "EN-200",
+        order_number: "EN-200",
+        position_status: "Завершено"
+      }),
       basePosition({
         id: 2,
         parentId: 1,

@@ -19,14 +19,18 @@ import {
 } from "./role-notifications.js";
 import { runSave } from "./save-flow.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
+import { iconSvg, stageIconSvg } from "./icons.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
 import {
   focusOperatorScanInput,
+  isPartScanStage,
+  openOperatorCameraScan,
   renderOperatorScanActionButton,
   renderOperatorScanPanel
 } from "./part-scan.js";
+import { isCuttingOneScreen } from "./operator-ui.js";
 
 async function afterOperatorMutation(result, onChange) {
   const { propagatePositionMutation } = await import("./data-sync.js");
@@ -266,17 +270,6 @@ function stageTheme(key) {
   return STAGE_THEME[key] || STAGE_THEME.cutting;
 }
 
-function stageIconSvg(type) {
-  const icons = {
-    cut: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 3l3 7-3 11M18 3l-3 7 3 11"/></svg>`,
-    edge: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="8" width="18" height="8" rx="1"/></svg>`,
-    drill: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/></svg>`,
-    assembly: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg>`,
-    pack: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.7L12 12.5l8.7-4.8M12 22V12.5"/></svg>`
-  };
-  return icons[type] || icons.cut;
-}
-
 function userInitials(name) {
   const parts = String(name || "О")
     .trim()
@@ -421,8 +414,10 @@ export function renderOperatorView() {
     .map((p) => renderQueueItem(p, field, freshQueueIds))
     .join("");
 
+  const oneScreenClass = isCuttingOneScreen(stageKey) ? " op-one-screen" : "";
+
   return `
-    <div class="operator-shell v3-operator" data-stage="${escapeHtml(stageKey)}"
+    <div class="operator-shell v3-operator${oneScreenClass}" data-stage="${escapeHtml(stageKey)}"
       style="--op-accent:${theme.accent};--op-gradient:${theme.gradient}">
       <header class="op-header">
         <div class="op-header-brand">
@@ -436,10 +431,18 @@ export function renderOperatorView() {
           <div class="op-avatar">${escapeHtml(userInitials(state.currentUser?.name))}</div>
           <strong>${escapeHtml(state.currentUser?.name || "Оператор")}</strong>
           <div class="op-header-actions">
-            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування деталі за штрихкодом">
-              <span class="op-scan-glyph" aria-hidden="true">▮▮</span><span class="op-scan-label">Сканувати</span>
+            ${
+              isPartScanStage(stageKey)
+                ? `
+            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування штрихридером">
+              <span class="op-scan-glyph" aria-hidden="true">${iconSvg("barcode")}</span><span class="op-scan-label">Сканувати</span>
             </button>
-            <button type="button" class="op-btn-ghost" id="operatorNotifySettingsBtn" title="Сповіщення">🔔</button>
+            <button type="button" class="op-btn-ghost op-btn-camera" id="operatorCameraBtn" title="Сканування камерою">
+              <span class="op-camera-glyph" aria-hidden="true">${iconSvg("camera")}</span><span class="op-camera-label">Камера</span>
+            </button>`
+                : ""
+            }
+            <button type="button" class="op-btn-ghost" id="operatorNotifySettingsBtn" title="Сповіщення" aria-label="Сповіщення">${iconSvg("bell")}</button>
             ${!isOperator() ? '<button type="button" class="op-btn-ghost" id="operatorBackBtn">← Назад</button>' : ""}
             ${isOperator() ? '<button type="button" class="op-btn-ghost op-btn-ghost-danger" id="operatorLogoutBtn">Вийти</button>' : ""}
           </div>
@@ -605,6 +608,10 @@ export function bindOperatorActions(onChange) {
   document.addEventListener("click", async (e) => {
     if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn, #operatorWorkScanBtn")) {
       focusOperatorScanInput();
+      return;
+    }
+    if (e.target.closest("#operatorCameraBtn, #operatorClientCameraBtn, #operatorWorkCameraBtn")) {
+      openOperatorCameraScan(state.operatorStage);
       return;
     }
     if (!e.target.closest(".operator-shell")) return;

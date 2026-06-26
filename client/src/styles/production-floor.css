@@ -1,7 +1,7 @@
 .production-floor {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   max-width: 100%;
   min-width: 0;
 }
@@ -99,7 +99,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 12px 20px;
+  gap: 8px 14px;
 }
 
 .pf-hero .block-title {

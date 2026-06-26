@@ -2,6 +2,7 @@ import { api, getStoredToken } from "./api.js";
 import { ATTENTION_TAB } from "./constants.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
+import { iconSvg } from "./icons.js";
 import {
   emitRoleNotifications,
   primeRoleNotifications,
@@ -54,7 +55,7 @@ export function renderGodmodeNotifyButton() {
   const count = godmodeNotificationCount();
   const badge = count > 0 ? `<span class="gn-badge">${count > 99 ? "99+" : count}</span>` : "";
   return `<button type="button" class="btn-icon gn-bell" id="godmodeNotifyBtn"
-    title="Сповіщення системи" aria-label="Сповіщення системи">${badge}🔔</button>`;
+    title="Сповіщення системи" aria-label="Сповіщення системи">${badge}${iconSvg("bell")}</button>`;
 }
 
 export function renderGodmodeNotifyPanel() {

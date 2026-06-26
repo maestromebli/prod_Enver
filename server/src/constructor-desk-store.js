@@ -11,10 +11,15 @@ import {
   repairConstructorDeskQueue,
   syncOrderStatusAfterConstructorAssignment
 } from "./constructor-desk-queue.js";
-import { getDirectories } from "./directories-store.js";
+import {
+  getDirectories,
+  CONSTRUCTORS_DIRECTORY_KEY,
+  getDirectoryList
+} from "./directories-store.js";
 import { getWorkPositions } from "../../shared/production/order-position-model.js";
 import {
   getPositionManagerBundle,
+  getManagerFileForDownload,
   listManagerFiles,
   saveManagerData,
   uploadManagerFile
@@ -22,18 +27,25 @@ import {
 import {
   defaultManagerDataJson,
   isManagerDataComplete,
-  buildManagerDataFromRow
+  buildManagerDataFromRow,
+  getPositionRequirements
 } from "../../shared/production/position-manager-data.js";
 import {
   isWorkspaceManagerKind,
+  managerKindToWorkspaceKind,
   workspaceKindToManagerKind
 } from "../../shared/production/manager-file-adapter.js";
+import {
+  buildConstructorAssigneesFromDirectory,
+  normalizePersonName,
+  parseConstructorAssigneeValue
+} from "../../shared/production/constructor-assignees.js";
 
-export function normalizePersonName(name) {
-  return String(name || "")
-    .trim()
-    .toLowerCase();
-}
+export {
+  normalizePersonName,
+  buildConstructorAssigneesFromDirectory,
+  parseConstructorAssigneeValue
+};
 
 /** Активні користувачі, чиє ім'я є в довіднику «Конструктори». */
 export function filterUsersByConstructorDirectory(users, directoryNames = []) {
@@ -47,6 +59,7 @@ const POSITION_SELECT = `
   p.position_status, p.progress, p.ready_date,
   p.constructor_user_id, p.constructor_assigned_at, p.constructor_due_at,
   p.constructor_estimated_hours, p.constructor_workspace_json, p.constructor_desk_queued_at,
+  p.manager_data_json,
   u.name AS constructor_user_name,
   o.client AS order_client, o.plan_date AS order_plan_date, o.priority AS order_priority
 `;
@@ -56,7 +69,8 @@ function mapDeskRow(row, files = [], commentCount = 0) {
     item: row.item,
     itemType: row.item_type
   });
-  const completion = workspaceCompletion(workspace, files);
+  const requirements = getPositionRequirements(row);
+  const completion = workspaceCompletion(workspace, files, row);
   return {
     id: row.id,
     parentId: row.parent_id,
@@ -82,6 +96,7 @@ function mapDeskRow(row, files = [], commentCount = 0) {
     orderPlanDate: row.order_plan_date || "",
     orderPriority: row.order_priority || "",
     workspace,
+    requirements,
     completion,
     commentCount,
     managerFilesCount: row.manager_files_count ?? 0,
@@ -100,8 +115,42 @@ function mapFileRow(row) {
     mime: row.mime,
     sizeBytes: Number(row.size_bytes) || 0,
     uploadedBy: row.uploaded_by,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    source: "workspace"
   };
+}
+
+/** Єдиний список файлів столу (position_files + legacy constructor_workspace_files). */
+export async function listDeskWorkspaceFiles(positionId) {
+  const managerFiles = await listManagerFiles(positionId);
+  const seen = new Set();
+  const files = [];
+
+  for (const file of managerFiles) {
+    const workspaceKind = file.legacyKind || managerKindToWorkspaceKind(file.kind);
+    if (!workspaceKind || !isWorkspaceManagerKind(workspaceKind)) continue;
+
+    const dedupeKey =
+      file.source === "workspace" ? `ws:${String(file.id).replace(/^ws-/, "")}` : `pf:${file.id}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    files.push({
+      id: file.id,
+      positionId: file.positionId,
+      kind: workspaceKind,
+      label: file.fileName,
+      fileName: file.fileName,
+      externalUrl: file.externalUrl || null,
+      mime: file.mime,
+      sizeBytes: file.sizeBytes,
+      uploadedBy: file.uploadedBy,
+      createdAt: file.createdAt,
+      source: file.source
+    });
+  }
+
+  return files;
 }
 
 function mapCommentRow(row) {
@@ -199,7 +248,23 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
   if (!ids.length) return [];
 
   const fileRows = await all(
-    `SELECT * FROM constructor_workspace_files WHERE position_id = ANY($1::int[]) ORDER BY created_at`,
+    `SELECT position_id, kind, external_url FROM (
+       SELECT position_id, kind, external_url
+       FROM constructor_workspace_files
+       WHERE position_id = ANY($1::int[])
+         AND kind IN ('tech', 'measurements', 'manager_image', 'custom')
+       UNION ALL
+       SELECT position_id,
+         CASE kind
+           WHEN 'manager_appliance' THEN 'tech'
+           WHEN 'manager_measurement' THEN 'measurements'
+           WHEN 'manager_photo' THEN 'manager_image'
+           ELSE 'custom'
+         END AS kind,
+         NULL::text AS external_url
+       FROM position_files
+       WHERE position_id = ANY($1::int[]) AND kind LIKE 'manager_%'
+     ) unified`,
     [ids]
   );
   const commentRows = await all(
@@ -211,7 +276,10 @@ export async function listDeskPositions(user, { onlyMine = false } = {}) {
   const filesByPos = new Map();
   for (const f of fileRows) {
     const list = filesByPos.get(f.position_id) || [];
-    list.push(mapFileRow(f));
+    list.push({
+      kind: f.kind,
+      externalUrl: f.external_url || null
+    });
     filesByPos.set(f.position_id, list);
   }
   const commentsByPos = new Map(commentRows.map((r) => [r.position_id, r.cnt]));
@@ -317,12 +385,7 @@ export async function getDeskPosition(user, positionId) {
   if (!row) return null;
   if (!userCanAccessPositionDesk(user, row)) return { forbidden: true };
 
-  const files = (
-    await all(
-      `SELECT * FROM constructor_workspace_files WHERE position_id = $1 ORDER BY created_at`,
-      [positionId]
-    )
-  ).map(mapFileRow);
+  const files = await listDeskWorkspaceFiles(positionId);
 
   const comments = (
     await all(
@@ -362,28 +425,41 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
 
   const constructorUserId = body.constructorUserId ? Number(body.constructorUserId) : null;
   let constructorName = String(body.constructorName || "").trim();
+  const assignable = await listConstructorUsers();
+
   if (constructorUserId) {
-    const assignable = await listConstructorUsers();
     if (!assignable.some((u) => u.id === constructorUserId)) {
-      const err = new Error("Обраного користувача немає у списку конструкторів");
+      const err = new Error("Обраного конструктора немає у довіднику «Конструктори»");
       err.status = 400;
       throw err;
     }
     const u = await one(`SELECT name FROM users WHERE id = $1`, [constructorUserId]);
     if (u?.name) constructorName = u.name;
+  } else if (constructorName) {
+    const match = assignable.find(
+      (u) => normalizePersonName(u.name) === normalizePersonName(constructorName)
+    );
+    if (!match) {
+      const err = new Error("Обраного конструктора немає у довіднику «Конструктори»");
+      err.status = 400;
+      throw err;
+    }
+    constructorName = match.name;
   }
+
+  const hasAssignment = Boolean(constructorUserId || constructorName);
 
   await run(
     `UPDATE positions SET
       constructor_user_id = $2,
       constructor_name = $3,
       constructor_assigned_at = CASE
-        WHEN $2::integer IS NOT NULL THEN COALESCE(constructor_assigned_at, now())
-        ELSE constructor_assigned_at
+        WHEN $6 THEN COALESCE(constructor_assigned_at, now())
+        ELSE NULL
       END,
       constructor_due_at = $4,
       constructor_estimated_hours = $5,
-      assignment_comment = COALESCE($6, assignment_comment)
+      assignment_comment = COALESCE($7, assignment_comment)
      WHERE id = $1`,
     [
       positionId,
@@ -391,12 +467,13 @@ export async function assignConstructorDesk(user, positionId, body = {}) {
       constructorName,
       body.constructorDueAt || null,
       body.constructorEstimatedHours != null ? Number(body.constructorEstimatedHours) : null,
+      hasAssignment,
       body.assignmentComment != null ? String(body.assignmentComment).trim() : null
     ]
   );
 
   let orderStatusSync = { updated: false };
-  if (constructorUserId) {
+  if (hasAssignment) {
     const posRow = await one(`SELECT order_id FROM positions WHERE id = $1`, [positionId]);
     if (posRow?.order_id) {
       const orderRow = await one(`SELECT * FROM orders WHERE id = $1`, [posRow.order_id]);
@@ -437,12 +514,12 @@ export async function saveDeskWorkspace(user, positionId, body = {}) {
     workspace.customLinks = body.workspace.customLinks;
   }
 
-  const files = await all(
-    `SELECT kind, external_url FROM constructor_workspace_files WHERE position_id = $1`,
-    [positionId]
-  );
+  const deskFiles = await listDeskWorkspaceFiles(positionId);
   const errors = validateWorkspacePayload(
-    { ...workspace, files: files.map((f) => ({ kind: f.kind, externalUrl: f.external_url })) },
+    {
+      ...workspace,
+      files: deskFiles.map((f) => ({ kind: f.kind, externalUrl: f.externalUrl }))
+    },
     existing
   );
   if (errors.length && body.strict !== false) {
@@ -616,17 +693,8 @@ export async function uploadDeskFile(
   return mapFileRow(row);
 }
 
-export async function getDeskFileForDownload(positionId, fileId) {
-  const row = await one(
-    `SELECT * FROM constructor_workspace_files WHERE id = $1 AND position_id = $2`,
-    [fileId, positionId]
-  );
-  if (!row) return null;
-  if (row.external_url) return { externalUrl: row.external_url, row };
-  if (!row.storage_path) return null;
-  const fullPath = resolveStoredPath(row.storage_path);
-  if (!fs.existsSync(fullPath)) return null;
-  return { fullPath, row };
+export async function getDeskFileForDownload(positionId, fileIdRaw) {
+  return getManagerFileForDownload(positionId, fileIdRaw);
 }
 
 export async function suggestTimingForPosition(user, positionId) {
@@ -663,8 +731,8 @@ export async function listConstructorUsers() {
   const rows = await all(
     `SELECT id, name, login, role FROM users WHERE active = TRUE ORDER BY name`
   );
-  return filterUsersByConstructorDirectory(
-    rows.map((r) => ({ id: r.id, name: r.name, login: r.login, role: r.role })),
-    dirs["Конструктори"] || []
+  return buildConstructorAssigneesFromDirectory(
+    getDirectoryList(dirs, CONSTRUCTORS_DIRECTORY_KEY),
+    rows.map((r) => ({ id: r.id, name: r.name, login: r.login, role: r.role }))
   );
 }

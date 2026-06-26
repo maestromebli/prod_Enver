@@ -21,11 +21,20 @@ import { bindOperatorScanPanel } from "./part-scan.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { setOperatorUiActive, syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
-import { bindOrderDetail, clearOrderDetailViewState, renderOrderDetailView } from "./order-detail.js";
-import { bindOrdersGrid, renderOrdersGrid } from "./orders-view.js";
+import {
+  bindOrderDetail,
+  clearOrderDetailViewState,
+  renderOrderDetailView
+} from "./order-detail.js";
+import { bindOrdersGrid, renderOrdersGrid, renderOrdersModeBar } from "./orders-view.js";
 import { bindSettingsActions, getSettingsHeaderMeta, renderSettingsView } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
-import { filteredPositions, filteredOrders, hasActiveFilters } from "./filters.js";
+import {
+  filteredPositions,
+  filteredOrders,
+  hasActiveFilters,
+  syncListFiltersToDom
+} from "./filters.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole,
@@ -37,7 +46,7 @@ import {
   loadProductionFloor,
   renderProductionFloorTab
 } from "./production-floor.js";
-import { renderConstructorDeskTab } from "./constructor-desk.js";
+import { renderConstructorDeskTab, bindConstructorDeskWorkspace } from "./constructor-desk.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { activePositions } from "./archive.js";
@@ -51,13 +60,22 @@ import {
   syncGodmodeNotifyForView,
   updateGodmodeNotifyBadge
 } from "./godmode-notifications.js";
+import { emptyStateIcon, navIconSvg, iconSvg } from "./icons.js";
 
 export { filteredPositions };
+
+function isOrdersRegistry() {
+  return state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
+}
+
+function isOrdersPositionsMode() {
+  return isOrdersRegistry() && state.ordersView.displayMode === "positions";
+}
 
 function emptyRow(colspan = 10) {
   return `<tr><td colspan="${colspan}">
     <div class="enver-empty-state positions-table-empty">
-      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
       <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
       <p class="enver-empty-state-text">Немає позицій за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
     </div>
@@ -136,7 +154,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th>Збірка</th>
               <th>Пакування</th>
               <th class="col-opt-ready">Дата готовності</th>
-              <th class="col-opt-install-date">Дата встановлення</th>
+              <th class="col-opt-install-date">Період монтажу</th>
               <th>Монтажник</th>
               <th>Статус позиції</th>
               <th>Готово, %</th>
@@ -162,15 +180,20 @@ function visibleTabs() {
 }
 
 const TAB_META = {
-  [OVERVIEW_TAB]: { icon: "◎", subtitle: "Ключові показники та швидкі переходи" },
-  Замовлення: { icon: "◫", subtitle: "Картки або список з прогресом" },
-  [ATTENTION_TAB]: { icon: "⚠", subtitle: "Блокери, попередження та наступні кроки" },
-  [PRODUCTION_FLOOR_TAB]: { icon: "⬡", subtitle: "Черги, сесії та проблеми" },
-  [CONSTRUCTOR_DESK_TAB]: { icon: "✎", subtitle: "Замовлення на етапі конструктиву" },
-  Встановлення: { icon: "▦", subtitle: "Календар монтажу" },
-  Позиції: { icon: "☰", subtitle: "Таблиця всіх позицій" },
-  "Історія змін": { icon: "◷", subtitle: "Аудит дій у системі" }
+  [OVERVIEW_TAB]: { subtitle: "Ключові показники та швидкі переходи" },
+  Замовлення: { subtitle: "Картки, список замовлень або реєстр позицій" },
+  [ATTENTION_TAB]: { subtitle: "Блокери, попередження та наступні кроки" },
+  [PRODUCTION_FLOOR_TAB]: { subtitle: "Черги, сесії та проблеми" },
+  [CONSTRUCTOR_DESK_TAB]: { subtitle: "Картки або список замовлень у конструктиві" },
+  Встановлення: { subtitle: "Календар монтажу" },
+  "Історія змін": { subtitle: "Аудит дій у системі" }
 };
+
+function shouldShowMainToolbar() {
+  if (state.view !== "main") return false;
+  if (state.activeTab !== "Замовлення") return false;
+  return true;
+}
 
 function renderPageChrome() {
   const meta = TAB_META[state.activeTab] || { subtitle: "" };
@@ -233,14 +256,13 @@ export function renderTabs() {
   const tabBadge = (count) => (count > 0 ? `<span class="tab-reminder-badge">${count}</span>` : "");
   document.querySelector("#tabs").innerHTML = visibleTabs()
     .map((tab) => {
-      const meta = TAB_META[tab] || { icon: "•" };
       return `
       <button
         type="button"
         class="tab-btn ${tab === state.activeTab ? "active" : ""} ${tour?.tab === tab ? "tour-target" : ""}"
         data-tab="${escapeHtml(tab)}"
       >
-        <span class="app-shell-nav-icon" aria-hidden="true">${meta.icon}</span>
+        <span class="app-shell-nav-icon" aria-hidden="true">${navIconSvg(tab)}</span>
         <span class="app-shell-nav-label">${escapeHtml(tab)}</span>
         ${tab === "Замовлення" ? tabBadge(newOrders) : ""}
         ${tab === ATTENTION_TAB ? tabBadge(attentionCount) : ""}
@@ -279,7 +301,8 @@ export function renderKpis() {
 
 export function renderResponsibleOptions() {
   const select = document.querySelector("#responsibleFilter");
-  const current = select.value;
+  if (!select) return;
+  const current = state.listFilters.responsible ?? select.value;
   const people = new Set();
 
   state.orders.forEach((o) => {
@@ -290,6 +313,7 @@ export function renderResponsibleOptions() {
       .filter(Boolean)
       .forEach((person) => people.add(person));
   });
+  if (current && !people.has(current)) people.add(current);
 
   select.innerHTML = `
     <option value="">Усі відповідальні</option>
@@ -309,13 +333,14 @@ const POSITION_STATUS_OPTIONS = [
   "Готово до встановлення",
   "На паузі",
   "Проблема",
-  "Не розпочато"
+  "Не розпочато",
+  "Завершено"
 ];
 
 function fillStatusFilterOptions(options, labels) {
   const select = document.querySelector("#statusFilter");
   if (!select) return;
-  const current = select.value;
+  const current = state.listFilters.status || select.value;
   const labelEl = select.closest(".filter-field")?.querySelector(".filter-label");
 
   select.innerHTML = options
@@ -328,7 +353,12 @@ function fillStatusFilterOptions(options, labels) {
   else select.value = "";
 
   if (labelEl) {
-    labelEl.textContent = state.activeTab === "Замовлення" ? "Статус замовлення" : "Статус";
+    const positionsMode =
+      state.activeTab === "Замовлення" &&
+      !state.selectedOrderId &&
+      state.ordersView.displayMode === "positions";
+    labelEl.textContent =
+      state.activeTab === "Замовлення" && !positionsMode ? "Статус замовлення" : "Статус";
   }
 }
 
@@ -339,8 +369,8 @@ export function renderToolbarFilters() {
   const statusField = document.querySelector("#statusFilter")?.closest(".filter-field");
   const responsibleField = document.querySelector("#responsibleFilter")?.closest(".filter-field");
   const searchField = document.querySelector("#searchInput")?.closest(".filter-field");
-  const onOrdersRegistry =
-    state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
+  const onOrdersRegistry = isOrdersRegistry();
+  const positionsMode = isOrdersPositionsMode();
 
   if (searchField) {
     const input = searchField.querySelector("#searchInput");
@@ -351,7 +381,7 @@ export function renderToolbarFilters() {
     }
   }
 
-  if (onOrdersRegistry) {
+  if (onOrdersRegistry && !positionsMode) {
     const orderStatuses = state.directories["Статуси замовлення"] || [
       "Новий",
       "У конструктиві",
@@ -377,6 +407,17 @@ export function renderToolbarFilters() {
       `;
       stageSelect.value = priorities.includes(current) ? current : "";
     }
+  } else if (positionsMode) {
+    fillStatusFilterOptions(
+      POSITION_STATUS_OPTIONS,
+      POSITION_STATUS_OPTIONS.map((v) => v || "Усі статуси")
+    );
+
+    if (stageSelect && stageField) {
+      stageSelect.hidden = true;
+      stageField.hidden = true;
+      if (stageLabel) stageLabel.textContent = "Етап";
+    }
   } else {
     fillStatusFilterOptions(
       POSITION_STATUS_OPTIONS,
@@ -394,23 +435,26 @@ export function renderToolbarFilters() {
     state.activeTab === "Історія змін" || state.activeTab === OVERVIEW_TAB || state.view !== "main";
   if (statusField) statusField.hidden = hideSecondary;
   if (responsibleField) responsibleField.hidden = hideSecondary;
+  syncListFiltersToDom();
 }
 
 export function renderToolbarActions() {
   const el = document.querySelector("#toolbarActions");
   if (!el) return;
+  const onOrdersRegistry = isOrdersRegistry();
+  const positionsMode = isOrdersPositionsMode();
   const parts = [];
-  if (state.activeTab === "Замовлення" && !state.selectedOrderId && canEditOrders()) {
+  if (onOrdersRegistry && !positionsMode && canEditOrders()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
     );
   }
-  if (state.activeTab === "Позиції" && canEditPositions()) {
+  if (positionsMode && canEditPositions()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
     );
   }
-  if (state.activeTab === "Позиції") {
+  if (positionsMode) {
     parts.push(`<button type="button" class="btn btn-sm" id="exportCsvBtn">Експорт CSV</button>`);
   }
   parts.push(renderTourCoach());
@@ -438,13 +482,16 @@ function renderOrderDetail() {
 }
 
 function renderContent() {
-  const data = filteredPositions();
   const tab = state.activeTab;
   const ordersData = filteredOrders();
 
   if (tab === OVERVIEW_TAB) return renderDashboard();
   if (tab === "Замовлення") {
     if (state.selectedOrderId) return renderOrderDetail();
+    if (state.ordersView.displayMode === "positions") {
+      const positionsData = filteredPositions();
+      return `<div class="orders-view">${renderOrdersModeBar()}${positionsTable(positionsData, "Позиції", true)}</div>`;
+    }
     return renderOrdersGrid(ordersData, state.positions, {
       filtersActive: hasActiveFilters()
     });
@@ -452,7 +499,6 @@ function renderContent() {
   if (tab === ATTENTION_TAB) return renderAttentionTab();
   if (tab === PRODUCTION_FLOOR_TAB) return renderProductionFloorTab();
   if (tab === CONSTRUCTOR_DESK_TAB) return renderConstructorDeskTab();
-  if (tab === "Позиції") return positionsTable(data, "Позиції", true);
   if (tab === "Встановлення") return renderInstallTab();
   if (tab === "Історія змін") return historyTab();
   return renderOrdersGrid(ordersData, state.positions, {
@@ -464,7 +510,6 @@ export function renderHeaderChrome() {
   const user = state.currentUser;
   const chip = document.querySelector("#userChip");
   const gear = document.querySelector("#settingsGearBtn");
-  const notifyBtn = document.querySelector("#notifySettingsBtn");
   const logout = document.querySelector("#logoutBtn");
   const appHeader = document.querySelector(".app-shell-header");
   const appRoot = document.querySelector("#appRoot");
@@ -482,8 +527,10 @@ export function renderHeaderChrome() {
     chip.hidden = !user;
     if (user) chip.textContent = user.name;
   }
-  if (gear) gear.hidden = !user || !canViewSettings();
-  if (notifyBtn) notifyBtn.hidden = !user;
+  if (gear) {
+    gear.hidden = !user || !canViewSettings();
+    if (!gear.querySelector(".enver-icon")) gear.innerHTML = iconSvg("settings");
+  }
   if (logout) logout.hidden = !user;
 
   if (user && state.view === "main") {
@@ -525,8 +572,9 @@ export function renderHeaderChrome() {
   if (appHeader) {
     appHeader.style.display = immersiveOperator ? "none" : "";
   }
+  const showToolbar = showMainChrome && shouldShowMainToolbar();
   if (toolbar) {
-    toolbar.style.display = showMainChrome ? "" : "none";
+    toolbar.style.display = showToolbar ? "" : "none";
     toolbar.classList.toggle(
       "toolbar--calendar",
       showMainChrome &&
@@ -541,6 +589,7 @@ export function renderHeaderChrome() {
     "view-dashboard",
     state.view === "main" && state.activeTab === OVERVIEW_TAB
   );
+  document.body.classList.toggle("view-tab-no-toolbar", showMainChrome && !shouldShowMainToolbar());
 }
 
 export function renderApp(options = {}) {
@@ -607,6 +656,13 @@ export function renderApp(options = {}) {
         orders: ordersData,
         positions: state.positions,
         onOpenPosition: async (id) => {
+          const { openPositionInOrderDetail } = await import("./order-detail.js");
+          if (openPositionInOrderDetail(id)) {
+            notifyUiChanged();
+            renderApp();
+            window.scrollTo({ top: 0, behavior: "instant" });
+            return;
+          }
           const { openPositionDrawer } = await import("./positions.js");
           const position = state.positions.find((p) => p.id === id);
           if (position) openPositionDrawer(position);
@@ -711,12 +767,12 @@ export function renderApp(options = {}) {
   if (state.activeTab === ATTENTION_TAB) {
     bindAttentionTab(document.querySelector("#content"), {
       onOpenPosition: async (id) => {
-        const { openPositionDrawer } = await import("./positions.js");
-        const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
-        const position = state.positions.find((p) => p.id === id);
-        if (!position) return;
-        const gm = resolvePositionGodmode(position);
-        openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
       },
       onOpenOrder: (orderId) => {
         state.selectedOrderId = orderId;
@@ -741,20 +797,18 @@ export function renderApp(options = {}) {
         }
       },
       onOpenPosition: async (id) => {
-        let position = state.positions.find((p) => p.id === id);
-        if (!position) {
-          try {
-            position = await api.getPosition(id);
-          } catch (err) {
-            const { toastError } = await import("./toast.js");
-            toastError(err.message || "Не вдалося відкрити позицію");
-            return;
-          }
+        const { openPositionFromContext } = await import("./godmode-navigation.js");
+        if (await openPositionFromContext(id)) {
+          notifyUiChanged();
+          renderApp();
+          window.scrollTo({ top: 0, behavior: "instant" });
         }
-        const { openPositionDrawer } = await import("./positions.js");
-        openPositionDrawer(position);
       }
     });
+  }
+
+  if (state.activeTab === CONSTRUCTOR_DESK_TAB && state.constructorDesk.selectedPositionId) {
+    bindConstructorDeskWorkspace(() => renderApp({ contentOnly: true }));
   }
 
   notifyAiContextChanged();

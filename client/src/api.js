@@ -286,9 +286,10 @@ export const api = {
     request(`/api/positions/${positionId}/constructive-packages/${packageId}/procurement`, {
       method: "POST"
     }),
-  sendToGitlab: (positionId) =>
-    request(`/api/positions/${positionId}/send-to-gitlab`, { method: "POST" }),
-  getPositionFinance: (positionId) => request(`/api/positions/${positionId}/finance`),
+  releaseConstructivePackageToCnc: (positionId, packageId) =>
+    request(`/api/positions/${positionId}/constructive-packages/${packageId}/release-cnc`, {
+      method: "POST"
+    }),
   getPositionProcurement: (positionId) => request(`/api/positions/${positionId}/procurement`),
   updatePositionProcurement: (positionId, requestId, body) =>
     request(`/api/positions/${positionId}/procurement/${requestId}`, {

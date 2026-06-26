@@ -1,15 +1,18 @@
 import { buildOrderGodmode, buildPositionGodmode } from "@enver/shared/production/godmode.js";
+import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import {
   HANDOFF_ACTION_TYPES,
   ORDER_API_ACTION_TYPES,
   UI_ACTION_TYPES,
   canQuickRunGodmodeAction,
   orderDetailSubTabForGodmodeAction,
-  panelForGodmodeAction
+  panelForGodmodeAction,
+  buildGodmodeCtaAttrs
 } from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { aggregateOrderAttention } from "./attention.js";
 import { positionsForOrder } from "./workflows.js";
+import { CONSTRUCTOR_DESK_TAB } from "./constants.js";
 import { escapeHtml } from "./utils.js";
 
 const HEALTH_LABELS = {
@@ -99,14 +102,8 @@ export function renderNextActionBanner(
   if (!next?.label) return "";
 
   const isBlocked = godmode?.health === "blocked" || next.allowed === false;
-  let ctaAttrs = "";
-  if (showCta && next.allowed !== false) {
-    if (ORDER_API_ACTION_TYPES.has(next.type) && orderId) {
-      ctaAttrs = `data-run-order-action="${orderId}" data-action-type="${escapeHtml(next.type)}"`;
-    } else if (positionId) {
-      ctaAttrs = `data-run-next-action="${positionId}" data-action-type="${escapeHtml(next.type)}"`;
-    }
-  }
+  const ctaAttrs =
+    showCta && next.allowed !== false ? buildGodmodeCtaAttrs(next, { positionId, orderId }) : "";
 
   return `
     <div class="godmode-next-banner ${isBlocked ? "godmode-next-banner--blocked" : ""}" role="status">
@@ -127,6 +124,9 @@ export function renderNextActionBanner(
 export function renderOrderGodmodeSummary(order, positions = []) {
   const gm = resolveOrderGodmode(order, positions);
   const stage = gm.currentStage ? stageLabel(gm.currentStage) : "—";
+  const work = getWorkPositions(order, positions);
+  const focusPosition =
+    work[0] || positionsForOrder(order, positions).find((p) => !p.parentId) || null;
 
   return `
     <section class="godmode-summary card" aria-label="Стан замовлення">
@@ -138,7 +138,7 @@ export function renderOrderGodmodeSummary(order, positions = []) {
       </div>
       ${renderBlockersList(gm.blockers)}
       ${renderWarningsList(gm.warnings, { compact: true })}
-      ${renderNextActionBanner(gm, { orderId: order.id })}
+      ${renderNextActionBanner(gm, { orderId: order.id, positionId: focusPosition?.id ?? null })}
     </section>`;
 }
 
@@ -251,9 +251,20 @@ export function navigateGodmodeAction(position, actionType, appState) {
   if (!position) return false;
 
   if (actionType === "assign_constructor") {
-    appState.activeTab = "Конструктив";
-    appState.constructorDesk.selectedPositionId = position.id;
+    appState.activeTab = CONSTRUCTOR_DESK_TAB;
+    appState.constructorDesk.detail = null;
+    appState.constructorDesk.selectedPositionId = null;
+    appState.constructorDesk.workspaceTab = "work";
+    if (position.orderId != null) {
+      appState.constructorDesk.selectedOrderId = position.orderId;
+    } else if (position.orderNumber) {
+      appState.constructorDesk.selectedOrderId = position.orderNumber;
+    }
     return true;
+  }
+
+  if (actionType === "upload_constructive" || actionType === "upload_constructive_package") {
+    return false;
   }
 
   const orderId = position.orderId;
@@ -315,6 +326,17 @@ export async function executePrimaryOrderAction(
   }
 
   if (UI_ACTION_TYPES.has(next.type) && root?.id) {
+    if (next.type === "assign_constructor") {
+      return { action: "open_constructor_desk", orderId: order.id, positionId: root.id };
+    }
+    if (next.type === "upload_constructive" || next.type === "upload_constructive_package") {
+      return {
+        action: "open_constructor_desk",
+        orderId: order.id,
+        positionId: root.id,
+        workspaceTab: "package"
+      };
+    }
     const subTab = orderDetailSubTabForGodmodeAction(next.type);
     if (subTab || next.type === "fill_manager_data") {
       return {
@@ -408,6 +430,19 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       const order = orders.find((o) => o.id === Number(entityId));
       if (!order) throw new Error("Замовлення не знайдено");
       const result = await executePrimaryOrderAction(order, positions, deps);
+      if (result.action === "open_constructor_desk") {
+        const { openConstructorDeskForAssignment, openConstructorWorkspace } =
+          await import("./constructor-desk.js");
+        if (result.workspaceTab === "package" && result.positionId) {
+          await openConstructorWorkspace(result.positionId, { workspaceTab: "package" });
+        } else {
+          await openConstructorDeskForAssignment({
+            orderId: result.orderId,
+            positionId: result.positionId
+          });
+        }
+        return result;
+      }
       if (result.action === "close_order" || result.action === "handoff") {
         deps.toastSuccess?.(result.message || "Готово");
         await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
@@ -443,14 +478,10 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       return { action: "handoff" };
     }
 
-    const { state: appState } = await import("./state.js");
-    if (navigateGodmodeAction(position, effectiveAction, appState)) {
-      window.__enverRender?.();
-      window.scrollTo?.({ top: 0, behavior: "instant" });
-      return { action: "open_order", tab: `pos-${positionId}` };
-    }
-
-    deps.openPositionDrawer?.(position, { panel: panelForGodmodeAction(effectiveAction) });
+    const { openPositionFromContext } = await import("./godmode-navigation.js");
+    await openPositionFromContext(positionId, effectiveAction);
+    window.__enverRender?.();
+    window.scrollTo?.({ top: 0, behavior: "instant" });
     return { action: "open_position" };
   } catch (err) {
     deps.toastError?.(deps.humanizeUserMessage?.(err?.message) || err?.message || "Помилка");

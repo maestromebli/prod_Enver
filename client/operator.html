@@ -15,18 +15,13 @@
     <link rel="manifest" href="/manifest-operator.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <script src="/theme-init.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="icon" href="/icons/icon-192.png" />
-    <link rel="stylesheet" href="/src/styles/tokens.css" />
-    <link rel="stylesheet" href="/src/styles/interactions.css" />
-    <link rel="stylesheet" href="/src/styles/main.css" />
-    <link rel="stylesheet" href="/src/styles/theme-dark.css" />
-    <link rel="stylesheet" href="/src/styles/modal.css" />
-    <link rel="stylesheet" href="/src/styles/operator.css" />
-    <link rel="stylesheet" href="/src/styles/operator-client.css" />
-    <link rel="stylesheet" href="/src/styles/toast.css" />
-    <link rel="stylesheet" href="/src/styles/login.css" />
-    <link rel="stylesheet" href="/src/styles/brand-logo.css" />
-    <link rel="stylesheet" href="/src/styles/part-viewer.css" />
   </head>
   <body class="enver-operator-ui operator-client-mode">
     <div class="loading-overlay" id="loadingOverlay" aria-live="polite">
@@ -113,10 +108,45 @@
           class="btn btn-sm btn-header-action operator-client-scan-btn op-btn-scan"
           id="operatorClientScanBtn"
           hidden
-          title="Сканування деталі за штрихкодом"
+          title="Сканування штрихридером"
         >
-          <span class="op-scan-glyph" aria-hidden="true">▮▮</span
+          <span class="op-scan-glyph" aria-hidden="true"
+            ><svg
+              class="enver-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              aria-hidden="true"
+            >
+              <path d="M3 5v14" />
+              <path d="M8 5v14" />
+              <path d="M12 5v14" />
+              <path d="M17 5v14" />
+              <path d="M21 5v14" /></svg></span
           ><span class="op-scan-label">Сканувати</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-header-action operator-client-camera-btn op-btn-camera"
+          id="operatorClientCameraBtn"
+          hidden
+          title="Сканування камерою"
+        >
+          <span class="op-camera-glyph" aria-hidden="true"
+            ><svg
+              class="enver-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              aria-hidden="true"
+            >
+              <path
+                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+              />
+              <circle cx="12" cy="13" r="4" /></svg></span
+          ><span class="op-camera-label">Камера</span>
         </button>
         <span class="operator-client-build" id="operatorBuildChip" hidden></span>
         <span class="operator-client-user" id="userChip"></span>

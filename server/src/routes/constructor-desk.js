@@ -93,7 +93,7 @@ router.post("/positions/:id/files", async (req, res) => {
 
 router.get("/positions/:id/files/:fileId", async (req, res) => {
   const positionId = Number(req.params.id);
-  const fileId = Number(req.params.fileId);
+  const fileId = req.params.fileId;
   const payload = await getDeskFileForDownload(positionId, fileId);
   if (!payload) {
     res.status(404).json({ error: "Файл не знайдено" });

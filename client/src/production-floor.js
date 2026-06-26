@@ -253,67 +253,81 @@ export function renderProductionFloorTab(data = getProductionFloorCache()) {
   `;
 }
 
-export function bindProductionFloorActions({ onRefresh, onOpenPosition }) {
-  bindProductionBoard(document.querySelector("#pfProductionBoard"), { onRefresh, onOpenPosition });
+let floorActionsBound = false;
+let floorHandlers = {};
 
-  document.querySelector("#pfRefreshBtn")?.addEventListener("click", async () => {
-    const el = document.querySelector("#pfRefreshBtn");
-    const { setSubmitLoading } = await import("./save-flow.js");
-    setSubmitLoading(el, true);
-    try {
-      await onRefresh?.();
-    } finally {
-      setSubmitLoading(el, false);
+export function bindProductionFloorActions(handlers = {}) {
+  floorHandlers = handlers;
+  bindProductionBoard(document.querySelector("#pfProductionBoard"), handlers);
+
+  if (floorActionsBound) return;
+  floorActionsBound = true;
+
+  document.addEventListener("click", async (e) => {
+    const refreshBtn = e.target.closest("#pfRefreshBtn");
+    if (refreshBtn) {
+      const { setSubmitLoading } = await import("./save-flow.js");
+      setSubmitLoading(refreshBtn, true);
+      try {
+        await floorHandlers.onRefresh?.();
+      } finally {
+        setSubmitLoading(refreshBtn, false);
+      }
+      return;
     }
-  });
-  document.querySelector("#pfMarkSeenBtn")?.addEventListener("click", () => {
-    markProductionTasksSeenForCurrentRole(state.positions);
-    onRefresh?.();
-  });
-  document.querySelectorAll("[data-open-operator-stage]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const { enterOperatorView } = await import("./operator-panel.js");
-      await enterOperatorView(btn.dataset.openOperatorStage);
-    });
-  });
 
-  document.querySelectorAll("[data-pf-run]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
+    const seenBtn = e.target.closest("#pfMarkSeenBtn");
+    if (seenBtn) {
+      markProductionTasksSeenForCurrentRole(state.positions);
+      floorHandlers.onRefresh?.();
+      return;
+    }
+
+    const stageBtn = e.target.closest("[data-open-operator-stage]");
+    if (stageBtn) {
+      const { enterOperatorView } = await import("./operator-panel.js");
+      await enterOperatorView(stageBtn.dataset.openOperatorStage);
+      return;
+    }
+
+    const runBtn = e.target.closest("[data-pf-run]");
+    if (runBtn) {
       e.stopPropagation();
       const { executeGodmodeAction } = await import("./godmode-ui.js");
       await executeGodmodeAction({
         entityType: "position",
-        entityId: btn.dataset.pfRun,
-        actionType: btn.dataset.pfAction
+        entityId: runBtn.dataset.pfRun,
+        actionType: runBtn.dataset.pfAction
       }).catch(() => {});
-      onRefresh?.();
-    });
-  });
+      floorHandlers.onRefresh?.();
+      return;
+    }
 
-  document.querySelectorAll("[data-edit-position]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = Number(btn.dataset.editPosition);
-      if (onOpenPosition) {
-        void onOpenPosition(id);
-        return;
-      }
-      const { openPositionDrawer } = await import("./positions.js");
-      const { panelForGodmodeAction, resolvePositionGodmode } = await import("./godmode-ui.js");
-      const position = state.positions.find((p) => p.id === id);
-      if (!position) return;
-      const gm = resolvePositionGodmode(position);
-      openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
-    });
-  });
-
-  document.querySelectorAll("[data-pf-expand]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.pfExpand;
+    const expandBtn = e.target.closest("[data-pf-expand]");
+    if (expandBtn) {
+      const id = expandBtn.dataset.pfExpand;
       const more = document.querySelector(`[data-pf-more="${id}"]`);
       if (more) {
         more.hidden = false;
-        btn.hidden = true;
+        expandBtn.hidden = true;
       }
-    });
+      return;
+    }
+
+    const posBtn = e.target.closest(
+      ".pf-godmode-row-wrap [data-edit-position], .pf-problem-card[data-edit-position], tr.pf-problem-row[data-edit-position]"
+    );
+    if (posBtn) {
+      const id = Number(posBtn.dataset.editPosition);
+      if (floorHandlers.onOpenPosition) {
+        void floorHandlers.onOpenPosition(id);
+        return;
+      }
+      const { openPositionFromContext } = await import("./godmode-navigation.js");
+      if (await openPositionFromContext(id)) {
+        window.__enverRender?.();
+        window.scrollTo?.({ top: 0, behavior: "instant" });
+      }
+    }
   });
 }

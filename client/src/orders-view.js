@@ -1,3 +1,5 @@
+import { emptyStateIcon, iconSvg } from "./icons.js";
+import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import {
   orderAttentionFromGodmode,
@@ -13,7 +15,7 @@ import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 
-const DISPLAY_LABELS = { cards: "Картки", list: "Список" };
+const DISPLAY_LABELS = { cards: "Картки", list: "Список", positions: "Позиції" };
 
 function toggleOrderExpanded(orderId) {
   const id = Number(orderId);
@@ -27,7 +29,7 @@ function toggleOrderExpanded(orderId) {
 function orderPositionsToggleBtn(order, related, expanded) {
   const label = expanded ? "Згорнути позиції" : "Показати позиції";
   const icon = expanded ? "−" : "+";
-  const countHint = related.length ? ` (${related.filter((p) => !p.parentId).length})` : "";
+  const countHint = related.length ? ` (${getWorkPositions(order, related).length})` : "";
   return `<button type="button" class="btn-tree btn-order-pos-toggle" data-toggle-order-positions="${order.id}" title="${label}${countHint}" aria-label="${label}" aria-expanded="${expanded}">${icon}</button>`;
 }
 
@@ -86,7 +88,7 @@ function mainPositionForOrder(order, rootPositions) {
   return rootPositions.find((p) => p.orderId === order.id || p.orderNumber === order.orderNumber);
 }
 
-function ordersModeBarHtml() {
+export function renderOrdersModeBar() {
   const mode = state.ordersView.displayMode || "cards";
   const buttons = Object.entries(DISPLAY_LABELS)
     .map(
@@ -129,10 +131,10 @@ function statusPill(order, attn) {
     return '<span class="order-card-status-pill">Готово до монтажу</span>';
   }
   if (attn.maxOverdue > 0) {
-    return `<span class="order-card-status-pill" style="background:var(--enver-warning-soft);color:var(--enver-warning)">Прострочено</span>`;
+    return `<span class="order-card-status-pill order-card-status-pill--warning">Прострочено</span>`;
   }
   if (attn.hasProblem) {
-    return '<span class="order-card-status-pill" style="background:var(--enver-danger-soft);color:var(--enver-danger)">Проблема</span>';
+    return '<span class="order-card-status-pill order-card-status-pill--danger">Проблема</span>';
   }
   return `<span class="order-card-status-pill">${escapeHtml(status || "Активний")}</span>`;
 }
@@ -156,7 +158,7 @@ function orderCardWarnings(attn) {
   const count = attn.blockers.length + attn.warnings.length;
   if (!count) return "";
   const label = count === 1 ? "1 попередження" : `${count} попередження`;
-  return `<p class="order-card-warnings" aria-label="${label}">⚠ ${label}</p>`;
+  return `<p class="order-card-warnings" aria-label="${label}">${iconSvg("alertTriangle", "enver-icon")}<span>${label}</span></p>`;
 }
 
 function orderCardActions(order, attn) {
@@ -171,13 +173,13 @@ function orderCardActions(order, attn) {
 function ordersEmptyHtml(filtersActive = false) {
   if (filtersActive) {
     return `<div class="enver-empty-state orders-empty">
-      <span class="enver-empty-state-icon" aria-hidden="true">🔍</span>
+      <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("search")}</span>
       <h3 class="enver-empty-state-title">Нічого не знайдено</h3>
       <p class="enver-empty-state-text">Немає замовлень за обраними фільтрами. Скиньте фільтри або змініть пошук.</p>
     </div>`;
   }
   return `<div class="enver-empty-state orders-empty">
-    <span class="enver-empty-state-icon" aria-hidden="true">📋</span>
+    <span class="enver-empty-state-icon" aria-hidden="true">${emptyStateIcon("clipboard")}</span>
     <h3 class="enver-empty-state-title">Поки немає замовлень</h3>
     <p class="enver-empty-state-text">Створіть перше замовлення, щоб запустити виробничий workflow.</p>
   </div>`;
@@ -192,7 +194,7 @@ function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = 
       const attn = orderAttentionFromGodmode(order, allPositions);
       const gm = attn.godmode;
       const cardClass = orderCardClass(attn, order);
-      const posCount = positionsForOrder(order, allPositions).filter((p) => !p.parentId).length;
+      const posCount = getWorkPositions(order, positionsForOrder(order, allPositions)).length;
       const nextLabel = attn.nextAction?.label;
       const swipeRightLabel = nextLabel ? escapeHtml(nextLabel.slice(0, 24)) : "Дія";
       const healthBadge = gm ? renderHealthBadge(gm.health) : "";
@@ -299,7 +301,7 @@ export function renderOrdersGrid(orders, positions, { filtersActive = false } = 
       ? renderOrdersList(sorted, rootPositions, positions, filtersActive)
       : renderOrdersCards(sorted, rootPositions, positions, filtersActive);
 
-  return `<div class="orders-view">${ordersModeBarHtml()}${body}</div>`;
+  return `<div class="orders-view">${renderOrdersModeBar()}${body}</div>`;
 }
 
 export function renderOrderDetailHeader(order, positions, { canEditOrder = false } = {}) {
@@ -308,7 +310,7 @@ export function renderOrderDetailHeader(order, positions, { canEditOrder = false
   const progress = main?.progress ?? 0;
   const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
   const priClass = priorityClass(order.priority);
-  const positionCount = positionsForOrder(order, positions).filter((p) => !p.parentId).length;
+  const positionCount = getWorkPositions(order, positionsForOrder(order, positions)).length;
 
   return `
     <div class="order-detail-head">
@@ -468,15 +470,18 @@ function bindOrdersList(root, handlers) {
 export function bindOrdersGrid(root, handlers) {
   root?.querySelectorAll("[data-orders-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.ordersView.displayMode = btn.dataset.ordersMode;
-      window.__enverRender?.({ contentOnly: true });
+      const prev = state.ordersView.displayMode || "cards";
+      const next = btn.dataset.ordersMode;
+      state.ordersView.displayMode = next;
+      const chromeChanged = (prev === "positions") !== (next === "positions");
+      window.__enverRender?.({ contentOnly: !chromeChanged });
     });
   });
 
   const mode = state.ordersView.displayMode || "cards";
   if (mode === "list") {
     bindOrdersList(root, handlers);
-  } else {
+  } else if (mode !== "positions") {
     bindOrderCards(root, { ...handlers, allPositions: handlers.positions });
   }
 }

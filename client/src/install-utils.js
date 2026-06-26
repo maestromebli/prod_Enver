@@ -1,5 +1,14 @@
+import { formatDayRange, getInstallDayRange } from "./install-calendar-days.js";
+
 export const READY_STATUS = "Готово до встановлення";
 export const ON_INSTALL_STATUS = "На встановленні";
+
+/** Період монтажу для таблиць і карток: «дд.мм.рррр» або «дд.мм.рррр – дд.мм.рррр». */
+export function formatInstallPeriod(position) {
+  const range = getInstallDayRange(position);
+  if (!range) return "—";
+  return formatDayRange(range.start, range.end);
+}
 
 export function isInstallRelevant(position) {
   return Boolean(

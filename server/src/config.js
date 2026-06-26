@@ -17,12 +17,7 @@ export const config = {
   domain: process.env.DOMAIN || null,
   adminDefaultPassword: process.env.ADMIN_DEFAULT_PASSWORD || null,
   buildSha: process.env.APP_BUILD_SHA || process.env.IMAGE_TAG || null,
-  uploadsDir: process.env.UPLOADS_DIR || null,
-  gitlabBaseUrl: process.env.GITLAB_BASE_URL || null,
-  gitlabToken: process.env.GITLAB_TOKEN || null,
-  gitlabProjectId: process.env.GITLAB_PROJECT_ID || null,
-  gitlabCncBranch: process.env.GITLAB_CNC_BRANCH || "main",
-  gitlabCncBasePath: process.env.GITLAB_CNC_BASE_PATH || "cnc"
+  uploadsDir: process.env.UPLOADS_DIR || null
 };
 
 /** Помилки безпеки production — для assertProductionSafety і тестів. */

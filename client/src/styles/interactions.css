@@ -297,6 +297,42 @@
   word-break: break-word;
 }
 
+/* Не display:none — інакше programmatic .click() не відкриває діалог у Safari/Chrome */
+.enver-file-input-offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Кнопка «Обрати файл» — клік потрапляє на input поверх label */
+.cp-pick-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cp-pick-label .enver-file-input-offscreen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  clip: auto;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
 .constructive-upload-zone {
   position: relative;
   border: 2px dashed var(--enver-border, var(--border));
@@ -402,6 +438,74 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.file-upload-zone--compact {
+  padding: 14px 16px;
+  min-height: 0;
+}
+
+.file-upload-zone--compact .constructive-upload-icon {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.file-upload-zone--compact .constructive-upload-title {
+  font-size: 0.9375rem;
+}
+
+.file-upload-zone--compact .constructive-upload-hint,
+.file-upload-zone--compact .constructive-upload-formats {
+  font-size: 0.75rem;
+}
+
+.btn-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--enver-primary, var(--navy));
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  color: var(--enver-primary-hover, var(--navy));
+}
+
+.cp-package-advanced {
+  margin-top: 12px;
+  border: 1px solid var(--enver-border, #e2e8f0);
+  border-radius: var(--enver-radius-md, 10px);
+  padding: 10px 12px;
+}
+
+.cp-package-advanced-summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.cp-slots-details {
+  margin: 10px 0;
+  font-size: 0.875rem;
+}
+
+.legacy-ai-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pm-upload-kind {
+  margin-top: 8px;
+}
+
+.cd-file-label-input {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .constructive-analyze-cta {

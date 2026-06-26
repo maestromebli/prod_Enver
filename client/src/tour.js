@@ -8,7 +8,8 @@ const TOUR_STEPS = [
     focusSelector: "#toolbarNewOrderBtn"
   },
   {
-    tab: "Позиції",
+    tab: "Замовлення",
+    ordersDisplayMode: "positions",
     title: "Крок 2 з 3",
     hint: "Додай позицію з відповідальними",
     focusSelector: "#toolbarNewPositionBtn"

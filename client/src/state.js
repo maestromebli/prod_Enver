@@ -5,8 +5,14 @@ export const state = {
   directories: {},
   history: [],
   historyEntityFilter: "",
-  /** Порожній рядок — усі етапи на вкладці «Виробництво за етапами» */
+  /** Порожній рядок — усі етапи на вкладці «Цех зараз» */
   productionStageFilter: "",
+  /** Фільтри списків — джерело правди для пошуку/статусу/відповідального (не лише DOM). */
+  listFilters: {
+    search: "",
+    status: "",
+    responsible: ""
+  },
   activeTab: "Замовлення",
   /** id замовлення на вкладці «Замовлення» (детальний вигляд); null — сітка карток */
   selectedOrderId: null,
@@ -43,28 +49,34 @@ export const state = {
   },
   godmodeNotifications: { items: [], fetchedAt: null },
   ordersView: {
-    /** cards | list */
+    /** cards | list | positions */
     displayMode: "cards",
-    /** overview | pos-{id} | finance | history */
+    /** overview | pos-{id} | history */
     detailTab: "overview",
     positionBundles: {},
     positionSubTab: {},
     positionTabDownstream: {},
-    orderFinanceSummary: null,
     /** Фільтр пріоритету на реєстрі замовлень */
     priorityFilter: ""
   },
+  showArchived: false,
   constructorDesk: {
     orders: [],
     positions: [],
     constructors: [],
     detail: null,
+    packageDetail: null,
+    packageLoading: false,
+    /** work | package — підвкладки робочої сторінки конструктора */
+    workspaceTab: "work",
     selectedOrderId: null,
     selectedPositionId: null,
     loading: false,
     onlyMine: false,
     error: "",
     stale: false,
-    filter: "all"
+    filter: "all",
+    /** cards | list — перегляд реєстру замовлень у конструктиві */
+    displayMode: "cards"
   }
 };

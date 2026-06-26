@@ -1,0 +1,98 @@
+@model AssetManagement.Core.Models.PagedResult<AssetManagement.Core.Models.TenantAssetsGroupDto>
+@{
+    ViewData["Title"] = "Статуси активів за tenant";
+}
+
+<h1 class="mb-4">Статуси активів за tenant</h1>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрити"></button>
+    </div>
+}
+
+<p class="text-muted">
+    Tenant: @Model.TotalCount · сторінка @Model.PageIndex з @(Model.TotalPages == 0 ? 1 : Model.TotalPages)
+</p>
+
+@foreach (var group in Model.Items)
+{
+    <section class="card mb-4 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="h5 mb-0">@group.Tenant.Name</h2>
+                @if (!string.IsNullOrWhiteSpace(group.Tenant.Description))
+                {
+                    <small class="text-muted">@group.Tenant.Description</small>
+                }
+            </div>
+            <a asp-action="Details" asp-route-tenantId="@group.Tenant.Id" class="btn btn-sm btn-outline-primary">
+                Деталі (@group.Assets.Count)
+            </a>
+        </div>
+        <div class="card-body p-0">
+            @if (group.Assets.Count == 0)
+            {
+                <p class="p-3 mb-0 text-muted">Немає активів.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Тип</th>
+                                <th>Назва</th>
+                                <th>Статус</th>
+                                <th>Оновлено</th>
+                                <th>Ким</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var asset in group.Assets)
+                            {
+                                <tr>
+                                    <td>@asset.AssetType</td>
+                                    <td>@asset.AssetName</td>
+                                    <td>
+                                        <span class="badge bg-@StatusBadgeClass(asset.Status)">@asset.Status</span>
+                                    </td>
+                                    <td>@asset.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                    <td>@asset.UpdatedBy</td>
+                                    <td>
+                                        <a asp-action="Edit" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-secondary">Редагувати</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@await Html.PartialAsync("_Pagination", new AssetManagement.Web.Models.PageNavigationModel
+{
+    PageIndex = Model.PageIndex,
+    PageSize = Model.PageSize,
+    TotalPages = Model.TotalPages,
+    HasPreviousPage = Model.HasPreviousPage,
+    HasNextPage = Model.HasNextPage,
+    Action = "Index",
+    RouteValues = new Dictionary<string, string?> { ["pageSize"] = Model.PageSize.ToString() }
+})
+
+@functions {
+    string StatusBadgeClass(AssetManagement.Core.Enums.AssetStatus status) => status switch
+    {
+        AssetManagement.Core.Enums.AssetStatus.Active => "success",
+        AssetManagement.Core.Enums.AssetStatus.Inactive => "secondary",
+        AssetManagement.Core.Enums.AssetStatus.Maintenance => "warning",
+        AssetManagement.Core.Enums.AssetStatus.Decommissioned => "danger",
+        _ => "secondary"
+    };
+}

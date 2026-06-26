@@ -1,5 +1,5 @@
 import { toastError } from "./toast.js";
-import { isInstalledClient } from "./operator-ui.js";
+import { initOperatorPwaShell, isInstalledClient } from "./operator-ui.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 import { $ } from "./utils.js";
 
@@ -233,7 +233,5 @@ export async function confirmKioskBeforeLogout() {
 
 export function initOperatorKioskEarly() {
   bindKioskListeners();
-  if (isStandalonePwa() || isIos() || isNativeOperatorShell()) {
-    document.documentElement.classList.add("operator-pwa-capable");
-  }
+  initOperatorPwaShell();
 }

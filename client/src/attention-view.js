@@ -1,11 +1,7 @@
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { escapeHtml } from "./utils.js";
 import { attentionFromState, countAttentionItems } from "./attention.js";
-import {
-  canQuickRunGodmodeAction,
-  panelForGodmodeAction,
-  resolvePositionGodmode
-} from "./godmode-ui.js";
+import { canQuickRunGodmodeAction } from "./godmode-ui.js";
 import { state } from "./state.js";
 import { activePositions } from "./archive.js";
 import { getProductionFloorCache } from "./production-floor.js";
@@ -395,11 +391,10 @@ export function bindAttentionTab(root, handlers = {}) {
         handlers.onOpenPosition(id);
         return;
       }
-      const position = state.positions.find((p) => p.id === id);
-      if (!position) return;
-      const { openPositionDrawer } = await import("./positions.js");
-      const gm = resolvePositionGodmode(position);
-      openPositionDrawer(position, { panel: panelForGodmodeAction(gm.nextAction?.type) });
+      const { openPositionFromContext } = await import("./godmode-navigation.js");
+      await openPositionFromContext(id);
+      window.__enverRender?.();
+      window.scrollTo?.({ top: 0, behavior: "instant" });
     });
   });
   root?.querySelectorAll("[data-attention-order]").forEach((btn) => {

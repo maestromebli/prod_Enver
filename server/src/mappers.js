@@ -89,7 +89,8 @@ export function orderToDb(body) {
     status: body.status?.trim() ?? "",
     priority: body.priority?.trim() ?? "",
     comment: body.comment?.trim() ?? "",
-    default_delivery_address: body.defaultDeliveryAddress?.trim() ?? body.clientAddress?.trim() ?? ""
+    default_delivery_address:
+      body.defaultDeliveryAddress?.trim() ?? body.clientAddress?.trim() ?? ""
   };
 }
 

@@ -81,11 +81,12 @@ export function canViewProductionFloor() {
 }
 
 export function canManageConstructorDesk() {
-  return Boolean(state.currentUser?.permissions?.canManageConstructorDesk);
+  return Boolean(isAdmin() || state.currentUser?.permissions?.canManageConstructorDesk);
 }
 
 export function canWorkConstructorDesk() {
   return Boolean(
+    isAdmin() ||
     state.currentUser?.permissions?.canWorkConstructorDesk ||
     state.currentUser?.permissions?.canManageConstructorDesk
   );
@@ -93,12 +94,6 @@ export function canWorkConstructorDesk() {
 
 export function canViewConstructorDesk() {
   return canWorkConstructorDesk();
-}
-
-export function canViewFinance() {
-  return Boolean(
-    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canViewFinance
-  );
 }
 
 export function canManageProcurement() {

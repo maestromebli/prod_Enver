@@ -1,9 +1,9 @@
 import { canManageProcurement } from "./auth.js";
+import { state } from "./state.js";
 import {
   bindConstructivePackageBlock,
-  bindLegacyConstructiveUpload,
   renderConstructivePackageBlock,
-  renderLegacyConstructiveUpload
+  renderConstructivePackageReadOnly
 } from "./constructive-package-ui.js";
 import {
   bindConstructivePipelinePanel,
@@ -11,9 +11,21 @@ import {
 } from "./constructive-pipeline-panel.js";
 import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
 
-/** Повна вкладка «Конструктив» у картці замовлення. */
-export function renderPositionConstructivePanel(position, downstream = {}) {
+/** Вкладка «Пакет конструктива» у картці замовлення (read-only) або на столі конструктора (edit). */
+export function renderPositionConstructivePanel(
+  position,
+  downstream = {},
+  { editable = false } = {}
+) {
   const detail = downstream?.packageDetail;
+
+  if (!editable) {
+    return `
+      <div class="position-constructive-stack position-constructive-stack--readonly" data-position-constructive="${position.id}">
+        ${renderConstructivePackageReadOnly(position, detail)}
+      </div>`;
+  }
+
   const hasPackage = Boolean(detail?.package);
   const pipeline = hasPackage
     ? renderConstructivePipelinePanel(detail, downstream?.procurement, {
@@ -25,24 +37,34 @@ export function renderPositionConstructivePanel(position, downstream = {}) {
   return `
     <div class="position-constructive-stack" data-position-constructive="${position.id}">
       ${pipeline}
-      ${renderConstructivePackageBlock(position, detail)}
-      ${renderLegacyConstructiveUpload(position)}
+      ${renderConstructivePackageBlock(position, detail, { editable: true })}
       ${renderLegacyAiBlock(position)}
     </div>`;
 }
 
-export function bindPositionConstructivePanel(root, position, { downstream, onRefresh } = {}) {
+export function bindPositionConstructivePanel(
+  root,
+  position,
+  { downstream, onRefresh, editable = false } = {}
+) {
   if (!root || !position?.id) return;
 
   const stack = root.querySelector(`[data-position-constructive="${position.id}"]`) || root;
   const positionId = position.id;
 
+  if (!editable) {
+    stack.querySelector("[data-open-constructor-ws]")?.addEventListener("click", async () => {
+      const { openConstructorWorkspace } = await import("./constructor-desk.js");
+      await openConstructorWorkspace(positionId, { workspaceTab: "package" });
+    });
+    return;
+  }
+
   const notifyUpdated = (opts = {}) => {
     onRefresh?.({ contentOnly: false, reloadConstructive: true, ...opts });
   };
 
-  bindConstructivePackageBlock(position, stack, { onUpdated: notifyUpdated });
-  bindLegacyConstructiveUpload(stack, position, { onUploaded: notifyUpdated });
+  bindConstructivePackageBlock(position, stack, { editable: true, onUpdated: notifyUpdated });
   bindLegacyAiBlock(stack, position, {
     onUpdated: notifyUpdated,
     showError: (msg) => {
@@ -53,8 +75,14 @@ export function bindPositionConstructivePanel(root, position, { downstream, onRe
   if (stack.querySelector(".constructive-pipeline-panel")) {
     bindConstructivePipelinePanel(stack, {
       positionId,
-      getPackageDetail: () => downstream?.packageDetail,
-      getProcurement: () => downstream?.procurement,
+      getPackageDetail: () =>
+        state.constructorDesk.packageDetail ??
+        state.ordersView.positionTabDownstream?.[positionId]?.packageDetail ??
+        downstream?.packageDetail,
+      getProcurement: () =>
+        state.constructorDesk.packageDetail?.procurement ??
+        state.ordersView.positionTabDownstream?.[positionId]?.procurement ??
+        downstream?.procurement,
       onProcurementUpdated: () => notifyUpdated(),
       onPackageUpdated: () => notifyUpdated(),
       onOpenPosition: () => onRefresh?.({ contentOnly: false })

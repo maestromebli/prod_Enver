@@ -1,9 +1,5 @@
 import fs from "fs";
-import {
-  auditActor,
-  requirePermission,
-  requirePositionAccess
-} from "../../middleware/auth.js";
+import { auditActor, requirePermission, requirePositionAccess } from "../../middleware/auth.js";
 import {
   deleteManagerFile,
   getManagerFileForDownload,
@@ -25,17 +21,21 @@ export function registerManagerRoutes(router) {
     res.json(bundle);
   });
 
-  router.put("/:id/manager-data", requirePermission("canEditPositionManagerData"), async (req, res) => {
-    const id = Number(req.params.id);
-    try {
-      const result = await saveManagerData(id, req.body || {}, auditActor(req), {
-        markComplete: req.body?.markComplete
-      });
-      res.json(result);
-    } catch (err) {
-      res.status(err.status || 500).json({ error: err.message });
+  router.put(
+    "/:id/manager-data",
+    requirePermission("canEditPositionManagerData"),
+    async (req, res) => {
+      const id = Number(req.params.id);
+      try {
+        const result = await saveManagerData(id, req.body || {}, auditActor(req), {
+          markComplete: req.body?.markComplete
+        });
+        res.json(result);
+      } catch (err) {
+        res.status(err.status || 500).json({ error: err.message });
+      }
     }
-  });
+  );
 
   router.get("/:id/files", requirePositionAccess, async (req, res) => {
     const id = Number(req.params.id);
@@ -57,19 +57,25 @@ export function registerManagerRoutes(router) {
     }
   });
 
-  router.delete("/:id/files/:fileId", requirePermission("canEditPositionManagerData"), async (req, res) => {
-    const id = Number(req.params.id);
-    const fileId = req.params.fileId;
-    if (String(fileId).startsWith("ws-")) {
-      res.status(400).json({ error: "Файли робочого столу конструктора видаляються у столи конструктора" });
-      return;
+  router.delete(
+    "/:id/files/:fileId",
+    requirePermission("canEditPositionManagerData"),
+    async (req, res) => {
+      const id = Number(req.params.id);
+      const fileId = req.params.fileId;
+      if (String(fileId).startsWith("ws-")) {
+        res
+          .status(400)
+          .json({ error: "Файли робочого столу конструктора видаляються у столи конструктора" });
+        return;
+      }
+      try {
+        res.json(await deleteManagerFile(id, Number(fileId), auditActor(req)));
+      } catch (err) {
+        res.status(err.status || 500).json({ error: err.message });
+      }
     }
-    try {
-      res.json(await deleteManagerFile(id, Number(fileId), auditActor(req)));
-    } catch (err) {
-      res.status(err.status || 500).json({ error: err.message });
-    }
-  });
+  );
 
   router.get("/:id/files/:fileId/download", requirePositionAccess, async (req, res) => {
     const id = Number(req.params.id);

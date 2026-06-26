@@ -1,0 +1,125 @@
+/* Візуальна поліровка ENVER v3 — іконки, контекстний chrome, статуси */
+
+/* ——— SVG icons ——— */
+.enver-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.enver-icon--nav {
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell-nav-icon .enver-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.enver-icon--empty {
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--enver-text-muted, #666d62);
+  opacity: 0.55;
+}
+
+.enver-empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.btn-icon .enver-icon,
+.gn-bell .enver-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.op-btn-ghost .enver-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.op-camera-glyph .enver-icon,
+.op-scan-glyph .enver-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.order-card-warnings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-card-warnings .enver-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--enver-warning, #b7791f);
+  flex-shrink: 0;
+}
+
+/* ——— KPI лише на Огляді ——— */
+body:not(.view-dashboard) #kpiGrid {
+  display: none;
+}
+
+/* ——— Toolbar лише на Замовленнях ——— */
+body.view-tab-no-toolbar #mainToolbar {
+  display: none !important;
+}
+
+/* ——— Статус-пілюлі карток замовлень ——— */
+.order-card-status-pill--warning {
+  background: var(--enver-warning-soft);
+  color: var(--enver-warning);
+}
+
+.order-card-status-pill--danger {
+  background: var(--enver-danger-soft);
+  color: var(--enver-danger);
+}
+
+/* ——— 3D empty state (мапінг) ——— */
+.model-mapping-viewer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 280px;
+  padding: 24px 16px;
+  border-radius: var(--enver-radius-sm, 8px);
+  border: 1px dashed var(--enver-border, #dfe4d8);
+  background: color-mix(
+    in srgb,
+    var(--enver-primary-soft, #e2efe7) 35%,
+    var(--enver-surface, #fff)
+  );
+  text-align: center;
+}
+
+.model-mapping-viewer-empty .enver-icon--3d {
+  width: 3rem;
+  height: 3rem;
+  color: var(--enver-primary, #245c3b);
+  opacity: 0.7;
+}
+
+.model-mapping-viewer-empty strong {
+  font-size: 1rem;
+  color: var(--enver-text, #171a16);
+}
+
+.model-mapping-viewer-empty p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.875rem;
+  color: var(--enver-text-muted, #666d62);
+  line-height: 1.45;
+}
+
+.model-mapping-viewer--has-model .model-mapping-viewer-empty {
+  display: none;
+}

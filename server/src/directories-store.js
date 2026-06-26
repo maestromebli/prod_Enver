@@ -1,6 +1,12 @@
 import { STAGE_STATUSES } from "../../shared/production/stages.js";
 import { ORDER_STATUSES } from "../../shared/production/orders.js";
+import {
+  CONSTRUCTORS_DIRECTORY_KEY,
+  getDirectoryList
+} from "../../shared/production/directories.js";
 import { one, run } from "./db.js";
+
+export { CONSTRUCTORS_DIRECTORY_KEY, getDirectoryList };
 
 export const DEFAULT_DIRECTORIES = {
   Менеджери: ["Ігор", "Макс", "Андрій", "Олег", "Максим", "Люда", "Сергій"],

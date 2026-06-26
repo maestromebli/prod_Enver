@@ -11,6 +11,13 @@ export function workspaceKindToManagerKind(workspaceKind) {
   return WORKSPACE_TO_MANAGER_KIND[workspaceKind] || "manager_other";
 }
 
+export function managerKindToWorkspaceKind(managerKind) {
+  for (const [workspaceKind, mapped] of Object.entries(WORKSPACE_TO_MANAGER_KIND)) {
+    if (mapped === managerKind) return workspaceKind;
+  }
+  return null;
+}
+
 export function isWorkspaceManagerKind(kind) {
   return Object.hasOwn(WORKSPACE_TO_MANAGER_KIND, kind);
 }

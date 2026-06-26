@@ -224,27 +224,27 @@ body {
   .toolbar {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin: 8px 0;
+    gap: 6px;
+    margin: 6px 0;
   }
 
   .toolbar input,
   .toolbar select,
   .toolbar button {
     width: 100%;
-    min-height: 44px;
+    min-height: 38px;
   }
 
   .toolbar-actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
   }
 
   .toolbar-actions .btn {
     width: 100%;
-    min-height: 44px;
+    min-height: 38px;
   }
 
   .card-header-row {

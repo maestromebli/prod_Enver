@@ -1,3 +1,4 @@
+import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { buildPositionGodmode } from "@enver/shared/production/godmode.js";
 import {
   deriveNextAction,
@@ -161,7 +162,7 @@ export function aggregateOrderAttention(order, positions) {
     attentionCount: blockers.length + warnings.length,
     maxOverdue,
     hasProblem,
-    positionCount: related.filter((p) => !p.parentId).length,
+    positionCount: getWorkPositions(order, related).length,
     nextAction,
     needsAssignment: orderMissingNextAssignment(order, positions)
   };

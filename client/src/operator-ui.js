@@ -1,5 +1,6 @@
 /** Єдиний режим UI оператора: index.html, operator.html, PWA, APK. */
 
+import { isOperator } from "./auth.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 
 const BUILD_STORAGE_KEY = "enver_app_build";
@@ -34,23 +35,42 @@ export function isInstalledClient() {
   }
 }
 
-/** Класи для PWA/APK: safe-area, компактна шапка, enver-тема. */
+/** Класи для operator.html / PWA / APK: safe-area, компактна шапка, enver-тема. */
 export function initOperatorPwaShell() {
   const root = document.documentElement;
-  if (!root) return;
-  if (isInstalledClient()) {
+  const body = document.body;
+  if (!root || !body) return;
+  if (
+    body.classList.contains("operator-client-mode") ||
+    isInstalledClient() ||
+    isNativeOperatorShell()
+  ) {
     root.classList.add("operator-pwa-capable");
   }
   root.classList.toggle("enver-operator-installed", isInstalledClient());
 }
 
 export function setOperatorUiActive(active) {
-  document.body?.classList.toggle("view-operator", active);
-  // operator.html: enver-operator-ui лише в розмітці operator.html (компактний tablet shell).
-  // У менеджерському index.html не додаємо — інакше operator-client.css ламає layout app shell.
-  if (!document.body?.classList.contains("operator-client-mode")) {
-    document.body?.classList.remove("enver-operator-ui");
+  const body = document.body;
+  if (!body) return;
+  body.classList.toggle("view-operator", active);
+  // operator.html завжди має operator-client-mode у розмітці; index — лише під час view=operator.
+  const keepOperatorShell = body.classList.contains("operator-client-mode") || active;
+  body.classList.toggle("enver-operator-ui", keepOperatorShell);
+}
+
+/** Операторів з index.html перенаправляє на /operator.html — той самий UI, що PWA/APK. */
+export function redirectPureOperatorToClientPage() {
+  if (document.body?.classList.contains("operator-client-mode")) return false;
+  if (!isOperator()) return false;
+  const url = new URL("/operator.html", window.location.origin);
+  const incoming = new URLSearchParams(window.location.search);
+  for (const key of ["stage", "position"]) {
+    const value = incoming.get(key);
+    if (value) url.searchParams.set(key, value);
   }
+  window.location.replace(`${url.pathname}${url.search}${url.hash}`);
+  return true;
 }
 
 /** Версія збірки з /api/health (v2 і legacy). */

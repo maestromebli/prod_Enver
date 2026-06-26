@@ -9,9 +9,8 @@ export const PACKAGE_STATUSES = [
   "approved_by_production",
   "sent_to_procurement",
   "procurement_done",
-  "finance_ready",
   "cnc_ready",
-  "sent_to_gitlab",
+  "sent_to_cnc",
   "released_to_cnc",
   "archived",
   "rejected"
@@ -49,20 +48,10 @@ export const PROCUREMENT_ITEM_TYPES = [
   "other"
 ];
 
-export const FINANCE_ENTRY_TYPES = [
-  "material_cost",
-  "hardware_cost",
-  "cnc_cost",
-  "labor_cost",
-  "delivery_cost",
-  "installation_cost",
-  "other"
-];
-
 export const CNC_JOB_STATUSES = [
   "waiting",
   "ready",
-  "sent_to_gitlab",
+  "sent_to_cnc",
   "at_machine",
   "in_progress",
   "paused",
@@ -118,7 +107,7 @@ export function procurementStatusLabel(status) {
 export const CNC_JOB_STATUS_LABELS = {
   waiting: "Очікує",
   ready: "Готово",
-  sent_to_gitlab: "У GitLab",
+  sent_to_cnc: "У черзі ЧПК",
   at_machine: "На верстаті",
   in_progress: "В роботі",
   paused: "Пауза",
@@ -141,9 +130,8 @@ export const PACKAGE_STATUS_LABELS = {
   approved_by_production: "Підтверджено виробництвом",
   sent_to_procurement: "Передано в закупівлю",
   procurement_done: "Закупівля завершена",
-  finance_ready: "Готово до фінансів",
   cnc_ready: "Готово до ЧПК",
-  sent_to_gitlab: "Відправлено в GitLab",
+  sent_to_cnc: "Відправлено на ЧПК",
   released_to_cnc: "Передано на верстат",
   archived: "Архів",
   rejected: "Відхилено"
@@ -166,13 +154,12 @@ export const CONSTRUCTIVE_PIPELINE_STEPS = [
   { key: "files", label: "Файли", statuses: ["uploaded"] },
   { key: "parse", label: "Розбір", statuses: ["parsing", "parsed"] },
   { key: "procurement", label: "Закупівля", statuses: ["sent_to_procurement", "procurement_done"] },
-  { key: "finance", label: "Фінанси", statuses: ["finance_ready"] },
   {
     key: "review",
     label: "Перевірка",
     statuses: ["needs_review", "approved_by_constructor", "approved_by_production"]
   },
-  { key: "gitlab", label: "GitLab", statuses: ["cnc_ready", "sent_to_gitlab"] },
+  { key: "cnc_dispatch", label: "Черга ЧПК", statuses: ["cnc_ready", "sent_to_cnc"] },
   { key: "cnc", label: "ЧПК", statuses: ["released_to_cnc"] },
   { key: "labels", label: "Етикетки", statuses: [] },
   { key: "production", label: "Виробництво", statuses: [] }
@@ -196,14 +183,11 @@ export function detectPackageFileKind(fileName) {
   return "other";
 }
 
-/** Чи пакет дозволяє відправку в GitLab. */
-export function canSendToGitlab(status) {
-  return [
-    "approved_by_constructor",
-    "approved_by_production",
-    "cnc_ready",
-    "sent_to_gitlab"
-  ].includes(status);
+/** Чи пакет можна передати на верстат (після погодження). */
+export function canReleasePackageToCnc(status) {
+  return ["approved_by_constructor", "approved_by_production", "cnc_ready", "sent_to_cnc"].includes(
+    status
+  );
 }
 
 /** Чи пакет пройшов approval для ЧПК. */
@@ -212,7 +196,7 @@ export function isPackageApprovedForCnc(status) {
     "approved_by_constructor",
     "approved_by_production",
     "cnc_ready",
-    "sent_to_gitlab",
+    "sent_to_cnc",
     "released_to_cnc"
   ].includes(status);
 }

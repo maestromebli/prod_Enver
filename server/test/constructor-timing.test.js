@@ -19,7 +19,10 @@ describe("constructor timing", () => {
       { item: "Шафа", itemType: "шафа" },
       { managerFilesCount: 3, managerPdfCount: 1 }
     );
-    const without = suggestConstructorTiming({ item: "Шафа", itemType: "шафа" }, { managerFilesCount: 0 });
+    const without = suggestConstructorTiming(
+      { item: "Шафа", itemType: "шафа" },
+      { managerFilesCount: 0 }
+    );
     assert.ok(withFiles.estimatedHours < without.estimatedHours);
   });
 

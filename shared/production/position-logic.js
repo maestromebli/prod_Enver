@@ -45,6 +45,10 @@ export function computeProgress(row) {
 }
 
 export function derivePositionStatus(row) {
+  const explicit = String(row.position_status ?? row.positionStatus ?? "").trim();
+  if (explicit === "Завершено") return "Завершено";
+  if (explicit === "На встановленні") return "На встановленні";
+
   if (row.problem?.trim()) return "Проблема";
   if (row.position_status === "На паузі") return "На паузі";
 
