@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   canDelete3DAsset,
+  canDownloadWebModel,
+  canRetry3DConversion,
   canUpload3DAsset,
+  canViewB3DReport,
+  canViewOrder3DTab,
   canViewOriginalB3D,
   canViewWebModel,
+  conversionSourceLabel,
   detectOrder3DFileType,
   isOrder3DUploadAllowed
 } from "../../shared/production/order-3d.js";
@@ -55,6 +60,28 @@ describe("order-3d", () => {
     assert.equal(canUpload3DAsset(manager), true);
     assert.equal(canUpload3DAsset(constructor), true);
     assert.equal(canViewWebModel(manager), true);
+    assert.equal(canViewWebModel(null), false);
+    assert.equal(canDownloadWebModel(manager), false);
+    assert.equal(canDownloadWebModel(constructor), true);
+    assert.equal(canRetry3DConversion(manager), false);
+    assert.equal(canRetry3DConversion(production), true);
+    assert.equal(canViewB3DReport(manager), false);
+    assert.equal(canViewOrder3DTab(manager), true);
+  });
+
+  it("detectOrder3DFileType — усі підтримувані розширення", () => {
+    assert.equal(detectOrder3DFileType("a.wrl"), "wrl");
+    assert.equal(detectOrder3DFileType("a.stl"), "stl");
+    assert.equal(detectOrder3DFileType("a.obj"), "obj");
+    assert.equal(detectOrder3DFileType("a.JPEG"), "jpg");
+    assert.equal(detectOrder3DFileType("a.png"), "png");
+    assert.equal(detectOrder3DFileType("noext"), "unknown");
+  });
+
+  it("conversionSourceLabel", () => {
+    assert.equal(conversionSourceLabel("embedded_glb"), "Вбудований GLB у .b3d");
+    assert.equal(conversionSourceLabel(""), null);
+    assert.equal(conversionSourceLabel("custom_source"), "custom_source");
   });
 
   it("convertB3dWithNode + .project дає flat GLB з 88 панелями", async () => {
