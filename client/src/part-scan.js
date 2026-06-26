@@ -247,7 +247,13 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
 
 async function handleScan(
   code,
-  { statusEl, detailEl, scanInput, showCncActions = false, closeLabel = "Згорнути" } = {}
+  {
+    statusEl,
+    detailEl,
+    scanInput,
+    showCncActions = false,
+    closeLabel: _closeLabel = "Згорнути"
+  } = {}
 ) {
   if (statusEl) statusEl.textContent = "Пошук…";
   try {

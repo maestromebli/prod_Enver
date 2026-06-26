@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { api, constructivePackageFileUrl, getPartLabelsUrl } from "./api.js";
+import { api, constructivePackageFileUrl } from "./api.js";
 import { createFileDropZone } from "./interactions/drag-drop.js";
 import { pickLocalFile } from "./file-picker.js";
 import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";

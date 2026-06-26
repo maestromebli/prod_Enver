@@ -1,4 +1,4 @@
-import { TABS, ATTENTION_TAB, PRODUCTION_FLOOR_TAB } from "./constants.js";
+import { TABS, ATTENTION_TAB, PRODUCTION_FLOOR_TAB, PROCUREMENT_TAB } from "./constants.js";
 import { ORDER_DONE_STATUS } from "./archive.js";
 
 /** Маршрути з огляду / дашборду → вкладка + опційні фільтри. */
@@ -16,6 +16,8 @@ export const DASHBOARD_NAV_ROUTES = {
   Позиції: { tab: "Замовлення", ordersDisplayMode: "positions" },
   Архів: { tab: "Замовлення", status: ORDER_DONE_STATUS, archived: true },
   [PRODUCTION_FLOOR_TAB]: { tab: PRODUCTION_FLOOR_TAB },
+  [PROCUREMENT_TAB]: { tab: PROCUREMENT_TAB },
+  Закупівля: { tab: PROCUREMENT_TAB },
   /** Зворотна сумісність зі старими підписами в UI */
   "Виробництво за етапами": { tab: PRODUCTION_FLOOR_TAB }
 };

@@ -1,4 +1,4 @@
-import { getPackageDetail, getPackageParts } from "./constructive-package-service.js";
+import { getPackageDetail } from "./constructive-package-service.js";
 import { getAiSettings } from "../app-settings.js";
 import { callOpenAiChat } from "../ai/openai-client.js";
 import { parseRawAnalysisContent } from "../ai/validate-analysis.js";

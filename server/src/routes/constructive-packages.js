@@ -4,10 +4,8 @@ import {
   requireAuth,
   requireConstructorDeskWrite,
   requireConstructivePackageWrite,
-  requirePermission,
   requirePermissionOrAdmin,
-  requirePositionAccess,
-  requirePositionWrite
+  requirePositionAccess
 } from "../middleware/auth.js";
 import { one } from "../db.js";
 import {
@@ -23,7 +21,6 @@ import {
   deletePackageFile,
   saveModelManifest,
   updatePartModelMapping,
-  autoMapManifestNodes,
   uploadConstructivePackageFiles
 } from "../constructive/constructive-package-service.js";
 import {
@@ -33,7 +30,6 @@ import {
 } from "../constructive/procurement-service.js";
 import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { detectPackageFileKind } from "../../../shared/production/constructive-package.js";
-import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import { renderPartLabelsHtml } from "../constructive/labels.js";
 import { analyzeConstructivePackage } from "../constructive/constructive-package-ai.js";
 

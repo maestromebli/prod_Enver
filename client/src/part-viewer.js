@@ -83,7 +83,6 @@ export function createPartViewer(container, { onReady, onError } = {}) {
 
   let model = null;
   let highlightMesh = null;
-  let ghostMode = false;
   let animId = null;
 
   const meshMap = new Map();
@@ -186,7 +185,6 @@ export function createPartViewer(container, { onReady, onError } = {}) {
 
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
     if (!model) return;
-    ghostMode = ghost;
     highlightMesh = resolveMesh({ meshName, nodeId });
 
     model.traverse((child) => {

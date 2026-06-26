@@ -1,11 +1,6 @@
 import { Router } from "express";
 import { one } from "../db.js";
-import {
-  auditActor,
-  requireAuth,
-  requireOperatorPanelView,
-  requirePermissionOrAdmin
-} from "../middleware/auth.js";
+import { auditActor, requireAuth, requireOperatorPanelView } from "../middleware/auth.js";
 import {
   findPartByBarcode,
   getPackageDetail,
@@ -24,10 +19,6 @@ import { config } from "../config.js";
 
 const router = Router();
 router.use(requireAuth);
-
-function buildViewerUrl(packageId, fileId) {
-  return `/api/positions/0/constructive-packages/${packageId}/files/${fileId}`;
-}
 
 async function buildScanResponse(part) {
   const position = await one(`SELECT * FROM positions WHERE id = $1`, [part.positionId]);

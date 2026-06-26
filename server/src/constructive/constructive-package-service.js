@@ -7,10 +7,7 @@ import {
 } from "../../../shared/production/constructive-files.js";
 import {
   detectPackageFileKind,
-  isConstructorPackageFileKind,
-  isCncMachinePackageFileKind,
   isPackageApprovedForCnc,
-  canAutoParsePackageForMapping,
   canAutoParsePackage,
   canAppendFilesToPackage,
   canCreateModelMapping,
@@ -18,7 +15,6 @@ import {
   hasB3dMappingFile,
   hasProjectMappingFile,
   pickComplementMappingPackage,
-  shouldComplementMappingPackage,
   PACKAGE_FILE_KIND_LABELS
 } from "../../../shared/production/constructive-package.js";
 import { isMultiInstancePackageFileKind } from "../../../shared/production/cnc-file-meta.js";
@@ -29,7 +25,7 @@ import {
   computeChecksum
 } from "./part-code.js";
 import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
-import { extractGlbFromB3d, extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
+import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
 import { readPreviewLayoutFromGlb } from "./project-glb-builder.js";
 import { isLegacySharedMeshPreviewGlb } from "./project-glb-builder.js";
@@ -1032,7 +1028,7 @@ export async function rejectPackage(packageId, reason, actor) {
   return getPackageById(packageId);
 }
 
-export async function releasePackageToCnc(packageId, actor) {
+export async function releasePackageToCnc(packageId, _actor) {
   const pkg = await getPackageById(packageId);
   if (!isPackageApprovedForCnc(pkg?.status)) {
     const err = new Error("Пакет не пройшов перевірку — спочатку підтвердіть конструктив");

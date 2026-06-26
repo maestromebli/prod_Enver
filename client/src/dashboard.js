@@ -2,7 +2,8 @@ import { formatInstallPeriod } from "./install-utils.js";
 import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
 import { currentFilters, filteredPositions } from "./filters.js";
 import { parseUaDate } from "./install-calendar-dates.js";
-import { ATTENTION_TAB, PRODUCTION_FLOOR_TAB } from "./constants.js";
+import { ATTENTION_TAB, PRODUCTION_FLOOR_TAB, PROCUREMENT_TAB } from "./constants.js";
+import { canViewProcurement } from "./auth.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole
@@ -311,6 +312,7 @@ export function renderDashboard() {
             <button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(ATTENTION_TAB)}">Увага</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="Встановлення">Монтажі</button>
             <button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(PRODUCTION_FLOOR_TAB)}">Етапи</button>
+            ${canViewProcurement() ? `<button type="button" class="dash-quick-btn" data-dash-nav="${escapeHtml(PROCUREMENT_TAB)}">Закупівля</button>` : ""}
           </nav>
         </div>
         ${

@@ -1,6 +1,6 @@
 import { TABS } from "./constants.js";
-import { PRODUCTION_FLOOR_TAB, CONSTRUCTOR_DESK_TAB, PROCUREMENT_TAB } from "./users-constants.js";
-import { setListFilters, syncListFiltersToDom } from "./filters.js";
+import { PRODUCTION_FLOOR_TAB, CONSTRUCTOR_DESK_TAB } from "./users-constants.js";
+import { setListFilters } from "./filters.js";
 import {
   captureInstallScheduleOverlay,
   restoreInstallScheduleOverlay

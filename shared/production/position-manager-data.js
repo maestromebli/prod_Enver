@@ -128,7 +128,7 @@ export function buildManagerDataFromRow(row = {}) {
 export function isManagerDataComplete(
   position,
   managerData = null,
-  { managerFilesCount = 0 } = {}
+  { managerFilesCount: _managerFilesCount = 0 } = {}
 ) {
   const data = managerData || buildManagerDataFromRow(position);
   const hasItem = Boolean(String(position?.item ?? "").trim());

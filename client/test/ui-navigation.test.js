@@ -4,10 +4,13 @@ import {
   TABS,
   CONSTRUCTOR_DESK_TAB,
   PRODUCTION_FLOOR_TAB,
-  ATTENTION_TAB
+  ATTENTION_TAB,
+  PROCUREMENT_TAB
 } from "../src/constants.js";
 import { DASHBOARD_NAV_ROUTES, resolveDashboardNav } from "../src/dashboard-routes.js";
 import { buildGodmodeCtaAttrs } from "../../shared/production/godmode-ui-helpers.js";
+import { effectivePermissions } from "../src/auth.js";
+import { state } from "../src/state.js";
 
 describe("UI navigation contracts", () => {
   it("усі маршрути дашборду ведуть на існуючі вкладки", () => {
@@ -66,5 +69,13 @@ describe("UI navigation contracts", () => {
 
   it("вкладка закупівлі в головній навігації", () => {
     assert.ok(TABS.includes("Закупівля"));
+    assert.equal(resolveDashboardNav(PROCUREMENT_TAB).tab, PROCUREMENT_TAB);
+    assert.equal(DASHBOARD_NAV_ROUTES.Закупівля.tab, PROCUREMENT_TAB);
+  });
+
+  it("менеджер бачить закупівлю через effectivePermissions", () => {
+    state.currentUser = { role: "manager", permissions: { canEditOrders: true } };
+    assert.equal(Boolean(effectivePermissions().canManageProcurement), true);
+    state.currentUser = null;
   });
 });

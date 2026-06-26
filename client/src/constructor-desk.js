@@ -1,6 +1,11 @@
 import { api, getStoredToken } from "./api.js";
 import { refreshAppData } from "./data-sync.js";
-import { canManageConstructorDesk, canWorkConstructorDesk, isAdmin } from "./auth.js";
+import {
+  canManageConstructorDesk,
+  canManageProcurement,
+  canWorkConstructorDesk,
+  isAdmin
+} from "./auth.js";
 import { CONSTRUCTOR_DESK_TAB } from "./constants.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
@@ -359,7 +364,10 @@ function renderWorkspacePackage(position, downstream) {
   }
   return `
     <div class="card cd-package-panel" data-cd-package-mount>
-      ${renderPositionConstructivePanel(position, downstream, { editable: true, hideProcurement: true })}
+      ${renderPositionConstructivePanel(position, downstream, {
+        editable: true,
+        hideProcurement: !canManageProcurement()
+      })}
     </div>`;
 }
 
@@ -839,7 +847,7 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
 
   bindPositionConstructivePanel(mount, position, {
     editable: true,
-    hideProcurement: true,
+    hideProcurement: !canManageProcurement(),
     getDownstream: () => ({
       packageDetail: state.constructorDesk.packageDetail,
       cncJobs: state.constructorDesk.packageCncJobs || [],

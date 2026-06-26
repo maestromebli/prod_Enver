@@ -9,7 +9,6 @@ import {
   UI_ACTION_TYPES,
   canQuickRunGodmodeAction,
   orderDetailSubTabForGodmodeAction,
-  panelForGodmodeAction,
   buildGodmodeCtaAttrs
 } from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";

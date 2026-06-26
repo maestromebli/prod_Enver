@@ -4,7 +4,6 @@
  * Запуск: node scripts/e2e-stress.mjs
  *   E2E_RUNS=100 node scripts/e2e-stress.mjs
  */
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -253,7 +252,7 @@ async function completeProduction(prodToken, opToken, opUser, posId) {
   });
 }
 
-async function verify3d(token, positionId, packageId, glbFileId, parts = []) {
+async function verify3d(token, positionId, packageId, glbFileId, _parts = []) {
   const errors = [];
 
   const paths = [

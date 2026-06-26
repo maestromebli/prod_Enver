@@ -1,6 +1,6 @@
 import { escapeHtml } from "../utils.js";
 import { iconSvg } from "../icons.js";
-import { renderOrder3DUploadZone, bindOrder3DUploadZone } from "./order-3d-upload.js";
+import { renderOrder3DUploadZone } from "./order-3d-upload.js";
 import { renderOrder3DStatusCard } from "./order-3d-status-card.js";
 import { renderOrder3DFilesCard } from "./order-3d-files-card.js";
 import {

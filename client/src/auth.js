@@ -1,7 +1,15 @@
 import { api, getStoredToken, setStoredToken } from "./api.js";
 import { state } from "./state.js";
+import { DEFAULT_PERMISSIONS } from "@enver/shared/production/permissions.js";
 
 const STORAGE_KEY = "enver_user";
+
+/** Як на сервері: дефолти ролі + збережені права (актуально після оновлень UI). */
+export function effectivePermissions(user = state.currentUser) {
+  if (!user) return {};
+  const defaults = DEFAULT_PERMISSIONS[user.role] || DEFAULT_PERMISSIONS.operator;
+  return { ...defaults, ...(user.permissions || {}) };
+}
 
 export function loadStoredUser() {
   try {
@@ -97,9 +105,7 @@ export function canViewConstructorDesk() {
 }
 
 export function canManageProcurement() {
-  return Boolean(
-    state.currentUser?.role === "admin" || state.currentUser?.permissions?.canManageProcurement
-  );
+  return Boolean(effectivePermissions().canManageProcurement);
 }
 
 export function canViewProcurement() {

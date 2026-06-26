@@ -39,7 +39,6 @@ export function buildConstructiveReviewSummary(detail) {
   const materials = detail?.materials || [];
   const hardware = detail?.hardware || [];
   const { mapped: mappedCount, unmapped: unmappedCount } = countMappedParts(detail);
-  const unmapped = detail?.unmappedParts || parts.filter((p) => !p.modelNodeId && !p.modelMeshName);
 
   const pdfFile = files.find((f) => f.kind === "assembly_pdf") || null;
   const xlsFile = files.find((f) => f.kind === "spec_xls") || null;

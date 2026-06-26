@@ -166,7 +166,7 @@ export async function runPackageParseWithProgress(positionId, packageId, ctx = {
   }
 }
 
-export function applyPackageParseUi(block, position, detail, constructiveFiles) {
+export function applyPackageParseUi(block, position, detail, _constructiveFiles) {
   if (!block) return;
 
   const pkg = detail?.package;

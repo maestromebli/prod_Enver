@@ -126,7 +126,7 @@ async function importFiles(positionId) {
 async function main() {
   const order = await ensureOrder();
   const position = await ensurePosition(order);
-  const files = await importFiles(position.id);
+  await importFiles(position.id);
 
   const allFiles = await all(
     `SELECT id, original_name, size_bytes FROM position_files WHERE position_id = $1 ORDER BY created_at`,

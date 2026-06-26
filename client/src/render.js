@@ -37,11 +37,7 @@ import { notifyUiChanged } from "./ui-persistence.js";
 import { notifyAiContextChanged } from "./ai-assistant.js";
 import { bindAttentionTab, renderAttentionTab } from "./attention-view.js";
 import { renderDashboard } from "./dashboard.js";
-import {
-  bindProcurementTab,
-  loadProcurementList,
-  renderProcurementTab
-} from "./procurement-view.js";
+import { bindProcurementTab, renderProcurementTab } from "./procurement-view.js";
 import { emptyStateIcon } from "./icons.js";
 import {
   renderHeaderChrome,

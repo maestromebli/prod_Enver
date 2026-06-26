@@ -143,10 +143,10 @@ const ASSEMBLY_GLB_SOURCES = new Set([
   "decompressed_embedded_glb"
 ]);
 
-function tryPanelsFromProjectBuffer(projectBuffer, { productName = "" } = {}) {
+function _tryPanelsFromProjectBuffer(projectBuffer, { productName: _productName = "" } = {}) {
   const panels = layoutPreviewPanels(extractProjectPanels(projectBuffer));
   if (!panels.length) return null;
-  return buildPreviewGlbFromPanels(panels, { productName, previewLayout: "flat" });
+  return buildPreviewGlbFromPanels(panels, { productName: _productName, previewLayout: "flat" });
 }
 
 /**
@@ -224,7 +224,7 @@ export function extractPackagePreviewGlb({
  * Витягує GLB для перегляду з файлу GibLab .b3d.
  * Порядок: сирий GLB → вбудований GLB → розпакований GLB → панелі з XML усередині .b3d.
  */
-export function extractGlbFromB3d(buffer, { productName = "" } = {}) {
+export function extractGlbFromB3d(buffer, { productName: _productName = "" } = {}) {
   if (!buffer?.length) {
     const err = new Error("Порожній файл .b3d");
     err.code = "EMPTY_B3D";

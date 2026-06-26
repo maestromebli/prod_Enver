@@ -165,7 +165,7 @@ export function bindPositionOrderTab(
   root,
   position,
   bundle,
-  { subTab, onRefresh, onOpenConstructor, onOpenPosition }
+  { subTab, onRefresh, onOpenConstructor: _onOpenConstructor, onOpenPosition }
 ) {
   const positionId = position.id;
   const activeSub = subTab || "manager";

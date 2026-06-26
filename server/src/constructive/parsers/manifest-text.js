@@ -1,4 +1,4 @@
-import { decodeProjectText, pickXmlAttr, buildOperationThicknessMap } from "./project-text.js";
+import { pickXmlAttr, buildOperationThicknessMap } from "./project-text.js";
 
 /** Спільне витягування вузлів мапінгу 3D з тексту (Project, B3D GibLab). */
 
