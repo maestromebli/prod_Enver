@@ -12,27 +12,25 @@ describe("computeProgress", () => {
     assert.equal(sum, 100);
   });
 
-  it("100% лише коли всі п'ять етапів виробництва готові", () => {
+  it("100% лише коли всі чотири етапи виробництва готові", () => {
     const row = {
       cutting_status: "Готово",
       edging_status: "Готово",
       drilling_status: "Готово",
       assembly_status: "Готово",
-      packaging_status: "Готово",
       constructor_name: ""
     };
     assert.equal(computeProgress(row), 100);
   });
 
-  it("лише порізка готова — 18%", () => {
+  it("лише порізка готова — 25%", () => {
     const row = {
       cutting_status: "Готово",
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
-      assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато"
+      assembly_status: "Не розпочато"
     };
-    assert.equal(computeProgress(row), 18);
+    assert.equal(computeProgress(row), 25);
   });
 
   it("позиція лише на паузі на етапі — «У виробництві»", () => {
@@ -41,7 +39,6 @@ describe("computeProgress", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       constructor_name: "",
       problem: "",
       position_status: ""
@@ -55,7 +52,6 @@ describe("computeProgress", () => {
       edging_status: "Готово",
       drilling_status: "Готово",
       assembly_status: "Готово",
-      packaging_status: "Готово",
       has_constructive_file: true,
       position_status: "Завершено"
     };
@@ -68,7 +64,6 @@ describe("computeProgress", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       constructor_name: ""
     };
     const withConstructor = { ...without, constructor_name: "Іван" };

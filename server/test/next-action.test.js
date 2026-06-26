@@ -16,7 +16,6 @@ describe("next-action", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       problem: "",
       position_status: ""
     };
@@ -33,7 +32,6 @@ describe("next-action", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       overdue_days: 3,
       problem: "",
       position_status: "У виробництві"
@@ -49,7 +47,6 @@ describe("next-action", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       assembly_responsible: "Петро",
       problem: "",
       position_status: "У виробництві"
@@ -65,8 +62,7 @@ describe("next-action", () => {
       cutting_status: "Готово",
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
-      assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато"
+      assembly_status: "Не розпочато"
     };
     const after = { ...before, edging_status: "Передано" };
     const handoffs = detectAutoHandoffs(before, after, "cutting");
@@ -81,7 +77,6 @@ describe("next-action", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       assembly_responsible: "Олег",
       problem: "",
       position_status: "",

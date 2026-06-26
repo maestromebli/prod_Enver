@@ -5,7 +5,6 @@ export const HANDOFF_ACTION_TYPES = new Set([
   "handoff_to_edging",
   "handoff_to_drilling",
   "handoff_to_assembly",
-  "handoff_to_packaging",
   "ready_for_install"
 ]);
 

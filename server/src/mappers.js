@@ -109,7 +109,7 @@ export function positionToDb(body) {
     edging_status: body.edgingStatus?.trim() ?? "Не розпочато",
     drilling_status: body.drillingStatus?.trim() ?? "Не розпочато",
     assembly_status: body.assemblyStatus?.trim() ?? "Не розпочато",
-    packaging_status: body.packagingStatus?.trim() ?? "Не розпочато",
+    packaging_status: body.packagingStatus?.trim() ?? "Не потрібно",
     assembly_responsible: body.assemblyResponsible?.trim() ?? "",
     ready_date: body.readyDate?.trim() ?? "",
     install_date: body.installDate?.trim() ?? "",

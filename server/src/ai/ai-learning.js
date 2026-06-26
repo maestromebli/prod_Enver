@@ -11,8 +11,7 @@ const STAGE_LABELS = {
   cutting: "порізка",
   edging: "крайкування",
   drilling: "присадка",
-  assembly: "збірка",
-  packaging: "пакування"
+  assembly: "збірка"
 };
 
 function parseCorrectedTasks(event) {
@@ -204,20 +203,6 @@ export async function detectLearningPatterns() {
       source: "pdf",
       count: badPdf.length,
       message: "PDF-конструктиви часто дають низьку якість аналізу"
-    });
-  }
-
-  const packagingProblems = events.filter((e) =>
-    String(e.correctionText || "")
-      .toLowerCase()
-      .includes("пакуван")
-  );
-  if (packagingProblems.length >= 2) {
-    patterns.push({
-      type: "stage_problem",
-      stage: "packaging",
-      count: packagingProblems.length,
-      message: "Пакування часто стає проблемою для кухонь і складних виробів"
     });
   }
 

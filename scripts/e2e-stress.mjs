@@ -15,13 +15,12 @@ const SKIP_AI = process.env.E2E_SKIP_AI === "1";
 
 const SCENARIOS = ["pdf", "package", "single-root", "package-3d"];
 
-const STAGES = ["cutting", "edging", "drilling", "assembly", "packaging"];
+const STAGES = ["cutting", "edging", "drilling", "assembly"];
 const HANDOFF_AFTER = {
   cutting: "handoff_to_edging",
   edging: "handoff_to_drilling",
   drilling: "handoff_to_assembly",
-  assembly: "handoff_to_packaging",
-  packaging: "ready_for_install"
+  assembly: "ready_for_install"
 };
 
 let sessions = null;
@@ -204,8 +203,7 @@ async function operatorStage(opToken, opUser, posId, stageKey) {
     cutting: "cuttingStatus",
     edging: "edgingStatus",
     drilling: "drillingStatus",
-    assembly: "assemblyStatus",
-    packaging: "packagingStatus"
+    assembly: "assemblyStatus"
   }[stageKey];
   const st = pos[field];
   if (st === "Готово" || st === "Не потрібно") return;

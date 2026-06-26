@@ -54,8 +54,7 @@ describe("shared/production", () => {
       cutting_status: "Готово",
       edging_status: "В роботі",
       drilling_status: "Не розпочато",
-      assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато"
+      assembly_status: "Не розпочато"
     };
     assert.equal(deriveCurrentStage(row), "edging");
   });
@@ -67,8 +66,7 @@ describe("shared/production", () => {
       cutting_status: "Не розпочато",
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
-      assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато"
+      assembly_status: "Не розпочато"
     };
     assert.equal(deriveCurrentStage(row), "constructor");
   });
@@ -80,14 +78,13 @@ describe("shared/production", () => {
       edging_status: "Не розпочато",
       drilling_status: "Не розпочато",
       assembly_status: "Не розпочато",
-      packaging_status: "Не розпочато",
       constructor_name: "",
       problem: "",
       position_status: "",
       overdue_days: 0
     });
-    assert.equal(enriched.progress, 18);
+    assert.equal(enriched.progress, 25);
     assert.equal(enriched.current_stage, "edging");
-    assert.equal(computeProgress(enriched), 18);
+    assert.equal(computeProgress(enriched), 25);
   });
 });

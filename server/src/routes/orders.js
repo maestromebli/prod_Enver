@@ -64,7 +64,7 @@ async function archiveOrderPositions(orderId) {
       edging_status = 'Готово',
       drilling_status = 'Готово',
       assembly_status = 'Готово',
-      packaging_status = 'Готово',
+      packaging_status = 'Не потрібно',
       position_status = 'Завершено',
       progress = 100,
       overdue_days = 0

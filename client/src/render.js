@@ -152,7 +152,6 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th class="col-opt-edging">Крайкування</th>
               <th class="col-opt-drilling">Присадка</th>
               <th>Збірка</th>
-              <th>Пакування</th>
               <th class="col-opt-ready">Дата готовності</th>
               <th class="col-opt-install-date">Період монтажу</th>
               <th>Монтажник</th>

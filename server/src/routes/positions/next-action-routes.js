@@ -9,8 +9,7 @@ const HANDOFF_MUTATIONS = {
   handoff_to_edging: { prerequisite: "cutting", target: "edging", value: "Передано" },
   handoff_to_drilling: { prerequisite: "edging", target: "drilling", value: "Передано" },
   handoff_to_assembly: { prerequisite: "drilling", target: "assembly", value: "Передано" },
-  handoff_to_packaging: { prerequisite: "assembly", target: "packaging", value: "Передано" },
-  ready_for_install: { prerequisite: "packaging", target: null, value: null }
+  ready_for_install: { prerequisite: "assembly", target: null, value: null }
 };
 
 /** Godmode next-action handoff для позиції. */
@@ -88,7 +87,7 @@ export function registerNextActionRoutes(
       const prereqField = GODMODE_STAGE_FIELD[mutation.prerequisite];
       const prereqStatus = existing[prereqField];
       if (prereqStatus !== "Готово" && prereqStatus !== "Не потрібно") {
-        res.status(400).json({ error: "Спочатку завершіть пакування." });
+        res.status(400).json({ error: "Спочатку завершіть збірку." });
         return;
       }
     }
@@ -100,8 +99,7 @@ export function registerNextActionRoutes(
           cutting: "Порізку",
           edging: "Крайкування",
           drilling: "Присадку",
-          assembly: "Збірку",
-          packaging: "Пакування"
+          assembly: "Збірку"
         }[mutation.target] || mutation.target
       : "встановлення";
 

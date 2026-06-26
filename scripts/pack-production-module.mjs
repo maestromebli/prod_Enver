@@ -166,7 +166,7 @@ function buildManifest(copiedFiles) {
       positions: ["/api/positions/:id/constructive-file", "/api/positions/:id/create-tasks"]
     },
     permissions: ["canUseOperatorPanel", "canViewProductionFloor"],
-    operatorStages: ["cutting", "edging", "drilling", "assembly", "packaging"],
+    operatorStages: ["cutting", "edging", "drilling", "assembly"],
     files: copiedFiles.sort(),
     docs: {
       connection: "PIDKLUCHENNYA.md",

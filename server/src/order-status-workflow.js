@@ -39,7 +39,7 @@ export function defaultPositionRow(orderRow, id) {
     edging_status: "Не розпочато",
     drilling_status: "Не розпочато",
     assembly_status: "Не розпочато",
-    packaging_status: "Не розпочато",
+    packaging_status: "Не потрібно",
     assembly_responsible: "",
     ready_date: "",
     install_date: "",

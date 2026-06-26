@@ -12,8 +12,7 @@ describe("constructor desk queue (unit helpers)", () => {
         cutting_status: "Не розпочато",
         edging_status: "Не розпочато",
         drilling_status: "Не розпочато",
-        assembly_status: "Не розпочато",
-        packaging_status: "Не розпочато"
+        assembly_status: "Не розпочато"
       },
       {}
     );

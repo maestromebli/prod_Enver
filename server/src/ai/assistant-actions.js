@@ -19,7 +19,6 @@ const POSITION_ACTIONS = new Set([
   "handoff_to_edging",
   "handoff_to_drilling",
   "handoff_to_assembly",
-  "handoff_to_packaging",
   "ready_for_install",
   "upload_constructive",
   "run_ai_analysis",
@@ -35,7 +34,6 @@ const CONFIRMATION_REQUIRED = new Set([
   "handoff_to_edging",
   "handoff_to_drilling",
   "handoff_to_assembly",
-  "handoff_to_packaging",
   "ready_for_install",
   "close_order",
   "create_tasks_from_ai"

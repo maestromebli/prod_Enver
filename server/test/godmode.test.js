@@ -26,7 +26,6 @@ function basePosition(overrides = {}) {
     edging_status: "Не розпочато",
     drilling_status: "Не розпочато",
     assembly_status: "Не розпочато",
-    packaging_status: "Не розпочато",
     assembly_responsible: "Олег",
     problem: "",
     position_status: "Не розпочато",
@@ -65,7 +64,6 @@ describe("godmode", () => {
         edging_status: "Готово",
         drilling_status: "Готово",
         assembly_status: "Готово",
-        packaging_status: "Готово",
         position_status: "Готово до встановлення"
       }),
       { hasAiAnalysis: false, tasksCreated: true }
@@ -86,7 +84,7 @@ describe("godmode", () => {
     assert.equal(next.stageKey, "edging");
   });
 
-  it("handoff assembly → packaging", () => {
+  it("handoff assembly → ready_for_install", () => {
     const next = getPositionNextAction(
       basePosition({
         has_constructive_file: true,
@@ -94,11 +92,11 @@ describe("godmode", () => {
         edging_status: "Готово",
         drilling_status: "Готово",
         assembly_status: "Готово",
-        packaging_status: "Не розпочато"
+        position_status: "Готово до встановлення"
       }),
       { hasAiAnalysis: true, tasksCreated: true }
     );
-    assert.equal(next.type, "handoff_to_packaging");
+    assert.equal(next.type, "schedule_install");
   });
 
   it("ready for install", () => {
@@ -109,7 +107,6 @@ describe("godmode", () => {
         edging_status: "Готово",
         drilling_status: "Готово",
         assembly_status: "Готово",
-        packaging_status: "Готово",
         position_status: "Готово до встановлення"
       }),
       { hasAiAnalysis: true, tasksCreated: true }

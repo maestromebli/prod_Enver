@@ -206,7 +206,7 @@ async function main() {
   if (next?.type === "create_tasks_from_ai" || next?.type === "create_tasks") {
     log("КОНСТРУКТОР", "6. Створення задач з ШІ", "Обрати етапи → «Створити задачі»");
     await api(manager.token, "POST", `/positions/${workPos.id}/create-tasks`, {
-      stages: ["cutting", "edging", "drilling", "assembly", "packaging"]
+      stages: ["cutting", "edging", "drilling", "assembly"]
     });
     pos = await api(manager.token, "GET", `/positions/${workPos.id}`);
     next = godmodeNext(pos);
@@ -305,7 +305,6 @@ async function main() {
   console.log(`  Крайка:      ${finalPos?.edgingStatus}`);
   console.log(`  Присадка:    ${finalPos?.drillingStatus}`);
   console.log(`  Збірка:      ${finalPos?.assemblyStatus}`);
-  console.log(`  Пакування:   ${finalPos?.packagingStatus}`);
   console.log(`\nВідкрити: http://localhost:3000/ → Замовлення → ${ORDER_NUM}`);
   console.log(`Оператор: http://localhost:3000/operator.html`);
   console.log("═".repeat(60));

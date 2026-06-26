@@ -54,9 +54,9 @@ describe("orderStatusStagePreset", () => {
 });
 
 describe("defaultPositionRow", () => {
-  it("містить packaging_status і has_constructive_file для INSERT", () => {
+  it("містить has_constructive_file для INSERT", () => {
     const row = defaultPositionRow({ id: 1, order_number: "T-1", object: "Об'єкт" }, 10);
-    assert.equal(row.packaging_status, "Не розпочато");
+    assert.equal(row.packaging_status, "Не потрібно");
     assert.equal(row.has_constructive_file, false);
 
     const sub = defaultSubPositionRow(

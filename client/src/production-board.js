@@ -126,7 +126,6 @@ function handoffPendingLabel(actionType) {
     handoff_to_edging: "Передано на крайкування…",
     handoff_to_drilling: "Передано на присадку…",
     handoff_to_assembly: "Передано на збірку…",
-    handoff_to_packaging: "Передано на пакування…",
     ready_for_install: "Позицію позначено готовою до встановлення…"
   };
   return map[actionType] || "Передаємо на наступний етап…";
@@ -138,7 +137,6 @@ function handoffSuccessLabel(actionType, fallback) {
     handoff_to_edging: "Позицію передано на крайкування",
     handoff_to_drilling: "Позицію передано на присадку",
     handoff_to_assembly: "Позицію передано на збірку",
-    handoff_to_packaging: "Позицію передано на пакування",
     ready_for_install: "Позицію позначено готовою до встановлення"
   };
   return map[actionType] || fallback || "Передано на наступний етап";

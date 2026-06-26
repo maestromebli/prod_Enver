@@ -1,5 +1,5 @@
 /** Дозволені етапи виробництва для AI suggestedTasks. */
-export const ALLOWED_STAGES = ["cutting", "edging", "drilling", "assembly", "packaging"];
+export const ALLOWED_STAGES = ["cutting", "edging", "drilling", "assembly"];
 
 export const COMPLEXITY_LEVELS = ["low", "medium", "high"];
 
@@ -12,17 +12,14 @@ export const STAGE_ALIASES = {
   присадка: "drilling",
   drilling: "drilling",
   збірка: "assembly",
-  assembly: "assembly",
-  пакування: "packaging",
-  packaging: "packaging"
+  assembly: "assembly"
 };
 
 export const EMPTY_OPERATOR_NOTES = {
   cutting: "",
   edging: "",
   drilling: "",
-  assembly: "",
-  packaging: ""
+  assembly: ""
 };
 
 export const DEFAULT_QUALITY = {

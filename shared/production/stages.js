@@ -44,19 +44,17 @@ export function sqlLiteralsIn(statuses) {
 
 /** Ваги етапів виробництва (сума 100). Конструктив і монтаж не входять. */
 export const PRODUCTION_PROGRESS_WEIGHTS = {
-  cutting: 18,
-  edging: 18,
-  drilling: 18,
-  assembly: 23,
-  packaging: 23
+  cutting: 25,
+  edging: 25,
+  drilling: 25,
+  assembly: 25
 };
 
 export const OPERATOR_STAGES = [
   { key: "cutting", label: "Порізка", icon: "🪚" },
   { key: "edging", label: "Крайкування", icon: "📏" },
   { key: "drilling", label: "Присадка", icon: "🕳" },
-  { key: "assembly", label: "Збірка", icon: "🔧" },
-  { key: "packaging", label: "Пакування", icon: "📦" }
+  { key: "assembly", label: "Збірка", icon: "🔧" }
 ];
 
 export const ALL_STAGE_KEYS = OPERATOR_STAGES.map((s) => s.key);
@@ -67,8 +65,7 @@ export const STAGE_STATUS_FIELD = {
   cutting: "cutting_status",
   edging: "edging_status",
   drilling: "drilling_status",
-  assembly: "assembly_status",
-  packaging: "packaging_status"
+  assembly: "assembly_status"
 };
 
 export const STAGES = [
@@ -104,13 +101,6 @@ export const STAGES = [
     dbField: "assembly_status",
     usesAssembler: true
   },
-  {
-    key: "packaging",
-    label: "Пакування",
-    icon: "📦",
-    field: "packagingStatus",
-    dbField: "packaging_status"
-  },
   { key: "install", label: "Монтаж", icon: "🏠", type: "install" }
 ];
 
@@ -134,7 +124,6 @@ export const STAGE_PATCH_MAP = {
   edging: { field: "edging_status" },
   drilling: { field: "drilling_status" },
   assembly: { field: "assembly_status" },
-  packaging: { field: "packaging_status" },
   install: { field: "install_status" }
 };
 
@@ -142,15 +131,13 @@ export const HANDOFF_CHAIN = {
   constructor: "cutting",
   cutting: "edging",
   edging: "drilling",
-  drilling: "assembly",
-  assembly: "packaging"
+  drilling: "assembly"
 };
 
 export const NEXT_STAGE_FIELD = {
   cutting: "edging_status",
   edging: "drilling_status",
-  drilling: "assembly_status",
-  assembly: "packaging_status"
+  drilling: "assembly_status"
 };
 
 const NEXT_STATUS = {

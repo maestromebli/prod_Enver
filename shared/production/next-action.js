@@ -1,6 +1,7 @@
 import { deriveCurrentStage, hasConstructive } from "./position-logic.js";
 import {
   STAGES,
+  ALL_STAGE_KEYS,
   STAGE_STATUS_DONE,
   STAGE_STATUS_FIELD,
   getNextStatus,
@@ -154,7 +155,7 @@ export function deriveNextAction(row) {
   }
 
   if (STAGE_STATUS_DONE.has(status) || status === "Не потрібно") {
-    const order = ["cutting", "edging", "drilling", "assembly", "packaging"];
+    const order = ALL_STAGE_KEYS;
     const idx = order.indexOf(currentKey);
     for (let i = idx + 1; i < order.length; i++) {
       const nextStage = STAGES.find((s) => s.key === order[i]);
@@ -201,7 +202,7 @@ export function deriveNextAction(row) {
 /** Автопередачі між етапами (порівняння до/після збереження). */
 export function detectAutoHandoffs(beforeRow, afterRow, excludeStageKey = null) {
   const handoffs = [];
-  for (const stageKey of ["cutting", "edging", "drilling", "assembly", "packaging"]) {
+  for (const stageKey of ALL_STAGE_KEYS) {
     if (stageKey === excludeStageKey) continue;
     const fieldName = STAGE_STATUS_FIELD[stageKey];
     const from = beforeRow[fieldName] || "Не розпочато";

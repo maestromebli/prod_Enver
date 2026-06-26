@@ -78,8 +78,7 @@ function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learni
     "cutting": "...",
     "edging": "...",
     "drilling": "...",
-    "assembly": "...",
-    "packaging": "..."
+    "assembly": "..."
   }
 }
 
@@ -87,7 +86,7 @@ function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learni
 - Якщо інформації немає у файлі — не вигадуй, пиши в missingInfo.
 - Якщо впевненість нижче 0.8 — додай warning або missingInfo про ручну перевірку.
 - Якщо файл прочитано частково — попередь у warnings.
-- Для suggestedTasks використовуй ТІЛЬКИ: cutting, edging, drilling, assembly, packaging.
+- Для suggestedTasks використовуй ТІЛЬКИ: cutting, edging, drilling, assembly.
 - Не створюй задачі без причини (reason обов'язковий).
 - operatorNotes — коротко і практично для оператора.
 - warnings — попередження; критичні проблеми теж у warnings.

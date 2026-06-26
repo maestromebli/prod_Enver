@@ -16,7 +16,8 @@ import {
   STAGE_ACTIVE_STATUSES,
   getNextStatus,
   stageLabel,
-  isStageIdle
+  isStageIdle,
+  stageClientField
 } from "./stages.js";
 import {
   getConstructivePackageNextAction,
@@ -25,14 +26,13 @@ import {
 import { isManagerDataComplete } from "./position-manager-data.js";
 import { getWorkPositions } from "./order-position-model.js";
 
-const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly", "packaging"];
+const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly"];
 
 const HANDOFF_ACTIONS = {
   cutting: "handoff_to_edging",
   edging: "handoff_to_drilling",
   drilling: "handoff_to_assembly",
-  assembly: "handoff_to_packaging",
-  packaging: "ready_for_install"
+  assembly: "ready_for_install"
 };
 
 const HANDOFF_LABELS = {
@@ -45,11 +45,6 @@ const HANDOFF_LABELS = {
   edging: { type: "handoff_to_drilling", label: "Передати на присадку", buttonLabel: "Передати" },
   drilling: { type: "handoff_to_assembly", label: "Передати на збірку", buttonLabel: "Передати" },
   assembly: {
-    type: "handoff_to_packaging",
-    label: "Передати на пакування",
-    buttonLabel: "Передати"
-  },
-  packaging: {
     type: "ready_for_install",
     label: "Готово до встановлення",
     buttonLabel: "Підтвердити"
@@ -91,16 +86,7 @@ function stageStatus(row, stageKey) {
     return hasConstructive(row) ? "Передано" : "Не розпочато";
   }
   const snake = STAGE_STATUS_FIELD[stageKey];
-  const camel =
-    stageKey === "cutting"
-      ? "cuttingStatus"
-      : stageKey === "edging"
-        ? "edgingStatus"
-        : stageKey === "drilling"
-          ? "drillingStatus"
-          : stageKey === "assembly"
-            ? "assemblyStatus"
-            : "packagingStatus";
+  const camel = stageClientField(stageKey);
   return field(row, snake, camel) || "Не розпочато";
 }
 
@@ -1152,7 +1138,6 @@ const HANDOFF_TYPES = new Set([
   "handoff_to_edging",
   "handoff_to_drilling",
   "handoff_to_assembly",
-  "handoff_to_packaging",
   "ready_for_install"
 ]);
 

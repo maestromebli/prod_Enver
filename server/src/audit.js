@@ -43,8 +43,7 @@ const STAGE_LABELS = {
   cutting: "Порізка",
   edging: "Крайкування",
   drilling: "Присадка",
-  assembly: "Збірка",
-  packaging: "Пакування"
+  assembly: "Збірка"
 };
 
 const STAGE_PATCH_TO_FIELD = {

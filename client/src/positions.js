@@ -362,7 +362,6 @@ function readForm() {
     edgingStatus: pipelineStatus("edging", "edgingStatus"),
     drillingStatus: pipelineStatus("drilling", "drillingStatus"),
     assemblyStatus: pipelineStatus("assembly", "assemblyStatus"),
-    packagingStatus: pipelineStatus("packaging", "packagingStatus"),
     assemblyResponsible: $("#posAssembler")?.value.trim() ?? "",
     readyDate: $("#posReadyDate")?.value.trim() ?? "",
     installDate: $("#posInstallDate")?.value.trim() ?? "",

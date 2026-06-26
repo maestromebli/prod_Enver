@@ -14,8 +14,7 @@ function normalizeSuggestedTasks(result) {
         крайкування: "edging",
         кромкування: "edging",
         присадка: "drilling",
-        збірка: "assembly",
-        пакування: "packaging"
+        збірка: "assembly"
       };
       return { stage: map[t.toLowerCase()] || t, needed: true, reason: "", confidence: 0.7 };
     }

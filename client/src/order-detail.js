@@ -273,7 +273,7 @@ function renderInstallSection(order, related) {
         !installDate && readyCount > 0
           ? `<p class="order-install-hint">Позиції готові — можна запланувати монтаж на вкладці «Встановлення».</p>`
           : !installDate
-            ? `<p class="order-install-hint enver-meta">Монтаж можна запланувати після завершення пакування.</p>`
+            ? `<p class="order-install-hint enver-meta">Монтаж можна запланувати після завершення виробництва.</p>`
             : ""
       }
       ${

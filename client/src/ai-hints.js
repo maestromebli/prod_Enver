@@ -253,28 +253,36 @@ export function collectLocalHints(state) {
       });
     }
 
-    const packagingReadyNoInstall = positions.filter((p) => {
+    const productionReadyNoInstall = positions.filter((p) => {
       if (p.parentId) return false;
-      return (p.packagingStatus === "Готово" || p.packaging_status === "Готово") && !p.installDate;
+      const ready =
+        (p.assemblyStatus === "Готово" || p.assembly_status === "Готово") &&
+        (p.positionStatus || p.position_status || "").includes("встановлення");
+      return ready && !p.installDate;
     });
-    if (packagingReadyNoInstall.length > 0) {
+    if (productionReadyNoInstall.length > 0) {
       hints.push({
         priority: "normal",
-        text: `${packagingReadyNoInstall.length} позицій: пакування готове, монтаж ще не заплановано.`,
+        text: `${productionReadyNoInstall.length} позицій: виробництво завершено, монтаж ще не заплановано.`,
         action: "Встановлення",
         source: "local"
       });
     }
 
-    const installBeforePackaging = positions.filter((p) => {
+    const installBeforeProduction = positions.filter((p) => {
       if (p.parentId || !p.installDate) return false;
-      const pkg = p.packagingStatus || p.packaging_status;
-      return pkg && pkg !== "Готово" && pkg !== "Не розпочато";
+      const assembly = p.assemblyStatus || p.assembly_status;
+      return (
+        assembly &&
+        assembly !== "Готово" &&
+        assembly !== "Не потрібно" &&
+        assembly !== "Не розпочато"
+      );
     });
-    if (installBeforePackaging.length > 0) {
+    if (installBeforeProduction.length > 0) {
       hints.push({
         priority: "high",
-        text: "Монтаж призначено до завершення пакування — перевірте дати.",
+        text: "Монтаж призначено до завершення виробництва — перевірте дати.",
         action: "Встановлення",
         source: "local"
       });

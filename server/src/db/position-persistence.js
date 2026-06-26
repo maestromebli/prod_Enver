@@ -35,7 +35,7 @@ const BASE_COLUMNS = [
 const INSERT_DEFAULTS = {
   parent_id: null,
   order_id: null,
-  packaging_status: "Не розпочато",
+  packaging_status: "Не потрібно",
   cutting_status: "Не розпочато",
   edging_status: "Не розпочато",
   drilling_status: "Не розпочато",

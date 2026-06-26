@@ -2,7 +2,7 @@ import { one } from "../db.js";
 import { parseJsonObject } from "../json-utils.js";
 import { saveLearningEvent } from "./ai-memory.js";
 
-const PRODUCTION_STAGES = ["cutting", "edging", "drilling", "assembly", "packaging"];
+const PRODUCTION_STAGES = ["cutting", "edging", "drilling", "assembly"];
 
 async function getLatestAnalysisForPosition(positionId) {
   const row = await one(

@@ -39,8 +39,7 @@ export function computeProgress(row) {
     w.cutting * stageScore(row.cutting_status) +
     w.edging * stageScore(row.edging_status) +
     w.drilling * stageScore(row.drilling_status) +
-    w.assembly * stageScore(row.assembly_status) +
-    w.packaging * stageScore(row.packaging_status);
+    w.assembly * stageScore(row.assembly_status);
   return Math.round(weighted / 100);
 }
 
@@ -56,8 +55,7 @@ export function derivePositionStatus(row) {
     row.cutting_status,
     row.edging_status,
     row.drilling_status,
-    row.assembly_status,
-    row.packaging_status
+    row.assembly_status
   ];
 
   const hasConstructor = hasConstructive(row);
@@ -78,7 +76,7 @@ export function derivePositionStatus(row) {
 export function deriveCurrentStage(row) {
   if (!hasConstructive(row)) return "constructor";
 
-  const order = ["cutting", "edging", "drilling", "assembly", "packaging"];
+  const order = ["cutting", "edging", "drilling", "assembly"];
   for (const key of order) {
     const field = STAGE_STATUS_FIELD[key];
     const status = row[field];
@@ -86,14 +84,14 @@ export function deriveCurrentStage(row) {
     if (STAGE_ACTIVE_STATUSES.has(status)) return key;
     if (!STAGE_STATUS_DONE.has(status)) return key;
   }
-  return "packaging";
+  return "assembly";
 }
 
 export function computeOverdueDays(row, planDateStr) {
   const plan = parseUaDate(planDateStr);
   if (!plan) return Number(row.overdue_days) || 0;
   const done = ["Готово до встановлення", "Завершено"].includes(row.position_status);
-  if (done || (STAGE_STATUS_DONE.has(row.packaging_status) && row.progress >= 100)) return 0;
+  if (done || (STAGE_STATUS_DONE.has(row.assembly_status) && row.progress >= 100)) return 0;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

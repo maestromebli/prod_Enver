@@ -51,8 +51,7 @@ const FINISH_MESSAGES = {
   cutting: "Готово. Позицію передано на крайкування.",
   edging: "Готово. Позицію передано на присадку.",
   drilling: "Готово. Позицію передано на збірку.",
-  assembly: "Готово. Позицію передано на пакування.",
-  packaging: "Готово. Позиція готова до монтажу."
+  assembly: "Готово. Позиція готова до монтажу."
 };
 
 function finishSuccessMessage(stageKey) {
@@ -79,11 +78,6 @@ const STAGE_THEME = {
     accent: "#34c759",
     gradient: "linear-gradient(135deg, #5dd879 0%, #34c759 100%)",
     icon: "assembly"
-  },
-  packaging: {
-    accent: "#af52de",
-    gradient: "linear-gradient(135deg, #c77dff 0%, #af52de 100%)",
-    icon: "pack"
   }
 };
 

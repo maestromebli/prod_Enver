@@ -44,7 +44,6 @@ function positionRowCells(p, row, showActions) {
     <td class="col-opt-edging">${badge(p.edgingStatus)}</td>
     <td class="col-opt-drilling">${badge(p.drillingStatus)}</td>
     <td>${badge(p.assemblyStatus)}</td>
-    <td>${badge(p.packagingStatus)}</td>
     <td class="col-opt-ready">${escapeHtml(p.readyDate || "—")}</td>
     <td class="col-opt-install-date">${escapeHtml(formatInstallPeriod(p))}</td>
     <td>${escapeHtml(p.installResponsible || "—")}</td>

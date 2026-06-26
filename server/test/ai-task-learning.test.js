@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-const PRODUCTION_STAGES = ["cutting", "edging", "drilling", "assembly", "packaging"];
+const PRODUCTION_STAGES = ["cutting", "edging", "drilling", "assembly"];
 
 function diffStages(aiStages, chosen) {
   const added = chosen.filter((s) => !aiStages.includes(s));

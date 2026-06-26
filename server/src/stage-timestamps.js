@@ -1,13 +1,6 @@
 import { all } from "./db.js";
 
-const STAGE_KEYS = new Set([
-  "cutting",
-  "edging",
-  "drilling",
-  "assembly",
-  "packaging",
-  "constructor"
-]);
+const STAGE_KEYS = new Set(["cutting", "edging", "drilling", "assembly", "constructor"]);
 
 /** Останній час зміни статусу етапу з audit та operator_sessions. */
 export async function loadStageTimestampsMap(positionIds = []) {

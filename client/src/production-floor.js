@@ -229,7 +229,7 @@ export function renderProductionFloorTab(data = getProductionFloorCache()) {
 
       <section class="pf-section pf-section--pipeline">
         <h2 class="pf-section-title enver-section-title">Потік виробництва</h2>
-        <p class="pf-pipeline-hint enver-meta">Конструктив → Порізка → Крайкування → Присадка → Збірка → Пакування → Монтаж</p>
+        <p class="pf-pipeline-hint enver-meta">Конструктив → Порізка → Крайкування → Присадка → Збірка → Монтаж</p>
         ${renderPipelineStrip(d.stages, freshByStage)}
       </section>
 

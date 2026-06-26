@@ -41,13 +41,7 @@ function entityLabel(row) {
 }
 
 function productionStagesActive(row) {
-  const fields = [
-    "cutting_status",
-    "edging_status",
-    "drilling_status",
-    "assembly_status",
-    "packaging_status"
-  ];
+  const fields = ["cutting_status", "edging_status", "drilling_status", "assembly_status"];
   return fields.some((f) => {
     const v = row[f];
     return v && v !== "Не розпочато";
