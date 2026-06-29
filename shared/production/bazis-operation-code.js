@@ -4,6 +4,14 @@
 export function normalizeBazisScanCode(raw) {
   let code = String(raw || "").trim();
   if (!code) return "";
+  // Символи зі сканера (GS, zero-width, керуючі)
+  code = [...code]
+    .filter((ch) => {
+      const c = ch.charCodeAt(0);
+      if (c <= 0x1f) return false;
+      return c !== 0x200b && c !== 0x200c && c !== 0x200d && c !== 0xfeff;
+    })
+    .join("");
   // Префікси Code128 / AIM / NC1 з етикетки Bazis (GS = ASCII 29)
   const gs = String.fromCharCode(29);
   code = code.replace(/^\]C1/i, "");
@@ -107,4 +115,48 @@ export function resolvePartHighlightMesh(part) {
   const code = String(part.partCode || "").trim();
   if (!code) return null;
   return { meshName: `panel-${code}`, nodeId: `panel-${code}` };
+}
+
+/**
+ * Обирає найкращий рядок деталі серед кандидатів (дублікати part_no в різних пакетах).
+ * @param {Array<Record<string, unknown>>} rows
+ * @param {string} scanCode
+ */
+export function pickBestPartRowForBazisScan(rows, scanCode) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  if (rows.length === 1) return rows[0];
+
+  const upperVariants = new Set(
+    bazisScanLookupVariants(scanCode).map((v) => String(v).toUpperCase())
+  );
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+
+  let best = null;
+  let bestScore = -1;
+
+  for (const row of rows) {
+    let score = 0;
+    const codes = Array.isArray(row.bazis_operation_codes) ? row.bazis_operation_codes : [];
+    if (codes.some((c) => upperVariants.has(String(c).toUpperCase()))) score += 1000;
+
+    const pn = String(row.part_no ?? row.partNo ?? "").trim();
+    const name = String(row.part_name ?? row.partName ?? "").trim();
+    if (name && name !== pn && !/^\d+$/.test(name)) score += 100;
+    else if (name.length > pn.length) score += 50;
+
+    const updated = new Date(String(row.updated_at ?? row.updatedAt ?? "")).getTime();
+    if (Number.isFinite(updated)) score += updated / 1e15;
+
+    const id = Number(row.id) || 0;
+    score += id / 1e9;
+
+    if (partNo && pn && (pn === partNo || String(Number(pn)) === partNo)) score += 10;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+
+  return best;
 }

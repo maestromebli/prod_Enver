@@ -31,13 +31,15 @@ import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
 import {
   syncBazisOperationCodesForPackage,
-  resolvePartRowByBazisProjectScan
+  resolvePartRowByBazisProjectScan,
+  findPackageIdsByProjectBazisCode
 } from "./bazis-operation-sync.js";
 import {
   bazisScanLookupVariants,
   isBazisOperationScanCode,
   normalizeBazisScanCode,
-  partNoFromBazisOperationCode
+  partNoFromBazisOperationCode,
+  pickBestPartRowForBazisScan
 } from "../../../shared/production/bazis-operation-code.js";
 import { readPreviewLayoutFromGlb } from "./project-glb-builder.js";
 import { isLegacySharedMeshPreviewGlb } from "./project-glb-builder.js";
@@ -1179,16 +1181,18 @@ async function findPartRowByBazisCodesInDb(code) {
   if (!upperVariants.length) return null;
 
   try {
-    let row = await one(
+    const rows = await all(
       `SELECT * FROM constructive_parts
        WHERE EXISTS (
          SELECT 1 FROM unnest(bazis_operation_codes) c
          WHERE upper(c) = ANY($1::text[])
        )
-       LIMIT 1`,
+       ORDER BY updated_at DESC NULLS LAST, id DESC
+       LIMIT 12`,
       [upperVariants]
     );
-    if (row) return row;
+    const matched = pickBestPartRowForBazisScan(rows, code);
+    if (matched) return matched;
 
     for (const v of upperVariants) {
       const inst = await one(
@@ -1197,8 +1201,8 @@ async function findPartRowByBazisCodesInDb(code) {
         [v]
       );
       if (inst) {
-        row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
-        if (row) return row;
+        const partRow = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+        if (partRow) return partRow;
       }
     }
   } catch {
@@ -1213,29 +1217,23 @@ async function findPartRowByBazisPartNoGlobal(scanCode) {
   const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
   if (!partNo) return null;
 
-  const upperVariants = [...new Set(bazisScanLookupVariants(scanCode).map((v) => v.toUpperCase()))];
+  const packageIds = await findPackageIdsByProjectBazisCode(scanCode);
   const rows = await all(
     `SELECT * FROM constructive_parts
      WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
-     ORDER BY updated_at DESC
-     LIMIT 25`,
+     ORDER BY updated_at DESC NULLS LAST, id DESC
+     LIMIT 40`,
     [partNo, partNo.padStart(2, "0")]
   );
   if (!rows.length) return null;
 
-  if (upperVariants.length) {
-    try {
-      const byCode = rows.find((r) => {
-        const codes = Array.isArray(r.bazis_operation_codes) ? r.bazis_operation_codes : [];
-        return codes.some((c) => upperVariants.includes(String(c).toUpperCase()));
-      });
-      if (byCode) return byCode;
-    } catch {
-      /* ignore */
-    }
+  let candidates = rows;
+  if (packageIds.length) {
+    const scoped = rows.filter((r) => packageIds.includes(r.package_id));
+    if (scoped.length) candidates = scoped;
   }
 
-  return rows.length === 1 ? rows[0] : null;
+  return pickBestPartRowForBazisScan(candidates, scanCode);
 }
 
 export async function recordScanEvent({

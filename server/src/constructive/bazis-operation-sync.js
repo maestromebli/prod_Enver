@@ -9,7 +9,8 @@ import {
   groupBazisOperationCodesByPartNo,
   isBazisOperationScanCode,
   normalizeBazisScanCode,
-  partNoFromBazisOperationCode
+  partNoFromBazisOperationCode,
+  pickBestPartRowForBazisScan
 } from "../../../shared/production/bazis-operation-code.js";
 import { normalizePartNoKey } from "../../../shared/production/constructive-package.js";
 import { buildBarcodeValue, buildPartCode } from "./part-code.js";
@@ -84,7 +85,15 @@ export async function findPackageIdsByProjectBazisCode(scanCode) {
     }
   }
 
-  return [...found];
+  if (!found.size) return [];
+
+  const sorted = await all(
+    `SELECT id FROM constructive_packages
+     WHERE id = ANY($1::int[])
+     ORDER BY updated_at DESC NULLS LAST, id DESC`,
+    [[...found]]
+  );
+  return sorted.map((r) => r.id);
 }
 
 /** Знайти деталь у пакеті за partNo з коду Bazis (без колонки bazis_operation_codes). */
@@ -92,7 +101,7 @@ async function findPartRowByPartNoInPackage(packageId, scanCode) {
   const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
   if (!partNo) return null;
 
-  return one(
+  const rows = await all(
     `SELECT * FROM constructive_parts
      WHERE package_id = $1
        AND (
@@ -100,17 +109,21 @@ async function findPartRowByPartNoInPackage(packageId, scanCode) {
          OR part_no = $3
          OR ltrim(part_no, '0') = $2
        )
-     ORDER BY id
-     LIMIT 1`,
+     ORDER BY updated_at DESC NULLS LAST, id DESC
+     LIMIT 12`,
     [packageId, partNo, partNo.padStart(2, "0")]
   );
+  return pickBestPartRowForBazisScan(rows, scanCode);
 }
 
 async function findPartRowInPackageByBazis(packageId, scanCode) {
   const variants = bazisScanLookupVariants(scanCode).map((v) => v.toUpperCase());
   if (!variants.length) return null;
 
-  return one(
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+  const padded = partNo?.padStart(2, "0") || "";
+
+  const rows = await all(
     `SELECT * FROM constructive_parts
      WHERE package_id = $1
        AND (
@@ -120,20 +133,13 @@ async function findPartRowInPackageByBazis(packageId, scanCode) {
          )
          OR part_no = $3
          OR part_no = $4
+         OR ltrim(part_no, '0') = $3
        )
-     ORDER BY
-       CASE WHEN EXISTS (
-         SELECT 1 FROM unnest(bazis_operation_codes) c
-         WHERE upper(c) = ANY($2::text[])
-       ) THEN 0 ELSE 1 END
-     LIMIT 1`,
-    [
-      packageId,
-      variants,
-      partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode)),
-      partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode))?.padStart(2, "0") || ""
-    ]
+     ORDER BY updated_at DESC NULLS LAST, id DESC
+     LIMIT 12`,
+    [packageId, variants, partNo, padded]
   );
+  return pickBestPartRowForBazisScan(rows, scanCode);
 }
 
 async function ensurePartRowForBazis(packageId, partNo, opCodes) {

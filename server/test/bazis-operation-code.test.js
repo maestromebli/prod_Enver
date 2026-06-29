@@ -8,6 +8,7 @@ import {
   groupBazisOperationCodesByPartNo,
   isBazisOperationScanCode,
   normalizeBazisScanCode,
+  pickBestPartRowForBazisScan,
   partNoFromBazisOperationCode,
   resolvePartHighlightMesh,
   bazisScanLookupVariants
@@ -50,6 +51,26 @@ describe("bazis-operation-code", () => {
       meshName: "panel-10",
       nodeId: "10"
     });
+  });
+
+  it("pickBestPartRowForBazisScan обирає деталь з кодом Bazis серед дублікатів", () => {
+    const rows = [
+      { id: 1, part_no: "14", part_name: "14", bazis_operation_codes: [] },
+      {
+        id: 2,
+        part_no: "14",
+        part_name: "№14 Стійка сер шафа ліва",
+        bazis_operation_codes: ["0014X006X1"]
+      },
+      { id: 3, part_no: "14", part_name: "14", bazis_operation_codes: [] }
+    ];
+    const best = pickBestPartRowForBazisScan(rows, "NC1: 0014x006x1V");
+    assert.equal(best.id, 2);
+  });
+
+  it("partNo з етикеток ЕМ-09: 0016x008x1V → 16, 0014x006x1V → 14", () => {
+    assert.equal(partNoFromBazisOperationCode("NC1: 0016x008x1V"), "16");
+    assert.equal(partNoFromBazisOperationCode("NC1: 0014x006x1V"), "14");
   });
 
   it("витягує коди операцій з реального .project ЕМ-09", () => {

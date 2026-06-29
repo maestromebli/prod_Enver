@@ -60,13 +60,10 @@ async function main() {
     process.env.DATABASE_URL = connectionString;
   }
   try {
-    const { resyncBazisOperationCodesForAllPackages } = await import(
-      "../src/constructive/bazis-operation-sync.js"
-    );
+    const { resyncBazisOperationCodesForAllPackages } =
+      await import("../src/constructive/bazis-operation-sync.js");
     const result = await resyncBazisOperationCodesForAllPackages();
-    console.log(
-      `Bazis sync: ${result.packages} пакетів, ${result.partsUpdated} деталей оновлено`
-    );
+    console.log(`Bazis sync: ${result.packages} пакетів, ${result.partsUpdated} деталей оновлено`);
   } catch (err) {
     console.warn("Bazis sync пропущено:", err?.message || err);
   }
