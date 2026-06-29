@@ -1,6 +1,5 @@
 import {
   canEditOrders,
-  canEditPositions,
   canViewProductionFloor,
   canViewConstructorDesk,
   canViewProcurement,
@@ -339,11 +338,6 @@ export function renderToolbarActions() {
   if (onOrdersRegistry && !positionsMode && canEditOrders()) {
     parts.push(
       `<button type="button" class="btn btn-primary" id="toolbarNewOrderBtn">+ Нове замовлення</button>`
-    );
-  }
-  if (positionsMode && canEditPositions()) {
-    parts.push(
-      `<button type="button" class="btn btn-primary" id="toolbarNewPositionBtn">+ Нова позиція</button>`
     );
   }
   if (positionsMode) {

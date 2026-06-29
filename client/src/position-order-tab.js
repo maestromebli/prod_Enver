@@ -1,11 +1,7 @@
 import { api } from "./api.js";
-import { canManageProcurement, canManageConstructorDesk } from "./auth.js";
+import { canManageProcurement, canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
-import {
-  renderPositionManagerPanel,
-  bindPositionManagerPanel,
-  loadPositionManagerBundle
-} from "./position-manager-panel.js";
+import { renderPositionManagerPanel } from "./position-manager-panel.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import {
   loadCncJobsSummary,
@@ -31,6 +27,7 @@ import {
 } from "./position-responsibles-panel.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
 import { state } from "./state.js";
+import { bindPositionWorkspaceBar, renderPositionWorkspaceBar } from "./position-workspace.js";
 
 const SUB_TABS = [
   { key: "manager", label: "Дані" },
@@ -90,12 +87,16 @@ export function renderPositionOrderTab(
   const constructors = state.ordersView.constructorAssignees || [];
   let body = "";
 
+  const constructiveEditable = canWorkConstructorDesk();
+
   if (activeSub === "manager") {
-    body = renderPositionManagerPanel(position, bundle);
+    body = renderPositionManagerPanel(position, bundle, { editable: false });
   } else if (activeSub === "constructive") {
     body =
       downstream != null
-        ? renderPositionConstructivePanel(position, downstream, { editable: false })
+        ? renderPositionConstructivePanel(position, downstream, {
+            editable: constructiveEditable
+          })
         : `<p class="enver-meta">Завантаження пакета конструктива…</p>`;
   } else if (activeSub === "procurement") {
     body = renderProcurementPanel(downstream?.procurement, { canManage: canManageProcurement() });
@@ -117,10 +118,7 @@ export function renderPositionOrderTab(
       ${renderPositionResponsiblesPanel(position, constructors)}
       ${renderSubTabs(position.id, activeSub)}
       <div class="pos-sub-panel" data-pos-sub-panel="${position.id}">${body}</div>
-      <div class="order-position-meta">
-        <button type="button" class="btn btn-sm btn-ghost" data-open-position-drawer="${position.id}">Класичний drawer</button>
-        <button type="button" class="btn btn-sm btn-ghost" data-open-constructor-ws="${position.id}">Стіл конструктора</button>
-      </div>
+      ${renderPositionWorkspaceBar(position)}
     </section>`;
 }
 
@@ -212,25 +210,12 @@ export function bindPositionOrderTab(
     });
   });
 
+  bindPositionWorkspaceBar(root);
+
   root.querySelector("[data-open-constructor-ws]")?.addEventListener("click", async () => {
     const { openConstructorWorkspace } = await import("./constructor-desk.js");
     await openConstructorWorkspace(positionId);
   });
-
-  if (activeSub === "manager") {
-    bindPositionManagerPanel(root, {
-      positionId,
-      onSaved: async () => {
-        clearPositionOrderTabCache(positionId);
-        const bundle = await loadPositionManagerBundle(positionId);
-        state.ordersView.positionBundles = {
-          ...(state.ordersView.positionBundles || {}),
-          [positionId]: bundle
-        };
-        await handlePositionRefresh({ contentOnly: true });
-      }
-    });
-  }
 
   if (shouldShowResponsiblesPanel(position)) {
     bindPositionResponsiblesPanel(root, position, {
@@ -277,11 +262,39 @@ export function bindPositionOrderTab(
   const panel = root.querySelector(`[data-pos-sub-panel="${positionId}"]`);
   if (activeSub === "constructive" && panel) {
     const downstream = state.ordersView.positionTabDownstream?.[positionId];
+    const constructiveEditable = canWorkConstructorDesk();
     bindPositionConstructivePanel(panel, position, {
       downstream,
-      editable: false,
-      onRefresh: handlePositionRefresh
+      editable: constructiveEditable,
+      onRefresh: handlePositionRefresh,
+      onPackageDetailPatched: (packageDetail) => {
+        state.ordersView.positionTabDownstream = {
+          ...(state.ordersView.positionTabDownstream || {}),
+          [positionId]: {
+            ...(state.ordersView.positionTabDownstream?.[positionId] || {}),
+            packageDetail
+          }
+        };
+      },
+      onOpenConstructor: async () => {
+        const { openConstructorWorkspace } = await import("./constructor-desk.js");
+        await openConstructorWorkspace(positionId, { workspaceTab: "package" });
+      }
     });
+
+    if (constructiveEditable) {
+      void (async () => {
+        const { runAutoParsePackageIfRequested } =
+          await import("./constructive-package-parse-ui.js");
+        const stack = panel.querySelector(`[data-position-constructive="${positionId}"]`) || panel;
+        await runAutoParsePackageIfRequested(positionId, {
+          root: stack,
+          position,
+          liveCtx: { detail: downstream?.packageDetail },
+          notify: () => handlePositionRefresh({ reloadConstructive: true })
+        });
+      })();
+    }
   }
 
   if (activeSub === "procurement" && panel) {

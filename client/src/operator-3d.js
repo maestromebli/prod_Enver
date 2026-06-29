@@ -1,5 +1,4 @@
 import { api, getStoredToken } from "./api.js";
-import { createPartViewerLazy } from "./part-viewer-lazy.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolveHighlightTarget } from "./part-scan.js";
 
@@ -59,20 +58,26 @@ export async function bindOperatorOrder3d() {
     const resetBtn = document.getElementById("operatorOrder3dResetCam");
     if (resetBtn) resetBtn.hidden = false;
 
-    viewer = await createPartViewerLazy(mount.querySelector("[data-part-viewer]"));
-    const url = order3dFileUrl(orderId, asset.id, "web-model");
-    await viewer.loadModel(url, getStoredToken(), { format: asset.webModelFormat || "glb" });
-
+    const viewerEl = mount.querySelector("[data-part-viewer]");
+    const parts = [];
     if (positionId) {
       try {
         const pkg = await api.getConstructivePackageLatest(positionId);
         if (seq === loadSeq && pkg?.parts?.length) {
-          viewer.setPartCatalog(pkg.parts);
+          parts.push(...pkg.parts);
         }
       } catch {
         /* каталог необовʼязковий */
       }
     }
+
+    const { mountModelViewer } = await import("./part-viewer-mount.js");
+    viewer = await mountModelViewer(viewerEl, {
+      url: order3dFileUrl(orderId, asset.id, "web-model"),
+      token: getStoredToken(),
+      format: asset.webModelFormat || "glb",
+      parts
+    });
   } catch {
     if (seq === loadSeq) {
       section.hidden = true;

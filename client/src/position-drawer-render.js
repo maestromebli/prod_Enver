@@ -1,11 +1,5 @@
 import { constructiveFileDownloadUrl } from "./api.js";
-import {
-  STAGE_STATUSES,
-  STAGES,
-  getNextStatus,
-  getStageStatus,
-  stageStatusClass
-} from "./workflows.js";
+import { STAGES, getStageStatus, stageStatusClass } from "./workflows.js";
 import { PIPELINE_STAGES, STAGE_STATUS_DONE } from "@enver/shared/production/stages.js";
 import { computeProgress } from "@enver/shared/production/position-logic.js";
 import { badge, escapeHtml } from "./utils.js";
@@ -16,7 +10,7 @@ export const POSITION_DRAWER_SHELL_HTML = `
     <div class="drawer" role="dialog" aria-labelledby="positionDrawerTitle">
       <div class="drawer-header">
         <div class="drawer-header-main">
-          <h2 id="positionDrawerTitle">Позиція</h2>
+          <h2 id="positionDrawerTitle">Редагування позиції</h2>
           <div class="drawer-meta" id="positionDrawerSubtitle"></div>
           <div class="drawer-progress">
             <div class="drawer-progress-label">
@@ -63,13 +57,11 @@ export function renderConstructiveFileList(files, positionId, { editable = false
   return `<ul class="constructive-files-list" aria-label="Файли конструктива">${items}</ul>`;
 }
 
-/** HTML компактного pipeline у drawer позиції. */
+/** HTML компактного pipeline у drawer позиції (лише перегляд). */
 export function renderPositionPipeline(draft) {
   const currentKey = draft.currentStage || "constructor";
   const currentStage = STAGES.find((s) => s.key === currentKey) || STAGES[0];
   const currentStatus = getStageStatus(draft, currentStage);
-  const next = getNextStatus(currentStatus);
-  const canAdvance = currentStatus !== "Готово" && currentStatus !== "Не потрібно";
 
   const track = PIPELINE_STAGES.map((stage) => {
     const status = getStageStatus(draft, stage);
@@ -78,44 +70,32 @@ export function renderPositionPipeline(draft) {
     else if (STAGE_STATUS_DONE.has(status)) dotCls += " step-dot--done";
     else if (stage.key === currentKey) dotCls += " step-dot--current";
     else if (status !== "Не розпочато") dotCls += " step-dot--active";
-    return `<button type="button" class="${dotCls}" data-pipeline-jump="${stage.key}" title="${escapeHtml(stage.label)}: ${escapeHtml(status)}"></button>`;
+    return `<span class="${dotCls}" title="${escapeHtml(stage.label)}: ${escapeHtml(status)}" aria-hidden="true"></span>`;
   }).join('<span class="step-line" aria-hidden="true"></span>');
 
-  const manualSteps = STAGES.filter((s) => s.field)
+  const statusRows = STAGES.filter((s) => s.field)
     .map((stage) => {
       const status = getStageStatus(draft, stage);
       const cls = stageStatusClass(status);
       return `
         <div class="pipeline-manual-row ${cls}">
           <span class="pipeline-manual-label">${escapeHtml(stage.label)}</span>
-          <select class="pipeline-select" data-pipeline-status="${stage.key}" aria-label="${escapeHtml(stage.label)}">
-            ${STAGE_STATUSES.map(
-              (s) =>
-                `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`
-            ).join("")}
-          </select>
+          <span>${badge(status)}</span>
         </div>`;
     })
     .join("");
 
   return `
-    <div class="pipeline-compact">
+    <div class="pipeline-compact pipeline-compact--readonly">
       <div class="pipeline-compact-now">
         <span class="pipeline-compact-icon">${currentStage.icon}</span>
         <div class="pipeline-compact-text">
           <strong>${escapeHtml(currentStage.label)}</strong>
           <span>${badge(currentStatus)}</span>
         </div>
-        ${
-          canAdvance
-            ? `<button type="button" class="btn btn-primary btn-sm" data-pipeline-advance="${currentStage.key}" data-next="${escapeHtml(next)}">Далі → ${escapeHtml(next)}</button>`
-            : ""
-        }
       </div>
       <div class="step-track step-track--drawer">${track}</div>
-      <details class="pipeline-manual">
-        <summary>Змінити етап вручну</summary>
-        <div class="pipeline-manual-grid">${manualSteps}</div>
-      </details>
+      <div class="pipeline-manual-grid pipeline-manual-grid--readonly">${statusRows}</div>
+      <p class="field-hint enver-meta">Зміну етапів робіть на вкладці «Цех зараз» або через наступну дію.</p>
     </div>`;
 }

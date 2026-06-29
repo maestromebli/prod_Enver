@@ -344,11 +344,13 @@ export function renderConstructivePackageReadOnly(
             </div>`
           : ""
       }
+      ${pkg ? renderPackageParseBanner(detail) : ""}
       ${pkg ? renderPipeline(status) : ""}
       ${
         pkg
           ? `<p class="cp-status">v${pkg.version} · ${escapeHtml(statusLabel)}</p>`
-          : `<p class="enver-meta">Пакет ще не завантажено. Завантаження доступне на <strong>столі конструктора</strong>.</p>`
+          : `<p class="enver-meta">Пакет ще не завантажено.</p>
+             <button type="button" class="btn btn-sm btn-primary" data-open-constructor-ws="${positionId || ""}">Завантажити на столі конструктора</button>`
       }
       ${pkg && packageId && b3d.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">3D-модель (.b3d)</h4>${renderPackageFilesDownloadList(positionId, packageId, b3d)}</div>` : ""}
       ${pkg && packageId && project.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Проект конструктора (.project)</h4>${renderPackageFilesDownloadList(positionId, packageId, project)}</div>` : ""}

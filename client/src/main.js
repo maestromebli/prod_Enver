@@ -1,7 +1,6 @@
 import { api } from "./api.js";
 import {
   canViewSettings,
-  canEditOrders,
   initAuthFromStorage,
   isOperator,
   loadStoredUser,
@@ -25,13 +24,7 @@ import { toastError } from "./toast.js";
 import { syncOperatorBuildChip } from "./operator-ui.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
 import { loadGlobalHistory } from "./history.js";
-import {
-  initPositionDrawer,
-  openPositionDrawer,
-  openSubPositionDrawer,
-  quickAdvancePosition,
-  setPositionSaveHandler
-} from "./positions.js";
+import { initPositionDrawer, setPositionSaveHandler } from "./positions.js";
 import { togglePositionExpanded } from "./position-tree.js";
 import {
   bindOperatorActions,
@@ -85,6 +78,7 @@ import {
   stopGodmodeNotificationPolling
 } from "./godmode-notifications.js";
 import { initOrderDetailDrawer } from "./order-detail-drawer.js";
+import { openInlineAddPosition } from "./position-workspace.js";
 import { initCommandPalette } from "./command-palette.js";
 import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { initModalFocusTraps } from "./focus-trap.js";
@@ -190,29 +184,6 @@ async function afterAuth({ restoreNavigation = false } = {}) {
   startGodmodeNotificationPolling();
 }
 
-function openNewPositionForContext() {
-  if (state.selectedOrderId) {
-    const order = state.orders.find((o) => o.id === state.selectedOrderId);
-    if (order) {
-      const root = state.positions.find(
-        (p) => !p.parentId && (p.orderId === order.id || p.orderNumber === order.orderNumber)
-      );
-      if (root) {
-        openSubPositionDrawer(root.id);
-        return;
-      }
-      openPositionDrawer(null, {
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        object: order.object,
-        manager: order.manager
-      });
-      return;
-    }
-  }
-  openPositionDrawer();
-}
-
 function bindContentActions() {
   document.querySelectorAll("[data-dash-open-order]").forEach((el) => {
     el.addEventListener("click", async (e) => {
@@ -285,8 +256,7 @@ function bindContentActions() {
 
   document.querySelectorAll("[data-edit-position]").forEach((el) => {
     el.addEventListener("click", async (e) => {
-      if (e.target.closest("[data-quick-stage], [data-toggle-position], [data-add-sub-position]"))
-        return;
+      if (e.target.closest("[data-toggle-position], [data-add-sub-position]")) return;
       e.stopPropagation();
       const id = Number(el.dataset.editPosition);
       const { openPositionFromContext } = await import("./godmode-navigation.js");
@@ -322,23 +292,7 @@ function bindContentActions() {
       });
     });
 
-  document.querySelectorAll("[data-quick-stage]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const id = Number(btn.dataset.positionId);
-      const stageKey = btn.dataset.quickStage;
-      try {
-        await quickAdvancePosition(id, stageKey);
-      } catch (err) {
-        toastError(err.message);
-      }
-    });
-  });
-
-  $("#newOrderBtn")?.addEventListener("click", () => openOrderModal());
   $("#toolbarNewOrderBtn")?.addEventListener("click", () => openOrderModal());
-  $("#newPositionBtn")?.addEventListener("click", () => openNewPositionForContext());
-  $("#toolbarNewPositionBtn")?.addEventListener("click", () => openNewPositionForContext());
 
   document.querySelectorAll("[data-toggle-position]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -351,7 +305,9 @@ function bindContentActions() {
   document.querySelectorAll("[data-add-sub-position]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      openSubPositionDrawer(Number(btn.dataset.addSubPosition));
+      if (openInlineAddPosition(Number(btn.dataset.addSubPosition))) {
+        renderApp();
+      }
     });
   });
 
@@ -627,9 +583,6 @@ bindConstructorDeskActions(renderApp);
 bindOperatorActions(renderApp);
 
 initCommandPalette({
-  openNewOrder: () => {
-    if (state.currentUser) openOrderModal();
-  },
   focusSearch: () => $("#searchInput")?.focus(),
   setTab: (tab, options) => void setTab(tab, options),
   openSettings: () => void openSettingsView(),
@@ -643,9 +596,6 @@ initCommandPalette({
 });
 
 initKeyboardShortcuts({
-  openNewOrder: () => {
-    if (state.currentUser && canEditOrders()) openOrderModal();
-  },
   focusSearch: () => $("#searchInput")?.focus(),
   onEscape: () => {
     document.querySelector(".modal-backdrop.open")?.classList.remove("open");

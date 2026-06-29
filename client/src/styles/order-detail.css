@@ -686,7 +686,17 @@ button.step-dot[data-pipeline-jump] {
   text-align: left;
 }
 
-.order-position-meta {
+.order-position-workspaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--enver-space-2, 8px);
   margin-top: var(--enver-space-4, 16px);
-  padding: var(--enver-space-4, 16px);
+  padding-top: var(--enver-space-4, 16px);
+  border-top: 1px solid var(--enver-border, var(--border));
+}
+
+.pipeline-compact--readonly .pipeline-manual-grid--readonly {
+  display: grid;
+  gap: var(--enver-space-2, 8px);
+  margin-top: var(--enver-space-3, 12px);
 }

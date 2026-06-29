@@ -118,8 +118,8 @@ async function executeAssistantAction(action) {
     return;
   }
   if (type === "open_position" && payload.positionId) {
-    const { openPositionDrawer } = await import("./positions.js");
-    openPositionDrawer(payload.positionId);
+    const { openPositionFromContext } = await import("./godmode-navigation.js");
+    await openPositionFromContext(payload.positionId);
     panelOpen = false;
     renderPanel();
     return;

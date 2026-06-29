@@ -99,13 +99,13 @@ export async function openB3dPreviewModal(positionId, detail) {
   );
 
   try {
-    const { createPartViewerLazy } = await import("./part-viewer-lazy.js");
-    previewViewer = await createPartViewerLazy(container);
-    const token = getStoredToken();
-    const url = constructivePackageFileUrl(positionId, detail.package.id, previewFile.id);
-    const format = preview3dLoadFormat(previewFile);
-    await previewViewer.loadModel(url, token, { format });
-    if (detail.parts?.length) previewViewer.setPartCatalog(detail.parts);
+    const { mountModelViewer } = await import("./part-viewer-mount.js");
+    previewViewer = await mountModelViewer(container, {
+      url: constructivePackageFileUrl(positionId, detail.package.id, previewFile.id),
+      token: getStoredToken(),
+      format: preview3dLoadFormat(previewFile),
+      parts: detail.parts
+    });
     container.querySelector(".b3d-preview-loading")?.remove();
   } catch {
     container.querySelector(".b3d-preview-loading")?.remove();

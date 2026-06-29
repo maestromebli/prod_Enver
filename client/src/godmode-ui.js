@@ -400,7 +400,7 @@ export async function executePrimaryOrderAction(
 export async function buildGodmodeActionDeps(overrides = {}) {
   const { api } = await import("./api.js");
   const { upsertPosition, upsertOrder, refreshAppData } = await import("./data-sync.js");
-  const { openPositionDrawer } = await import("./positions.js");
+  const { openPositionEditDrawer } = await import("./positions.js");
   const { toastSuccess, toastError } = await import("./toast.js");
   const { humanizeUserMessage } = await import("./utils.js");
   const { state } = await import("./state.js");
@@ -410,7 +410,7 @@ export async function buildGodmodeActionDeps(overrides = {}) {
     upsertPosition,
     upsertOrder,
     refreshAppData,
-    openPositionDrawer,
+    openPositionEditDrawer,
     toastSuccess,
     toastError,
     humanizeUserMessage,
@@ -478,7 +478,7 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
         window.__enverRender?.({ contentOnly: true });
       } else if (result.action === "open_position") {
         const position = deps.getPositions?.().find((p) => p.id === result.positionId);
-        if (position) deps.openPositionDrawer?.(position, { panel: result.panel });
+        if (position) deps.openPositionEditDrawer?.(position, { panel: result.panel });
       } else {
         deps.openOrderDetail?.(order.id, result.tab || "overview");
         if (result.hint === "add_position" || result.tab === "positions") {

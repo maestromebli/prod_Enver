@@ -3,20 +3,19 @@ import { runSave } from "./save-flow.js";
 import { loadPositionHistory, renderDrawerHistory } from "./history.js";
 import { expandPosition, getParentPosition } from "./position-tree.js";
 import { state } from "./state.js";
-import { POSITION_STATUSES, STAGES, getNextStatus, getStageStatus } from "./workflows.js";
+import { POSITION_STATUSES } from "./workflows.js";
 import {
   CONSTRUCTORS_DIRECTORY_KEY,
   getDirectoryList
 } from "@enver/shared/production/directories.js";
 import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
-import { loadCncJobsSummary, loadProcurementSummary } from "./constructive-pipeline-panel.js";
-import { loadConstructivePackageDetail } from "./constructive-package-ui.js";
 import {
-  bindPositionConstructivePanel,
-  remountPositionConstructivePanel,
-  renderPositionConstructivePanel
-} from "./position-constructive-panel.js";
+  bindPositionManagerPanel,
+  loadPositionManagerBundle,
+  renderPositionManagerPanel
+} from "./position-manager-panel.js";
+import { openInlineAddPosition } from "./position-workspace.js";
 import {
   POSITION_DRAWER_SHELL_HTML,
   estimatePositionProgress,
@@ -26,36 +25,18 @@ import {
 let onSaved = () => {};
 let draft = null;
 let activePanel = "general";
-let constructiveFiles = [];
-let constructivePackageDetail = null;
-let procurementSummary = null;
-let cncJobsSummary = [];
+let managerBundle = null;
 
 export function setPositionSaveHandler(handler) {
   onSaved = handler;
 }
 
-async function refreshConstructiveFiles() {
-  if (!draft?.id) {
-    constructiveFiles = [];
-    constructivePackageDetail = null;
-    return;
-  }
-  try {
-    constructiveFiles = (await api.getConstructiveFiles(draft.id)) || [];
-    constructivePackageDetail = await loadConstructivePackageDetail(draft.id);
-  } catch {
-    constructiveFiles = [];
-    constructivePackageDetail = null;
-  }
+function backdrop() {
+  return $("#positionDrawer");
 }
 
 function renderPipeline() {
   return renderPositionPipeline(draft);
-}
-
-function backdrop() {
-  return $("#positionDrawer");
 }
 
 function showError(message) {
@@ -72,7 +53,7 @@ function listOptions(key) {
 }
 
 async function ensureDirectoryLists() {
-  const keys = [CONSTRUCTORS_DIRECTORY_KEY, "Збирачі", "Монтажники"];
+  const keys = [CONSTRUCTORS_DIRECTORY_KEY, "Збирачі"];
   if (keys.some((k) => !getDirectoryList(state.directories, k).length)) {
     try {
       state.directories = await api.getDirectories();
@@ -114,8 +95,7 @@ function renderDrawerContent() {
 
     <div class="drawer-tabs">
       <button type="button" class="drawer-tab ${activePanel === "general" ? "active" : ""}" data-panel="general">Основне</button>
-      <button type="button" class="drawer-tab ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">Конструктив / ЧПК</button>
-      <button type="button" class="drawer-tab ${activePanel === "install" ? "active" : ""}" data-panel="install">Монтаж</button>
+      <button type="button" class="drawer-tab ${activePanel === "manager" ? "active" : ""}" data-panel="manager">Дані менеджера</button>
       <button type="button" class="drawer-tab ${activePanel === "more" ? "active" : ""}" data-panel="more">Ще</button>
     </div>
 
@@ -158,27 +138,12 @@ function renderDrawerContent() {
         </div>
       </div>
 
-      <div class="drawer-panel ${activePanel === "constructive" ? "active" : ""}" data-panel="constructive">
-        <div id="constructiveWorkspaceMount">${renderPositionConstructivePanel(p, buildConstructiveDownstream(), { editable: true })}</div>
-      </div>
-
-      <div class="drawer-panel ${activePanel === "install" ? "active" : ""}" data-panel="install">
-        <p class="drawer-section-title">Період монтажу</p>
-        <div class="form-grid install-period-grid">
-          <div class="form-field">
-            <label for="posInstallDate">з</label>
-            <input id="posInstallDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.installDate)}" />
-          </div>
-          <div class="form-field">
-            <label for="posInstallEndDate">по</label>
-            <input id="posInstallEndDate" placeholder="дд.мм.рррр" value="${escapeHtml(p.installEndDate || p.installDate || "")}" />
-          </div>
-          <div class="form-field span-2">
-            <label for="posInstaller">Монтажник</label>
-            <input id="posInstaller" list="installersList" value="${escapeHtml(p.installResponsible)}" />
-            <datalist id="installersList"></datalist>
-          </div>
-        </div>
+      <div class="drawer-panel ${activePanel === "manager" ? "active" : ""}" data-panel="manager">
+        <div id="positionManagerWorkspaceMount">${
+          p.id
+            ? renderPositionManagerPanel(p, managerBundle, { editable: true })
+            : `<p class="enver-meta">Збережіть позицію, щоб редагувати дані менеджера.</p>`
+        }</div>
       </div>
 
       <div class="drawer-panel ${activePanel === "more" ? "active" : ""}" data-panel="more">
@@ -217,13 +182,38 @@ function renderDrawerContent() {
     $("#assemblersList").innerHTML = listOptions("Збирачі")
       .map((x) => `<option value="${escapeHtml(x)}"></option>`)
       .join("");
-    $("#installersList").innerHTML = listOptions("Монтажники")
-      .map((x) => `<option value="${escapeHtml(x)}"></option>`)
-      .join("");
   });
 
   bindDrawerEvents();
+  if (activePanel === "manager" && p.id) {
+    bindManagerWorkspace();
+  }
   if (activePanel === "more") refreshDrawerHistory();
+}
+
+function bindManagerWorkspace() {
+  const mount = $("#positionManagerWorkspaceMount");
+  if (!mount || !draft?.id) return;
+  bindPositionManagerPanel(mount, {
+    positionId: draft.id,
+    editable: true,
+    onSaved: async (bundle) => {
+      if (bundle) managerBundle = bundle;
+      await onSaved();
+    }
+  });
+}
+
+async function ensureManagerBundle() {
+  if (!draft?.id) {
+    managerBundle = null;
+    return;
+  }
+  try {
+    managerBundle = await loadPositionManagerBundle(draft.id);
+  } catch {
+    managerBundle = null;
+  }
 }
 
 async function refreshDrawerHistory() {
@@ -256,11 +246,6 @@ function updateHeader() {
   $("#positionDrawerProgressLabel").textContent = `${draft.progress ?? 0}% готово`;
 }
 
-function pipelineStatus(key, field) {
-  const sel = document.querySelector(`.pipeline-select[data-pipeline-status="${key}"]`);
-  return sel?.value ?? draft[field] ?? "Не розпочато";
-}
-
 function readForm() {
   const orderNumber = draft.parentId
     ? draft.orderNumber
@@ -275,17 +260,17 @@ function readForm() {
     itemType: draft.itemType || "Зона",
     manager: draft.manager || order?.manager || "",
     constructor: $("#posConstructor")?.value.trim() ?? "",
-    cuttingStatus: pipelineStatus("cutting", "cuttingStatus"),
-    edgingStatus: pipelineStatus("edging", "edgingStatus"),
-    drillingStatus: pipelineStatus("drilling", "drillingStatus"),
-    assemblyStatus: pipelineStatus("assembly", "assemblyStatus"),
+    cuttingStatus: draft.cuttingStatus || "Не розпочато",
+    edgingStatus: draft.edgingStatus || "Не розпочато",
+    drillingStatus: draft.drillingStatus || "Не розпочато",
+    assemblyStatus: draft.assemblyStatus || "Не розпочато",
     assemblyResponsible: $("#posAssembler")?.value.trim() ?? "",
     readyDate: $("#posReadyDate")?.value.trim() ?? "",
-    installDate: $("#posInstallDate")?.value.trim() ?? "",
-    installEndDate: $("#posInstallEndDate")?.value.trim() ?? "",
+    installDate: draft.installDate || "",
+    installEndDate: draft.installEndDate || "",
     installTimeStart: "",
     installTimeEnd: "",
-    installResponsible: $("#posInstaller")?.value.trim() ?? "",
+    installResponsible: draft.installResponsible || "",
     positionStatus: $("#posPositionStatus")?.value ?? draft.positionStatus,
     overdueDays: Number(draft.overdueDays) || 0,
     problem: $("#posProblem")?.value.trim() ?? "",
@@ -296,31 +281,6 @@ function readForm() {
 function syncDraftFromForm() {
   Object.assign(draft, readForm());
   draft.progress = estimatePositionProgress(draft);
-}
-
-async function patchStage(stageKey, payload) {
-  if (!draft.id) {
-    showError("Спочатку збережіть позицію");
-    return;
-  }
-  const stage = STAGES.find((s) => s.key === stageKey);
-  const stageName = stage?.label || stageKey;
-
-  await runSave(`Етап «${stageName}»`, {
-    saveFn: async () => {
-      const updated = await api.patchPositionStage(draft.id, stageKey, payload);
-      draft = { ...updated };
-      return updated;
-    },
-    successMessage: `Етап «${stageName}» збережено`,
-    onSuccess: async () => {
-      updateHeader();
-      renderDrawerContent();
-      if (activePanel === "more") await refreshDrawerHistory();
-      await onSaved();
-    },
-    onError: (err) => showError(err.message)
-  }).catch(() => {});
 }
 
 function rootPositionForOrderNumber(orderNumber, orderId) {
@@ -403,80 +363,16 @@ function scrollPositionDrawerToTabs() {
   });
 }
 
-function onDrawerTabSelect(panel) {
+async function onDrawerTabSelect(panel) {
   if (!panel) return;
   activePanel = panel;
   syncDraftFromForm();
+  if (activePanel === "manager" && draft?.id) {
+    await ensureManagerBundle();
+  }
   renderDrawerContent();
   scrollPositionDrawerToTabs();
   if (activePanel === "more") refreshDrawerHistory();
-  if (activePanel === "constructive" && draft?.id) {
-    void refreshConstructiveWorkspace();
-  }
-}
-
-function buildConstructiveDownstream() {
-  return {
-    packageDetail: constructivePackageDetail,
-    procurement: procurementSummary,
-    cncJobs: cncJobsSummary,
-    constructiveFiles
-  };
-}
-
-async function handleConstructivePanelRefresh(opts = {}) {
-  if (!draft?.id) return;
-  if (opts.packageDomOnly) {
-    await refreshConstructiveFiles();
-    remountPositionConstructivePanel($("#constructiveWorkspaceMount"), draft, {
-      getDownstream: buildConstructiveDownstream,
-      onRefresh: handleConstructivePanelRefresh,
-      onPackageDetailPatched: (detail) => {
-        constructivePackageDetail = detail;
-      },
-      editable: true
-    });
-    return;
-  }
-  await refreshConstructiveWorkspace();
-}
-
-async function refreshConstructiveWorkspace() {
-  if (!draft?.id) return;
-  await refreshConstructiveFiles();
-  [procurementSummary, cncJobsSummary] = await Promise.all([
-    loadProcurementSummary(draft.id),
-    loadCncJobsSummary(draft.id)
-  ]);
-  const mount = $("#constructiveWorkspaceMount");
-  if (mount) {
-    mount.innerHTML = renderPositionConstructivePanel(draft, buildConstructiveDownstream(), {
-      editable: true
-    });
-  }
-  bindConstructivePanel();
-}
-
-function bindConstructivePanel() {
-  const mount = $("#constructiveWorkspaceMount");
-  if (!mount || !draft?.id) return;
-  bindPositionConstructivePanel(mount, draft, {
-    getDownstream: buildConstructiveDownstream,
-    onRefresh: async (opts = {}) => {
-      if (opts.packageDomOnly) {
-        await handleConstructivePanelRefresh(opts);
-        return;
-      }
-      await refreshConstructiveWorkspace();
-      draft = { ...draft, hasConstructiveFile: true };
-      updateHeader();
-      await onSaved();
-    },
-    onPackageDetailPatched: (detail) => {
-      constructivePackageDetail = detail;
-    },
-    editable: true
-  });
 }
 
 function bindDrawerEvents() {
@@ -493,63 +389,6 @@ function bindDrawerEvents() {
     $("#posObject").value = draft.object || "";
     $("#posManager").value = draft.manager || "";
   });
-
-  document.querySelectorAll("[data-pipeline-jump]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const key = btn.dataset.pipelineJump;
-      const stage = STAGES.find((s) => s.key === key);
-      if (!stage || key === draft.currentStage) return;
-      if (stage.type === "constructor") {
-        if (!draft.hasConstructiveFile) {
-          onDrawerTabSelect("constructive");
-          showError("Завантажте файл конструктива");
-          return;
-        }
-        await patchStage(key, { status: "Передано", constructor: draft.constructor });
-        return;
-      }
-      await patchStage(key, {
-        status: "В роботі",
-        assemblyResponsible: draft.assemblyResponsible
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-pipeline-advance]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const key = btn.dataset.pipelineAdvance;
-      const next = btn.dataset.next;
-      const stage = STAGES.find((s) => s.key === key);
-      if (stage.type === "constructor") {
-        if (!draft.hasConstructiveFile && next !== "Не розпочато") {
-          onDrawerTabSelect("constructive");
-          showError("Завантажте файл конструктива");
-          return;
-        }
-        await patchStage(key, { status: next, constructor: draft.constructor });
-      } else {
-        await patchStage(key, {
-          status: next,
-          assemblyResponsible: draft.assemblyResponsible
-        });
-      }
-    });
-  });
-
-  document.querySelectorAll(".pipeline-select").forEach((sel) => {
-    sel.addEventListener("change", async () => {
-      const key = sel.dataset.pipelineStatus;
-      const stage = STAGES.find((s) => s.key === key);
-      const status = sel.value;
-      if (stage.type === "constructor") {
-        await patchStage(key, { status, constructor: draft.constructor });
-      } else {
-        await patchStage(key, { status, assemblyResponsible: draft.assemblyResponsible });
-      }
-    });
-  });
-
-  bindConstructivePanel();
 
   document.querySelectorAll("[data-run-next-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -577,17 +416,12 @@ function bindDrawerEvents() {
 }
 
 export function openSubPositionDrawer(parentId) {
-  const parent = getParentPosition(parentId);
-  if (!parent) return;
-  expandPosition(parentId);
-  openPositionDrawer(null, {
-    parentId,
-    orderNumber: parent.orderNumber,
-    orderId: parent.orderId,
-    object: parent.object,
-    manager: parent.manager,
-    itemType: parent.itemType || "Кухня"
-  });
+  if (!openInlineAddPosition(parentId)) return;
+  window.__enverRender?.();
+}
+
+export async function openPositionEditDrawer(position, options = {}) {
+  return openPositionDrawer(position, options);
 }
 
 export function capturePositionDrawerState() {
@@ -609,7 +443,9 @@ export async function restorePositionDrawerState(saved) {
   $("#positionDrawerTitle").textContent = draft.item || "Нова позиція";
   $("#deletePositionBtn").style.display = draft.id ? "inline-flex" : "none";
   updateHeader();
-  await refreshConstructiveFiles();
+  if (activePanel === "manager" && draft.id) {
+    await ensureManagerBundle();
+  }
   renderDrawerContent();
   showError("");
   backdrop().classList.add("open");
@@ -622,42 +458,42 @@ export async function openPositionDrawer(position = null, options = {}) {
     return;
   }
 
-  activePanel = options.panel || "general";
-  const parentId = position?.parentId ?? options.parentId ?? null;
-  const parent = parentId ? getParentPosition(parentId) : null;
+  if (!position?.id) {
+    if (options.parentId) {
+      openSubPositionDrawer(options.parentId);
+      return;
+    }
+    const orderId =
+      options.orderId ||
+      state.orders.find((o) => o.orderNumber === options.orderNumber)?.id ||
+      null;
+    if (orderId) {
+      const { focusOrderInlineAddInput } = await import("./order-detail-state.js");
+      state.selectedOrderId = orderId;
+      state.activeTab = "Замовлення";
+      state.ordersView.detailTab = "positions";
+      focusOrderInlineAddInput();
+      window.__enverRender?.();
+      return;
+    }
+    return;
+  }
 
-  draft = position
-    ? {
-        ...position,
-        _parentItem: (position.parentId ? getParentPosition(position.parentId) : parent)?.item
-      }
-    : {
-        parentId,
-        orderNumber: options.orderNumber || "",
-        orderId: options.orderId || null,
-        object: options.object || "",
-        manager: options.manager || "",
-        _parentItem: parent?.item,
-        item: "",
-        itemType: options.itemType || "Кухня",
-        constructor: "",
-        cuttingStatus: "Не розпочато",
-        edgingStatus: "Не розпочато",
-        drillingStatus: "Не розпочато",
-        assemblyStatus: "Не розпочато",
-        positionStatus: "Не розпочато",
-        progress: 0,
-        overdueDays: 0,
-        problem: "",
-        note: ""
-      };
+  activePanel = options.panel || "general";
+
+  draft = {
+    ...position,
+    _parentItem: position.parentId ? getParentPosition(position.parentId)?.item : undefined
+  };
 
   if (draft.orderNumber) applyOrderDefaults(draft.orderNumber);
 
-  $("#positionDrawerTitle").textContent = draft.item || "Нова позиція";
+  $("#positionDrawerTitle").textContent = draft.item || "Редагування позиції";
   $("#deletePositionBtn").style.display = draft.id ? "inline-flex" : "none";
   updateHeader();
-  await refreshConstructiveFiles();
+  if (activePanel === "manager" && draft.id) {
+    await ensureManagerBundle();
+  }
   renderDrawerContent();
   showError("");
   backdrop().classList.add("open");
@@ -668,31 +504,11 @@ export function closePositionDrawer() {
   backdrop().classList.remove("open");
   backdrop().setAttribute("aria-hidden", "true");
   draft = null;
-  constructiveFiles = [];
+  managerBundle = null;
 }
 
-export async function quickAdvancePosition(id, stageKey) {
-  const position = state.positions.find((p) => p.id === id);
-  if (!position) return;
-  const stage = STAGES.find((s) => s.key === stageKey);
-  if (!stage) return;
-  const current = getStageStatus(position, stage);
-  const next = getNextStatus(current);
-  const payload =
-    stage.type === "constructor"
-      ? { status: next, constructor: position.constructor }
-      : { status: next, assemblyResponsible: position.assemblyResponsible };
-
-  await runSave(`Етап «${stage.label}»`, {
-    saveFn: async () => {
-      const updated = await api.patchPositionStage(id, stageKey, payload);
-      const idx = state.positions.findIndex((p) => p.id === id);
-      if (idx >= 0) state.positions[idx] = updated;
-      return updated;
-    },
-    successMessage: `«${stage.label}»: ${next}`,
-    onSuccess: () => onSaved()
-  }).catch(() => {});
+export function stageQuickActions() {
+  return "";
 }
 
 export function initPositionDrawer() {
@@ -728,23 +544,6 @@ export function positionActionButtons(id, compact = false) {
   return `
     <div class="actions-cell">
       <button type="button" class="btn btn-sm" data-edit-position="${id}">${label}</button>
-    </div>
-  `;
-}
-
-export function stageQuickActions(id, stageKey) {
-  const position = state.positions.find((p) => p.id === id);
-  if (!position) return "";
-  const stage = STAGES.find((s) => s.key === stageKey);
-  const status = getStageStatus(position, stage);
-  const next = getNextStatus(status);
-  if (status === "Готово" || status === "Не потрібно") {
-    return `<span class="muted">✓</span>`;
-  }
-  return `
-    <div class="stage-quick">
-      <button type="button" class="btn btn-ghost btn-sm" data-quick-stage="${stageKey}" data-position-id="${id}" data-next="${escapeHtml(next)}">${escapeHtml(next)}</button>
-      <button type="button" class="btn btn-sm" data-edit-position="${id}">⋯</button>
     </div>
   `;
 }

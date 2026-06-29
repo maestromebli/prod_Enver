@@ -82,8 +82,12 @@ function renderHeaderBadge(bundle) {
   return `<span class="enver-badge ${complete ? "enver-badge-success" : "enver-badge-warning"}">${pct}% · ${complete ? "Заповнено" : "Потрібно доповнити"}</span>`;
 }
 
-export function renderPositionManagerPanel(position, bundle = null) {
-  const canEdit = canEditPositionManagerData();
+export function renderPositionManagerPanel(
+  position,
+  bundle = null,
+  { editable: editableOverride } = {}
+) {
+  const canEdit = editableOverride ?? canEditPositionManagerData();
   const data = bundle?.managerData ||
     position?.managerData || {
       delivery: {},
@@ -176,7 +180,7 @@ export function renderPositionManagerPanel(position, bundle = null) {
 
       <div class="pm-block">
         <h4>Файли менеджера</h4>
-        <div class="pm-files" data-pm-files="${position.id}">${renderFiles(position.id, files)}</div>
+        <div class="pm-files" data-pm-files="${position.id}">${renderFiles(position.id, files, { editable: canEdit })}</div>
         ${
           canEdit
             ? `<div class="pm-upload-tools">
@@ -289,9 +293,9 @@ function bindDeleteFileButtons(panel, positionId, onSaved) {
   });
 }
 
-export function bindPositionManagerPanel(root, { positionId, onSaved } = {}) {
+export function bindPositionManagerPanel(root, { positionId, onSaved, editable = true } = {}) {
   const panel = root.querySelector(`[data-position-manager="${positionId}"]`);
-  if (!panel) return;
+  if (!panel || !editable) return;
 
   const syncTechBlockVisibility = () => {
     const needsTech = Boolean(document.getElementById(`pmNeedsTech-${positionId}`)?.checked);

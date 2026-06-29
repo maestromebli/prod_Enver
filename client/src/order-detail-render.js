@@ -15,7 +15,7 @@ import {
 } from "./godmode-ui.js";
 import { buildGodmodeCtaAttrs } from "@enver/shared/production/godmode-ui-helpers.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
-import { STAGES, getStageStatus } from "./workflows.js";
+import { getStageStatus } from "./workflows.js";
 import { getPositionSubTab, renderPositionOrderTab } from "./position-order-tab.js";
 import { canViewOrder3DTab } from "./order-3d/order-3d-permissions.js";
 import { renderOrder3DTab } from "./order-3d/order-3d-tab.js";
@@ -110,19 +110,16 @@ function stepDotClass(position, stage) {
   return "";
 }
 
-function renderStepTrack(position, { canEdit, labeled = false }) {
+function renderStepTrack(position, { labeled = false } = {}) {
   const stages = PIPELINE_STAGES;
   const dots = stages
     .map((stage, i) => {
       const status = getStageStatus(position, stage);
       const cls = stepDotClass(position, stage);
-      const clickable = canEdit
-        ? `data-step-jump="${stage.key}" data-position-id="${position.id}"`
-        : "";
       const label = labeled ? `<span class="step-label">${escapeHtml(stage.label)}</span>` : "";
       const sep = i < stages.length - 1 ? '<span class="step-line" aria-hidden="true"></span>' : "";
       return `<div class="step-node">
-        <button type="button" class="step-dot ${cls}" ${clickable} title="${escapeHtml(stage.label)}: ${escapeHtml(status)}" aria-label="${escapeHtml(stage.label)}"></button>
+        <span class="step-dot ${cls}" title="${escapeHtml(stage.label)}: ${escapeHtml(status)}" aria-label="${escapeHtml(stage.label)}"></span>
         ${label}
       </div>${sep}`;
     })
@@ -130,18 +127,10 @@ function renderStepTrack(position, { canEdit, labeled = false }) {
   return `<div class="step-track ${labeled ? "step-track--labeled" : ""}" role="list" aria-label="Етапи">${dots}</div>`;
 }
 
-function canAdvancePosition(position) {
-  const stage = STAGES.find((s) => s.key === position.currentStage);
-  if (!stage) return false;
-  const status = getStageStatus(position, stage);
-  return status !== "Готово" && status !== "Не потрібно";
-}
-
-function renderPositionRow(row, { canEdit }) {
+function renderPositionRow(row) {
   const { position: p, depth, isSub, childCount } = row;
   const indent = depth > 0 ? `style="--order-pos-depth:${depth}"` : "";
   const currentLabel = stageLabel(p.currentStage || "constructor");
-  const showAdvance = canEdit && canAdvancePosition(p);
   const problem = p.problem?.trim();
 
   const toggleBtn =
@@ -159,13 +148,8 @@ function renderPositionRow(row, { canEdit }) {
         </button>
         <span class="pos-row-stage">${escapeHtml(currentLabel)}</span>
         <span class="pos-row-pct">${p.progress ?? 0}%</span>
-        ${
-          showAdvance
-            ? `<button type="button" class="pos-row-next" data-quick-advance="${p.id}" data-stage="${p.currentStage}" title="Наступний крок">→</button>`
-            : `<span class="pos-row-next-spacer"></span>`
-        }
       </div>
-      ${renderStepTrack(p, { canEdit })}
+      ${renderStepTrack(p)}
     </article>`;
 }
 
@@ -192,7 +176,7 @@ function renderPositionsSection(order, allPositions, related) {
     childCount: 0
   }));
   const body = rows.length
-    ? rows.map((row) => renderPositionRow(row, { canEdit })).join("")
+    ? rows.map((row) => renderPositionRow(row)).join("")
     : renderSmartEmptyState({
         icon: "📦",
         title: "Позицій ще немає",

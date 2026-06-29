@@ -9,10 +9,9 @@ const TOUR_STEPS = [
   },
   {
     tab: "Замовлення",
-    ordersDisplayMode: "positions",
     title: "Крок 2 з 3",
-    hint: "Додай позицію з відповідальними",
-    focusSelector: "#toolbarNewPositionBtn"
+    hint: "Додай позицію в картці замовлення",
+    focusSelector: "#orderInlineAddInput"
   },
   {
     tab: "Цех зараз",

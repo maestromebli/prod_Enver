@@ -79,12 +79,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
     allowActions,
     newTaskIds
   );
-  const headerRow = allowActions
-    ? `<div class="card-header-row">
-        <div class="block-title">${escapeHtml(title)}</div>
-        <button type="button" class="btn btn-primary btn-sm" id="newPositionBtn">+ Нова позиція</button>
-       </div>`
-    : `<div class="block-title">${escapeHtml(title)}</div>`;
+  const headerRow = `<div class="block-title">${escapeHtml(title)}</div>`;
 
   const tableHead = `
           <thead>
@@ -258,16 +253,12 @@ export function renderApp(options = {}) {
         orders: ordersData,
         positions: state.positions,
         onOpenPosition: async (id) => {
-          const { openPositionInOrderDetail } = await import("./order-detail.js");
-          if (openPositionInOrderDetail(id)) {
+          const { openPositionFromContext } = await import("./godmode-navigation.js");
+          if (await openPositionFromContext(id)) {
             notifyUiChanged();
             renderApp();
             window.scrollTo({ top: 0, behavior: "instant" });
-            return;
           }
-          const { openPositionDrawer } = await import("./positions.js");
-          const position = state.positions.find((p) => p.id === id);
-          if (position) openPositionDrawer(position);
         },
         onOrderClick: (order) => {
           clearOrderDetailViewState();
@@ -280,7 +271,7 @@ export function renderApp(options = {}) {
         onOrderCta: async (order, triggerEl) => {
           const { executePrimaryOrderAction } = await import("./godmode-ui.js");
           const { upsertPosition, upsertOrder, refreshAppData } = await import("./data-sync.js");
-          const { openPositionDrawer } = await import("./positions.js");
+          const { openGodmodePositionTarget } = await import("./godmode-navigation.js");
           const { toastSuccess, toastError } = await import("./toast.js");
           const { humanizeUserMessage } = await import("./utils.js");
           const { runSave } = await import("./save-flow.js");
@@ -306,7 +297,12 @@ export function renderApp(options = {}) {
 
             if (result.action === "open_position") {
               const position = state.positions.find((p) => p.id === result.positionId);
-              if (position) openPositionDrawer(position, { panel: result.panel });
+              if (position) {
+                await openGodmodePositionTarget(position, result.nextAction?.type);
+                notifyUiChanged();
+                renderApp();
+                window.scrollTo({ top: 0, behavior: "instant" });
+              }
               return;
             }
 
@@ -351,11 +347,6 @@ export function renderApp(options = {}) {
             /* локальний стан уже оновлено */
           }
           renderApp(opts);
-        },
-        onOpenPosition: async (id) => {
-          const { openPositionDrawer } = await import("./positions.js");
-          const position = state.positions.find((p) => p.id === id);
-          if (position) openPositionDrawer(position);
         },
         onEditOrder: async (id) => {
           const { openOrderModal } = await import("./orders.js");

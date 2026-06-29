@@ -664,10 +664,17 @@ export async function openConstructorDeskForAssignment({ orderId = null, positio
   window.__enverRender?.();
 }
 
-export async function openConstructorWorkspace(positionId, { workspaceTab = "work" } = {}) {
+export async function openConstructorWorkspace(
+  positionId,
+  { workspaceTab = "work", autoParse = false } = {}
+) {
   state.activeTab = CONSTRUCTOR_DESK_TAB;
   state.constructorDesk.selectedPositionId = positionId;
   state.constructorDesk.workspaceTab = workspaceTab;
+  if (autoParse) {
+    const { requestAutoParsePackage } = await import("./constructive-package-parse-ui.js");
+    requestAutoParsePackage(positionId);
+  }
   notifyUiChanged();
   state.constructorDesk.loading = true;
   window.__enverRender?.();
@@ -865,6 +872,19 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
       onChange();
     }
   });
+
+  void (async () => {
+    const { runAutoParsePackageIfRequested } = await import("./constructive-package-parse-ui.js");
+    await runAutoParsePackageIfRequested(positionId, {
+      root: mount,
+      position,
+      liveCtx: { detail: state.constructorDesk.packageDetail },
+      notify: async () => {
+        await loadConstructorDeskPackage(positionId);
+        onChange();
+      }
+    });
+  })();
 }
 
 function readWorkspaceFromDom() {

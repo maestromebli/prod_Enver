@@ -1,8 +1,11 @@
 import { escapeHtml } from "./utils.js";
 import { api } from "./api.js";
+import { state } from "./state.js";
+import { toastError, toastSuccess } from "./toast.js";
 import {
   CONSTRUCTIVE_PIPELINE_STEPS,
   constructivePipelineStepIndex,
+  isPackageParsedStatus,
   isStalePackageParsing,
   packageParseDisplay,
   packageStatusLabel
@@ -246,6 +249,67 @@ export async function refreshStalePackageParseUi(block, position, detail, onRetr
     onRetry?.(detail.package.id);
   });
   return detail;
+}
+
+/** Запланувати автоматичний розбір після відкриття панелі пакета. */
+export function requestAutoParsePackage(positionId) {
+  if (!positionId) return;
+  state.ordersView = state.ordersView || {};
+  state.ordersView.autoParsePackagePositionId = Number(positionId);
+}
+
+/** Чи запитано автопарс для позиції (без зняття прапорця). */
+export function isAutoParsePackageRequested(positionId) {
+  return Number(state.ordersView?.autoParsePackagePositionId) === Number(positionId);
+}
+
+/**
+ * Запустити розбір, якщо користувач натиснув godmode «Розібрати».
+ * @returns {boolean} чи виконано запит
+ */
+export async function runAutoParsePackageIfRequested(positionId, ctx = {}) {
+  if (!isAutoParsePackageRequested(positionId)) return false;
+  state.ordersView.autoParsePackagePositionId = null;
+
+  const { root, position, liveCtx, notify, onComplete } = ctx;
+  let latest = liveCtx?.detail;
+  try {
+    latest = await api.getConstructivePackageLatest(positionId);
+  } catch {
+    /* ignore */
+  }
+
+  const packageId = latest?.package?.id;
+  if (!packageId) {
+    toastError("Спочатку завантажте файли пакета");
+    return true;
+  }
+
+  const pkg = latest.package;
+  if (pkg.status === "parsing" && !isStalePackageParsing(pkg)) {
+    return true;
+  }
+  if (isPackageParsedStatus(pkg.status) && latest.parts?.length) {
+    return true;
+  }
+
+  try {
+    const after = await runPackageParseWithProgress(positionId, packageId, {
+      root,
+      position: position || { id: positionId },
+      liveCtx: liveCtx || { detail: latest },
+      notify,
+      onComplete
+    });
+    if (after?.autoProcurement || after?.procurement?.id) {
+      toastSuccess("Пакет розібрано — закупівлю створено з Excel");
+    } else {
+      toastSuccess("Пакет розібрано");
+    }
+  } catch (err) {
+    toastError(err.message);
+  }
+  return true;
 }
 
 export { packageStatusLabel };

@@ -10,6 +10,7 @@ import {
   renderConstructivePipelinePanel
 } from "./constructive-pipeline-panel.js";
 import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
+import { refreshStalePackageParseUi } from "./constructive-package-parse-ui.js";
 
 let constructivePackageEventAbort = null;
 const constructivePackageEventPositions = new Set();
@@ -143,6 +144,32 @@ export function bindPositionConstructivePanel(
       const { openConstructorWorkspace } = await import("./constructor-desk.js");
       await openConstructorWorkspace(positionId, { workspaceTab: "package" });
     });
+    const block = stack.querySelector(".constructive-package-block");
+    const detail = resolveDownstream().packageDetail;
+    if (block && detail?.package) {
+      void refreshStalePackageParseUi(block, position, detail, (packageId) => {
+        void (async () => {
+          const { requestAutoParsePackage, runAutoParsePackageIfRequested } =
+            await import("./constructive-package-parse-ui.js");
+          const { canWorkConstructorDesk } = await import("./auth.js");
+          if (canWorkConstructorDesk()) {
+            requestAutoParsePackage(positionId);
+            await runAutoParsePackageIfRequested(positionId, {
+              root: stack,
+              position,
+              liveCtx: { detail },
+              notify: () => onRefresh?.({ reloadConstructive: true })
+            });
+            return;
+          }
+          const { openConstructorWorkspace } = await import("./constructor-desk.js");
+          await openConstructorWorkspace(positionId, {
+            workspaceTab: "package",
+            autoParse: true
+          });
+        })();
+      });
+    }
     return;
   }
 

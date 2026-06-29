@@ -99,6 +99,10 @@ export function buildGodmodeCtaAttrs(next, { positionId = null, orderId = null }
     return `data-open-constructor-desk-position="${positionId}" data-constructor-ws-tab="package"`;
   }
 
+  if (next.type === "parse_constructive_package" && positionId != null) {
+    return `data-run-next-action="${positionId}" data-action-type="parse_constructive_package"`;
+  }
+
   if (next.type === "fill_manager_data" && positionId != null) {
     return `data-order-detail-tab="pos-${positionId}"`;
   }

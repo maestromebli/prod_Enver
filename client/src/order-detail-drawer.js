@@ -47,9 +47,9 @@ function bindDrawerActions(body) {
     onRefresh: () => paintDrawer(),
     onOpenPosition: async (id) => {
       closeOrderDetailDrawer();
-      const { openPositionDrawer } = await import("./positions.js");
-      const position = state.positions.find((p) => p.id === id);
-      if (position) openPositionDrawer(position);
+      const { openPositionFromContext } = await import("./godmode-navigation.js");
+      await openPositionFromContext(id);
+      window.__enverRender?.();
     },
     onEditOrder: async (id) => {
       const { openOrderModal } = await import("./orders.js");

@@ -1,9 +1,8 @@
 import {
   canQuickRunGodmodeAction,
-  orderDetailSubTabForGodmodeAction,
-  panelForGodmodeAction
+  orderDetailSubTabForGodmodeAction
 } from "@enver/shared/production/godmode-ui-helpers.js";
-import { canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
+import { canManageConstructorDesk } from "./auth.js";
 import { resolvePositionGodmode } from "./godmode-ui.js";
 import { state } from "./state.js";
 
@@ -25,37 +24,50 @@ export async function openGodmodePositionTarget(position, actionType) {
   }
 
   if (actionType === "upload_constructive" || actionType === "upload_constructive_package") {
+    const { openConstructiveWorkspace } = await import("./position-workspace.js");
+    await openConstructiveWorkspace(position.id, { workspaceTab: "package" });
+    return { kind: "constructor_desk", workspaceTab: "package" };
+  }
+
+  if (actionType === "parse_constructive_package") {
+    const { canWorkConstructorDesk } = await import("./auth.js");
+    const { requestAutoParsePackage } = await import("./constructive-package-parse-ui.js");
     if (canWorkConstructorDesk()) {
-      const { openConstructorWorkspace } = await import("./constructor-desk.js");
-      await openConstructorWorkspace(position.id, { workspaceTab: "package" });
-      return { kind: "constructor_desk", workspaceTab: "package" };
+      const { openPositionInOrderDetail } = await import("./order-detail.js");
+      requestAutoParsePackage(position.id);
+      if (openPositionInOrderDetail(position.id, "constructive")) {
+        return { kind: "order_detail", subTab: "constructive", autoParse: true };
+      }
     }
-    const { openPositionInOrderDetail } = await import("./order-detail.js");
-    if (openPositionInOrderDetail(position.id, "constructive")) {
-      return { kind: "order_detail", subTab: "constructive" };
-    }
-    const { openPositionDrawer } = await import("./positions.js");
-    openPositionDrawer(position, { panel: "constructive" });
-    return { kind: "drawer", panel: "constructive" };
+    const { openConstructiveWorkspace } = await import("./position-workspace.js");
+    await openConstructiveWorkspace(position.id, { workspaceTab: "package", autoParse: true });
+    return { kind: "constructor_desk", workspaceTab: "package", autoParse: true };
+  }
+
+  if (actionType === "fill_manager_data") {
+    const { openManagerDataWorkspace } = await import("./position-workspace.js");
+    await openManagerDataWorkspace(position.id);
+    return { kind: "edit_workspace", panel: "manager" };
   }
 
   const subTab = orderDetailSubTabForGodmodeAction(actionType);
-  if (subTab || actionType === "fill_manager_data") {
+  if (subTab) {
     const { openPositionInOrderDetail } = await import("./order-detail.js");
-    if (openPositionInOrderDetail(position.id, subTab || "manager")) {
-      return { kind: "order_detail", subTab: subTab || "manager" };
+    if (openPositionInOrderDetail(position.id, subTab)) {
+      return { kind: "order_detail", subTab };
     }
   }
 
-  const panel = panelForGodmodeAction(actionType) || "general";
-  const { openPositionDrawer } = await import("./positions.js");
-  openPositionDrawer(position, { panel });
-  return { kind: "drawer", panel };
+  const { openPositionHub } = await import("./position-workspace.js");
+  if (openPositionHub(position.id)) {
+    return { kind: "order_detail", subTab: "manager" };
+  }
+  return { kind: "none" };
 }
 
 /**
- * Клік по позиції з контексту (дашборд, увага, цех, таблиця).
- * Спочатку картка замовлення / стіл конструктора, drawer — лише fallback.
+ * Клік по позиції — завжди read-only hub у картці замовлення.
+ * Godmode-дія веде до відповідного workspace.
  */
 export async function openPositionFromContext(positionId, actionType = null) {
   const id = Number(positionId);
@@ -81,16 +93,6 @@ export async function openPositionFromContext(positionId, actionType = null) {
     return true;
   }
 
-  const { openPositionInOrderDetail } = await import("./order-detail.js");
-  if (openPositionInOrderDetail(id)) {
-    return true;
-  }
-
-  const { openPositionDrawer } = await import("./positions.js");
-  const panel =
-    effectiveAction && !canQuickRunGodmodeAction(effectiveAction)
-      ? panelForGodmodeAction(effectiveAction) || "general"
-      : "general";
-  openPositionDrawer(position, { panel });
-  return true;
+  const { openPositionHub } = await import("./position-workspace.js");
+  return openPositionHub(id);
 }

@@ -4,7 +4,6 @@ import {
 } from "@enver/shared/production/order-position-model.js";
 import { api } from "./api.js";
 import { expandPosition, togglePositionExpanded } from "./position-tree.js";
-import { quickAdvancePosition } from "./positions.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
 import { navigateGodmodeAction } from "./godmode-ui.js";
@@ -12,7 +11,6 @@ import {
   HANDOFF_ACTION_TYPES,
   UI_ACTION_TYPES
 } from "@enver/shared/production/godmode-ui-helpers.js";
-import { STAGES } from "./workflows.js";
 import { loadPositionManagerBundle } from "./position-manager-panel.js";
 import {
   bindPositionOrderTab,
@@ -21,58 +19,6 @@ import {
 } from "./position-order-tab.js";
 import { bindOrder3DTab, loadOrder3DAsset, teardownOrder3DTab } from "./order-3d/order-3d-bind.js";
 import { focusOrderInlineAddInput, openPositionInOrderDetail } from "./order-detail-state.js";
-
-async function patchPositionStage(positionId, stageKey, payload, onRefresh) {
-  const stage = STAGES.find((s) => s.key === stageKey);
-  const stageName = stage?.label || stageKey;
-
-  await runSave(`Етап «${stageName}»`, {
-    saveFn: async () => {
-      const updated = await api.patchPositionStage(positionId, stageKey, payload);
-      const idx = state.positions.findIndex((p) => p.id === positionId);
-      if (idx >= 0) state.positions[idx] = updated;
-      return updated;
-    },
-    successMessage: `«${stageName}»: ${payload.status}`,
-    onSuccess: async () => {
-      await onRefresh?.();
-    }
-  }).catch(() => {});
-}
-
-async function movePositionToStage(position, targetStageKey, onRefresh) {
-  const stage = STAGES.find((s) => s.key === targetStageKey);
-  if (!stage) return;
-
-  if (stage.type === "constructor") {
-    if (!position.hasConstructiveFile) {
-      const { toastError } = await import("./toast.js");
-      toastError("Спочатку завантажте конструктив у позиції");
-      return;
-    }
-    await patchPositionStage(
-      position.id,
-      targetStageKey,
-      stagePatchPayload(position, stage, "Передано"),
-      onRefresh
-    );
-    return;
-  }
-
-  await patchPositionStage(
-    position.id,
-    targetStageKey,
-    stagePatchPayload(position, stage, "В роботі"),
-    onRefresh
-  );
-}
-
-function stagePatchPayload(position, stage, status) {
-  if (stage.type === "constructor") {
-    return { status, constructor: position.constructor };
-  }
-  return { status, assemblyResponsible: position.assemblyResponsible };
-}
 
 async function inlineAddPosition(order, itemName, related, onRefresh) {
   const name = itemName.trim();
@@ -107,32 +53,8 @@ async function inlineAddPosition(order, itemName, related, onRefresh) {
   }).catch(() => {});
 }
 
-function bindStepTrack(root, onRefresh) {
-  root.querySelectorAll("[data-step-jump]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const positionId = Number(btn.dataset.positionId);
-      const targetStageKey = btn.dataset.stepJump;
-      const position = state.positions.find((p) => p.id === positionId);
-      if (!position || position.currentStage === targetStageKey) return;
-      await movePositionToStage(position, targetStageKey, onRefresh);
-    });
-  });
-}
-
-function bindQuickAdvance(root, onRefresh) {
-  root.querySelectorAll("[data-quick-advance]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const id = Number(btn.dataset.quickAdvance);
-      const stageKey = btn.dataset.stage;
-      await quickAdvancePosition(id, stageKey);
-      await onRefresh?.();
-    });
-  });
-}
-
 export function bindOrderDetail(root, handlers = {}) {
-  const { onBack, onRefresh, onOpenPosition, onEditOrder } = handlers;
+  const { onBack, onRefresh, onEditOrder } = handlers;
 
   root.querySelector("[data-orders-back]")?.addEventListener("click", onBack);
 
@@ -220,7 +142,11 @@ export function bindOrderDetail(root, handlers = {}) {
           const { openConstructorWorkspace } = await import("./constructor-desk.js");
           await openConstructorWorkspace(positionId);
         },
-        onOpenPosition: (pid) => onOpenPosition?.(pid)
+        onOpenPosition: (pid) => {
+          if (openPositionInOrderDetail(pid)) {
+            onRefresh?.({ contentOnly: false });
+          }
+        }
       });
     };
 
@@ -265,14 +191,8 @@ export function bindOrderDetail(root, handlers = {}) {
       const id = Number(btn.dataset.openPosition);
       if (openPositionInOrderDetail(id)) {
         onRefresh?.({ contentOnly: false });
-      } else {
-        onOpenPosition?.(id);
       }
     });
-  });
-
-  root.querySelectorAll("[data-open-position-drawer]").forEach((btn) => {
-    btn.addEventListener("click", () => onOpenPosition?.(Number(btn.dataset.openPositionDrawer)));
   });
 
   root.querySelectorAll("[data-toggle-position]").forEach((btn) => {
@@ -283,10 +203,6 @@ export function bindOrderDetail(root, handlers = {}) {
     });
   });
 
-  const refresh = () => onRefresh?.({ contentOnly: true });
-  bindStepTrack(root, refresh);
-  bindQuickAdvance(root, refresh);
-
   root.querySelectorAll("[data-run-next-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const positionId = Number(btn.dataset.runNextAction);
@@ -294,6 +210,23 @@ export function bindOrderDetail(root, handlers = {}) {
       const position = state.positions.find((p) => p.id === positionId);
 
       if (position && !HANDOFF_ACTION_TYPES.has(actionType)) {
+        if (actionType === "parse_constructive_package") {
+          const { canWorkConstructorDesk } = await import("./auth.js");
+          const { requestAutoParsePackage } = await import("./constructive-package-parse-ui.js");
+          if (canWorkConstructorDesk()) {
+            requestAutoParsePackage(positionId);
+            if (navigateGodmodeAction(position, actionType, state)) {
+              await onRefresh?.({ contentOnly: false });
+              return;
+            }
+          }
+          const { openConstructorWorkspace } = await import("./constructor-desk.js");
+          await openConstructorWorkspace(positionId, {
+            workspaceTab: "package",
+            autoParse: true
+          });
+          return;
+        }
         if (actionType === "assign_constructor") {
           const { canManageConstructorDesk } = await import("./auth.js");
           if (canManageConstructorDesk()) {
@@ -311,7 +244,9 @@ export function bindOrderDetail(root, handlers = {}) {
           return;
         }
         if (UI_ACTION_TYPES.has(actionType)) {
-          onOpenPosition?.(positionId);
+          const { openGodmodePositionTarget } = await import("./godmode-navigation.js");
+          if (position) await openGodmodePositionTarget(position, actionType);
+          await onRefresh?.({ contentOnly: false });
           return;
         }
       }

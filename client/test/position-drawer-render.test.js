@@ -39,7 +39,8 @@ describe("position-drawer-render", () => {
       drillingStatus: "Не розпочато",
       assemblyStatus: "Не розпочато"
     });
-    assert.match(html, /pipeline-compact/);
-    assert.match(html, /data-pipeline-jump="cutting"/);
+    assert.match(html, /pipeline-compact--readonly/);
+    assert.match(html, /Порізка/);
+    assert.doesNotMatch(html, /data-pipeline-jump/);
   });
 });

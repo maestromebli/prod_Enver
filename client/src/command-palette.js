@@ -7,12 +7,6 @@ let activeIndex = 0;
 let visible = false;
 
 const COMMANDS = [
-  {
-    id: "new-order",
-    label: "Створити замовлення",
-    hint: "N",
-    run: () => handlers.openNewOrder?.()
-  },
   { id: "search", label: "Знайти замовлення", hint: "/", run: () => handlers.focusSearch?.() },
   {
     id: "production",
@@ -36,7 +30,7 @@ const COMMANDS = [
   {
     id: "upload",
     label: "Завантажити конструктив",
-    run: () => handlers.hint?.("Відкрийте позицію → вкладка «Ще» → конструктив")
+    run: () => handlers.hint?.("Відкрийте позицію → «Стіл конструктора»")
   },
   {
     id: "ai",
