@@ -4,19 +4,51 @@
 export function normalizeBazisScanCode(raw) {
   let code = String(raw || "").trim();
   if (!code) return "";
+  // Префікси Code128 / AIM / NC1 з етикетки Bazis (GS = ASCII 29)
+  const gs = String.fromCharCode(29);
+  code = code.replace(/^\]C1/i, "");
+  code = code.replace(new RegExp(`^[\\]${gs}>]+`, "g"), "");
   code = code.replace(/^NC1:\s*/i, "");
   code = code.replace(/\s+/g, "");
   code = code.toUpperCase();
-  if (code.endsWith("V") && /^\d{4}X\d{3}X\d+/.test(code.slice(0, -1))) {
+  if (code.endsWith("V") && /^\d{3,4}X\d{3}X\d+/.test(code.slice(0, -1))) {
     code = code.slice(0, -1);
   }
   return code;
 }
 
+/** Варіанти коду для пошуку в БД і .project (різний регістр / суфікс V). */
+export function bazisScanLookupVariants(raw) {
+  const trimmed = String(raw || "").trim();
+  const normalized = normalizeBazisScanCode(trimmed);
+  const variants = new Set();
+  if (trimmed) variants.add(trimmed);
+  if (normalized) variants.add(normalized);
+  if (trimmed) {
+    variants.add(trimmed.toLowerCase());
+    variants.add(trimmed.toUpperCase());
+  }
+  if (normalized) {
+    variants.add(normalized.toLowerCase());
+    variants.add(normalized.toUpperCase());
+  }
+  const bare = trimmed.replace(/^NC1:\s*/i, "").replace(/v$/i, "");
+  if (bare) {
+    variants.add(bare);
+    variants.add(bare.toLowerCase());
+    variants.add(bare.toUpperCase());
+  }
+  return [...variants].filter(Boolean);
+}
+
 /** Чи схоже значення на код операції Bazis (0010x002x1). */
 export function isBazisOperationScanCode(code) {
   const n = normalizeBazisScanCode(code);
-  return /^\d{3,4}X\d{3}X\d+$/i.test(n);
+  if (/^\d{3,4}X\d{3}X\d+$/i.test(n)) return true;
+  const raw = String(code || "")
+    .trim()
+    .replace(/^NC1:\s*/i, "");
+  return /^\d{3,4}x\d{3}x\d+v?$/i.test(raw);
 }
 
 /** Номер деталі з коду операції: 0010x002x1 → 10. */

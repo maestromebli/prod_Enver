@@ -29,11 +29,13 @@ import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
 import {
-  isBazisOperationScanCode,
-  normalizeBazisScanCode,
-  partNoFromBazisOperationCode
+  syncBazisOperationCodesForPackage,
+  resolvePartRowByBazisProjectScan
+} from "./bazis-operation-sync.js";
+import {
+  bazisScanLookupVariants,
+  isBazisOperationScanCode
 } from "../../../shared/production/bazis-operation-code.js";
-import { syncBazisOperationCodesForPackage } from "./bazis-operation-sync.js";
 import { readPreviewLayoutFromGlb } from "./project-glb-builder.js";
 import { isLegacySharedMeshPreviewGlb } from "./project-glb-builder.js";
 import { recordHistory } from "../audit.js";
@@ -1127,8 +1129,7 @@ export async function findPartByBarcode(barcodeValue) {
   if (row) return mapPartRow(row);
 
   if (isBazisOperationScanCode(code)) {
-    await backfillBazisOperationCodesForScan(code);
-    row = await findPartRowByScanCode(code);
+    row = await resolvePartRowByBazisProjectScan(code);
     if (row) return mapPartRow(row);
   }
 
@@ -1136,8 +1137,8 @@ export async function findPartByBarcode(barcodeValue) {
 }
 
 async function findPartRowByScanCode(code) {
-  const normalized = normalizeBazisScanCode(code);
-  const variants = [...new Set([code, normalized].filter(Boolean))];
+  const variants = bazisScanLookupVariants(code);
+  const upperVariants = [...new Set(variants.map((v) => v.toUpperCase()))];
 
   for (const v of variants) {
     let row = await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [v]);
@@ -1145,41 +1146,34 @@ async function findPartRowByScanCode(code) {
 
     row = await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [v]);
     if (row) return row;
+  }
 
-    row = await one(`SELECT * FROM constructive_parts WHERE $1 = ANY(bazis_operation_codes)`, [v]);
+  if (upperVariants.length) {
+    let row = await one(
+      `SELECT * FROM constructive_parts
+       WHERE EXISTS (
+         SELECT 1 FROM unnest(bazis_operation_codes) c
+         WHERE upper(c) = ANY($1::text[])
+       )
+       LIMIT 1`,
+      [upperVariants]
+    );
     if (row) return row;
+  }
 
+  for (const v of upperVariants) {
     const inst = await one(
       `SELECT * FROM constructive_part_instances
-       WHERE barcode_value = $1 OR bazis_operation_code = $1`,
+       WHERE upper(barcode_value) = $1 OR upper(bazis_operation_code) = $1`,
       [v]
     );
     if (inst) {
-      row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+      const row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
       if (row) return row;
     }
   }
+
   return null;
-}
-
-async function backfillBazisOperationCodesForScan(scanCode) {
-  const normalized = normalizeBazisScanCode(scanCode);
-  const partNo = partNoFromBazisOperationCode(normalized);
-  if (!partNo) return;
-
-  const packages = await all(
-    `SELECT DISTINCT cp.package_id
-     FROM constructive_parts cp
-     INNER JOIN constructive_package_files f ON f.package_id = cp.package_id AND f.kind = 'project'
-     WHERE (cp.part_no = $1 OR cp.part_no = $2)
-       AND (cp.bazis_operation_codes = '{}'::text[] OR NOT ($3 = ANY(cp.bazis_operation_codes)))
-     LIMIT 24`,
-    [partNo, String(Number(partNo)), normalized]
-  );
-
-  for (const { package_id: packageId } of packages) {
-    await syncBazisOperationCodesForPackage(packageId);
-  }
 }
 
 export async function recordScanEvent({

@@ -9,7 +9,8 @@ import {
   isBazisOperationScanCode,
   normalizeBazisScanCode,
   partNoFromBazisOperationCode,
-  resolvePartHighlightMesh
+  resolvePartHighlightMesh,
+  bazisScanLookupVariants
 } from "../../shared/production/bazis-operation-code.js";
 import { decodeProjectText } from "../src/constructive/parsers/project-text.js";
 import { findPartByBarcode } from "../src/constructive/constructive-package-service.js";
@@ -24,6 +25,14 @@ describe("bazis-operation-code", () => {
   it("нормалізує NC1: та суфікс V", () => {
     assert.equal(normalizeBazisScanCode("NC1: 0010x002x1V"), "0010X002X1");
     assert.equal(normalizeBazisScanCode("0010x002x1"), "0010X002X1");
+    assert.equal(normalizeBazisScanCode("]C10010x002x1V"), "0010X002X1");
+  });
+
+  it("bazisScanLookupVariants містить різні регістри", () => {
+    const v = bazisScanLookupVariants("0010x002x1V");
+    assert.ok(v.includes("0010x002x1V"));
+    assert.ok(v.includes("0010X002X1"));
+    assert.ok(v.includes("0010x002x1"));
   });
 
   it("визначає partNo з коду операції", () => {
