@@ -34,8 +34,7 @@
 
 .op-part-scan.is-detail-open .op-part-scan-hint,
 .op-part-scan.is-detail-open .op-part-scan-bar,
-.op-part-scan.is-detail-open .op-part-scan-actions,
-.op-part-scan.is-detail-open .op-part-scan-mode {
+.op-part-scan.is-detail-open .op-part-scan-actions {
   display: none;
 }
 
@@ -58,29 +57,6 @@
   font-size: 0.85rem;
   color: var(--text-muted, #64748b);
   line-height: 1.4;
-}
-
-.op-part-scan-mode {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.op-part-scan-mode-btn {
-  flex: 1 1 140px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-weight: 600;
-}
-
-.op-part-scan-mode-btn.is-active {
-  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 55%, transparent);
-  background: color-mix(in srgb, var(--op-accent, #245c3b) 14%, var(--surface, #fff));
-  color: var(--op-accent, #245c3b);
 }
 
 .op-part-scan.is-scan-open {
@@ -202,6 +178,153 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.part-viewer-wrap--studio .part-viewer-zoom-btn {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(18, 26, 36, 0.88);
+  color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.part-viewer-wrap--studio .part-viewer-zoom-btn:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #fbbf24;
+  color: #fde68a;
+}
+
+.part-viewer-wrap--studio .part-viewer-pick-hint {
+  background: rgba(18, 26, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+
+.part-viewer-wrap--studio .part-viewer-info {
+  background: rgba(18, 26, 36, 0.96);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.part-viewer-wrap--studio .part-viewer-info-close {
+  color: #94a3b8;
+}
+
+.part-viewer-wrap--studio .part-viewer-info-close:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.part-viewer-wrap--studio .part-viewer-info-number {
+  color: #fbbf24;
+}
+
+.part-viewer-wrap--studio .part-viewer-info-dims {
+  color: #e2e8f0;
+}
+
+.part-viewer-wrap--studio .part-viewer-info-material {
+  color: #94a3b8;
+}
+
+.part-viewer-measure-hud,
+.part-viewer-section-hud {
+  position: absolute;
+  left: 10px;
+  right: 56px;
+  z-index: 3;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(18, 26, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  pointer-events: auto;
+}
+
+.part-viewer-measure-hud {
+  top: 52px;
+}
+
+.part-viewer-section-hud {
+  top: 10px;
+}
+
+.part-viewer-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.part-viewer-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.part-viewer-section-axes {
+  display: flex;
+  gap: 4px;
+}
+
+.part-viewer-section-axis {
+  min-width: 28px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.part-viewer-section-axis.is-active {
+  border-color: #fbbf24;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.part-viewer-section-slider {
+  width: 100%;
+  accent-color: #fbbf24;
+}
+
+.part-viewer-hole-tooltip {
+  position: absolute;
+  z-index: 4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.part-viewer-panel-dims {
+  position: absolute;
+  right: 56px;
+  top: 10px;
+  z-index: 2;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(18, 26, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
 }
 
 .part-viewer-zoom {
@@ -605,104 +728,6 @@
 @media (orientation: landscape) {
   .part-viewer-3d {
     min-height: 220px;
-  }
-}
-
-.scan-camera-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.scan-camera-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: min(100%, 480px);
-}
-
-.scan-camera-viewport {
-  position: relative;
-  width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
-}
-
-.scan-camera-inner video {
-  display: block;
-  width: 100%;
-  max-height: min(70vh, 480px);
-  object-fit: cover;
-}
-
-.scan-camera-frame {
-  position: absolute;
-  inset: 18% 10%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-}
-
-.scan-camera-hint {
-  margin: 0;
-  color: #fff;
-  font-size: 0.95rem;
-  text-align: center;
-}
-
-.scan-camera-close {
-  min-height: 44px;
-  min-width: 140px;
-}
-
-.op-btn-camera,
-.operator-client-camera-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 40%, transparent);
-  background: color-mix(in srgb, var(--op-accent, #245c3b) 10%, transparent);
-}
-
-.op-camera-glyph {
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.op-work-scan-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.op-work-scan-btn--camera {
-  border-color: color-mix(in srgb, #1a5fb4 35%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, #1a5fb4 14%, #fff) 0%,
-    color-mix(in srgb, #1a5fb4 8%, #fff) 100%
-  );
-  color: #1a5fb4;
-  box-shadow: 0 2px 8px rgba(26, 95, 180, 0.15);
-}
-
-@media (max-width: 520px) {
-  .op-camera-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
   }
 }
 

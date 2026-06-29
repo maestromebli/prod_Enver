@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1a2e24" />
+    <meta name="theme-color" content="#121a24" />
     <title>ENVER — 3D перегляд</title>
     <script src="/theme-init.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -32,17 +32,40 @@
         <h1 class="viewer-window-title" id="viewerTitle">3D модель</h1>
       </div>
       <div class="viewer-window-toolbar" id="viewerToolbar" hidden>
+        <button type="button" class="btn btn-sm is-active" data-viewer-action="detail">
+          Деталь
+        </button>
+        <button type="button" class="btn btn-sm" data-viewer-action="ghost">Контекст</button>
         <button type="button" class="btn btn-sm" data-viewer-action="isolate">Тільки деталь</button>
         <button type="button" class="btn btn-sm" data-viewer-action="all">Весь виріб</button>
-        <button type="button" class="btn btn-sm" data-viewer-action="reset">Скинути камеру</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="section">Розріз</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="measure">Вимір</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="wireframe">Каркас</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="axes">Осі</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="fit">Вмістити</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="reset">Камера</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="fullscreen">
+          На весь екран
+        </button>
       </div>
       <button type="button" class="btn btn-sm viewer-window-close" id="viewerCloseBtn">
         Закрити
       </button>
     </header>
-    <main class="viewer-window-main" id="viewerMount" aria-label="3D перегляд">
-      <p class="viewer-window-loading enver-meta" id="viewerLoading">Завантаження…</p>
-    </main>
+    <div class="viewer-window-body">
+      <aside class="viewer-sidebar" id="viewerSidebar" hidden>
+        <h2 class="viewer-sidebar-title">Деталь</h2>
+        <dl class="viewer-meta-list" id="viewerMeta"></dl>
+        <div id="viewerHoles" class="viewer-holes-wrap" hidden></div>
+        <p class="viewer-hotkeys-hint enver-meta">
+          Обертання — перетягування · Масштаб — колесо · <kbd>D</kbd> деталь · <kbd>G</kbd> контекст
+          · <kbd>R</kbd> камера · <kbd>F</kbd> вмістити · <kbd>M</kbd> вимір · <kbd>X</kbd> розріз
+        </p>
+      </aside>
+      <main class="viewer-window-main" id="viewerMount" aria-label="3D перегляд">
+        <p class="viewer-window-loading enver-meta" id="viewerLoading">Завантаження…</p>
+      </main>
+    </div>
     <p class="viewer-window-error form-error visible" id="viewerError" hidden></p>
     <script type="module" src="/src/viewer-app.js"></script>
   </body>

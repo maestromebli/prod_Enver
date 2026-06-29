@@ -38,10 +38,17 @@ export function openOrderViewerWindow(orderId, positionId = null) {
   return openViewerWindow({ orderId, positionId });
 }
 
-export function highlightPartInViewerWindow(part) {
+export function highlightPartInViewerWindow(part, extras = {}) {
   if (!part || !viewerPopup || viewerPopup.closed) return false;
   try {
-    viewerPopup.postMessage({ type: "enver:highlight-part", part }, window.location.origin);
+    viewerPopup.postMessage(
+      {
+        type: "enver:highlight-part",
+        part,
+        cadGeometry: extras.cadGeometry || null
+      },
+      window.location.origin
+    );
     viewerPopup.focus();
     return true;
   } catch {

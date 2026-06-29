@@ -17,15 +17,41 @@ import {
   splitPartBazisOperations
 } from "@enver/shared/production/part-detail-display.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
+import {
+  mapCadHoleToLocal,
+  measureDistanceMm,
+  formatMeasureMm,
+  resolvePanelMm,
+  analyzePanelAxes
+} from "@enver/shared/production/part-viewer-cad.js";
 import { escapeHtml } from "./utils.js";
 
-const SCENE_BG = 0xf0f2f5;
-const PART_COLOR = 0x5c6f82;
-const HIGHLIGHT_COLOR = 0xd97706;
-const GHOST_COLOR = 0x94a3b8;
-const EDGE_COLOR = 0x1e293b;
-const EDGE_HIGHLIGHT_COLOR = 0xb45309;
-const EDGE_GHOST_COLOR = 0x64748b;
+const THEMES = {
+  light: {
+    sceneBg: 0xf0f2f5,
+    partColor: 0x5c6f82,
+    highlightColor: 0xd97706,
+    ghostColor: 0x94a3b8,
+    edgeColor: 0x1e293b,
+    edgeHighlight: 0xb45309,
+    edgeGhost: 0x64748b,
+    wrapClass: ""
+  },
+  studio: {
+    sceneBg: 0x121a24,
+    partColor: 0x9aaec3,
+    highlightColor: 0xfbbf24,
+    ghostColor: 0x64748b,
+    edgeColor: 0xcbd5e1,
+    edgeHighlight: 0xfcd34d,
+    edgeGhost: 0x475569,
+    wrapClass: "part-viewer-wrap--studio"
+  }
+};
+
+function pickTheme(name) {
+  return THEMES[name === "studio" ? "studio" : "light"] || THEMES.light;
+}
 const EDGE_KROMKA_COLOR = 0x16a34a;
 const DRILL_MARKER_COLOR = 0xea580c;
 const EDGE_THRESHOLD_DEG = 12;
@@ -59,12 +85,23 @@ function detectModelFormat(url, format) {
 /** Three.js viewer з підсвіткою деталі та вибором кліком. */
 export function createPartViewer(
   container,
-  { onReady, onError, onPartSelect, onPartDoubleClick, pickable = true } = {}
+  { onReady, onError, onPartSelect, onPartDoubleClick, pickable = true, theme = "light" } = {}
 ) {
   if (!container) return { destroy() {} };
 
+  const palette = pickTheme(theme);
+  let PART_COLOR = palette.partColor;
+  let HIGHLIGHT_COLOR = palette.highlightColor;
+  let GHOST_COLOR = palette.ghostColor;
+  let EDGE_COLOR = palette.edgeColor;
+  let EDGE_HIGHLIGHT_COLOR = palette.edgeHighlight;
+  let EDGE_GHOST_COLOR = palette.edgeGhost;
+
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(SCENE_BG);
+  scene.background = new THREE.Color(palette.sceneBg);
+  if (theme === "studio") {
+    scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
+  }
 
   const camera = new THREE.PerspectiveCamera(
     45,
@@ -74,12 +111,22 @@ export function createPartViewer(
   );
   camera.position.set(2, 2, 3);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false,
+    powerPreference: "high-performance"
+  });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = theme === "studio" ? 1.18 : 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.localClippingEnabled = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
   renderer.setSize(container.clientWidth, Math.max(container.clientHeight, 200));
 
   const wrap = document.createElement("div");
-  wrap.className = "part-viewer-wrap";
+  wrap.className = `part-viewer-wrap${palette.wrapClass ? ` ${palette.wrapClass}` : ""}`;
   wrap.appendChild(renderer.domElement);
 
   const zoomBar = document.createElement("div");
@@ -87,6 +134,7 @@ export function createPartViewer(
   zoomBar.innerHTML = `
     <button type="button" class="part-viewer-zoom-btn" data-zoom="in" aria-label="Збільшити" title="Збільшити">+</button>
     <button type="button" class="part-viewer-zoom-btn" data-zoom="out" aria-label="Зменшити" title="Зменшити">−</button>
+    <button type="button" class="part-viewer-zoom-btn" data-zoom="fit" aria-label="Вмістити" title="Вмістити модель">◎</button>
   `;
   wrap.appendChild(zoomBar);
 
@@ -102,8 +150,39 @@ export function createPartViewer(
   const pickHint = document.createElement("p");
   pickHint.className = "part-viewer-pick-hint enver-meta";
   pickHint.hidden = true;
-  pickHint.textContent = "Клік — інфо · Подвійний клік — деталь з кромкою та сверлінням";
+  pickHint.textContent = "Клік — інфо · Подвійний клік — деталь · M — вимір";
   wrap.appendChild(pickHint);
+
+  const measureHud = document.createElement("div");
+  measureHud.className = "part-viewer-measure-hud";
+  measureHud.hidden = true;
+  wrap.appendChild(measureHud);
+
+  const sectionHud = document.createElement("div");
+  sectionHud.className = "part-viewer-section-hud";
+  sectionHud.hidden = true;
+  sectionHud.innerHTML = `
+    <div class="part-viewer-section-head">
+      <span>Розріз</span>
+      <div class="part-viewer-section-axes" role="group" aria-label="Вісь розрізу">
+        <button type="button" class="part-viewer-section-axis" data-section-axis="x">X</button>
+        <button type="button" class="part-viewer-section-axis is-active" data-section-axis="y">Y</button>
+        <button type="button" class="part-viewer-section-axis" data-section-axis="z">Z</button>
+      </div>
+    </div>
+    <input type="range" class="part-viewer-section-slider" min="5" max="95" value="55" aria-label="Позиція розрізу" />
+  `;
+  wrap.appendChild(sectionHud);
+
+  const holeTooltip = document.createElement("div");
+  holeTooltip.className = "part-viewer-hole-tooltip";
+  holeTooltip.hidden = true;
+  wrap.appendChild(holeTooltip);
+
+  const panelDimsHud = document.createElement("div");
+  panelDimsHud.className = "part-viewer-panel-dims";
+  panelDimsHud.hidden = true;
+  wrap.appendChild(panelDimsHud);
 
   container.innerHTML = "";
   container.classList.add("part-viewer-host");
@@ -111,17 +190,40 @@ export function createPartViewer(
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
   controls.enableZoom = true;
+  controls.enablePan = true;
+  controls.rotateSpeed = 0.85;
+  controls.panSpeed = 0.75;
+  controls.maxPolarAngle = Math.PI * 0.495;
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-  const dir = new THREE.DirectionalLight(0xffffff, 0.85);
+  scene.add(new THREE.HemisphereLight(0xe8eef8, 0x2a3544, theme === "studio" ? 0.62 : 0.45));
+  const dir = new THREE.DirectionalLight(0xfffaf5, theme === "studio" ? 1.05 : 0.85);
   dir.position.set(5, 10, 7);
+  dir.castShadow = true;
+  dir.shadow.mapSize.set(1024, 1024);
+  dir.shadow.bias = -0.0002;
   scene.add(dir);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  const fill = new THREE.DirectionalLight(0xc8d8f0, theme === "studio" ? 0.42 : 0.35);
   fill.position.set(-4, 2, -6);
   scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xffffff, theme === "studio" ? 0.28 : 0.18);
+  rim.position.set(-6, 5, 8);
+  scene.add(rim);
 
   let model = null;
+  let gridHelper = null;
+  let cadGeometry = null;
+  let sectionEnabled = false;
+  let sectionPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  let sectionRatio = 0.55;
+  let sectionAxis = "y";
+  let measureEnabled = false;
+  let measurePoints = [];
+  let measureGroup = null;
+  let wireframeEnabled = false;
+  let axesHelper = null;
+  let shadowReceiver = null;
   let highlightMesh = null;
   let selectedMesh = null;
   let animId = null;
@@ -138,22 +240,34 @@ export function createPartViewer(
   let pointerDown = null;
 
   function cloneSurfaceMaterial(mat) {
+    const baseMetal = theme === "studio" ? 0.14 : 0.08;
+    const baseRough = theme === "studio" ? 0.56 : 0.62;
     if (!mat) {
       return new THREE.MeshStandardMaterial({
         color: PART_COLOR,
-        metalness: 0.08,
-        roughness: 0.62
+        metalness: baseMetal,
+        roughness: baseRough
       });
     }
     if (mat.isMeshStandardMaterial) return mat.clone();
     return new THREE.MeshStandardMaterial({
       color: mat.color?.clone?.() ?? new THREE.Color(PART_COLOR),
-      metalness: mat.metalness ?? 0.08,
-      roughness: mat.roughness ?? 0.62,
+      metalness: mat.metalness ?? baseMetal,
+      roughness: mat.roughness ?? baseRough,
       map: mat.map ?? null,
       transparent: Boolean(mat.transparent),
       opacity: mat.opacity ?? 1,
       side: mat.side ?? THREE.FrontSide
+    });
+  }
+
+  function highlightSurfaceMaterial() {
+    return new THREE.MeshStandardMaterial({
+      color: HIGHLIGHT_COLOR,
+      emissive: theme === "studio" ? 0x92400e : 0x5c3a00,
+      emissiveIntensity: theme === "studio" ? 0.35 : 0.2,
+      metalness: 0.15,
+      roughness: 0.45
     });
   }
 
@@ -190,11 +304,13 @@ export function createPartViewer(
     });
     sharedGeom?.dispose?.();
     detailMarkers = null;
+    panelDimsHud.hidden = true;
+    holeTooltip.hidden = true;
   }
 
   /** Підсвітка ребер кромки на верхньому периметрі панелі. */
-  function applyKromkaEdgeHighlight(mesh, edgeCode) {
-    const mask = edgeSideMask(edgeCode);
+  function applyKromkaEdgeHighlight(mesh, edgeCode, edgeMaskOverride = null) {
+    const mask = Array.isArray(edgeMaskOverride) ? edgeMaskOverride : edgeSideMask(edgeCode);
     if (!mask.some(Boolean)) return;
 
     mesh.updateWorldMatrix(true, true);
@@ -254,66 +370,230 @@ export function createPartViewer(
     lines.material.needsUpdate = true;
   }
 
-  /** Маркери зон сверління на верхній грані панелі. */
-  function addDrillMarkers(mesh, part) {
+  function holeMarkerColor(diameterMm) {
+    const d = Number(diameterMm) || 0;
+    if (d >= 15) return 0xdc2626;
+    if (d >= 8) return 0xea580c;
+    return 0xf59e0b;
+  }
+
+  function partSurfaceColor(part) {
+    const m = String(part?.material || "").toLowerCase();
+    if (/біл|white|w980|snow/i.test(m)) return theme === "studio" ? 0xe2e8f0 : 0xa8b8c8;
+    if (/дуб|oak/i.test(m)) return 0xb8956a;
+    if (/горіх|walnut|горх/i.test(m)) return 0x8b6914;
+    if (/сонома|sonoma/i.test(m)) return 0xc4a574;
+    return PART_COLOR;
+  }
+
+  function formatHoleTooltip(hole) {
+    const d = hole.diameterMm ? `Ø${hole.diameterMm}` : "Отвір";
+    const depth = hole.depthMm ? ` · глиб. ${hole.depthMm} мм` : "";
+    if (hole.xMm != null && hole.yMm != null) {
+      return `${d} · ${hole.xMm} × ${hole.yMm} мм${depth}`;
+    }
+    if (hole.yMm != null && hole.zMm != null) {
+      return `${d} · Y${hole.yMm} Z${hole.zMm} мм${depth}`;
+    }
+    return `${d}${depth}`;
+  }
+
+  function addEdgeBands(box, edgeMask, group) {
+    if (!edgeMask?.some(Boolean)) return;
+    const { thin, wide, mid, size, min, max } = analyzePanelAxes(box);
+    const t = Math.max(size[thin] * 0.14, 0.001);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x22c55e,
+      transparent: true,
+      opacity: 0.38,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const center = {
+      x: (min.x + max.x) / 2,
+      y: (min.y + max.y) / 2,
+      z: (min.z + max.z) / 2
+    };
+    const thinMid = (min[thin] + max[thin]) / 2;
+
+    const addBand = (wKey, hKey, depthKey, pos) => {
+      const geom = new THREE.BoxGeometry(size[wKey], size[hKey], size[depthKey]);
+      const mesh = new THREE.Mesh(geom, mat.clone());
+      mesh.position.set(pos.x, pos.y, pos.z);
+      mesh.scale[depthKey] = t / Math.max(size[depthKey], 1e-6);
+      group.add(mesh);
+    };
+
+    if (edgeMask[1]) {
+      const pos = { x: center.x, y: center.y, z: center.z };
+      pos[wide] = max[wide] - t * 0.5;
+      pos[thin] = thinMid;
+      addBand(mid, thin, wide, pos);
+    }
+    if (edgeMask[3]) {
+      const pos = { x: center.x, y: center.y, z: center.z };
+      pos[wide] = min[wide] + t * 0.5;
+      pos[thin] = thinMid;
+      addBand(mid, thin, wide, pos);
+    }
+    if (edgeMask[0]) {
+      const pos = { x: center.x, y: center.y, z: center.z };
+      pos[mid] = max[mid] - t * 0.5;
+      pos[thin] = thinMid;
+      addBand(wide, thin, mid, pos);
+    }
+    if (edgeMask[2]) {
+      const pos = { x: center.x, y: center.y, z: center.z };
+      pos[mid] = min[mid] + t * 0.5;
+      pos[thin] = thinMid;
+      addBand(wide, thin, mid, pos);
+    }
+  }
+
+  /** Маркери свердління: реальні координати з Bazis CAD або fallback-сітка. */
+  function addDrillMarkers(mesh, part, cad = cadGeometry) {
     clearDetailMarkers();
+    const panelMm = resolvePanelMm(cad, part);
+    const cadHoles = cad?.holes?.length ? cad.holes : null;
     const { drilling } = splitPartBazisOperations(part);
-    if (!drilling.length) return;
 
     mesh.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(mesh);
     const size = box.getSize(new THREE.Vector3());
-    const thinAxis =
-      size.x <= size.y && size.x <= size.z ? "x" : size.y <= size.x && size.y <= size.z ? "y" : "z";
-    const topValue = thinAxis === "x" ? box.max.x : thinAxis === "y" ? box.max.y : box.max.z;
     const group = new THREE.Group();
     group.name = "part-detail-drill-markers";
 
-    const markerGeom = new THREE.CylinderGeometry(DRILL_MARKER_RADIUS, DRILL_MARKER_RADIUS, 1, 10);
     const markerMat = new THREE.MeshStandardMaterial({
       color: DRILL_MARKER_COLOR,
       emissive: 0x7c2d12,
-      metalness: 0.2,
-      roughness: 0.5
+      emissiveIntensity: 0.4,
+      metalness: 0.25,
+      roughness: 0.45
     });
 
-    const cols = Math.ceil(Math.sqrt(drilling.length * 3));
-    const inset = 0.12;
-    let idx = 0;
-    for (let op = 0; op < drilling.length; op++) {
-      const perOp = 3;
-      for (let j = 0; j < perOp; j++) {
-        const row = Math.floor(idx / cols);
-        const col = idx % cols;
-        const u = (col + 0.5) / cols;
-        const v = (row + 0.5) / Math.max(1, Math.ceil((drilling.length * perOp) / cols));
-        const px = THREE.MathUtils.lerp(box.min.x + size.x * inset, box.max.x - size.x * inset, u);
-        const pz = THREE.MathUtils.lerp(box.min.z + size.z * inset, box.max.z - size.z * inset, v);
-        const marker = new THREE.Mesh(markerGeom, markerMat);
-        if (thinAxis === "y") {
-          marker.position.set(px, topValue + DRILL_MARKER_RADIUS * 2, pz);
-          marker.scale.y = Math.max(size.y * 0.35, DRILL_MARKER_RADIUS * 4);
-        } else if (thinAxis === "z") {
-          marker.position.set(px, pz, topValue + DRILL_MARKER_RADIUS * 2);
-          marker.rotation.x = Math.PI / 2;
-          marker.scale.y = Math.max(size.z * 0.35, DRILL_MARKER_RADIUS * 4);
-        } else {
-          marker.position.set(topValue + DRILL_MARKER_RADIUS * 2, px, pz);
-          marker.rotation.z = Math.PI / 2;
-          marker.scale.y = Math.max(size.x * 0.35, DRILL_MARKER_RADIUS * 4);
-        }
+    if (cadHoles?.length) {
+      const scaleMm = Math.max(panelMm.dx || 0, panelMm.dy || 0, panelMm.dz || 0, 1);
+      for (const hole of cadHoles) {
+        const mapped = mapCadHoleToLocal(box, hole, panelMm);
+        const dMm = hole.diameterMm || 5;
+        const radius = Math.max((dMm / scaleMm) * Math.max(size.x, size.y, size.z) * 0.45, 0.0008);
+        const depthMm = hole.depthMm || panelMm.dz || 10;
+        const height = Math.max((depthMm / scaleMm) * size[mapped.thinAxis] * 0.9, radius * 2);
+        const markerGeom = new THREE.CylinderGeometry(radius, radius, height, 12);
+        const marker = new THREE.Mesh(
+          markerGeom,
+          new THREE.MeshStandardMaterial({
+            color: holeMarkerColor(dMm),
+            emissive: 0x451a03,
+            emissiveIntensity: 0.35,
+            metalness: 0.25,
+            roughness: 0.45
+          })
+        );
+        marker.position.set(mapped.x, mapped.y, mapped.z);
+        if (mapped.thinAxis === "x") marker.rotation.z = Math.PI / 2;
+        else if (mapped.thinAxis === "z") marker.rotation.x = Math.PI / 2;
+        marker.castShadow = true;
+        marker.userData.cadHole = hole;
         group.add(marker);
-        idx++;
       }
+      addEdgeBands(box, cad?.edgeMask, group);
+    } else if (drilling.length) {
+      const markerGeom = new THREE.CylinderGeometry(
+        DRILL_MARKER_RADIUS,
+        DRILL_MARKER_RADIUS,
+        1,
+        10
+      );
+      const thinAxis =
+        size.x <= size.y && size.x <= size.z
+          ? "x"
+          : size.y <= size.x && size.y <= size.z
+            ? "y"
+            : "z";
+      const topValue = thinAxis === "x" ? box.max.x : thinAxis === "y" ? box.max.y : box.max.z;
+      const cols = Math.ceil(Math.sqrt(drilling.length * 3));
+      const inset = 0.12;
+      let idx = 0;
+      for (let op = 0; op < drilling.length; op++) {
+        for (let j = 0; j < 3; j++) {
+          const row = Math.floor(idx / cols);
+          const col = idx % cols;
+          const u = (col + 0.5) / cols;
+          const v = (row + 0.5) / Math.max(1, Math.ceil((drilling.length * 3) / cols));
+          const px = THREE.MathUtils.lerp(
+            box.min.x + size.x * inset,
+            box.max.x - size.x * inset,
+            u
+          );
+          const pz = THREE.MathUtils.lerp(
+            box.min.z + size.z * inset,
+            box.max.z - size.z * inset,
+            v
+          );
+          const marker = new THREE.Mesh(markerGeom, markerMat);
+          if (thinAxis === "y") {
+            marker.position.set(px, topValue + DRILL_MARKER_RADIUS * 2, pz);
+            marker.scale.y = Math.max(size.y * 0.35, DRILL_MARKER_RADIUS * 4);
+          } else if (thinAxis === "z") {
+            marker.position.set(px, pz, topValue + DRILL_MARKER_RADIUS * 2);
+            marker.rotation.x = Math.PI / 2;
+            marker.scale.y = Math.max(size.z * 0.35, DRILL_MARKER_RADIUS * 4);
+          } else {
+            marker.position.set(topValue + DRILL_MARKER_RADIUS * 2, px, pz);
+            marker.rotation.z = Math.PI / 2;
+            marker.scale.y = Math.max(size.x * 0.35, DRILL_MARKER_RADIUS * 4);
+          }
+          group.add(marker);
+          idx++;
+        }
+      }
+      group.userData.sharedDrillGeom = markerGeom;
+    } else {
+      return;
     }
 
-    group.userData.sharedDrillGeom = markerGeom;
     detailMarkers = group;
     scene.add(group);
   }
 
+  function fitToView(object = model) {
+    if (!object) return;
+    object.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.05);
+    camera.position
+      .copy(center)
+      .add(new THREE.Vector3(maxDim * 1.05, maxDim * 0.82, maxDim * 1.22));
+    controls.target.copy(center);
+    controls.minDistance = Math.max(0.02, maxDim * 0.12);
+    controls.maxDistance = Math.max(8, maxDim * 14);
+    controls.update();
+    if (scene.fog) {
+      scene.fog.near = maxDim * 2.5;
+      scene.fog.far = Math.max(40, maxDim * 18);
+    }
+  }
+
+  function syncStudioGrid(box) {
+    if (theme !== "studio" || !box || box.isEmpty()) return;
+    if (gridHelper) {
+      scene.remove(gridHelper);
+      gridHelper.geometry?.dispose?.();
+      gridHelper.material?.dispose?.();
+      gridHelper = null;
+    }
+    const size = box.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.z, 1.2) * 2.8;
+    gridHelper = new THREE.GridHelper(span, 32, 0x3d5268, 0x243040);
+    gridHelper.position.y = box.min.y - 0.002;
+    scene.add(gridHelper);
+  }
+
   function frameMesh(mesh) {
-    if (!mesh) return;
     mesh.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(mesh);
     const center = box.getCenter(new THREE.Vector3());
@@ -366,22 +646,210 @@ export function createPartViewer(
       const isTarget = targetSet.has(child);
       if (isTarget) {
         child.material = new THREE.MeshStandardMaterial({
-          color: PART_COLOR,
+          color: partSurfaceColor(part),
           metalness: 0.1,
           roughness: 0.55
         });
         setEdgeStyle(child, EDGE_COLOR);
-        applyKromkaEdgeHighlight(child, part.edgeCode || part.edge_code);
+        applyKromkaEdgeHighlight(child, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
         child.visible = true;
       } else {
         child.visible = false;
       }
     });
 
-    addDrillMarkers(primary, part);
+    addDrillMarkers(primary, part, cadGeometry);
+    const panelMm = resolvePanelMm(cadGeometry, part);
+    if (panelMm.dx && panelMm.dy && panelMm.dz) {
+      panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
+      panelDimsHud.hidden = false;
+    } else {
+      panelDimsHud.hidden = true;
+    }
     frameMesh(primary);
     return primary;
   }
+
+  function applyClippingToMaterials(enabled) {
+    if (!model) return;
+    const planes = enabled ? [sectionPlane] : [];
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        mat.clippingPlanes = planes;
+        mat.clipShadows = true;
+        mat.needsUpdate = true;
+      }
+    });
+  }
+
+  function syncSectionPlane() {
+    if (!model) return;
+    const box = new THREE.Box3().setFromObject(model);
+    const min = box.min[sectionAxis];
+    const max = box.max[sectionAxis];
+    const value = THREE.MathUtils.lerp(min, max, sectionRatio);
+    if (sectionAxis === "x") sectionPlane.set(new THREE.Vector3(-1, 0, 0), value);
+    else if (sectionAxis === "z") sectionPlane.set(new THREE.Vector3(0, 0, -1), value);
+    else sectionPlane.set(new THREE.Vector3(0, -1, 0), value);
+    applyClippingToMaterials(sectionEnabled);
+  }
+
+  function setSectionAxis(axis) {
+    sectionAxis = axis === "x" || axis === "z" ? axis : "y";
+    sectionHud.querySelectorAll("[data-section-axis]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.sectionAxis === sectionAxis);
+    });
+    syncSectionPlane();
+  }
+
+  function setSectionEnabled(enabled) {
+    sectionEnabled = Boolean(enabled);
+    sectionHud.hidden = !sectionEnabled;
+    syncSectionPlane();
+  }
+
+  function clearMeasure() {
+    measurePoints = [];
+    if (measureGroup) {
+      scene.remove(measureGroup);
+      measureGroup.traverse((o) => {
+        o.geometry?.dispose?.();
+        o.material?.dispose?.();
+      });
+      measureGroup = null;
+    }
+    measureHud.hidden = true;
+    measureHud.textContent = "";
+  }
+
+  function setMeasureEnabled(enabled) {
+    measureEnabled = Boolean(enabled);
+    if (!measureEnabled) clearMeasure();
+    else {
+      measureHud.hidden = false;
+      measureHud.textContent = "Вимір: клікніть дві точки на деталі";
+    }
+  }
+
+  function addMeasureMarker(point) {
+    if (!measureGroup) {
+      measureGroup = new THREE.Group();
+      measureGroup.name = "part-viewer-measure";
+      scene.add(measureGroup);
+    }
+    const geom = new THREE.SphereGeometry(0.004, 12, 12);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0c4a6e });
+    const marker = new THREE.Mesh(geom, mat);
+    marker.position.copy(point);
+    measureGroup.add(marker);
+  }
+
+  function finalizeMeasure() {
+    if (measurePoints.length < 2) return;
+    const panelMm = resolvePanelMm(cadGeometry, {});
+    const box = new THREE.Box3().setFromObject(model);
+    const dist = measureDistanceMm(measurePoints[0], measurePoints[1], box, panelMm);
+    measureHud.textContent = `Відстань: ${formatMeasureMm(dist)}`;
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
+    const line = new THREE.Line(
+      lineGeom,
+      new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 })
+    );
+    measureGroup.add(line);
+    measurePoints = [];
+  }
+
+  function handleMeasurePick(point) {
+    measurePoints.push(point.clone());
+    addMeasureMarker(point);
+    if (measurePoints.length >= 2) finalizeMeasure();
+    else measureHud.textContent = "Вимір: оберіть другу точку";
+  }
+
+  function setWireframe(enabled) {
+    wireframeEnabled = Boolean(enabled);
+    if (!model) return;
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        mat.wireframe = wireframeEnabled;
+      }
+    });
+  }
+
+  function setAxesVisible(enabled) {
+    if (axesHelper) {
+      scene.remove(axesHelper);
+      axesHelper.geometry?.dispose?.();
+      axesHelper.material?.dispose?.();
+      axesHelper = null;
+    }
+    if (enabled) {
+      axesHelper = new THREE.AxesHelper(0.25);
+      scene.add(axesHelper);
+    }
+  }
+
+  function syncShadowReceiver(box) {
+    if (shadowReceiver) {
+      scene.remove(shadowReceiver);
+      shadowReceiver.geometry?.dispose?.();
+      shadowReceiver.material?.dispose?.();
+      shadowReceiver = null;
+    }
+    if (theme !== "studio" || !box || box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.z, 1) * 1.6;
+    const geom = new THREE.PlaneGeometry(span, span);
+    const mat = new THREE.ShadowMaterial({ opacity: 0.22 });
+    shadowReceiver = new THREE.Mesh(geom, mat);
+    shadowReceiver.rotation.x = -Math.PI / 2;
+    shadowReceiver.position.y = box.min.y - 0.003;
+    shadowReceiver.receiveShadow = true;
+    scene.add(shadowReceiver);
+  }
+
+  function setCadGeometry(geometry) {
+    cadGeometry = geometry || null;
+  }
+
+  sectionHud.querySelector(".part-viewer-section-slider")?.addEventListener("input", (e) => {
+    sectionRatio = Number(e.target.value) / 100;
+    syncSectionPlane();
+  });
+  sectionHud.querySelectorAll("[data-section-axis]").forEach((btn) => {
+    btn.addEventListener("click", () => setSectionAxis(btn.dataset.sectionAxis));
+  });
+
+  wrap.addEventListener("pointermove", (e) => {
+    if (!detailMarkers?.children?.length) {
+      holeTooltip.hidden = true;
+      return;
+    }
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(detailMarkers.children, false);
+    const hit = hits.find((h) => h.object?.userData?.cadHole);
+    if (!hit) {
+      holeTooltip.hidden = true;
+      return;
+    }
+    holeTooltip.textContent = formatHoleTooltip(hit.object.userData.cadHole);
+    holeTooltip.style.left = `${e.clientX - rect.left + 12}px`;
+    holeTooltip.style.top = `${e.clientY - rect.top + 12}px`;
+    holeTooltip.hidden = false;
+  });
+
+  wrap.addEventListener("pointerleave", () => {
+    holeTooltip.hidden = true;
+  });
 
   function prepareModelMeshes(object) {
     object.traverse((child) => {
@@ -394,6 +862,8 @@ export function createPartViewer(
         child.material = cloneSurfaceMaterial(source);
       }
       child.userData.originalMaterial = child.material;
+      child.castShadow = true;
+      child.receiveShadow = true;
     });
   }
 
@@ -414,7 +884,12 @@ export function createPartViewer(
   function bindZoomControls() {
     zoomBar.querySelectorAll("[data-zoom]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        zoomBy(btn.dataset.zoom === "in" ? 0.82 : 1.22);
+        const mode = btn.dataset.zoom;
+        if (mode === "fit") {
+          fitToView();
+          return;
+        }
+        zoomBy(mode === "in" ? 0.82 : 1.22);
       });
     });
   }
@@ -473,12 +948,7 @@ export function createPartViewer(
       if (!child.isMesh) return;
       const isTarget = child === selectedMesh;
       if (isTarget) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: HIGHLIGHT_COLOR,
-          emissive: 0x5c3a00,
-          metalness: 0.15,
-          roughness: 0.45
-        });
+        child.material = highlightSurfaceMaterial();
         setEdgeStyle(child, EDGE_HIGHLIGHT_COLOR);
       } else {
         child.material = child.userData.originalMaterial || child.material;
@@ -551,6 +1021,20 @@ export function createPartViewer(
       const dy = e.clientY - pointerDown.y;
       pointerDown = null;
       if (dx * dx + dy * dy > 36) return;
+
+      if (measureEnabled && model) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(model, true);
+        const hit = hits.find(
+          (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
+        );
+        if (hit?.point) handleMeasurePick(hit.point);
+        return;
+      }
+
       pickMeshAt(e.clientX, e.clientY);
     });
     canvas.addEventListener("dblclick", (e) => {
@@ -647,12 +1131,7 @@ export function createPartViewer(
       const isTarget = child === highlightMesh;
 
       if (isTarget) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: HIGHLIGHT_COLOR,
-          emissive: 0x5c3a00,
-          metalness: 0.15,
-          roughness: 0.45
-        });
+        child.material = highlightSurfaceMaterial();
         setEdgeStyle(child, EDGE_HIGHLIGHT_COLOR);
         child.visible = true;
       } else if (isolate) {
@@ -675,9 +1154,7 @@ export function createPartViewer(
   }
 
   function resetCamera() {
-    camera.position.set(2, 2, 3);
-    controls.target.set(0, 0, 0);
-    controls.update();
+    fitToView();
   }
 
   function frameModel(object) {
@@ -692,18 +1169,15 @@ export function createPartViewer(
       onError?.(err);
       throw err;
     }
-    const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     sceneExtentsPreferMm = detectSceneExtentsPreferMm([size.x, size.y, size.z]);
     const maxDim = Math.max(size.x, size.y, size.z, 0.1);
     camera.far = Math.max(1000, maxDim * 10);
     camera.near = Math.max(0.01, maxDim / 10000);
     camera.updateProjectionMatrix();
-    camera.position.copy(center).add(new THREE.Vector3(maxDim, maxDim * 0.8, maxDim * 1.2));
-    controls.target.copy(center);
-    controls.minDistance = Math.max(0.05, maxDim * 0.08);
-    controls.maxDistance = Math.max(10, maxDim * 12);
-    controls.update();
+    syncStudioGrid(box);
+    syncShadowReceiver(box);
+    fitToView(model);
     updatePickHint();
     onReady?.();
     return model;
@@ -765,7 +1239,23 @@ export function createPartViewer(
     showPartDetail(part, targetHint) {
       return applyPartDetailView(part, targetHint);
     },
+    setCadGeometry(geometry) {
+      setCadGeometry(geometry);
+    },
+    setSectionEnabled(enabled) {
+      setSectionEnabled(enabled);
+    },
+    setMeasureEnabled(enabled) {
+      setMeasureEnabled(enabled);
+    },
+    setWireframe(enabled) {
+      setWireframe(enabled);
+    },
+    setAxesVisible(enabled) {
+      setAxesVisible(enabled);
+    },
     resetCamera,
+    fitToView,
     zoomIn() {
       zoomBy(0.82);
     },
@@ -775,6 +1265,13 @@ export function createPartViewer(
     destroy() {
       if (animId) cancelAnimationFrame(animId);
       clearDetailMarkers();
+      clearMeasure();
+      if (gridHelper) {
+        scene.remove(gridHelper);
+        gridHelper.geometry?.dispose?.();
+        gridHelper.material?.dispose?.();
+        gridHelper = null;
+      }
       ro.disconnect();
       controls.dispose();
       renderer.dispose();

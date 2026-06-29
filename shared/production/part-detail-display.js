@@ -4,6 +4,14 @@ import { normalizeBazisScanCode, partNoFromBazisOperationCode } from "./bazis-op
 /** Підписи сторін кромки (4-значний код Базіс). */
 export const EDGE_SIDE_LABELS = ["Сторона 1", "Сторона 2", "Сторона 3", "Сторона 4"];
 
+/** Сторони панелі з .project (elt, elr, elb, ell). */
+export const PROJECT_EDGE_SIDE_LABELS = ["Верх", "Право", "Низ", "Ліво"];
+
+export function formatProjectEdgeMask(mask = []) {
+  const active = PROJECT_EDGE_SIDE_LABELS.filter((_, i) => mask[i]);
+  return active.length ? active.join(", ") : "Без кромки";
+}
+
 /** Маска сторін кромки з edge_code (4 цифри 0/1). */
 export function edgeSideMask(edgeCode) {
   const code = String(edgeCode || "").trim();

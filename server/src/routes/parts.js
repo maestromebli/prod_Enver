@@ -7,6 +7,7 @@ import {
   getPackageById,
   recordScanEvent
 } from "../constructive/constructive-package-service.js";
+import { getPartCadGeometry } from "../constructive/bazis-part-cad-geometry.js";
 import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import {
@@ -64,6 +65,7 @@ async function buildScanResponse(part) {
   const previewFile = findPackagePreview3dFile(detail);
   const pdfFile = detail?.files?.find((f) => f.kind === "assembly_pdf");
   const orderWeb = order?.id ? await findOrderWebModel(order.id) : null;
+  const cadGeometry = await getPartCadGeometry(part.packageId, part);
 
   const host = config.domain ? `https://${config.domain}` : "";
   let viewerUrl = null;
@@ -82,6 +84,7 @@ async function buildScanResponse(part) {
 
   return {
     part,
+    cadGeometry,
     order: order
       ? { id: order.id, orderNumber: order.order_number, object: order.object }
       : { orderNumber: position?.order_number },
