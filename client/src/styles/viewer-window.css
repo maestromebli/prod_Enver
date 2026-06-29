@@ -194,20 +194,20 @@
 }
 
 @media (max-width: 800px) {
-  .viewer-window-body {
+  body:not(.viewer-tablet-mode) .viewer-window-body {
     flex-direction: column;
   }
 
-  .viewer-sidebar {
+  body:not(.viewer-tablet-mode) .viewer-sidebar {
     flex-basis: auto;
     max-height: 28vh;
     border-right: none;
     border-bottom: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
   }
 
-  .viewer-window-main .part-viewer-3d,
-  .viewer-window-main .part-viewer-host,
-  .viewer-window-main .part-viewer-wrap {
+  body:not(.viewer-tablet-mode) .viewer-window-main .part-viewer-3d,
+  body:not(.viewer-tablet-mode) .viewer-window-main .part-viewer-host,
+  body:not(.viewer-tablet-mode) .viewer-window-main .part-viewer-wrap {
     min-height: 52vh;
   }
 }
@@ -222,4 +222,53 @@
 
 .viewer-window-error {
   margin: 12px 14px;
+}
+
+/* Планшет / APK — 3D на 80% екрана */
+html.viewer-tablet-mode .enver-viewer-window,
+body.viewer-tablet-mode.enver-viewer-window {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+html.viewer-tablet-mode .viewer-window-body,
+body.viewer-tablet-mode .viewer-window-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+html.viewer-tablet-mode .viewer-window-main,
+body.viewer-tablet-mode .viewer-window-main {
+  order: 1;
+  flex: 1 1 80%;
+  min-height: 0;
+  max-height: 80%;
+}
+
+html.viewer-tablet-mode .viewer-sidebar,
+body.viewer-tablet-mode .viewer-sidebar {
+  order: 2;
+  flex: 0 0 auto;
+  max-height: 20%;
+  width: 100%;
+  border-right: none;
+  border-top: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
+  padding: 8px 12px;
+}
+
+html.viewer-tablet-mode .viewer-hole-items,
+body.viewer-tablet-mode .viewer-hole-items {
+  max-height: 12vh;
+}
+
+html.viewer-tablet-mode .viewer-hotkeys-hint,
+body.viewer-tablet-mode .viewer-hotkeys-hint {
+  display: none;
+}
+
+html.viewer-tablet-mode .viewer-toolbar-advanced,
+body.viewer-tablet-mode .viewer-toolbar-advanced {
+  display: none;
 }

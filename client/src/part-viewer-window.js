@@ -1,5 +1,6 @@
 /** Відкриття 3D у окремому вікні (панель оператора, скан). */
 
+import { apiUrl } from "./api.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 
 const VIEWER_WINDOW_NAME = "enver-3d-viewer";
@@ -63,6 +64,16 @@ export function buildViewerUrl({ partId = null, orderId = null, positionId = nul
   if (orderId) url.searchParams.set("orderId", String(orderId));
   if (positionId) url.searchParams.set("positionId", String(positionId));
   return url.toString();
+}
+
+/** Повний URL 3D-файлу (як у viewer-app) для prefetch і mount. */
+export function resolveViewerModelUrl(viewerUrl, token = null) {
+  if (!viewerUrl) return null;
+  let url = apiUrl(viewerUrl);
+  if (token && !url.includes("access_token=")) {
+    url += (url.includes("?") ? "&" : "?") + `access_token=${encodeURIComponent(token)}`;
+  }
+  return url;
 }
 
 function markViewerReturnPath() {

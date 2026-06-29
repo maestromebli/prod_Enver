@@ -3,7 +3,7 @@ import "./styles/tokens.css";
 import "./styles/brand-logo.css";
 import "./styles/viewer-window.css";
 import "./styles/part-viewer.css";
-import { api, apiUrl, getStoredToken } from "./api.js";
+import { api, getStoredToken } from "./api.js";
 import { mountModelViewer } from "./part-viewer-mount.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
@@ -11,7 +11,9 @@ import {
   formatEdgeCodeLabel,
   formatProjectEdgeMask
 } from "@enver/shared/production/part-detail-display.js";
-import { closeViewerWindow } from "./part-viewer-window.js";
+import { closeViewerWindow, resolveViewerModelUrl } from "./part-viewer-window.js";
+import { isNativeOperatorShell } from "./operator-native.js";
+import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 
 const HOLE_FACE_LABELS = {
   panel: "лице",
@@ -51,13 +53,7 @@ function resolveHighlightTarget(part) {
 }
 
 function modelFileUrl(viewerUrl) {
-  if (!viewerUrl) return null;
-  const token = getStoredToken();
-  let url = apiUrl(viewerUrl);
-  if (token && !url.includes("access_token=")) {
-    url += (url.includes("?") ? "&" : "?") + `access_token=${encodeURIComponent(token)}`;
-  }
-  return url;
+  return resolveViewerModelUrl(viewerUrl, getStoredToken());
 }
 
 function hideLoading() {
@@ -173,17 +169,23 @@ function setToolbarActive(action) {
 }
 
 async function showPartOnAssembly(part) {
-  if (!part || !viewer) return;
+  if (!part || !viewer) return null;
   currentPart = part;
   const target = resolveHighlightTarget(part);
-  if (viewer.showPartOnAssembly) {
-    viewer.showPartOnAssembly(part, target);
-  } else {
-    viewer.highlightPart({ meshName: target?.meshName, nodeId: target?.nodeId, ghost: true });
+  let mesh = viewer.showPartOnAssembly?.(part, target);
+  if (!mesh) {
+    await new Promise((r) => requestAnimationFrame(r));
+    mesh = viewer.showPartOnAssembly?.(part, target);
   }
-  setToolbarActive("ghost");
+  if (!mesh && viewer.showPartDetail) {
+    viewer.showPartDetail(part, target);
+    setToolbarActive("detail");
+  } else {
+    setToolbarActive("ghost");
+  }
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
+  return mesh;
 }
 
 async function highlightPartGhost(part) {
@@ -337,6 +339,18 @@ function bindHotkeys() {
   });
 }
 
+function initViewerShell() {
+  const tablet =
+    isNativeOperatorShell() ||
+    /Android|iPad|Tablet/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && window.innerWidth < 1280);
+  if (tablet) {
+    document.body.classList.add("viewer-tablet-mode");
+    document.documentElement.classList.add("viewer-tablet-mode");
+  }
+  void warmPartViewerChunk();
+}
+
 async function mountFromScanData(container, data) {
   if (!data?.model?.viewerUrl) {
     setError("3D модель для цієї деталі недоступна");
@@ -452,6 +466,8 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
 }
 
 async function main() {
+  initViewerShell();
+
   if (!getStoredToken()) {
     setError("Увійдіть у панель оператора, потім відкрийте 3D знову");
     return;

@@ -24,6 +24,7 @@ import {
   resolvePanelMm,
   analyzePanelAxes
 } from "@enver/shared/production/part-viewer-cad.js";
+import { takePrefetchedModelBuffer } from "./part-viewer-prefetch.js";
 import { escapeHtml } from "./utils.js";
 
 const THEMES = {
@@ -122,7 +123,9 @@ export function createPartViewer(
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.localClippingEnabled = true;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2.5)
+  );
   renderer.setSize(container.clientWidth, Math.max(container.clientHeight, 200));
 
   const wrap = document.createElement("div");
@@ -1126,6 +1129,24 @@ export function createPartViewer(
     return null;
   }
 
+  function findMeshByPartNo(partNo) {
+    const key = String(partNo || "").trim();
+    if (!key || !model) return null;
+    const bare = key.replace(/^0+/, "") || key;
+    let found = null;
+    model.traverse((child) => {
+      if (!child.isMesh || String(child.name || "").endsWith("-edges") || found) return;
+      for (const nameKey of meshNameLookupKeys(child.name)) {
+        const panelBare = nameKey.replace(/^panel-/i, "").replace(/^0+/, "");
+        if (nameKey === key || nameKey === bare || panelBare === bare || panelBare === key) {
+          found = child;
+          return;
+        }
+      }
+    });
+    return found;
+  }
+
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
@@ -1168,7 +1189,12 @@ export function createPartViewer(
     const hint = targetHint || resolvePartHighlightMesh(part) || {};
     applyHighlight({ ...hint, ghost: true, isolate: false });
 
-    const mesh = highlightMesh;
+    let mesh = highlightMesh || findMeshByPartNo(part.partNo || part.part_no);
+    if (mesh && mesh !== highlightMesh) {
+      applyHighlight({ meshName: mesh.name, nodeId: mesh.name, ghost: true, isolate: false });
+      mesh = highlightMesh;
+    }
+
     if (mesh) {
       applyKromkaEdgeHighlight(mesh, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
       addDrillMarkers(mesh, part, cadGeometry);
@@ -1231,10 +1257,20 @@ export function createPartViewer(
   async function loadModel(url, token, { format } = {}) {
     const fullUrl = url.startsWith("http") ? url : apiUrl(url);
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch(fullUrl, { headers });
+    const loadFormat = detectModelFormat(url, format);
+
+    const prefetched = await takePrefetchedModelBuffer(url, token);
+    if (prefetched) {
+      if (loadFormat === "wrl" || loadFormat === "wrl_model" || loadFormat === "vrml") {
+        const text = new TextDecoder().decode(prefetched);
+        return loadVrmlText(text);
+      }
+      return loadGltfBuffer(prefetched);
+    }
+
+    const res = await fetch(fullUrl, { headers, credentials: "include" });
     if (!res.ok) throw new Error("Не вдалося завантажити 3D модель");
 
-    const loadFormat = detectModelFormat(url, format);
     if (loadFormat === "wrl" || loadFormat === "wrl_model" || loadFormat === "vrml") {
       const text = await res.text();
       try {

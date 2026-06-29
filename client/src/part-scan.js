@@ -18,6 +18,9 @@ import {
   closePreparedViewerPopup
 } from "./part-viewer-window.js";
 import { isNativeOperatorShell } from "./operator-native.js";
+import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
+import { resolveViewerModelUrl } from "./part-viewer-window.js";
+import { getStoredToken } from "./api.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -35,6 +38,14 @@ export function isPartScanStage(stageKey) {
 export function syncOperatorClientScanButtons(stageKey) {
   const show = isPartScanStage(stageKey);
   $("#operatorClientScanBtn")?.toggleAttribute("hidden", !show);
+  for (const id of [
+    "operatorClientCameraBtn",
+    "operatorWorkCameraBtn",
+    "operatorScanCameraBtn",
+    "operatorScanModeCamera"
+  ]) {
+    document.getElementById(id)?.remove();
+  }
 }
 
 /** @deprecated використовуйте syncOperatorClientScanButtons */
@@ -285,6 +296,10 @@ async function handleScan(
     }
 
     if (data.model?.viewerUrl) {
+      const token = getStoredToken();
+      const modelUrl = resolveViewerModelUrl(data.model.viewerUrl, token);
+      if (modelUrl) void prefetchViewerModel(modelUrl, token);
+      void warmPartViewerChunk();
       const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
       popup = null;
       if (!opened && !isNativeOperatorShell()) {
@@ -429,6 +444,7 @@ export function openOperatorScanPanel() {
     return;
   }
   setScanPanelOpen(true);
+  void warmPartViewerChunk();
   if (lastScanBindConfig) {
     const onScan = (code) =>
       handleScan(code, {

@@ -60,12 +60,12 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
             textZoom = 100
-            cacheMode = WebSettings.LOAD_NO_CACHE
+            cacheMode = WebSettings.LOAD_DEFAULT
             javaScriptCanOpenWindowsAutomatically = true
             setSupportMultipleWindows(true)
             val ua = userAgentString.orEmpty()
             if (!ua.contains("EnverOperator/")) {
-                userAgentString = "$ua EnverOperator/1.0.5"
+                userAgentString = "$ua EnverOperator/1.0.6"
             }
         }
 
