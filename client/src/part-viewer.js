@@ -6,6 +6,8 @@ import { apiUrl } from "./api.js";
 import {
   formatPartPickerInfo,
   formatMeshBoundingBoxMm,
+  scaleLocalMeshExtents,
+  detectSceneExtentsPreferMm,
   resolvePartByMesh
 } from "@enver/shared/production/constructive-package.js";
 import { escapeHtml } from "./utils.js";
@@ -115,6 +117,8 @@ export function createPartViewer(
   let animId = null;
   let partCatalog = [];
   let pickingEnabled = pickable;
+  /** @type {boolean | null} */
+  let sceneExtentsPreferMm = null;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
@@ -203,11 +207,28 @@ export function createPartViewer(
     clearSelection();
   });
 
-  function meshSizeLabelMm(mesh) {
-    if (!mesh) return "";
+  function measureMeshExtents(mesh) {
+    if (!mesh) return [];
+    const geom = mesh.geometry;
+    if (geom?.attributes?.position) {
+      if (!geom.boundingBox) geom.computeBoundingBox();
+      const local = geom.boundingBox.getSize(new THREE.Vector3());
+      const worldScale = new THREE.Vector3();
+      mesh.getWorldScale(worldScale);
+      return scaleLocalMeshExtents(
+        [local.x, local.y, local.z],
+        [worldScale.x, worldScale.y, worldScale.z]
+      );
+    }
     const box = new THREE.Box3().setFromObject(mesh);
     const size = box.getSize(new THREE.Vector3());
-    return formatMeshBoundingBoxMm([size.x, size.y, size.z]);
+    return [size.x, size.y, size.z].filter((v) => v > 0);
+  }
+
+  function meshSizeLabelMm(mesh) {
+    return formatMeshBoundingBoxMm(measureMeshExtents(mesh), {
+      preferMm: sceneExtentsPreferMm
+    });
   }
 
   function renderInfoPanel(part, mesh) {
@@ -444,6 +465,7 @@ export function createPartViewer(
     }
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
+    sceneExtentsPreferMm = detectSceneExtentsPreferMm([size.x, size.y, size.z]);
     const maxDim = Math.max(size.x, size.y, size.z, 0.1);
     camera.far = Math.max(1000, maxDim * 10);
     camera.near = Math.max(0.01, maxDim / 10000);

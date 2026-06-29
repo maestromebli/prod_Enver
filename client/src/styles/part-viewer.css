@@ -34,7 +34,9 @@
 
 .op-part-scan.is-detail-open .op-part-scan-hint,
 .op-part-scan.is-detail-open .op-part-scan-bar,
-.op-part-scan.is-detail-open .op-part-scan-actions {
+.op-part-scan.is-detail-open .op-part-scan-actions,
+.op-part-scan.is-detail-open .op-part-scan-mode,
+.op-part-scan.is-detail-open .op-order-3d--scan {
   display: none;
 }
 
@@ -57,6 +59,38 @@
   font-size: 0.85rem;
   color: var(--text-muted, #64748b);
   line-height: 1.4;
+}
+
+.op-part-scan-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.op-part-scan-mode-btn {
+  flex: 1 1 140px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.op-part-scan-mode-btn.is-active {
+  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 55%, transparent);
+  background: color-mix(in srgb, var(--op-accent, #245c3b) 14%, var(--surface, #fff));
+  color: var(--op-accent, #245c3b);
+}
+
+.op-order-3d--scan {
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.op-part-scan.is-scan-open {
+  margin-top: 12px;
 }
 
 .op-part-scan-bar {

@@ -156,14 +156,34 @@ describe("constructive-package shared", () => {
       "1896×540×18 мм"
     );
     assert.equal(formatPartDimensionsMm({ length: "", width: "" }), "—");
+    assert.equal(formatPartDimensionsMm({ length: "500", width: "" }), "—");
   });
 
   it("formatMeshBoundingBoxMm — метри GLB і мм VRML", async () => {
-    const { formatMeshBoundingBoxMm } =
+    const { formatMeshBoundingBoxMm, scaleLocalMeshExtents, detectSceneExtentsPreferMm } =
       await import("../../shared/production/constructive-package.js");
     assert.equal(formatMeshBoundingBoxMm([1.896, 0.018, 0.54]), "1896×540×18 мм");
     assert.equal(formatMeshBoundingBoxMm([1896, 540, 18]), "1896×540×18 мм");
+    assert.equal(formatMeshBoundingBoxMm([1, 1, 1], { preferMm: false }), "1000×1000×1000 мм");
+    assert.equal(
+      formatMeshBoundingBoxMm([1.896, 0.018, 0.54], { preferMm: false }),
+      "1896×540×18 мм"
+    );
+    assert.equal(formatMeshBoundingBoxMm([1896, 540, 18], { preferMm: true }), "1896×540×18 мм");
+    assert.deepEqual(scaleLocalMeshExtents([1, 1, 1], [1.896, 0.018, 0.54]), [1.896, 0.018, 0.54]);
+    assert.equal(detectSceneExtentsPreferMm([2.4, 1.8, 0.6]), false);
+    assert.equal(detectSceneExtentsPreferMm([2400, 1800, 600]), true);
     assert.equal(formatMeshBoundingBoxMm([]), "");
+  });
+
+  it("normalizePartNoKey — panel-010 → деталь №10", async () => {
+    const { normalizePartNoKey, meshNameLookupKeys, resolvePartByMeshName } =
+      await import("../../shared/production/constructive-package.js");
+    assert.equal(normalizePartNoKey("010"), "10");
+    const keys = meshNameLookupKeys("panel-010");
+    assert.ok(keys.has("10"));
+    const parts = [{ partNo: "10", partName: "Стійка", length: "500", width: "400" }];
+    assert.equal(resolvePartByMeshName("panel-010", parts)?.partName, "Стійка");
   });
 
   it("resolvePartByMeshName — зіставлення mesh з деталлю", async () => {

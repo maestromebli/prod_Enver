@@ -718,24 +718,52 @@ export function formatPartDimensionsMm(part = {}) {
   const length = formatMmNumber(part.length);
   const width = formatMmNumber(part.width);
   const thickness = formatMmNumber(part.thickness);
-  if (!length && !width) return "—";
-  const dims = [length || "—", width || "—"];
+  if (!length || !width) return "—";
+  const dims = [length, width];
   if (thickness) dims.push(thickness);
   return `${dims.join("×")} мм`;
 }
 
+/** Масштабує локальні розміри mesh з урахуванням world scale (до перетворення в мм). */
+export function scaleLocalMeshExtents(localExtents = [], worldScale = []) {
+  const local = Array.isArray(localExtents) ? localExtents : [];
+  const scale = Array.isArray(worldScale) ? worldScale : [];
+  return local
+    .map((value, index) => Number(value) * Math.abs(Number(scale[index] ?? 1)))
+    .filter((v) => Number.isFinite(v) && v > 0);
+}
+
 /**
  * Розміри bounding box mesh у мм.
- * GLB-превʼю будується в метрах; VRML з Базіс часто вже в мм (одиниці > ~50).
+ * @param {number[]} sizes — розміри в локальних осях mesh (після world scale), не world AABB
+ * @param {{ preferMm?: boolean | null }} options — preferMm з detectSceneExtentsPreferMm
  */
-export function formatMeshBoundingBoxMm(sizes = []) {
+export function formatMeshBoundingBoxMm(sizes = [], { preferMm = null } = {}) {
   const raw = (Array.isArray(sizes) ? sizes : [])
     .map((v) => Number(v))
     .filter((v) => Number.isFinite(v) && v > 0);
   if (!raw.length) return "";
-  const scaleToMm = Math.max(...raw) > 50 ? 1 : 1000;
+  const scaleToMm =
+    preferMm === true ? 1 : preferMm === false ? 1000 : Math.max(...raw) > 50 ? 1 : 1000;
   const dims = raw.map((v) => Math.round(v * scaleToMm)).sort((a, b) => b - a);
   return dims.length ? `${dims.join("×")} мм` : "";
+}
+
+/** Чи модель уже в мм (VRML Базіс) чи в метрах (наш GLB). */
+export function detectSceneExtentsPreferMm(extents = []) {
+  const raw = (Array.isArray(extents) ? extents : [])
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  if (!raw.length) return null;
+  return Math.max(...raw) > 50;
+}
+
+/** Нормалізує номер деталі для зіставлення (10 === 010). */
+export function normalizePartNoKey(value) {
+  const t = String(value ?? "").trim();
+  if (!t) return "";
+  if (/^\d+$/.test(t)) return String(Number(t));
+  return t;
 }
 
 /** Ключі імені mesh для зіставлення з деталлю (panel-10, B1-21, …). */
@@ -749,12 +777,26 @@ export function meshNameLookupKeys(meshName) {
   if (bare !== s) {
     keys.add(bare);
     keys.add(bare.toLowerCase());
+    const bareNorm = normalizePartNoKey(bare);
+    if (bareNorm) {
+      keys.add(bareNorm);
+      keys.add(bareNorm.toLowerCase());
+    }
   }
   const noZeros = s.replace(/^0+/, "") || s;
   keys.add(noZeros);
   keys.add(noZeros.toLowerCase());
+  const norm = normalizePartNoKey(s);
+  if (norm) {
+    keys.add(norm);
+    keys.add(norm.toLowerCase());
+  }
   const tailNum = s.match(/(\d{1,6})$/);
-  if (tailNum) keys.add(tailNum[1]);
+  if (tailNum) {
+    keys.add(tailNum[1]);
+    const tailNorm = normalizePartNoKey(tailNum[1]);
+    if (tailNorm) keys.add(tailNorm);
+  }
   return keys;
 }
 
@@ -767,7 +809,9 @@ export function resolvePartByMeshName(meshName, parts = []) {
   const keyMatches = (value) => {
     const v = String(value || "").trim();
     if (!v) return false;
-    return keys.has(v) || keys.has(v.toLowerCase());
+    if (keys.has(v) || keys.has(v.toLowerCase())) return true;
+    const norm = normalizePartNoKey(v);
+    return norm ? keys.has(norm) || keys.has(norm.toLowerCase()) : false;
   };
 
   for (const part of parts) {
@@ -775,16 +819,16 @@ export function resolvePartByMeshName(meshName, parts = []) {
   }
 
   for (const part of parts) {
-    const partNo = String(part.partNo || "").trim();
+    const partNo = normalizePartNoKey(part.partNo);
     const blockCode = String(part.blockCode || "").trim();
     const compositeKey = blockCode && partNo ? `${blockCode}-${partNo}` : partNo;
-    const partCode = String(part.partCode || part.code || "").trim();
+    const partCode = normalizePartNoKey(part.partCode || part.code || "");
 
     for (const key of keys) {
       const lower = key.toLowerCase();
       if (compositeKey && lower === compositeKey.toLowerCase()) return part;
-      if (partNo && (key === partNo || key === partNo.replace(/^0+/, ""))) return part;
-      if (partCode && (key === partCode || key === partCode.replace(/^0+/, ""))) return part;
+      if (partNo && (key === partNo || normalizePartNoKey(key) === partNo)) return part;
+      if (partCode && (key === partCode || normalizePartNoKey(key) === partCode)) return part;
       if (partNo && key.includes(partNo)) return part;
       if (compositeKey && lower.includes(compositeKey.toLowerCase())) return part;
     }

@@ -27,13 +27,7 @@ import { iconSvg, stageIconSvg } from "./icons.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
-import {
-  focusOperatorScanInput,
-  isPartScanStage,
-  openOperatorCameraScan,
-  renderOperatorScanActionButton,
-  renderOperatorScanPanel
-} from "./part-scan.js";
+import { isPartScanStage, openOperatorScanPanel, renderOperatorScanPanel } from "./part-scan.js";
 import { isCuttingOneScreen } from "./operator-ui.js";
 
 async function afterOperatorMutation(result, onChange) {
@@ -457,11 +451,8 @@ export function renderOperatorView() {
             ${
               isPartScanStage(stageKey)
                 ? `
-            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування штрихридером">
+            <button type="button" class="op-btn-ghost op-btn-scan" id="operatorScanBtn" title="Сканування деталі">
               <span class="op-scan-glyph" aria-hidden="true">${iconSvg("barcode")}</span><span class="op-scan-label">Сканувати</span>
-            </button>
-            <button type="button" class="op-btn-ghost op-btn-camera" id="operatorCameraBtn" title="Сканування камерою">
-              <span class="op-camera-glyph" aria-hidden="true">${iconSvg("camera")}</span><span class="op-camera-label">Камера</span>
             </button>`
                 : ""
             }
@@ -509,18 +500,6 @@ export function renderOperatorView() {
             ${renderOperatorTaskHero(pos, field, stageKey, inWork)}
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
-            <section class="op-order-3d" id="operatorOrder3dSection" hidden>
-              <div class="op-order-3d-head">
-                <h3 class="op-section-title">3D модель</h3>
-                <button type="button" class="btn btn-sm op-order-3d-reset" id="operatorOrder3dResetCam" hidden>Скинути камеру</button>
-              </div>
-              <div
-                id="operatorOrder3dMount"
-                class="op-order-3d-mount"
-                data-order-id="${workOrderId(pos) || ""}"
-                data-position-id="${pos.id}"
-              ></div>
-            </section>
           `
               : renderSmartEmptyState({
                   icon: "👆",
@@ -529,9 +508,10 @@ export function renderOperatorView() {
                 })
           }
 
-          ${renderOperatorScanPanel(stageKey)}
-
-          ${renderOperatorScanActionButton(stageKey)}
+          ${renderOperatorScanPanel(stageKey, {
+            orderId: pos ? workOrderId(pos) || 0 : 0,
+            positionId: pos?.id || 0
+          })}
 
           <div class="op-action-bar">
             <button type="button" class="op-action-btn op-action-btn--start enver-pressable" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
@@ -635,17 +615,13 @@ export function bindOperatorActions(onChange) {
   operatorActionsBound = true;
 
   document.addEventListener("click", async (e) => {
-    if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn, #operatorWorkScanBtn")) {
-      focusOperatorScanInput();
+    if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn")) {
+      openOperatorScanPanel();
       return;
     }
     if (e.target.closest("#operatorOrder3dResetCam")) {
       const { getOperatorOrder3dViewer } = await import("./operator-3d.js");
       getOperatorOrder3dViewer()?.resetCamera?.();
-      return;
-    }
-    if (e.target.closest("#operatorCameraBtn, #operatorClientCameraBtn, #operatorWorkCameraBtn")) {
-      openOperatorCameraScan(state.operatorStage);
       return;
     }
     if (!e.target.closest(".operator-shell")) return;
