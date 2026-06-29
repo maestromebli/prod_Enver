@@ -17,6 +17,7 @@ import {
   prepareViewerPopup,
   closePreparedViewerPopup
 } from "./part-viewer-window.js";
+import { isNativeOperatorShell } from "./operator-native.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -286,7 +287,7 @@ async function handleScan(
     if (data.model?.viewerUrl) {
       const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
       popup = null;
-      if (!opened) {
+      if (!opened && !isNativeOperatorShell()) {
         toastError("Натисніть «Відкрити 3D» або дозвольте нові вкладки");
       }
     } else {

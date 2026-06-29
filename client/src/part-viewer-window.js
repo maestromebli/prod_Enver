@@ -1,6 +1,9 @@
 /** Відкриття 3D у окремому вікні (панель оператора, скан). */
 
+import { isNativeOperatorShell } from "./operator-native.js";
+
 const VIEWER_WINDOW_NAME = "enver-3d-viewer";
+const VIEWER_RETURN_KEY = "enver_viewer_return";
 const VIEWER_FEATURES =
   "popup=yes,width=1360,height=900,menubar=no,toolbar=no,location=no,status=no";
 
@@ -15,6 +18,7 @@ function isMobileLikeDevice() {
 
 /** Синхронно відкрити вікно (до await) — інакше браузер блокує popup. */
 export function prepareViewerPopup() {
+  if (isNativeOperatorShell()) return null;
   if (viewerPopup && !viewerPopup.closed) {
     return viewerPopup;
   }
@@ -60,8 +64,41 @@ export function buildViewerUrl({ partId = null, orderId = null, positionId = nul
   return url.toString();
 }
 
+function markViewerReturnPath() {
+  try {
+    sessionStorage.setItem(
+      VIEWER_RETURN_KEY,
+      `${window.location.pathname}${window.location.search}${window.location.hash}`
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Закрити 3D (popup або повернення в APK/WebView). */
+export function closeViewerWindow() {
+  if (isNativeOperatorShell() || sessionStorage.getItem(VIEWER_RETURN_KEY)) {
+    const ret = sessionStorage.getItem(VIEWER_RETURN_KEY) || "/operator.html";
+    sessionStorage.removeItem(VIEWER_RETURN_KEY);
+    window.location.assign(ret);
+    return;
+  }
+  try {
+    window.close();
+  } catch {
+    /* ignore */
+  }
+}
+
 export function openViewerWindow(params = {}, { preparedPopup = null } = {}) {
   const href = buildViewerUrl(params);
+
+  if (isNativeOperatorShell()) {
+    markViewerReturnPath();
+    window.location.assign(href);
+    return null;
+  }
+
   let popup = preparedPopup && !preparedPopup.closed ? preparedPopup : null;
 
   if (popup) {

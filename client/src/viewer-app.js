@@ -11,6 +11,7 @@ import {
   formatEdgeCodeLabel,
   formatProjectEdgeMask
 } from "@enver/shared/production/part-detail-display.js";
+import { closeViewerWindow } from "./part-viewer-window.js";
 
 let viewer = null;
 let currentPart = null;
@@ -250,7 +251,7 @@ function bindToolbar() {
       }
     });
   });
-  document.getElementById("viewerCloseBtn")?.addEventListener("click", () => window.close());
+  document.getElementById("viewerCloseBtn")?.addEventListener("click", () => closeViewerWindow());
 }
 
 function bindHotkeys() {

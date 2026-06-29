@@ -3,8 +3,10 @@ package ua.enver.operator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
+import android.os.Message
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -39,7 +41,6 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun startWithUrl(serverUrl: String) {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Як у Chrome PWA: системні панелі + safe-area, без приховування навігації.
         WindowCompat.setDecorFitsSystemWindows(window, true)
 
         webView = WebView(this)
@@ -57,11 +58,12 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
             textZoom = 100
-            // Завжди тягнути свіжий UI з сервера після деплою.
             cacheMode = WebSettings.LOAD_NO_CACHE
+            javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(true)
             val ua = userAgentString.orEmpty()
             if (!ua.contains("EnverOperator/")) {
-                userAgentString = "$ua EnverOperator/1.0"
+                userAgentString = "$ua EnverOperator/1.0.4"
             }
         }
 
@@ -69,11 +71,39 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient =
             object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
+                    if (request?.isForMainFrame != true) return false
+                    val url = request.url?.toString().orEmpty()
+                    if (url.isBlank()) return false
+                    view?.loadUrl(url)
+                    return true
+                }
+
                 @Deprecated("Deprecated in API 24")
-                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean = false
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url.isNullOrBlank()) return false
+                    view?.loadUrl(url)
+                    return true
+                }
             }
 
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient =
+            object : WebChromeClient() {
+                override fun onCreateWindow(
+                    view: WebView?,
+                    isDialog: Boolean,
+                    isUserGesture: Boolean,
+                    resultMsg: Message?
+                ): Boolean {
+                    val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                    transport.webView = webView
+                    resultMsg.sendToTarget()
+                    return true
+                }
+            }
 
         onBackPressedDispatcher.addCallback(
             this,
