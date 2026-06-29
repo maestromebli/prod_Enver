@@ -35,8 +35,7 @@
 .op-part-scan.is-detail-open .op-part-scan-hint,
 .op-part-scan.is-detail-open .op-part-scan-bar,
 .op-part-scan.is-detail-open .op-part-scan-actions,
-.op-part-scan.is-detail-open .op-part-scan-mode,
-.op-part-scan.is-detail-open .op-order-3d--scan {
+.op-part-scan.is-detail-open .op-part-scan-mode {
   display: none;
 }
 
@@ -84,11 +83,6 @@
   color: var(--op-accent, #245c3b);
 }
 
-.op-order-3d--scan {
-  margin-top: 12px;
-  margin-bottom: 4px;
-}
-
 .op-part-scan.is-scan-open {
   margin-top: 12px;
 }
@@ -128,6 +122,13 @@
   font-weight: 600;
   border-color: color-mix(in srgb, var(--op-accent, #245c3b) 40%, transparent);
   background: color-mix(in srgb, var(--op-accent, #245c3b) 10%, transparent);
+}
+
+.op-btn-scan.is-active,
+.operator-client-header .operator-client-scan-btn.is-active {
+  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 65%, transparent);
+  background: color-mix(in srgb, var(--op-accent, #245c3b) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--op-accent, #245c3b) 25%, transparent);
 }
 
 .op-scan-glyph {

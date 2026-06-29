@@ -23,7 +23,7 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
-import { destroyOperatorOrder3d } from "./operator-3d.js";
+import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
@@ -89,6 +89,7 @@ function renderOperatorClient() {
   bindOperatorQueueSwipe();
   bindOperatorScanPanel(state.operatorStage);
   syncOperatorClientScanButtons(state.operatorStage);
+  void bindOperatorOrder3d();
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
   schedulePersistUiState();

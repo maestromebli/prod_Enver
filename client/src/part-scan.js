@@ -109,24 +109,8 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
 }
 
 /** Вбудована зона сканування в панелі оператора (порізка, поклейка, присадка, збірка). */
-export function renderOperatorScanPanel(stageKey, { orderId = 0, positionId = 0 } = {}) {
+export function renderOperatorScanPanel(stageKey) {
   if (!isPartScanStage(stageKey)) return "";
-  const order3dBlock =
-    orderId > 0
-      ? `
-      <section class="op-order-3d op-order-3d--scan" id="operatorOrder3dSection" hidden>
-        <div class="op-order-3d-head">
-          <h3 class="op-section-title">3D модель</h3>
-          <button type="button" class="btn btn-sm op-order-3d-reset" id="operatorOrder3dResetCam" hidden>Скинути камеру</button>
-        </div>
-        <div
-          id="operatorOrder3dMount"
-          class="op-order-3d-mount"
-          data-order-id="${orderId}"
-          data-position-id="${positionId || ""}"
-        ></div>
-      </section>`
-      : "";
   return `
     <section class="op-part-scan" id="operatorPartScan" aria-label="Сканування деталі" hidden>
       <div class="op-part-scan-head">
@@ -161,7 +145,6 @@ export function renderOperatorScanPanel(stageKey, { orderId = 0, positionId = 0 
         <button type="button" class="btn scan-btn" id="operatorScanManualBtn">Ввести вручну</button>
         <button type="button" class="btn scan-btn" id="operatorScanCameraBtn">Відкрити камеру</button>
       </div>
-      ${order3dBlock}
       <div id="operatorPartScanDetail" class="op-part-scan-result" hidden></div>
     </section>`;
 }
@@ -203,6 +186,15 @@ async function mountViewer(container, data) {
   }
 }
 
+function syncOperatorScanButtonState(open) {
+  for (const id of ["operatorScanBtn", "operatorClientScanBtn"]) {
+    const btn = $(`#${id}`);
+    if (!btn) continue;
+    btn.classList.toggle("is-active", open);
+    btn.setAttribute("aria-pressed", String(open));
+  }
+}
+
 function setScanPanelOpen(open) {
   const section = $("#operatorPartScan");
   if (!section) return;
@@ -212,6 +204,7 @@ function setScanPanelOpen(open) {
   if (panelBack) panelBack.hidden = !open;
   const headerBack = $("#operatorClientBackBtn");
   if (headerBack) headerBack.hidden = !open;
+  syncOperatorScanButtonState(open);
   if (!open) {
     scannerListener?.destroy();
     scannerListener = null;
@@ -512,7 +505,21 @@ export function openOperatorScanPanel() {
   }
   section.scrollIntoView({ behavior: "smooth", block: "nearest" });
   input.focus();
-  void import("./operator-3d.js").then((m) => m.bindOperatorOrder3d());
+}
+
+/** Чи відкрита панель сканування. */
+export function isOperatorScanPanelOpen() {
+  const section = $("#operatorPartScan");
+  return Boolean(section && !section.hidden);
+}
+
+/** Відкрити або згорнути панель сканування (кнопка «Сканувати»). */
+export function toggleOperatorScanPanel() {
+  if (isOperatorScanPanelOpen()) {
+    closeOperatorScanPanel();
+  } else {
+    openOperatorScanPanel();
+  }
 }
 
 /** Закрити режим сканування. */
@@ -526,12 +533,11 @@ export function closeOperatorScanPanel() {
     scanInput: $("#operatorScanInput") || $("#scanInput")
   });
   setScanPanelOpen(false);
-  void import("./operator-3d.js").then((m) => m.destroyOperatorOrder3d());
 }
 
-/** @deprecated використовуйте openOperatorScanPanel */
+/** @deprecated використовуйте toggleOperatorScanPanel */
 export function focusOperatorScanInput() {
-  openOperatorScanPanel();
+  toggleOperatorScanPanel();
 }
 
 /** Відкрити сканування камерою (кнопка всередині панелі сканування). */
