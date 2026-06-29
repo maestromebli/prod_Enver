@@ -11,24 +11,28 @@
 .viewer-window-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 5px;
   flex-wrap: wrap;
-  padding: 10px 14px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
   background: var(--enver-surface, #1a2420);
+}
+
+.viewer-window-header .enver-brand--header {
+  --enver-brand-h: 0.6rem;
 }
 
 .viewer-window-title-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
-  flex: 1 1 200px;
+  flex: 1 1 160px;
 }
 
 .viewer-window-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -38,7 +42,15 @@
 .viewer-window-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+}
+
+.viewer-window-header .btn.btn-sm,
+.viewer-window-close.btn.btn-sm {
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  min-height: 1.35rem;
+  line-height: 1.2;
 }
 
 .viewer-window-toolbar .btn.is-active {
@@ -134,7 +146,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 28vh;
+  max-height: 42vh;
   overflow-y: auto;
   font-size: 0.78rem;
 }
@@ -143,6 +155,7 @@
   display: flex;
   gap: 8px;
   color: #cbd5e1;
+  flex-wrap: wrap;
 }
 
 .viewer-hole-d {
@@ -151,9 +164,17 @@
   min-width: 2.5rem;
 }
 
-.viewer-hole-more {
-  margin: 6px 0 0;
+.viewer-hole-face {
+  color: #94a3b8;
   font-size: 0.72rem;
+}
+
+.viewer-edge-cutout {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #86efac;
+  line-height: 1.4;
 }
 
 .viewer-window-main {

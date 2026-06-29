@@ -13,6 +13,26 @@ import {
 } from "@enver/shared/production/part-detail-display.js";
 import { closeViewerWindow } from "./part-viewer-window.js";
 
+const HOLE_FACE_LABELS = {
+  panel: "лице",
+  bottom: "торець низ",
+  top: "торець верх",
+  left: "бік ліво",
+  right: "бік право"
+};
+
+function formatHoleListItem(hole) {
+  const d = hole.diameterMm ? `Ø${hole.diameterMm}` : "Ø?";
+  const face = HOLE_FACE_LABELS[hole.face] || hole.kind || "отвір";
+  const pos =
+    hole.xMm != null && hole.yMm != null
+      ? `${hole.xMm}×${hole.yMm}`
+      : hole.yMm != null && hole.zMm != null
+        ? `Y${hole.yMm} Z${hole.zMm}`
+        : "—";
+  return `<li><span class="viewer-hole-d">${escapeHtml(d)}</span> <span class="viewer-hole-face">${escapeHtml(face)}</span> ${escapeHtml(pos)} мм</li>`;
+}
+
 let viewer = null;
 let currentPart = null;
 let currentCadGeometry = null;
@@ -76,31 +96,35 @@ function formatEdgeLabel(part, cadGeometry) {
   return formatEdgeCodeLabel(part?.edgeCode || part?.edge_code);
 }
 
-function renderHoleList(cadGeometry) {
+function renderHoleList(cadGeometry, part) {
   const holes = cadGeometry?.holes || [];
-  if (!holes.length) return "";
-  const items = holes
-    .slice(0, 14)
-    .map((h) => {
-      const d = h.diameterMm ? `Ø${h.diameterMm}` : "Ø?";
-      const pos =
-        h.xMm != null && h.yMm != null
-          ? `${h.xMm}×${h.yMm}`
-          : h.yMm != null && h.zMm != null
-            ? `Y${h.yMm} Z${h.zMm}`
-            : "—";
-      return `<li><span class="viewer-hole-d">${escapeHtml(d)}</span> ${escapeHtml(pos)} мм</li>`;
-    })
-    .join("");
-  const more =
-    holes.length > 14 ? `<p class="viewer-hole-more enver-meta">+ ще ${holes.length - 14}</p>` : "";
-  return `
-    <div class="viewer-hole-list">
-      <h3 class="viewer-hole-list-title">Отвори (${holes.length})</h3>
-      <ul class="viewer-hole-items">${items}</ul>
-      ${more}
-    </div>
-  `;
+  const edgeMask = cadGeometry?.edgeMask;
+  const edgeLabel = edgeMask?.some(Boolean)
+    ? cadGeometry?.edgeMaskSource === "project"
+      ? formatProjectEdgeMask(edgeMask)
+      : formatEdgeCodeLabel(part?.edgeCode || part?.edge_code)
+    : "";
+  const sections = [];
+
+  if (holes.length) {
+    sections.push(`
+      <div class="viewer-hole-list">
+        <h3 class="viewer-hole-list-title">Кріплення (${holes.length})</h3>
+        <ul class="viewer-hole-items">${holes.map(formatHoleListItem).join("")}</ul>
+      </div>
+    `);
+  }
+
+  if (edgeMask?.some(Boolean)) {
+    sections.push(`
+      <div class="viewer-hole-list viewer-hole-list--edge">
+        <h3 class="viewer-hole-list-title">Вирізи кромки</h3>
+        <p class="viewer-edge-cutout">${escapeHtml(edgeLabel)}</p>
+      </div>
+    `);
+  }
+
+  return sections.join("");
 }
 
 function populateSidebar(data) {
@@ -135,8 +159,8 @@ function populateSidebar(data) {
     .join("");
 
   if (holesEl) {
-    holesEl.innerHTML = renderHoleList(cad);
-    holesEl.hidden = !cad?.holes?.length;
+    holesEl.innerHTML = renderHoleList(cad, part);
+    holesEl.hidden = !cad?.holes?.length && !cad?.edgeMask?.some(Boolean);
   }
 
   sidebar.hidden = false;
@@ -148,15 +172,22 @@ function setToolbarActive(action) {
   });
 }
 
-async function highlightPartGhost(part) {
+async function showPartOnAssembly(part) {
   if (!part || !viewer) return;
   currentPart = part;
   const target = resolveHighlightTarget(part);
-  if (!target) return;
-  viewer.highlightPart({ meshName: target.meshName, nodeId: target.nodeId, ghost: true });
+  if (viewer.showPartOnAssembly) {
+    viewer.showPartOnAssembly(part, target);
+  } else {
+    viewer.highlightPart({ meshName: target?.meshName, nodeId: target?.nodeId, ghost: true });
+  }
   setToolbarActive("ghost");
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
+}
+
+async function highlightPartGhost(part) {
+  await showPartOnAssembly(part);
 }
 
 async function showPartDetailView(part) {
@@ -207,7 +238,7 @@ async function applyPartHighlight(payload = {}) {
   currentPart = part;
   applyCadGeometry(cadGeometry);
   populateSidebar(sidebarData);
-  await showPartDetailView(part);
+  await showPartOnAssembly(part);
 }
 
 function toggleCadFlag(flag, action) {
@@ -332,7 +363,7 @@ async function mountFromScanData(container, data) {
     .join(" · ");
   setTitle(title || "3D модель");
   populateSidebar(data);
-  await showPartDetailView(data.part);
+  await showPartOnAssembly(data.part);
   bindToolbar();
   bindHotkeys();
 }

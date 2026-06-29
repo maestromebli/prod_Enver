@@ -470,6 +470,7 @@ export function createPartViewer(
       metalness: 0.25,
       roughness: 0.45
     });
+    let hasMarkers = false;
 
     if (cadHoles?.length) {
       const scaleMm = Math.max(panelMm.dx || 0, panelMm.dy || 0, panelMm.dz || 0, 1);
@@ -496,8 +497,8 @@ export function createPartViewer(
         marker.castShadow = true;
         marker.userData.cadHole = hole;
         group.add(marker);
+        hasMarkers = true;
       }
-      addEdgeBands(box, cad?.edgeMask, group);
     } else if (drilling.length) {
       const markerGeom = new THREE.CylinderGeometry(
         DRILL_MARKER_RADIUS,
@@ -546,12 +547,18 @@ export function createPartViewer(
           }
           group.add(marker);
           idx++;
+          hasMarkers = true;
         }
       }
       group.userData.sharedDrillGeom = markerGeom;
-    } else {
-      return;
     }
+
+    if (cad?.edgeMask?.some(Boolean)) {
+      addEdgeBands(box, cad.edgeMask, group);
+      hasMarkers = true;
+    }
+
+    if (!hasMarkers) return;
 
     detailMarkers = group;
     scene.add(group);
@@ -1153,6 +1160,31 @@ export function createPartViewer(
     });
   }
 
+  /** Підсвітка деталі на загальному виробі + кріплення та вирізи кромки. */
+  function showPartOnAssembly(part, targetHint = null) {
+    if (!model || !part) return null;
+    clearDetailMarkers();
+
+    const hint = targetHint || resolvePartHighlightMesh(part) || {};
+    applyHighlight({ ...hint, ghost: true, isolate: false });
+
+    const mesh = highlightMesh;
+    if (mesh) {
+      applyKromkaEdgeHighlight(mesh, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
+      addDrillMarkers(mesh, part, cadGeometry);
+      const panelMm = resolvePanelMm(cadGeometry, part);
+      if (panelMm.dx && panelMm.dy && panelMm.dz) {
+        panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
+        panelDimsHud.hidden = false;
+      } else {
+        panelDimsHud.hidden = true;
+      }
+    }
+
+    fitToView(model);
+    return mesh;
+  }
+
   function resetCamera() {
     fitToView();
   }
@@ -1238,6 +1270,9 @@ export function createPartViewer(
     },
     showPartDetail(part, targetHint) {
       return applyPartDetailView(part, targetHint);
+    },
+    showPartOnAssembly(part, targetHint) {
+      return showPartOnAssembly(part, targetHint);
     },
     setCadGeometry(geometry) {
       setCadGeometry(geometry);

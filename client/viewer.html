@@ -32,10 +32,10 @@
         <h1 class="viewer-window-title" id="viewerTitle">3D модель</h1>
       </div>
       <div class="viewer-window-toolbar" id="viewerToolbar" hidden>
-        <button type="button" class="btn btn-sm is-active" data-viewer-action="detail">
-          Деталь
+        <button type="button" class="btn btn-sm is-active" data-viewer-action="ghost">
+          На виробі
         </button>
-        <button type="button" class="btn btn-sm" data-viewer-action="ghost">Контекст</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="detail">Деталь</button>
         <button type="button" class="btn btn-sm" data-viewer-action="isolate">Тільки деталь</button>
         <button type="button" class="btn btn-sm" data-viewer-action="all">Весь виріб</button>
         <button type="button" class="btn btn-sm" data-viewer-action="section">Розріз</button>
@@ -58,8 +58,9 @@
         <dl class="viewer-meta-list" id="viewerMeta"></dl>
         <div id="viewerHoles" class="viewer-holes-wrap" hidden></div>
         <p class="viewer-hotkeys-hint enver-meta">
-          Обертання — перетягування · Масштаб — колесо · <kbd>D</kbd> деталь · <kbd>G</kbd> контекст
-          · <kbd>R</kbd> камера · <kbd>F</kbd> вмістити · <kbd>M</kbd> вимір · <kbd>X</kbd> розріз
+          Обертання — перетягування · Масштаб — колесо · <kbd>G</kbd> на виробі ·
+          <kbd>D</kbd> деталь · <kbd>R</kbd> камера · <kbd>F</kbd> вмістити · <kbd>M</kbd> вимір ·
+          <kbd>X</kbd> розріз
         </p>
       </aside>
       <main class="viewer-window-main" id="viewerMount" aria-label="3D перегляд">
