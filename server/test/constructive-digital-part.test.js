@@ -142,15 +142,28 @@ describe("constructive-package shared", () => {
   });
 
   it("formatPartDimensionsMm — розміри в мм", async () => {
-    const { formatPartDimensionsMm, stripMmUnit } =
+    const { formatPartDimensionsMm, formatMmNumber, stripMmUnit } =
       await import("../../shared/production/constructive-package.js");
     assert.equal(stripMmUnit("16 мм"), "16");
+    assert.equal(formatMmNumber("1896.00"), "1896");
     assert.equal(formatPartDimensionsMm({ length: "580", width: "720" }), "580×720 мм");
     assert.equal(
       formatPartDimensionsMm({ length: "500", width: "400", thickness: "16" }),
       "500×400×16 мм"
     );
+    assert.equal(
+      formatPartDimensionsMm({ length: "1896.00", width: "540.00", thickness: "18" }),
+      "1896×540×18 мм"
+    );
     assert.equal(formatPartDimensionsMm({ length: "", width: "" }), "—");
+  });
+
+  it("formatMeshBoundingBoxMm — метри GLB і мм VRML", async () => {
+    const { formatMeshBoundingBoxMm } =
+      await import("../../shared/production/constructive-package.js");
+    assert.equal(formatMeshBoundingBoxMm([1.896, 0.018, 0.54]), "1896×540×18 мм");
+    assert.equal(formatMeshBoundingBoxMm([1896, 540, 18]), "1896×540×18 мм");
+    assert.equal(formatMeshBoundingBoxMm([]), "");
   });
 
   it("resolvePartByMeshName — зіставлення mesh з деталлю", async () => {
@@ -176,6 +189,13 @@ describe("constructive-package shared", () => {
     assert.equal(info.numberLine, "B1 · №21");
     assert.equal(info.dimensions, "500×720×18 мм");
     assert.equal(info.material, "ДСП 18");
+    const fallback = formatPartPickerInfo(
+      { blockCode: "B2", partNo: "3", partName: "Полиця" },
+      { sizeLabel: "800×400×18 мм" }
+    );
+    assert.equal(fallback.dimensions, "800×400×18 мм");
+    const meshOnly = formatPartPickerInfo(null, { sizeLabel: "600×320×16 мм" });
+    assert.equal(meshOnly.dimensions, "600×320×16 мм");
   });
 
   it("isStalePackageParsing — завислий parsing", async () => {

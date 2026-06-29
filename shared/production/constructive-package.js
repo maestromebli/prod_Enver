@@ -704,15 +704,38 @@ export function stripMmUnit(value) {
     .trim();
 }
 
+/** Нормалізує числове поле розміру до цілого мм. */
+export function formatMmNumber(value) {
+  const stripped = stripMmUnit(value);
+  if (!stripped) return "";
+  const n = Number(String(stripped).replace(",", "."));
+  if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  return stripped;
+}
+
 /** Розміри деталі з .project — L×W [×T] у міліметрах. */
 export function formatPartDimensionsMm(part = {}) {
-  const length = stripMmUnit(part.length);
-  const width = stripMmUnit(part.width);
-  const thickness = stripMmUnit(part.thickness);
+  const length = formatMmNumber(part.length);
+  const width = formatMmNumber(part.width);
+  const thickness = formatMmNumber(part.thickness);
   if (!length && !width) return "—";
   const dims = [length || "—", width || "—"];
   if (thickness) dims.push(thickness);
   return `${dims.join("×")} мм`;
+}
+
+/**
+ * Розміри bounding box mesh у мм.
+ * GLB-превʼю будується в метрах; VRML з Базіс часто вже в мм (одиниці > ~50).
+ */
+export function formatMeshBoundingBoxMm(sizes = []) {
+  const raw = (Array.isArray(sizes) ? sizes : [])
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  if (!raw.length) return "";
+  const scaleToMm = Math.max(...raw) > 50 ? 1 : 1000;
+  const dims = raw.map((v) => Math.round(v * scaleToMm)).sort((a, b) => b - a);
+  return dims.length ? `${dims.join("×")} мм` : "";
 }
 
 /** Ключі імені mesh для зіставлення з деталлю (panel-10, B1-21, …). */
@@ -803,7 +826,8 @@ export function formatPartPickerInfo(part, { meshName = "", sizeLabel = "" } = {
   else if (partNo) numberLine = `№${partNo}`;
   else if (meshName) numberLine = `№${meshName.replace(/^panel-/i, "")}`;
 
-  const dims = part ? formatPartDimensionsMm(part) : sizeLabel || "—";
+  const catalogDims = part ? formatPartDimensionsMm(part) : "—";
+  const dims = catalogDims !== "—" ? catalogDims : sizeLabel || "—";
 
   return {
     numberLine: numberLine || "—",

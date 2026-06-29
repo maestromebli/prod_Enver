@@ -5,6 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { apiUrl } from "./api.js";
 import {
   formatPartPickerInfo,
+  formatMeshBoundingBoxMm,
   resolvePartByMesh
 } from "@enver/shared/production/constructive-package.js";
 import { escapeHtml } from "./utils.js";
@@ -205,9 +206,8 @@ export function createPartViewer(
   function meshSizeLabelMm(mesh) {
     if (!mesh) return "";
     const box = new THREE.Box3().setFromObject(mesh);
-    const size = box.getSize(new THREE.Vector3()).multiplyScalar(1000);
-    const dims = [size.x, size.y, size.z].map((v) => Math.round(v)).sort((a, b) => b - a);
-    return `${dims[0]}×${dims[1]}×${dims[2]} мм`;
+    const size = box.getSize(new THREE.Vector3());
+    return formatMeshBoundingBoxMm([size.x, size.y, size.z]);
   }
 
   function renderInfoPanel(part, mesh) {
