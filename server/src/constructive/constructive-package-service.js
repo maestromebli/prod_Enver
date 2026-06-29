@@ -508,6 +508,30 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, client) {
   return row || null;
 }
 
+async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
+  try {
+    if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
+      const fileRows = await getPackageFiles(packageId);
+      await autoSyncEnver3ToPackageB3d({ fileRows });
+      await withTransaction(async (client) => {
+        await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
+      });
+    } else if (
+      savedFiles.some((f) => f.kind === "other" && isEnverAssemblyJsonName(f.originalName))
+    ) {
+      const fileRows = await getPackageFiles(packageId);
+      const synced = await autoSyncEnver3ToPackageB3d({ fileRows });
+      if (synced.applied) {
+        await withTransaction(async (client) => {
+          await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[constructive] post-upload b3d preview:", err?.message || err);
+  }
+}
+
 async function saveFilesToPackage(packageId, positionId, files = []) {
   const savedFiles = [];
   for (const file of files) {
@@ -620,23 +644,7 @@ export async function uploadConstructivePackageFiles({
     throw err;
   }
 
-  if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
-    const fileRows = await getPackageFiles(packageId);
-    await autoSyncEnver3ToPackageB3d({ fileRows });
-    await withTransaction(async (client) => {
-      await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
-    });
-  } else if (
-    savedFiles.some((f) => f.kind === "other" && isEnverAssemblyJsonName(f.originalName))
-  ) {
-    const fileRows = await getPackageFiles(packageId);
-    const synced = await autoSyncEnver3ToPackageB3d({ fileRows });
-    if (synced.applied) {
-      await withTransaction(async (client) => {
-        await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
-      });
-    }
-  }
+  await runPostUploadB3dPipeline(packageId, positionId, savedFiles);
 
   await run(`UPDATE constructive_packages SET updated_at = now() WHERE id = $1`, [packageId]);
 

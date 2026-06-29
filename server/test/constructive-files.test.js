@@ -11,6 +11,7 @@ describe("shared/production/constructive-files", () => {
   it("приймає типові розширення конструктивів", () => {
     assert.equal(isConstructiveExtension("креслення.pdf"), true);
     assert.equal(isConstructiveExtension("модель.b3d"), true);
+    assert.equal(isConstructiveExtension("enver-assembly.json"), true);
     assert.equal(isConstructiveExtension("специфікація.xls"), true);
     assert.equal(isConstructiveExtension("readme.exe"), false);
   });

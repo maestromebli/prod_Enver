@@ -7,6 +7,7 @@ export const CONSTRUCTIVE_ACCEPT_EXT = [
   ".zip",
   ".xml",
   ".txt",
+  ".json",
   ".dwg",
   ".dxf",
   ".xls",

@@ -26,6 +26,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { requireAdmin, requireAuth } from "./middleware/auth.js";
 import { metricsMiddleware, metricsSnapshot } from "./metrics.js";
 import { createLogger } from "./logger.js";
+import { probeUploadsWritable } from "./file-storage.js";
 
 const log = createLogger("api");
 
@@ -78,6 +79,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api", apiFormatMiddleware);
 
   app.get("/api/health", (_req, res) => {
+    const uploads = probeUploadsWritable();
     res.json({
       ok: true,
       data: {
@@ -86,8 +88,10 @@ export function createApiApp({ dbConfigured, dbConnected }) {
         database: { configured: dbConfigured, connected: dbConnected },
         features: {
           constructiveAi: dbConnected,
-          fileUploads: dbConnected
-        }
+          fileUploads: dbConnected && uploads.ok,
+          uploadsWritable: uploads.ok
+        },
+        uploads
       }
     });
   });
@@ -117,6 +121,17 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   registerDownloadRoutes(app);
 
   app.use((err, req, res, _next) => {
+    if (err?.type === "entity.too.large") {
+      res
+        .status(413)
+        .json(
+          apiError(
+            "PAYLOAD_TOO_LARGE",
+            `Файл завеликий для завантаження (ліміт тіла запиту: ${config.jsonBodyLimit})`
+          )
+        );
+      return;
+    }
     log.error("unhandled", {
       requestId: req.requestId,
       message: err?.message,

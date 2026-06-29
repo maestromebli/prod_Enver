@@ -15,6 +15,38 @@ export function ensureUploadsDir() {
   return dir;
 }
 
+function rethrowStorageError(err, action = "запису файлу") {
+  if (err?.code === "EACCES" || err?.code === "EPERM") {
+    const wrapped = new Error(
+      `Немає прав на ${action} у ${getUploadsDir()} — перевірте UPLOADS_DIR і права Docker volume`
+    );
+    wrapped.status = 503;
+    wrapped.expose = true;
+    throw wrapped;
+  }
+  if (err?.code === "ENOSPC") {
+    const wrapped = new Error("Недостатньо місця на диску для збереження файлу");
+    wrapped.status = 507;
+    wrapped.expose = true;
+    throw wrapped;
+  }
+  throw err;
+}
+
+/** Перевірка запису в каталог завантажень (health / діагностика). */
+export function probeUploadsWritable() {
+  const dir = getUploadsDir();
+  try {
+    ensureUploadsDir();
+    const probe = path.join(dir, `.probe-${process.pid}-${Date.now()}`);
+    fs.writeFileSync(probe, "1");
+    fs.unlinkSync(probe);
+    return { ok: true, dir };
+  } catch (err) {
+    return { ok: false, dir, error: err?.code || err?.message || String(err) };
+  }
+}
+
 export function constructiveStoragePath(positionId, originalName) {
   const safe = String(originalName || "file")
     .replace(/[^\w.\-()+\u0400-\u04FF ]+/g, "_")
@@ -45,8 +77,12 @@ export async function saveConstructiveFile(positionId, { buffer, originalName, m
   ensureUploadsDir();
   const storagePath = constructiveStoragePath(positionId, originalName);
   const fullPath = resolveStoredPath(storagePath);
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  await fs.promises.writeFile(fullPath, buffer);
+  try {
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(fullPath, buffer);
+  } catch (err) {
+    rethrowStorageError(err);
+  }
   return {
     storagePath,
     originalName: originalName || "file",
@@ -59,8 +95,12 @@ export async function savePackageFile(positionId, packageId, { buffer, originalN
   ensureUploadsDir();
   const storagePath = packageFileStoragePath(positionId, packageId, originalName);
   const fullPath = resolveStoredPath(storagePath);
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  await fs.promises.writeFile(fullPath, buffer);
+  try {
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(fullPath, buffer);
+  } catch (err) {
+    rethrowStorageError(err);
+  }
   return {
     storagePath,
     originalName: originalName || "file",

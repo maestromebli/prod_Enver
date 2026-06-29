@@ -44,7 +44,13 @@ check_health() {
   docker compose exec -T enver node -e "
     fetch('http://127.0.0.1:3000/api/health')
       .then((r) => r.json())
-      .then((d) => process.exit(d.ok === true && d.data?.database?.connected === true ? 0 : 1))
+      .then((d) => process.exit(
+        d.ok === true &&
+        d.data?.database?.connected === true &&
+        d.data?.uploads?.ok !== false
+          ? 0
+          : 1
+      ))
       .catch(() => process.exit(1));
   "
 }
