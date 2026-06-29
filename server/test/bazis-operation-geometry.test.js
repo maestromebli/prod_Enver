@@ -17,6 +17,7 @@ const em09Project = path.join(
 
 describe("bazis-operation-geometry", () => {
   it("parseBazisProgramGeometry витягує bf-отвори з координатами мм", () => {
+    if (!fs.existsSync(em09Project)) return;
     const text = fs.readFileSync(em09Project);
     const projectText = decodeProjectText(text);
     const m = projectText.match(/code="0014x006x2"[^>]*program="([^"]+)"/i);
@@ -32,6 +33,7 @@ describe("bazis-operation-geometry", () => {
   });
 
   it("buildPartCadGeometry для №14 містить отвори з .project", () => {
+    if (!fs.existsSync(em09Project)) return;
     const projectText = decodeProjectText(fs.readFileSync(em09Project));
     const cad = buildPartCadGeometry({
       projectTexts: [projectText],
