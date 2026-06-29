@@ -55,6 +55,22 @@ async function main() {
 
   console.log("Міграції готові. Сідаємо…");
   await runSeed(client);
+
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = connectionString;
+  }
+  try {
+    const { resyncBazisOperationCodesForAllPackages } = await import(
+      "../src/constructive/bazis-operation-sync.js"
+    );
+    const result = await resyncBazisOperationCodesForAllPackages();
+    console.log(
+      `Bazis sync: ${result.packages} пакетів, ${result.partsUpdated} деталей оновлено`
+    );
+  } catch (err) {
+    console.warn("Bazis sync пропущено:", err?.message || err);
+  }
+
   console.log("Готово.");
 }
 
