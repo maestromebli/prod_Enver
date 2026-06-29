@@ -26,7 +26,7 @@ export function prefetchViewerModel(url, token = null) {
   return task;
 }
 
-export async function takePrefetchedModelBuffer(url, token = null) {
+export async function takePrefetchedModelBuffer(url, _token = null) {
   const fullUrl = String(url || "").startsWith("http") ? url : apiUrl(url);
   const task = inflight.get(fullUrl);
   if (!task) return null;
