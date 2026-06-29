@@ -151,29 +151,13 @@ body.operator-client-mode .operator-client-stage {
   background: color-mix(in srgb, var(--enver-primary, #245c3b) 10%, transparent);
 }
 
-.operator-client-header .operator-client-camera-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 700;
-  color: #1a5fb4;
-  border-color: color-mix(in srgb, #1a5fb4 35%, transparent);
-  background: color-mix(in srgb, #1a5fb4 10%, transparent);
-}
-
 .operator-client-header .operator-client-scan-btn .op-scan-glyph {
   font-size: 0.68rem;
   letter-spacing: -2px;
 }
 
-.operator-client-header .operator-client-camera-btn .op-camera-glyph {
-  font-size: 0.82rem;
-  line-height: 1;
-}
-
 @media (max-width: 420px) {
-  .operator-client-header .operator-client-scan-btn .op-scan-label,
-  .operator-client-header .operator-client-camera-btn .op-camera-label {
+  .operator-client-header .operator-client-scan-btn .op-scan-label {
     position: absolute;
     width: 1px;
     height: 1px;
