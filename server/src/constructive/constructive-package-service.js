@@ -32,7 +32,9 @@ import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-
 import {
   syncBazisOperationCodesForPackage,
   resolvePartRowByBazisProjectScan,
-  findPackageIdsByProjectBazisCode
+  findPackageIdsByProjectBazisCode,
+  findPartRowInPackageByBazis,
+  findPartRowByPartNoInPackage
 } from "./bazis-operation-sync.js";
 import {
   bazisScanLookupVariants,
@@ -1139,58 +1141,116 @@ export async function releasePackageToCnc(packageId, _actor) {
   return getPackageById(packageId);
 }
 
-export async function findPartByBarcode(barcodeValue) {
+export async function findPartByBarcode(barcodeValue, { positionId = null } = {}) {
   const code = String(barcodeValue || "").trim();
   if (!code) return null;
 
-  let row = await findPartRowByBarcodeOrQr(code);
+  const scopedPositionId = Number(positionId) > 0 ? Number(positionId) : null;
+
+  let row = await findPartRowByBarcodeOrQr(code, scopedPositionId);
   if (row) return mapPartRow(row);
 
+  if (scopedPositionId && isBazisOperationScanCode(code)) {
+    row = await findPartRowByBazisInPosition(scopedPositionId, code);
+    if (row) return mapPartRow(row);
+  }
+
   if (isBazisOperationScanCode(code)) {
-    row = await findPartRowByBazisCodesInDb(code);
+    row = await findPartRowByBazisCodesInDb(code, scopedPositionId);
     if (row) return mapPartRow(row);
 
-    row = await resolvePartRowByBazisProjectScan(code);
+    row = await resolvePartRowByBazisProjectScan(code, scopedPositionId);
     if (row) return mapPartRow(row);
 
-    row = await findPartRowByBazisPartNoGlobal(code);
+    row = await findPartRowByBazisPartNoGlobal(code, scopedPositionId);
     if (row) return mapPartRow(row);
   } else {
-    row = await findPartRowByBazisCodesInDb(code);
+    row = await findPartRowByBazisCodesInDb(code, scopedPositionId);
     if (row) return mapPartRow(row);
   }
 
   return null;
 }
 
-async function findPartRowByBarcodeOrQr(code) {
+async function findPartRowByBazisInPosition(positionId, scanCode) {
+  const packages = await all(
+    `SELECT id FROM constructive_packages WHERE position_id = $1 ORDER BY version DESC, id DESC`,
+    [positionId]
+  );
+  for (const pkg of packages) {
+    try {
+      const row = await findPartRowInPackageByBazis(pkg.id, scanCode);
+      if (row) return row;
+    } catch {
+      const row = await findPartRowByPartNoInPackage(pkg.id, scanCode);
+      if (row) return row;
+    }
+  }
+
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+  if (!partNo) return null;
+
+  const rows = await all(
+    `SELECT * FROM constructive_parts
+     WHERE position_id = $1
+       AND (part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2)
+     ORDER BY updated_at DESC NULLS LAST, id DESC
+     LIMIT 12`,
+    [positionId, partNo, partNo.padStart(2, "0")]
+  );
+  return pickBestPartRowForBazisScan(rows, scanCode);
+}
+
+async function findPartRowByBarcodeOrQr(code, positionId = null) {
   const variants = bazisScanLookupVariants(code);
   for (const v of variants) {
-    let row = await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [v]);
+    let row = positionId
+      ? await one(
+          `SELECT * FROM constructive_parts WHERE barcode_value = $1 AND position_id = $2`,
+          [v, positionId]
+        )
+      : await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [v]);
     if (row) return row;
 
-    row = await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [v]);
+    row = positionId
+      ? await one(`SELECT * FROM constructive_parts WHERE qr_value = $1 AND position_id = $2`, [
+          v,
+          positionId
+        ])
+      : await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [v]);
     if (row) return row;
   }
   return null;
 }
 
-async function findPartRowByBazisCodesInDb(code) {
+async function findPartRowByBazisCodesInDb(code, positionId = null) {
   const variants = bazisScanLookupVariants(code);
   const upperVariants = [...new Set(variants.map((v) => v.toUpperCase()))];
   if (!upperVariants.length) return null;
 
   try {
-    const rows = await all(
-      `SELECT * FROM constructive_parts
-       WHERE EXISTS (
-         SELECT 1 FROM unnest(bazis_operation_codes) c
-         WHERE upper(c) = ANY($1::text[])
-       )
-       ORDER BY updated_at DESC NULLS LAST, id DESC
-       LIMIT 12`,
-      [upperVariants]
-    );
+    const rows = positionId
+      ? await all(
+          `SELECT * FROM constructive_parts
+           WHERE position_id = $2
+             AND EXISTS (
+               SELECT 1 FROM unnest(bazis_operation_codes) c
+               WHERE upper(c) = ANY($1::text[])
+             )
+           ORDER BY updated_at DESC NULLS LAST, id DESC
+           LIMIT 12`,
+          [upperVariants, positionId]
+        )
+      : await all(
+          `SELECT * FROM constructive_parts
+           WHERE EXISTS (
+             SELECT 1 FROM unnest(bazis_operation_codes) c
+             WHERE upper(c) = ANY($1::text[])
+           )
+           ORDER BY updated_at DESC NULLS LAST, id DESC
+           LIMIT 12`,
+          [upperVariants]
+        );
     const matched = pickBestPartRowForBazisScan(rows, code);
     if (matched) return matched;
 
@@ -1201,7 +1261,12 @@ async function findPartRowByBazisCodesInDb(code) {
         [v]
       );
       if (inst) {
-        const partRow = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+        const partRow = positionId
+          ? await one(`SELECT * FROM constructive_parts WHERE id = $1 AND position_id = $2`, [
+              inst.part_id,
+              positionId
+            ])
+          : await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
         if (partRow) return partRow;
       }
     }
@@ -1213,18 +1278,27 @@ async function findPartRowByBazisCodesInDb(code) {
 }
 
 /** Останній резерв: partNo з коду Bazis по всіх пакетах (коли .project недоступний на диску). */
-async function findPartRowByBazisPartNoGlobal(scanCode) {
+async function findPartRowByBazisPartNoGlobal(scanCode, positionId = null) {
   const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
   if (!partNo) return null;
 
-  const packageIds = await findPackageIdsByProjectBazisCode(scanCode);
-  const rows = await all(
-    `SELECT * FROM constructive_parts
-     WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
-     ORDER BY updated_at DESC NULLS LAST, id DESC
-     LIMIT 40`,
-    [partNo, partNo.padStart(2, "0")]
-  );
+  const packageIds = positionId ? [] : await findPackageIdsByProjectBazisCode(scanCode);
+  const rows = positionId
+    ? await all(
+        `SELECT * FROM constructive_parts
+         WHERE position_id = $1
+           AND (part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2)
+         ORDER BY updated_at DESC NULLS LAST, id DESC
+         LIMIT 40`,
+        [positionId, partNo, partNo.padStart(2, "0")]
+      )
+    : await all(
+        `SELECT * FROM constructive_parts
+         WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
+         ORDER BY updated_at DESC NULLS LAST, id DESC
+         LIMIT 40`,
+        [partNo, partNo.padStart(2, "0")]
+      );
   if (!rows.length) return null;
 
   let candidates = rows;

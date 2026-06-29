@@ -97,7 +97,7 @@ export async function findPackageIdsByProjectBazisCode(scanCode) {
 }
 
 /** Знайти деталь у пакеті за partNo з коду Bazis (без колонки bazis_operation_codes). */
-async function findPartRowByPartNoInPackage(packageId, scanCode) {
+export async function findPartRowByPartNoInPackage(packageId, scanCode) {
   const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
   if (!partNo) return null;
 
@@ -116,7 +116,7 @@ async function findPartRowByPartNoInPackage(packageId, scanCode) {
   return pickBestPartRowForBazisScan(rows, scanCode);
 }
 
-async function findPartRowInPackageByBazis(packageId, scanCode) {
+export async function findPartRowInPackageByBazis(packageId, scanCode) {
   const variants = bazisScanLookupVariants(scanCode).map((v) => v.toUpperCase());
   if (!variants.length) return null;
 
@@ -310,14 +310,32 @@ export async function resyncBazisOperationCodesForAllPackages() {
 }
 
 /** Резолв деталі за кодом Bazis через .project (lazy backfill). */
-export async function resolvePartRowByBazisProjectScan(scanCode) {
+export async function resolvePartRowByBazisProjectScan(scanCode, positionId = null) {
   if (!isBazisOperationScanCode(scanCode)) return null;
 
   const normalized = normalizeBazisScanCode(scanCode);
   const partNo = partNoFromBazisOperationCode(normalized);
   if (!partNo) return null;
 
-  const packageIds = await findPackageIdsByProjectBazisCode(scanCode);
+  let packageIds = await findPackageIdsByProjectBazisCode(scanCode);
+  if (positionId) {
+    const scoped = await all(
+      `SELECT id FROM constructive_packages
+       WHERE position_id = $1 AND id = ANY($2::int[])
+       ORDER BY version DESC, id DESC`,
+      [positionId, packageIds.length ? packageIds : [0]]
+    );
+    packageIds = scoped.map((r) => r.id);
+    if (!packageIds.length) {
+      const posPackages = await all(
+        `SELECT id FROM constructive_packages
+         WHERE position_id = $1
+         ORDER BY version DESC, id DESC`,
+        [positionId]
+      );
+      packageIds = posPackages.map((r) => r.id);
+    }
+  }
   for (const packageId of packageIds) {
     try {
       await syncBazisOperationCodesForPackage(packageId);

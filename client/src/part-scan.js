@@ -1,4 +1,5 @@
 import { api, apiUrl, getStoredToken } from "./api.js";
+import { state } from "./state.js";
 import { createPartViewerLazy as createPartViewer } from "./part-viewer-lazy.js";
 import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
@@ -62,7 +63,9 @@ function modelFileUrl(viewerUrl) {
 }
 
 async function lookupBarcode(code) {
-  return api.scanPart(code);
+  const positionId =
+    state.operatorSelectedPositionId || state.operatorActiveSession?.position_id || null;
+  return api.scanPart(code, { positionId });
 }
 
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {

@@ -273,10 +273,14 @@ export const api = {
 
   getHealth: () => request("/api/health"),
 
-  scanPart: (barcode, station = "") =>
+  scanPart: (barcode, { station = "", positionId = null } = {}) =>
     request(`/api/parts/scan`, {
       method: "POST",
-      body: JSON.stringify({ barcode, station })
+      body: JSON.stringify({
+        barcode,
+        station,
+        ...(positionId != null ? { positionId } : {})
+      })
     }),
   partCncStart: (partId, body) =>
     request(`/api/parts/${partId}/cnc/start`, { method: "POST", body: JSON.stringify(body) }),
