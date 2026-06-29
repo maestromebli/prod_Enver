@@ -155,6 +155,7 @@ router.get("/:id", requireOperatorPanelView, async (req, res) => {
     note: row.note,
     barcodeValue: row.barcode_value,
     qrValue: row.qr_value,
+    bazisOperationCodes: Array.isArray(row.bazis_operation_codes) ? row.bazis_operation_codes : [],
     cncStatus: row.cnc_status,
     modelNodeId: row.model_node_id,
     modelMeshName: row.model_mesh_name

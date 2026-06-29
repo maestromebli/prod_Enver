@@ -8,22 +8,14 @@ import {
   CNC_PROBLEM_REASONS,
   formatPartDimensionsMm
 } from "@enver/shared/production/constructive-package.js";
+import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
 
 /** Імʼя mesh для підсвітки деталі в GLB (panel-{code} з Bazis / order-3d). */
 export function resolveHighlightTarget(part) {
-  if (!part) return null;
-  if (part.modelMeshName || part.modelNodeId) {
-    return {
-      meshName: part.modelMeshName || part.modelNodeId,
-      nodeId: part.modelNodeId || part.modelMeshName
-    };
-  }
-  const code = String(part.partCode || part.partNo || "").trim();
-  if (!code) return null;
-  return { meshName: `panel-${code}`, nodeId: `panel-${code}` };
+  return resolvePartHighlightMesh(part);
 }
 
 export function isPartScanStage(stageKey) {

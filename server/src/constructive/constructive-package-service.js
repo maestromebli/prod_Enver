@@ -28,6 +28,12 @@ import {
 import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
+import {
+  isBazisOperationScanCode,
+  normalizeBazisScanCode,
+  partNoFromBazisOperationCode
+} from "../../../shared/production/bazis-operation-code.js";
+import { syncBazisOperationCodesForPackage } from "./bazis-operation-sync.js";
 import { readPreviewLayoutFromGlb } from "./project-glb-builder.js";
 import { isLegacySharedMeshPreviewGlb } from "./project-glb-builder.js";
 import { recordHistory } from "../audit.js";
@@ -108,6 +114,7 @@ export function mapPartRow(row) {
     note: row.note,
     barcodeValue: row.barcode_value,
     qrValue: row.qr_value,
+    bazisOperationCodes: Array.isArray(row.bazis_operation_codes) ? row.bazis_operation_codes : [],
     cncStatus: row.cnc_status,
     modelNodeId: row.model_node_id,
     modelMeshName: row.model_mesh_name,
@@ -973,6 +980,8 @@ export async function parseConstructivePackage(packageId, actor) {
       );
     });
 
+    await syncBazisOperationCodesForPackage(packageId);
+
     await run(`UPDATE positions SET has_constructive_file = TRUE WHERE id = $1`, [pkg.position_id]);
 
     await recordHistory({
@@ -1114,19 +1123,63 @@ export async function findPartByBarcode(barcodeValue) {
   const code = String(barcodeValue || "").trim();
   if (!code) return null;
 
-  let row = await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [code]);
-  if (!row) {
-    row = await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [code]);
+  let row = await findPartRowByScanCode(code);
+  if (row) return mapPartRow(row);
+
+  if (isBazisOperationScanCode(code)) {
+    await backfillBazisOperationCodesForScan(code);
+    row = await findPartRowByScanCode(code);
+    if (row) return mapPartRow(row);
   }
-  if (!row) {
-    const inst = await one(`SELECT * FROM constructive_part_instances WHERE barcode_value = $1`, [
-      code
-    ]);
+
+  return null;
+}
+
+async function findPartRowByScanCode(code) {
+  const normalized = normalizeBazisScanCode(code);
+  const variants = [...new Set([code, normalized].filter(Boolean))];
+
+  for (const v of variants) {
+    let row = await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [v]);
+    if (row) return row;
+
+    row = await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [v]);
+    if (row) return row;
+
+    row = await one(`SELECT * FROM constructive_parts WHERE $1 = ANY(bazis_operation_codes)`, [v]);
+    if (row) return row;
+
+    const inst = await one(
+      `SELECT * FROM constructive_part_instances
+       WHERE barcode_value = $1 OR bazis_operation_code = $1`,
+      [v]
+    );
     if (inst) {
       row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+      if (row) return row;
     }
   }
-  return row ? mapPartRow(row) : null;
+  return null;
+}
+
+async function backfillBazisOperationCodesForScan(scanCode) {
+  const normalized = normalizeBazisScanCode(scanCode);
+  const partNo = partNoFromBazisOperationCode(normalized);
+  if (!partNo) return;
+
+  const packages = await all(
+    `SELECT DISTINCT cp.package_id
+     FROM constructive_parts cp
+     INNER JOIN constructive_package_files f ON f.package_id = cp.package_id AND f.kind = 'project'
+     WHERE (cp.part_no = $1 OR cp.part_no = $2)
+       AND (cp.bazis_operation_codes = '{}'::text[] OR NOT ($3 = ANY(cp.bazis_operation_codes)))
+     LIMIT 24`,
+    [partNo, String(Number(partNo)), normalized]
+  );
+
+  for (const { package_id: packageId } of packages) {
+    await syncBazisOperationCodesForPackage(packageId);
+  }
 }
 
 export async function recordScanEvent({
@@ -1218,10 +1271,11 @@ export function autoMapManifestNodes(parts, nodes = []) {
         (n) => n.meshName && blockCode && n.meshName.toLowerCase().includes(blockCode.toLowerCase())
       );
     if (match) {
+      const meshName = match.meshName || (partNo ? `panel-${partNo}` : "") || match.nodeId || "";
       mapped.push({
         partId: part.id,
-        modelNodeId: match.nodeId || match.meshName,
-        modelMeshName: match.meshName || ""
+        modelNodeId: match.nodeId || meshName,
+        modelMeshName: meshName
       });
     }
   }
