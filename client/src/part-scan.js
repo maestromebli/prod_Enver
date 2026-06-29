@@ -370,28 +370,15 @@ function bindScanControls({
     closeLabel
   };
 
+  const onScanBack = () => handleOperatorScanBack();
+  $("#operatorPartScanBackBtn")?.addEventListener("click", onScanBack, { signal });
+  $("#partScanBackBtn")?.addEventListener("click", onScanBack, { signal });
+  $("#operatorClientBackBtn")?.addEventListener("click", onScanBack, { signal });
+
   if (!scanInput) return;
 
   const onScan = (code) =>
     handleScan(code, { statusEl, detailEl, scanInput, showCncActions, closeLabel });
-
-  const onBackFromDetail = () => {
-    if (!detailEl || detailEl.hidden) return;
-    closePartScanDetail(detailEl, {
-      onClose: () => {
-        if (statusEl) statusEl.textContent = "Наведіть штрихридер на етикетку";
-      },
-      scanInput
-    });
-  };
-
-  const onBackFromScan = () => {
-    if (detailEl && !detailEl.hidden) {
-      onBackFromDetail();
-      return;
-    }
-    closeOperatorScanPanel();
-  };
 
   attachScannerListener({ scanInput, onScan });
 
@@ -415,10 +402,6 @@ function bindScanControls({
     },
     { signal }
   );
-
-  $("#operatorPartScanBackBtn")?.addEventListener("click", onBackFromScan, { signal });
-  $("#partScanBackBtn")?.addEventListener("click", onBackFromScan, { signal });
-  $("#operatorClientBackBtn")?.addEventListener("click", onBackFromScan, { signal });
 
   $("#operatorScanModeScanner")?.addEventListener(
     "click",
@@ -458,6 +441,7 @@ export function bindOperatorScanPanel(stageKey) {
     scanControlsAbort?.abort();
     scanControlsAbort = null;
     lastScanBindConfig = null;
+    closeOperatorScanPanel();
     return;
   }
 
@@ -525,6 +509,26 @@ export function closeOperatorScanPanel() {
     scanInput: $("#operatorScanInput") || $("#scanInput")
   });
   setScanPanelOpen(false);
+}
+
+/** Кнопка «Назад» у скануванні: з деталі → до сканера, зі сканера → до черги. */
+export function handleOperatorScanBack() {
+  const detailEl = $("#operatorPartScanDetail") || $("#partScanDetail");
+  const statusEl = $("#operatorScanStatus") || $("#scanStatus");
+  const scanInput = $("#operatorScanInput") || $("#scanInput");
+
+  if (detailEl && !detailEl.hidden) {
+    closePartScanDetail(detailEl, {
+      onClose: () => {
+        if (statusEl) statusEl.textContent = "Наведіть штрихридер на етикетку";
+      },
+      scanInput
+    });
+    return;
+  }
+  if (isOperatorScanPanelOpen()) {
+    closeOperatorScanPanel();
+  }
 }
 
 /** @deprecated використовуйте toggleOperatorScanPanel */

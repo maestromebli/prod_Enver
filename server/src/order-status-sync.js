@@ -110,17 +110,6 @@ export async function bootstrapOrderPositions(
       item,
       "Замовлення"
     ]);
-    if (orderRow.default_delivery_address || orderRow.client_address) {
-      const addr = String(
-        orderRow.default_delivery_address || orderRow.client_address || ""
-      ).trim();
-      if (addr) {
-        await run(
-          `UPDATE positions SET delivery_address = $2 WHERE id = $1 AND trim(delivery_address) = ''`,
-          [root.id, addr]
-        );
-      }
-    }
   }
 
   if (subItems.length) {

@@ -70,6 +70,18 @@ function applyOrderDefaults(orderNumber) {
   draft.orderNumber = order.orderNumber;
   draft.object = order.object;
   if (!draft.manager) draft.manager = order.manager;
+  if (!draft.deliveryAddress?.trim()) {
+    draft.deliveryAddress = order.defaultDeliveryAddress || "";
+  }
+  if (!draft.deliveryContactName?.trim()) {
+    draft.deliveryContactName = order.client || "";
+  }
+  if (!draft.positionDeadline?.trim()) {
+    draft.positionDeadline = order.planDate || "";
+  }
+  if (!draft.note?.trim()) {
+    draft.note = order.comment || "";
+  }
 }
 
 function renderDrawerContent() {

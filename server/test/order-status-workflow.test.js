@@ -5,6 +5,7 @@ import {
   applyOrderStatusPreset,
   defaultPositionRow,
   defaultSubPositionRow,
+  orderPositionFieldsFromOrder,
   normalizeOrderSubItems,
   orderStatusStagePreset,
   positionStagesChanged
@@ -80,11 +81,44 @@ describe("positionStagesChanged", () => {
   });
 });
 
+describe("orderPositionFieldsFromOrder", () => {
+  it("копіює адресу, клієнта, коментар і план з замовлення", () => {
+    const fields = orderPositionFieldsFromOrder({
+      default_delivery_address: "вул. Тестова 1",
+      client: "Іван Петренко",
+      comment: "Терміново",
+      plan_date: "30.06.2026"
+    });
+    assert.equal(fields.delivery_address, "вул. Тестова 1");
+    assert.equal(fields.delivery_contact_name, "Іван Петренко");
+    assert.equal(fields.note, "Терміново");
+    assert.equal(fields.position_deadline, "30.06.2026");
+  });
+});
+
 describe("defaultPositionRow", () => {
   it("містить has_constructive_file для INSERT", () => {
     const row = defaultPositionRow({ id: 1, order_number: "T-1", object: "Об'єкт" }, 10);
     assert.equal(row.packaging_status, "Не потрібно");
     assert.equal(row.has_constructive_file, false);
+
+    const full = defaultPositionRow(
+      {
+        id: 1,
+        order_number: "T-2",
+        object: "ЖК Ліпінка",
+        manager: "Олег",
+        default_delivery_address: "вул. 1",
+        client: "Клієнт",
+        comment: "Примітка",
+        plan_date: "01.07.2026"
+      },
+      20
+    );
+    assert.equal(full.delivery_address, "вул. 1");
+    assert.equal(full.delivery_contact_name, "Клієнт");
+    assert.equal(full.note, "Примітка");
+    assert.equal(full.position_deadline, "01.07.2026");
 
     const sub = defaultSubPositionRow(
       { id: 1, order_number: "T-1", object: "ЖК Ліпінка" },

@@ -27,6 +27,10 @@ const BASE_COLUMNS = [
   "overdue_days",
   "problem",
   "note",
+  "delivery_address",
+  "delivery_contact_name",
+  "delivery_contact_phone",
+  "position_deadline",
   "has_constructive_file",
   "current_stage"
 ];

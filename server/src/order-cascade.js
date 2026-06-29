@@ -72,6 +72,8 @@ export async function syncPositionsFromOrder(existing, updated) {
   const object = updated.object || "";
   const manager = updated.manager || "";
   const deliveryAddress = updated.default_delivery_address || "";
+  const contactName = updated.client || "";
+  const positionDeadline = updated.plan_date || "";
   const numbers = [...new Set([orderNumber, oldOrderNumber].filter(Boolean))];
 
   await run(
@@ -82,9 +84,17 @@ export async function syncPositionsFromOrder(existing, updated) {
       delivery_address = CASE
         WHEN $5 <> '' THEN $5
         ELSE delivery_address
+      END,
+      delivery_contact_name = CASE
+        WHEN $7 <> '' THEN $7
+        ELSE delivery_contact_name
+      END,
+      position_deadline = CASE
+        WHEN $8 <> '' THEN $8
+        ELSE position_deadline
       END
      WHERE order_id = $1 OR order_number = ANY($6::text[])`,
-    [orderId, orderNumber, object, manager, deliveryAddress, numbers]
+    [orderId, orderNumber, object, manager, deliveryAddress, numbers, contactName, positionDeadline]
   );
 
   const oldObject = String(existing.object || "").trim();

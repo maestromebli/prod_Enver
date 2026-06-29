@@ -24,6 +24,18 @@ export function applyOrderStatusPreset(row, preset) {
   return copy;
 }
 
+/** Поля замовлення, які копіюються на позицію при створенні та синхронізації. */
+export function orderPositionFieldsFromOrder(orderRow) {
+  return {
+    delivery_address: String(
+      orderRow.default_delivery_address || orderRow.client_address || ""
+    ).trim(),
+    delivery_contact_name: String(orderRow.client || "").trim(),
+    note: String(orderRow.comment || "").trim(),
+    position_deadline: String(orderRow.plan_date || "").trim()
+  };
+}
+
 export function defaultPositionRow(orderRow, id) {
   return {
     id,
@@ -34,6 +46,7 @@ export function defaultPositionRow(orderRow, id) {
     item: orderRow.object?.trim() || orderRow.order_number,
     item_type: "Інше",
     manager: orderRow.manager || "",
+    ...orderPositionFieldsFromOrder(orderRow),
     constructor_name: "",
     cutting_status: "Не розпочато",
     edging_status: "Не розпочато",
@@ -51,7 +64,6 @@ export function defaultPositionRow(orderRow, id) {
     progress: 0,
     overdue_days: 0,
     problem: "",
-    note: "",
     has_constructive_file: false
   };
 }

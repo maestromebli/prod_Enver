@@ -27,7 +27,13 @@ import { iconSvg, stageIconSvg } from "./icons.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
-import { isPartScanStage, toggleOperatorScanPanel, renderOperatorScanPanel } from "./part-scan.js";
+import { notifyUiChanged, persistUiState } from "./ui-persistence.js";
+import {
+  isPartScanStage,
+  toggleOperatorScanPanel,
+  renderOperatorScanPanel,
+  handleOperatorScanBack
+} from "./part-scan.js";
 import { isCuttingOneScreen } from "./operator-ui.js";
 
 async function afterOperatorMutation(result, onChange) {
@@ -628,6 +634,10 @@ export function bindOperatorActions(onChange) {
       toggleOperatorScanPanel();
       return;
     }
+    if (e.target.closest("#operatorClientBackBtn, #operatorPartScanBackBtn, #partScanBackBtn")) {
+      handleOperatorScanBack();
+      return;
+    }
     if (e.target.closest("#operatorOrder3dResetCam")) {
       const { getOperatorOrder3dViewer } = await import("./operator-3d.js");
       getOperatorOrder3dViewer()?.resetCamera?.();
@@ -641,15 +651,20 @@ export function bindOperatorActions(onChange) {
       return;
     }
     if (e.target.closest("#operatorBackBtn")) {
-      state.view = "main";
-      try {
-        const { refreshAppData } = await import("./data-sync.js");
-        await refreshAppData({ syncViews: true });
-      } catch (err) {
-        const { toastError } = await import("./toast.js");
-        toastError(err.message || "Не вдалося оновити дані");
-      }
+      closeOperatorView();
+      notifyUiChanged();
+      persistUiState();
       operatorOnChange();
+      void (async () => {
+        try {
+          const { refreshAppData } = await import("./data-sync.js");
+          await refreshAppData({ syncViews: true });
+          operatorOnChange();
+        } catch (err) {
+          const { toastError } = await import("./toast.js");
+          toastError(err.message || "Не вдалося оновити дані");
+        }
+      })();
       return;
     }
     if (e.target.closest("#operatorLogoutBtn")) {
