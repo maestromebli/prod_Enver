@@ -114,6 +114,7 @@ async function start() {
         req.path === "/" ||
         req.path === "/index.html" ||
         req.path === "/operator.html" ||
+        req.path === "/viewer.html" ||
         req.path === "/android-install.html" ||
         req.path === "/manifest-operator.webmanifest" ||
         req.path === "/sw-operator.js" ||

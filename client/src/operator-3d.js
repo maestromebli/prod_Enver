@@ -1,25 +1,37 @@
-import { api, getStoredToken } from "./api.js";
-import { order3dFileUrl } from "./order-3d/order-3d-api.js";
-import { resolveHighlightTarget } from "./part-scan.js";
+import { api } from "./api.js";
+import { highlightPartInViewerWindow, openOrderViewerWindow } from "./part-viewer-window.js";
 
-let viewer = null;
-let loadSeq = 0;
+let order3dReady = false;
+let order3dOrderId = null;
+let order3dPositionId = null;
 
 export function destroyOperatorOrder3d() {
-  viewer?.destroy?.();
-  viewer = null;
+  order3dReady = false;
+  order3dOrderId = null;
+  order3dPositionId = null;
+  const section = document.getElementById("operatorOrder3dSection");
+  const mount = document.getElementById("operatorOrder3dMount");
+  if (section) section.hidden = true;
+  if (mount) mount.innerHTML = "";
 }
 
 export function getOperatorOrder3dViewer() {
-  return viewer;
+  return null;
 }
 
 export function highlightOperatorOrder3dPart(part) {
-  if (!viewer || !part) return false;
-  const target = resolveHighlightTarget(part);
-  if (!target) return false;
-  viewer.highlightPart({ meshName: target.meshName, nodeId: target.nodeId, ghost: true });
-  return true;
+  return highlightPartInViewerWindow(part);
+}
+
+export function openOperatorOrder3dWindow() {
+  if (!order3dReady || !order3dOrderId) return null;
+  const popup = openOrderViewerWindow(order3dOrderId, order3dPositionId);
+  if (!popup) {
+    import("./toast.js").then(({ toastError }) => {
+      toastError("Дозвольте спливаючі вікна для 3D перегляду");
+    });
+  }
+  return popup;
 }
 
 export async function bindOperatorOrder3d() {
@@ -27,6 +39,7 @@ export async function bindOperatorOrder3d() {
 
   const mount = document.getElementById("operatorOrder3dMount");
   const section = document.getElementById("operatorOrder3dSection");
+  const openBtn = document.getElementById("operatorOpen3dBtn");
   if (!mount || !section) return;
 
   const orderId = Number(mount.dataset.orderId) || 0;
@@ -36,14 +49,12 @@ export async function bindOperatorOrder3d() {
     return;
   }
 
-  const seq = ++loadSeq;
   section.hidden = false;
-  mount.innerHTML = `<p class="op-order-3d-loading enver-meta">Завантаження 3D…</p>`;
+  mount.innerHTML = `<p class="op-order-3d-hint enver-meta">3D модель відкривається в окремому вікні</p>`;
+  if (openBtn) openBtn.hidden = true;
 
   try {
     const data = await api.getOrder3DAsset(orderId);
-    if (seq !== loadSeq) return;
-
     const asset = data?.asset;
     const isReady =
       asset && (asset.status === "READY" || asset.status === "PARTIAL_READY") && asset.webModelUrl;
@@ -54,34 +65,12 @@ export async function bindOperatorOrder3d() {
       return;
     }
 
-    mount.innerHTML = `<div class="part-viewer-3d op-order-3d-viewer" data-part-viewer></div>`;
-    const resetBtn = document.getElementById("operatorOrder3dResetCam");
-    if (resetBtn) resetBtn.hidden = false;
-
-    const viewerEl = mount.querySelector("[data-part-viewer]");
-    const parts = [];
-    if (positionId) {
-      try {
-        const pkg = await api.getConstructivePackageLatest(positionId);
-        if (seq === loadSeq && pkg?.parts?.length) {
-          parts.push(...pkg.parts);
-        }
-      } catch {
-        /* каталог необовʼязковий */
-      }
-    }
-
-    const { mountModelViewer } = await import("./part-viewer-mount.js");
-    viewer = await mountModelViewer(viewerEl, {
-      url: order3dFileUrl(orderId, asset.id, "web-model"),
-      token: getStoredToken(),
-      format: asset.webModelFormat || "glb",
-      parts
-    });
+    order3dReady = true;
+    order3dOrderId = orderId;
+    order3dPositionId = positionId || null;
+    if (openBtn) openBtn.hidden = false;
   } catch {
-    if (seq === loadSeq) {
-      section.hidden = true;
-      mount.innerHTML = "";
-    }
+    section.hidden = true;
+    mount.innerHTML = "";
   }
 }

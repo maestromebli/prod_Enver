@@ -23,6 +23,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, "index.html"),
         operator: path.resolve(__dirname, "operator.html"),
+        viewer: path.resolve(__dirname, "viewer.html"),
         androidInstall: path.resolve(__dirname, "android-install.html")
       }
     }

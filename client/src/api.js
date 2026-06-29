@@ -283,6 +283,7 @@ export const api = {
         ...(orderId != null ? { orderId } : {})
       })
     }),
+  getPart: (partId) => request(`/api/parts/${partId}`),
   partCncStart: (partId, body) =>
     request(`/api/parts/${partId}/cnc/start`, { method: "POST", body: JSON.stringify(body) }),
   partCncFinish: (partId, body) =>

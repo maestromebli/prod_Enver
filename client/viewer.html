@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a2e24" />
+    <title>ENVER — 3D перегляд</title>
+    <script src="/theme-init.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/icons/icon-192.png" />
+  </head>
+  <body class="enver-viewer-window">
+    <header class="viewer-window-header">
+      <div class="viewer-window-title-wrap">
+        <span class="enver-brand enver-brand--header" role="img" aria-label="ENVER">
+          <img
+            class="enver-brand__img enver-brand__img--dark"
+            src="/brand/enver-logo-dark.png"
+            alt=""
+          />
+          <img
+            class="enver-brand__img enver-brand__img--light"
+            src="/brand/enver-logo-light.png"
+            alt=""
+          />
+        </span>
+        <h1 class="viewer-window-title" id="viewerTitle">3D модель</h1>
+      </div>
+      <div class="viewer-window-toolbar" id="viewerToolbar" hidden>
+        <button type="button" class="btn btn-sm" data-viewer-action="isolate">Тільки деталь</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="all">Весь виріб</button>
+        <button type="button" class="btn btn-sm" data-viewer-action="reset">Скинути камеру</button>
+      </div>
+      <button type="button" class="btn btn-sm viewer-window-close" id="viewerCloseBtn">
+        Закрити
+      </button>
+    </header>
+    <main class="viewer-window-main" id="viewerMount" aria-label="3D перегляд">
+      <p class="viewer-window-loading enver-meta" id="viewerLoading">Завантаження…</p>
+    </main>
+    <p class="viewer-window-error form-error visible" id="viewerError" hidden></p>
+    <script type="module" src="/src/viewer-app.js"></script>
+  </body>
+</html>

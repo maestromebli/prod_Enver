@@ -1,6 +1,5 @@
-import { api, apiUrl, getStoredToken } from "./api.js";
+import { api } from "./api.js";
 import { state } from "./state.js";
-import { createPartViewerLazy as createPartViewer } from "./part-viewer-lazy.js";
 import { createScannerInputListener } from "./scanner-input.js";
 import { escapeHtml, $ } from "./utils.js";
 import { iconSvg } from "./icons.js";
@@ -13,6 +12,7 @@ import {
   resolvePartHighlightMesh,
   normalizeBazisScanCode
 } from "@enver/shared/production/bazis-operation-code.js";
+import { highlightPartInViewerWindow, openPartScanViewerWindow } from "./part-viewer-window.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -43,7 +43,6 @@ export function renderOperatorScanActionButton(_stageKey) {
 }
 
 let scannerListener = null;
-let viewer = null;
 let recentScans = [];
 let scanControlsAbort = null;
 let cameraScanCleanup = null;
@@ -51,18 +50,6 @@ let lastScanBindConfig = null;
 
 function playScanFeedback() {
   if (navigator.vibrate) navigator.vibrate(40);
-}
-
-function modelFileUrl(viewerUrl) {
-  if (!viewerUrl) return null;
-  const token = getStoredToken();
-  const q = token
-    ? (viewerUrl.includes("?") ? "&" : "?") + `access_token=${encodeURIComponent(token)}`
-    : "";
-  return (
-    apiUrl(viewerUrl.startsWith("http") ? viewerUrl : viewerUrl) +
-    (viewerUrl.startsWith("http") ? "" : q)
-  );
 }
 
 function cleanScanCode(raw) {
@@ -114,13 +101,11 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
         ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
+        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D відкривається в окремому вікні</p>` : ""}
       </div>
-      <div class="part-viewer-3d" data-part-viewer></div>
       <div class="part-detail-actions">
         ${cncActions}
-        <button type="button" class="btn btn-lg" data-viewer-action="isolate">Тільки деталь</button>
-        <button type="button" class="btn btn-lg" data-viewer-action="all">Весь виріб</button>
-        <button type="button" class="btn btn-lg" data-viewer-action="reset">Скинути камеру</button>
+        ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg btn-primary" data-open-3d>Відкрити 3D</button>` : ""}
         ${data.model?.assemblyPdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(data.model.assemblyPdfUrl)}" target="_blank" rel="noopener">Креслення</a>` : ""}
         <button type="button" class="btn btn-lg" data-part-scan-close>${escapeHtml(closeLabel)}</button>
       </div>
@@ -137,7 +122,7 @@ export function renderOperatorScanPanel(stageKey) {
           <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn">← Назад</button>
           <h3 class="op-part-scan-title">Сканування деталі</h3>
         </div>
-        <p class="op-part-scan-hint">Оберіть штрихридер або камеру — після сканування деталь підсвітиться у 3D</p>
+        <p class="op-part-scan-hint">Після сканування 3D відкриється в окремому вікні</p>
       </div>
       <div class="op-part-scan-mode" role="group" aria-label="Спосіб сканування">
         <button type="button" class="btn scan-btn op-part-scan-mode-btn is-active" id="operatorScanModeScanner" aria-pressed="true">
@@ -180,31 +165,6 @@ export function renderPartScanView() {
     .replace('class="op-part-scan"', 'class="part-scan-screen"');
 }
 
-async function mountViewer(container, data) {
-  viewer?.destroy();
-  viewer = null;
-  if (!container || !data.model?.viewerUrl) return;
-  try {
-    viewer = await createPartViewer(container);
-    const url = modelFileUrl(data.model.viewerUrl);
-    await viewer.loadModel(url, getStoredToken(), { format: data.model.viewerFormat || "glb" });
-    const catalog = data.model?.parts;
-    if (Array.isArray(catalog) && catalog.length) {
-      viewer.setPartCatalog(catalog);
-    }
-    const target = resolveHighlightTarget(data.part);
-    if (target) {
-      viewer.highlightPart({
-        meshName: target.meshName,
-        nodeId: target.nodeId,
-        ghost: true
-      });
-    }
-  } catch {
-    toastError("Не вдалося завантажити 3D модель");
-  }
-}
-
 function syncOperatorScanButtonState(open) {
   for (const id of ["operatorScanBtn", "operatorClientScanBtn"]) {
     const btn = $(`#${id}`);
@@ -212,6 +172,55 @@ function syncOperatorScanButtonState(open) {
     btn.classList.toggle("is-active", open);
     btn.setAttribute("aria-pressed", String(open));
   }
+}
+
+function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
+  if (detailEl) {
+    detailEl.hidden = true;
+    detailEl.innerHTML = "";
+  }
+  setScanDetailOpen(false);
+  onClose?.();
+  scanInput?.focus();
+}
+
+function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanInput } = {}) {
+  if (!detailEl) return;
+
+  detailEl.querySelectorAll("[data-part-scan-close]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closePartScanDetail(detailEl, { onClose, scanInput });
+    });
+  });
+
+  detailEl.querySelector("[data-open-3d]")?.addEventListener("click", () => {
+    openPartScanViewerWindow(data);
+  });
+
+  if (!showCncActions) return;
+
+  detailEl.querySelectorAll("[data-cnc-action]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const action = btn.dataset.cncAction;
+      try {
+        if (action === "problem") {
+          const reason = window.prompt(
+            `Причина проблеми:\n${CNC_PROBLEM_REASONS.join("\n")}`,
+            "Інше"
+          );
+          if (!reason) return;
+          await api.partCncProblem(data.part.id, { reason });
+        } else if (action === "start") {
+          await api.partCncStart(data.part.id, {});
+        } else if (action === "finish") {
+          await api.partCncFinish(data.part.id, {});
+        }
+        toastSuccess("Збережено");
+      } catch (err) {
+        toastError(err.message);
+      }
+    });
+  });
 }
 
 function setScanPanelOpen(open) {
@@ -267,66 +276,6 @@ function setScanMode(mode) {
   }
 }
 
-function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
-  viewer?.destroy();
-  viewer = null;
-  if (detailEl) {
-    detailEl.hidden = true;
-    detailEl.innerHTML = "";
-  }
-  setScanDetailOpen(false);
-  onClose?.();
-  scanInput?.focus();
-}
-
-function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanInput } = {}) {
-  if (!detailEl) return;
-
-  const container = detailEl.querySelector("[data-part-viewer]");
-  void mountViewer(container, data);
-
-  detailEl.querySelectorAll("[data-part-scan-close]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closePartScanDetail(detailEl, { onClose, scanInput });
-    });
-  });
-
-  detailEl.querySelectorAll("[data-viewer-action]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const action = btn.dataset.viewerAction;
-      const target = resolveHighlightTarget(data.part);
-      if (action === "isolate" && target) viewer?.isolatePart(target.meshName);
-      if (action === "all") viewer?.showAll();
-      if (action === "reset") viewer?.resetCamera();
-    });
-  });
-
-  if (!showCncActions) return;
-
-  detailEl.querySelectorAll("[data-cnc-action]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const action = btn.dataset.cncAction;
-      try {
-        if (action === "problem") {
-          const reason = window.prompt(
-            `Причина проблеми:\n${CNC_PROBLEM_REASONS.join("\n")}`,
-            "Інше"
-          );
-          if (!reason) return;
-          await api.partCncProblem(data.part.id, { reason });
-        } else if (action === "start") {
-          await api.partCncStart(data.part.id, {});
-        } else if (action === "finish") {
-          await api.partCncFinish(data.part.id, {});
-        }
-        toastSuccess("Збережено");
-      } catch (err) {
-        toastError(err.message);
-      }
-    });
-  });
-}
-
 async function handleScan(
   code,
   {
@@ -359,8 +308,13 @@ async function handleScan(
       detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
-    const { highlightOperatorOrder3dPart } = await import("./operator-3d.js");
-    highlightOperatorOrder3dPart(data.part);
+    if (data.model?.viewerUrl) {
+      const popup = openPartScanViewerWindow(data);
+      if (!popup) toastError("Дозвольте спливаючі вікна для 3D перегляду");
+    } else {
+      highlightPartInViewerWindow(data.part);
+    }
+
     scanInput?.focus();
   } catch (err) {
     if (statusEl) statusEl.textContent = err.message || "Помилка";
@@ -711,8 +665,6 @@ export function destroyPartScanView() {
   lastScanBindConfig = null;
   cameraScanCleanup?.();
   cameraScanCleanup = null;
-  viewer?.destroy();
-  viewer = null;
   setScanDetailOpen(false);
   setScanPanelOpen(false);
 }

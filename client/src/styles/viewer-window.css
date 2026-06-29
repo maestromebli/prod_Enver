@@ -1,0 +1,68 @@
+.enver-viewer-window {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--enver-bg, #0f1412);
+  color: var(--enver-text, #f4f7f5);
+  font-family: Manrope, system-ui, sans-serif;
+}
+
+.viewer-window-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
+  background: var(--enver-surface, #1a2420);
+}
+
+.viewer-window-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.viewer-window-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-window-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viewer-window-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+.viewer-window-main .part-viewer-3d,
+.viewer-window-main .part-viewer-host,
+.viewer-window-main .part-viewer-wrap {
+  width: 100%;
+  height: calc(100dvh - 56px);
+  min-height: 320px;
+}
+
+.viewer-window-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+}
+
+.viewer-window-error {
+  margin: 12px 14px;
+}

@@ -584,7 +584,9 @@ export function renderOperatorView() {
             <section class="op-order-3d" id="operatorOrder3dSection" hidden>
               <div class="op-order-3d-head">
                 <h3 class="op-section-title">3D модель</h3>
-                <button type="button" class="btn btn-sm op-order-3d-reset" id="operatorOrder3dResetCam" hidden>Скинути камеру</button>
+                <button type="button" class="btn btn-sm btn-primary" id="operatorOpen3dBtn" hidden>
+                  Відкрити 3D
+                </button>
               </div>
               <div
                 id="operatorOrder3dMount"
@@ -713,9 +715,9 @@ export function bindOperatorActions(onChange) {
       handleOperatorScanBack();
       return;
     }
-    if (e.target.closest("#operatorOrder3dResetCam")) {
-      const { getOperatorOrder3dViewer } = await import("./operator-3d.js");
-      getOperatorOrder3dViewer()?.resetCamera?.();
+    if (e.target.closest("#operatorOpen3dBtn")) {
+      const { openOperatorOrder3dWindow } = await import("./operator-3d.js");
+      openOperatorOrder3dWindow();
       return;
     }
     if (!e.target.closest(".operator-shell")) return;
