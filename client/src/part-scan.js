@@ -9,7 +9,10 @@ import {
   CNC_PROBLEM_REASONS,
   formatPartDimensionsMm
 } from "@enver/shared/production/constructive-package.js";
-import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
+import {
+  resolvePartHighlightMesh,
+  normalizeBazisScanCode
+} from "@enver/shared/production/bazis-operation-code.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -62,14 +65,31 @@ function modelFileUrl(viewerUrl) {
   );
 }
 
+function cleanScanCode(raw) {
+  let code = String(raw || "").trim();
+  if (!code) return "";
+  code = [...code]
+    .filter((ch) => {
+      const c = ch.charCodeAt(0);
+      if (c <= 0x1f) return false;
+      return c !== 0x200b && c !== 0x200c && c !== 0x200d && c !== 0xfeff;
+    })
+    .join("")
+    .trim();
+  const normalized = normalizeBazisScanCode(code);
+  return normalized || code;
+}
+
 async function lookupBarcode(code) {
+  const cleaned = cleanScanCode(code);
+  if (!cleaned) throw new Error("Введіть код");
   const positionId =
     state.operatorSelectedPositionId || state.operatorActiveSession?.position_id || null;
   const pos = positionId
     ? state.operatorQueue.find((p) => p.id === positionId) || state.operatorJobDetail?.position
     : null;
   const orderId = pos?.orderId || state.operatorJobDetail?.position?.orderId || null;
-  return api.scanPart(code, { positionId, orderId });
+  return api.scanPart(cleaned, { positionId, orderId });
 }
 
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
@@ -393,9 +413,10 @@ function bindScanControls({
     "keydown",
     (e) => {
       if (e.key === "Enter") {
-        const v = e.target.value.trim();
-        if (v) onScan(v);
+        e.preventDefault();
+        const v = cleanScanCode(e.target.value);
         e.target.value = "";
+        if (v) onScan(v);
       }
     },
     { signal }

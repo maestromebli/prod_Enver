@@ -16,18 +16,14 @@ export function createScannerInputListener({
   let timer = null;
   let destroyed = false;
 
-  const field = scanField || target;
-  const el = target === field ? target : target || document;
-  const isScanField = (node) =>
-    node === field ||
-    node?.id === "scanInput" ||
-    node?.id === "operatorScanInput" ||
-    node?.classList?.contains("scan-input");
+  const el = target || document;
 
   const shouldIgnore = (e) => {
     const tag = e.target?.tagName?.toLowerCase();
     if (tag === "textarea") return true;
-    if (tag === "input" && !isScanField(e.target)) return true;
+    // Усі input (включно з полем скану) — лише нативне значення + Enter на полі.
+    // Інакше паралельний buffer listener псує ручний ввід і дублює HID у полі.
+    if (tag === "input") return true;
     if (tag === "select") return true;
     return false;
   };
