@@ -330,6 +330,15 @@ function bindScanControls({
   attachScannerListener({ scanInput, onScan });
 
   scanInput.addEventListener(
+    "input",
+    (e) => {
+      const v = cleanScanCode(e.target.value);
+      if (v && v !== e.target.value) e.target.value = v;
+    },
+    { signal }
+  );
+
+  scanInput.addEventListener(
     "keydown",
     (e) => {
       if (e.key === "Enter") {

@@ -29,6 +29,13 @@ describe("bazis-operation-code", () => {
     assert.equal(normalizeBazisScanCode("]C10010x002x1V"), "0010X002X1");
   });
 
+  it("виправляє x→ч від HID-сканера з українською розкладкою", () => {
+    assert.equal(normalizeBazisScanCode("0014ч006ч1"), "0014X006X1");
+    assert.equal(normalizeBazisScanCode("NC1: 0014Ч006Ч1V"), "0014X006X1");
+    assert.equal(normalizeBazisScanCode("0010х002х1V"), "0010X002X1");
+    assert.equal(normalizeBazisScanCode("0014ч006ч1м"), "0014X006X1");
+  });
+
   it("bazisScanLookupVariants містить різні регістри", () => {
     const v = bazisScanLookupVariants("0010x002x1V");
     assert.ok(v.includes("0010x002x1V"));

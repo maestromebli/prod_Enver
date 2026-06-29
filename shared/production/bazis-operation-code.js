@@ -1,5 +1,29 @@
 /** Коди операцій Bazis / ЧПК на етикетках (NC1: 0010x002x1V). */
 
+/**
+ * HID-сканер емулює клавіатуру: при UK розкладці латинські символи стають кирилицею
+ * (x → ч, v → м тощо). Виправляємо перед нормалізацією коду.
+ */
+export function fixScannerKeyboardLayout(code) {
+  const map = {
+    "\u0447": "x", // ч
+    "\u0427": "x", // Ч
+    "\u0445": "x", // х (кирилична)
+    "\u0425": "x", // Х
+    "\u043c": "v", // м — клавіша V у UK розкладці
+    "\u041c": "v", // М
+    "\u0432": "v", // в
+    "\u0412": "v", // В
+    "\u0441": "c", // с — префікс ]C1
+    "\u0421": "c" // С
+  };
+  let out = "";
+  for (const ch of String(code || "")) {
+    out += map[ch] ?? ch;
+  }
+  return out;
+}
+
 /** Нормалізує значення зі сканера або етикетки. */
 export function normalizeBazisScanCode(raw) {
   let code = String(raw || "").trim();
@@ -12,9 +36,10 @@ export function normalizeBazisScanCode(raw) {
       return c !== 0x200b && c !== 0x200c && c !== 0x200d && c !== 0xfeff;
     })
     .join("");
+  code = fixScannerKeyboardLayout(code);
   // Префікси Code128 / AIM / NC1 з етикетки Bazis (GS = ASCII 29)
   const gs = String.fromCharCode(29);
-  code = code.replace(/^\]C1/i, "");
+  code = code.replace(/^\][\u0421\u0441C]1/i, "");
   code = code.replace(new RegExp(`^[\\]${gs}>]+`, "g"), "");
   code = code.replace(/^NC1:\s*/i, "");
   code = code.replace(/\s+/g, "");
