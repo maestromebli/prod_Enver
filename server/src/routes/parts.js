@@ -10,6 +10,10 @@ import {
 import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import {
+  partNoFromBazisOperationCode,
+  normalizeBazisScanCode
+} from "../../../shared/production/bazis-operation-code.js";
+import {
   CNC_PROBLEM_REASONS,
   findPackagePreview3dFile,
   preview3dLoadFormat
@@ -130,6 +134,8 @@ async function handlePartScan(req, res) {
   const part = await findPartByBarcode(barcodeValue, { positionId, orderId });
 
   if (!part) {
+    const normalized = normalizeBazisScanCode(barcodeValue);
+    const partNo = partNoFromBazisOperationCode(normalized);
     let error = "Деталь не знайдено. Перевірте етикетку або введіть код вручну.";
     if (positionId) {
       const stats = await one(
@@ -137,19 +143,31 @@ async function handlePartScan(req, res) {
            (SELECT count(*)::int FROM constructive_packages WHERE position_id = $1) AS packages,
            (SELECT count(*)::int FROM constructive_parts cp
             WHERE cp.position_id = $1
-               OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)) AS parts`,
-        [positionId]
+               OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)) AS parts,
+           (SELECT count(*)::int FROM constructive_parts cp
+            WHERE (
+              cp.position_id = $1
+              OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)
+            )
+              AND (
+                $2 = '' OR cp.part_no = $2 OR ltrim(cp.part_no, '0') = $2
+                OR cp.part_name ILIKE ('№' || $2 || ' %')
+                OR cp.part_name ~ ('№\\s*0*' || $2 || '([^0-9]|$)')
+              )) AS matching`,
+        [positionId, partNo || ""]
       );
       if (!stats?.packages) {
         error = "Для цієї позиції немає пакета конструктива. Спочатку розберіть пакет.";
       } else if (!stats?.parts) {
         error = "У пакеті цієї позиції немає деталей. Перевірте, чи пакет повністю розібрано.";
+      } else if (partNo && !stats?.matching) {
+        error = `Деталь №${partNo} не знайдена в пакеті цієї позиції (${stats.parts} інших деталей). Перевірте, чи завантажено файл .project Bazis.`;
       } else {
         error =
           "Деталь не знайдено. Перевірте код етикетки або оберіть правильну позицію замовлення.";
       }
     }
-    res.status(404).json({ error, barcode: barcodeValue });
+    res.status(404).json({ error, barcode: barcodeValue, normalized, partNo: partNo || null });
     return;
   }
 

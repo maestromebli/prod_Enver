@@ -144,6 +144,10 @@ export function pickBestPartRowForBazisScan(rows, scanCode) {
     if (name && name !== pn && !/^\d+$/.test(name)) score += 100;
     else if (name.length > pn.length) score += 50;
 
+    if (partNo && name && new RegExp(`№\\s*0*${partNo}([^0-9]|$)`, "i").test(name)) {
+      score += 250;
+    }
+
     const updated = new Date(String(row.updated_at ?? row.updatedAt ?? "")).getTime();
     if (Number.isFinite(updated)) score += updated / 1e15;
 

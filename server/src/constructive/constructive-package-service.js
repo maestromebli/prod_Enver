@@ -1148,6 +1148,50 @@ export async function findPartByBarcode(barcodeValue, { positionId = null, order
   const scopedPositionId = Number(positionId) > 0 ? Number(positionId) : null;
   let scopedOrderId = Number(orderId) > 0 ? Number(orderId) : null;
 
+  let part = await findPartByBarcodeCascade(code, {
+    positionId: scopedPositionId,
+    orderId: scopedOrderId
+  });
+  if (part) return part;
+
+  if (scopedPositionId && isBazisOperationScanCode(code)) {
+    await resyncBazisForPositionScan(scopedPositionId, code);
+    if (!scopedOrderId) {
+      const pos = await one(`SELECT order_id FROM positions WHERE id = $1`, [scopedPositionId]);
+      scopedOrderId = pos?.order_id ? Number(pos.order_id) : null;
+    }
+    part = await findPartByBarcodeCascade(code, {
+      positionId: scopedPositionId,
+      orderId: scopedOrderId
+    });
+  }
+
+  return part;
+}
+
+async function resyncBazisForPositionScan(positionId, scanCode) {
+  const packages = await all(
+    `SELECT id FROM constructive_packages WHERE position_id = $1 ORDER BY version DESC, id DESC`,
+    [positionId]
+  );
+  for (const pkg of packages) {
+    try {
+      await syncBazisOperationCodesForPackage(pkg.id);
+    } catch {
+      /* bazis_operation_codes може бути недоступна */
+    }
+    try {
+      await resolvePartRowByBazisProjectScan(scanCode, { positionId });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function findPartByBarcodeCascade(code, { positionId = null, orderId = null } = {}) {
+  const scopedPositionId = Number(positionId) > 0 ? Number(positionId) : null;
+  let scopedOrderId = Number(orderId) > 0 ? Number(orderId) : null;
+
   if (scopedPositionId) {
     const part = await findPartByBarcodeInScope(code, { positionId: scopedPositionId });
     if (part) return part;
@@ -1184,6 +1228,9 @@ async function findPartByBarcodeInScope(code, { positionId = null, orderId = nul
 
     row = await findPartRowByBazisPartNoGlobal(code, { positionId, orderId });
     if (row) return mapPartRow(row);
+
+    row = await findPartRowByBazisNameHint(code, { positionId, orderId });
+    if (row) return mapPartRow(row);
   } else {
     row = await findPartRowByBazisCodesInDb(code, { positionId, orderId });
     if (row) return mapPartRow(row);
@@ -1217,6 +1264,11 @@ async function findPartRowByBazisInScope({ positionId = null, orderId = null }, 
   const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
   if (!partNo) return null;
 
+  const padded = partNo.padStart(2, "0");
+  const nameLike1 = `№${partNo} %`;
+  const nameLike2 = `№${padded} %`;
+  const nameRegex = `№\\s*0*${partNo}([^0-9]|$)`;
+
   const rows = positionId
     ? await all(
         `SELECT cp.* FROM constructive_parts cp
@@ -1224,21 +1276,71 @@ async function findPartRowByBazisInScope({ positionId = null, orderId = null }, 
            cp.position_id = $1
            OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)
          )
-           AND (cp.part_no = $2 OR cp.part_no = $3 OR ltrim(cp.part_no, '0') = $2)
+           AND (
+             cp.part_no = $2 OR cp.part_no = $3 OR ltrim(cp.part_no, '0') = $2
+             OR cp.part_name ILIKE $4 OR cp.part_name ILIKE $5
+             OR cp.part_name ~ $6
+           )
          ORDER BY cp.updated_at DESC NULLS LAST, cp.id DESC
-         LIMIT 12`,
-        [positionId, partNo, partNo.padStart(2, "0")]
+         LIMIT 20`,
+        [positionId, partNo, padded, nameLike1, nameLike2, nameRegex]
       )
     : orderId
       ? await all(
           `SELECT * FROM constructive_parts
            WHERE order_id = $1
-             AND (part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2)
+             AND (
+               part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2
+               OR part_name ILIKE $4 OR part_name ILIKE $5
+               OR part_name ~ $6
+             )
            ORDER BY updated_at DESC NULLS LAST, id DESC
-           LIMIT 12`,
-          [orderId, partNo, partNo.padStart(2, "0")]
+           LIMIT 20`,
+          [orderId, partNo, padded, nameLike1, nameLike2, nameRegex]
         )
       : [];
+  return pickBestPartRowForBazisScan(rows, scanCode);
+}
+
+/** Резерв: деталь знайдена за «№14 …» у назві, коли part_no у БД порожній або некоректний. */
+async function findPartRowByBazisNameHint(scanCode, { positionId = null, orderId = null } = {}) {
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+  if (!partNo) return null;
+
+  const padded = partNo.padStart(2, "0");
+  const nameLike1 = `№${partNo} %`;
+  const nameLike2 = `№${padded} %`;
+  const nameRegex = `№\\s*0*${partNo}([^0-9]|$)`;
+
+  const rows = positionId
+    ? await all(
+        `SELECT cp.* FROM constructive_parts cp
+         WHERE (
+           cp.position_id = $1
+           OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)
+         )
+           AND (cp.part_name ILIKE $2 OR cp.part_name ILIKE $3 OR cp.part_name ~ $4)
+         ORDER BY cp.updated_at DESC NULLS LAST, cp.id DESC
+         LIMIT 12`,
+        [positionId, nameLike1, nameLike2, nameRegex]
+      )
+    : orderId
+      ? await all(
+          `SELECT * FROM constructive_parts
+           WHERE order_id = $1
+             AND (part_name ILIKE $2 OR part_name ILIKE $3 OR part_name ~ $4)
+           ORDER BY updated_at DESC NULLS LAST, id DESC
+           LIMIT 12`,
+          [orderId, nameLike1, nameLike2, nameRegex]
+        )
+      : await all(
+          `SELECT * FROM constructive_parts
+           WHERE part_name ILIKE $1 OR part_name ILIKE $2 OR part_name ~ $3
+           ORDER BY updated_at DESC NULLS LAST, id DESC
+           LIMIT 40`,
+          [nameLike1, nameLike2, nameRegex]
+        );
+
   return pickBestPartRowForBazisScan(rows, scanCode);
 }
 
@@ -1295,69 +1397,81 @@ async function findPartRowByBazisCodesInDb(code, { positionId = null, orderId = 
   if (!upperVariants.length) return null;
 
   try {
-    const rows = positionId
-      ? await all(
-          `SELECT cp.* FROM constructive_parts cp
-           WHERE (
-             cp.position_id = $2
-             OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $2)
-           )
-             AND EXISTS (
-               SELECT 1 FROM unnest(cp.bazis_operation_codes) c
-               WHERE upper(c) = ANY($1::text[])
-             )
-           ORDER BY cp.updated_at DESC NULLS LAST, cp.id DESC
-           LIMIT 12`,
-          [upperVariants, positionId]
-        )
-      : orderId
+    let rows = [];
+    try {
+      rows = positionId
         ? await all(
-            `SELECT * FROM constructive_parts
-             WHERE order_id = $2
+            `SELECT cp.* FROM constructive_parts cp
+             WHERE (
+               cp.position_id = $2
+               OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $2)
+             )
                AND EXISTS (
+                 SELECT 1 FROM unnest(cp.bazis_operation_codes) c
+                 WHERE upper(c) = ANY($1::text[])
+               )
+             ORDER BY cp.updated_at DESC NULLS LAST, cp.id DESC
+             LIMIT 12`,
+            [upperVariants, positionId]
+          )
+        : orderId
+          ? await all(
+              `SELECT * FROM constructive_parts
+               WHERE order_id = $2
+                 AND EXISTS (
+                   SELECT 1 FROM unnest(bazis_operation_codes) c
+                   WHERE upper(c) = ANY($1::text[])
+                 )
+               ORDER BY updated_at DESC NULLS LAST, id DESC
+               LIMIT 12`,
+              [upperVariants, orderId]
+            )
+          : await all(
+              `SELECT * FROM constructive_parts
+               WHERE EXISTS (
                  SELECT 1 FROM unnest(bazis_operation_codes) c
                  WHERE upper(c) = ANY($1::text[])
                )
-             ORDER BY updated_at DESC NULLS LAST, id DESC
-             LIMIT 12`,
-            [upperVariants, orderId]
-          )
-        : await all(
-            `SELECT * FROM constructive_parts
-             WHERE EXISTS (
-               SELECT 1 FROM unnest(bazis_operation_codes) c
-               WHERE upper(c) = ANY($1::text[])
-             )
-             ORDER BY updated_at DESC NULLS LAST, id DESC
-             LIMIT 12`,
-            [upperVariants]
-          );
+               ORDER BY updated_at DESC NULLS LAST, id DESC
+               LIMIT 12`,
+              [upperVariants]
+            );
+    } catch {
+      rows = [];
+    }
     const matched = pickBestPartRowForBazisScan(rows, code);
     if (matched) return matched;
 
     for (const v of upperVariants) {
-      const inst = await one(
-        `SELECT * FROM constructive_part_instances
-         WHERE upper(barcode_value) = $1 OR upper(bazis_operation_code) = $1`,
-        [v]
-      );
-      if (inst) {
-        const partRow = positionId
+      const inst = positionId
+        ? await one(
+            `SELECT i.part_id FROM constructive_part_instances i
+             JOIN constructive_parts cp ON cp.id = i.part_id
+             WHERE (
+               cp.position_id = $2
+               OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $2)
+             )
+               AND (upper(i.barcode_value) = $1 OR upper(i.bazis_operation_code) = $1)
+             LIMIT 1`,
+            [v, positionId]
+          )
+        : orderId
           ? await one(
-              `SELECT cp.* FROM constructive_parts cp
-               WHERE cp.id = $1
-                 AND (
-                   cp.position_id = $2
-                   OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $2)
-                 )`,
-              [inst.part_id, positionId]
+              `SELECT i.part_id FROM constructive_part_instances i
+               JOIN constructive_parts cp ON cp.id = i.part_id
+               WHERE cp.order_id = $2
+                 AND (upper(i.barcode_value) = $1 OR upper(i.bazis_operation_code) = $1)
+               LIMIT 1`,
+              [v, orderId]
             )
-          : orderId
-            ? await one(`SELECT * FROM constructive_parts WHERE id = $1 AND order_id = $2`, [
-                inst.part_id,
-                orderId
-              ])
-            : await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+          : await one(
+              `SELECT part_id FROM constructive_part_instances
+               WHERE upper(barcode_value) = $1 OR upper(bazis_operation_code) = $1
+               LIMIT 1`,
+              [v]
+            );
+      if (inst?.part_id) {
+        const partRow = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
         if (partRow) return partRow;
       }
     }
@@ -1398,26 +1512,58 @@ async function findPartRowByBazisPartNoGlobal(
            cp.position_id = $1
            OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)
          )
-           AND (cp.part_no = $2 OR cp.part_no = $3 OR ltrim(cp.part_no, '0') = $2)
+           AND (
+             cp.part_no = $2 OR cp.part_no = $3 OR ltrim(cp.part_no, '0') = $2
+             OR cp.part_name ILIKE $4 OR cp.part_name ILIKE $5
+             OR cp.part_name ~ $6
+           )
          ORDER BY cp.updated_at DESC NULLS LAST, cp.id DESC
          LIMIT 40`,
-        [positionId, partNo, partNo.padStart(2, "0")]
+        [
+          positionId,
+          partNo,
+          partNo.padStart(2, "0"),
+          `№${partNo} %`,
+          `№${partNo.padStart(2, "0")} %`,
+          `№\\s*0*${partNo}([^0-9]|$)`
+        ]
       )
     : orderId
       ? await all(
           `SELECT * FROM constructive_parts
            WHERE order_id = $1
-             AND (part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2)
+             AND (
+               part_no = $2 OR part_no = $3 OR ltrim(part_no, '0') = $2
+               OR part_name ILIKE $4 OR part_name ILIKE $5
+               OR part_name ~ $6
+             )
            ORDER BY updated_at DESC NULLS LAST, id DESC
            LIMIT 40`,
-          [orderId, partNo, partNo.padStart(2, "0")]
+          [
+            orderId,
+            partNo,
+            partNo.padStart(2, "0"),
+            `№${partNo} %`,
+            `№${partNo.padStart(2, "0")} %`,
+            `№\\s*0*${partNo}([^0-9]|$)`
+          ]
         )
       : await all(
           `SELECT * FROM constructive_parts
-           WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
+           WHERE (
+             part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
+             OR part_name ILIKE $3 OR part_name ILIKE $4
+             OR part_name ~ $5
+           )
            ORDER BY updated_at DESC NULLS LAST, id DESC
-           LIMIT 40`,
-          [partNo, partNo.padStart(2, "0")]
+           LIMIT 80`,
+          [
+            partNo,
+            partNo.padStart(2, "0"),
+            `№${partNo} %`,
+            `№${partNo.padStart(2, "0")} %`,
+            `№\\s*0*${partNo}([^0-9]|$)`
+          ]
         );
   if (!rows.length) return null;
 

@@ -68,6 +68,15 @@ describe("bazis-operation-code", () => {
     assert.equal(best.id, 2);
   });
 
+  it("pickBestPartRowForBazisScan обирає деталь за назвою №14 без part_no", () => {
+    const rows = [
+      { id: 1, part_no: "", part_name: "№14 Стійка сер шафа ліва", bazis_operation_codes: [] },
+      { id: 2, part_no: "99", part_name: "Інша деталь", bazis_operation_codes: [] }
+    ];
+    const best = pickBestPartRowForBazisScan(rows, "NC1: 0014x006x1V");
+    assert.equal(best.id, 1);
+  });
+
   it("partNo з етикеток ЕМ-09: 0016x008x1V → 16, 0014x006x1V → 14", () => {
     assert.equal(partNoFromBazisOperationCode("NC1: 0016x008x1V"), "16");
     assert.equal(partNoFromBazisOperationCode("NC1: 0014x006x1V"), "14");
