@@ -15,7 +15,7 @@ export function ensureUploadsDir() {
   return dir;
 }
 
-function rethrowStorageError(err, action = "запису файлу") {
+export function rethrowStorageError(err, action = "запису файлу") {
   if (err?.code === "EACCES" || err?.code === "EPERM") {
     const wrapped = new Error(
       `Немає прав на ${action} у ${getUploadsDir()} — перевірте UPLOADS_DIR і права Docker volume`
