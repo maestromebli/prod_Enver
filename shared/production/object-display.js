@@ -55,7 +55,9 @@ export function resolveObjectNameFromOrders(position, orders = []) {
 
 /** Заголовок шапки об'єкта: номер замовлення · назва об'єкта (+ назва позиції окремо). */
 export function formatObjectHeader(order = null, position = null) {
-  const orderNumber = String(order?.orderNumber ?? position?.orderNumber ?? position?.order_number ?? "").trim();
+  const orderNumber = String(
+    order?.orderNumber ?? position?.orderNumber ?? position?.order_number ?? ""
+  ).trim();
   const objectName = resolveObjectName(position || {}, order);
   const titleParts = [orderNumber, objectName].filter(Boolean);
   const positionName = String(position?.item ?? "").trim();

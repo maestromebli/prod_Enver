@@ -1,14 +1,12 @@
 import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
 import {
   getWorkPositions,
-  getPositionTabLabel,
-  getRootPositions,
-  getSubPositions
+  getPositionTabLabel
 } from "@enver/shared/production/order-position-model.js";
 import { canEditOrders, canEditPositions } from "./auth.js";
-import { buildVisiblePositionRows } from "./position-tree.js";
 import { state } from "./state.js";
 import { badge, escapeHtml, progressRing } from "./utils.js";
+import { formatObjectHeader } from "@enver/shared/production/object-display.js";
 import {
   renderOrderGodmodeSummary,
   renderSmartEmptyState,
@@ -25,12 +23,7 @@ import { getCachedOrder3DAsset } from "./order-3d/order-3d-bind.js";
 
 function buildDetailTabs(order, related, activeTab) {
   const work = getWorkPositions(order, related);
-  const roots = getRootPositions(order, related);
-  const subs = getSubPositions(order, related);
   const tabs = [{ key: "overview", label: "Огляд" }];
-  if (subs.length && roots.length) {
-    tabs.push({ key: `pos-${roots[0].id}`, label: "Основна" });
-  }
   work.forEach((p, i) => {
     tabs.push({ key: `pos-${p.id}`, label: getPositionTabLabel(p, i) });
   });
@@ -60,7 +53,7 @@ function metaLine(parts) {
   return items.length ? `<p class="order-hero-meta">${items.join(" · ")}</p>` : "";
 }
 
-function renderOrderHero(order, related) {
+function renderOrderHero(order, related, activeTab = "overview") {
   const work = getWorkPositions(order, related);
   const progress = orderProgress(order, related);
   const canEdit = canEditOrders();
@@ -71,14 +64,26 @@ function renderOrderHero(order, related) {
     order.priority && order.priority !== "Звичайний" ? escapeHtml(order.priority) : ""
   ].filter(Boolean);
 
+  let positionLine = "";
+  if (activeTab.startsWith("pos-")) {
+    const positionId = Number(activeTab.slice(4));
+    const position = work.find((p) => p.id === positionId);
+    const positionName = String(position?.item ?? "").trim();
+    if (positionName) {
+      positionLine = `<p class="order-hero-position">${escapeHtml(positionName)}</p>`;
+    }
+  }
+
+  const { title: objectTitle } = formatObjectHeader(order);
+
   return `
     <header class="order-hero card">
       <button type="button" class="order-hero-back" data-orders-back>← Замовлення</button>
       <div class="order-hero-main">
         <div class="order-hero-text">
-          <h2 class="order-hero-title enver-page-title">${escapeHtml(order.orderNumber)}</h2>
-          <p class="order-hero-object">${escapeHtml(order.object || "—")}</p>
+          <h2 class="order-hero-title enver-page-title">${escapeHtml(objectTitle)}</h2>
           ${order.client ? `<p class="order-hero-client enver-meta">${escapeHtml(order.client)}</p>` : ""}
+          ${positionLine}
           <div class="order-hero-tags">
             ${badge(order.status || "—")}
             <span class="stage-pill">${escapeHtml(work.length ? `${work.length} поз.` : "Без позицій")}</span>
@@ -175,12 +180,17 @@ function renderInlineAdd(canEdit) {
 
 function renderPositionsSection(order, allPositions, related) {
   const canEdit = canEditPositions();
-  const sortedRelated = [...related].sort((a, b) => {
+  const work = [...getWorkPositions(order, related)].sort((a, b) => {
     const ga = resolvePositionGodmode(a).attentionScore;
     const gb = resolvePositionGodmode(b).attentionScore;
     return gb - ga;
   });
-  const rows = buildVisiblePositionRows(allPositions, sortedRelated, state.expandedPositionIds);
+  const rows = work.map((position) => ({
+    position,
+    depth: 0,
+    isSub: false,
+    childCount: 0
+  }));
   const body = rows.length
     ? rows.map((row) => renderPositionRow(row, { canEdit })).join("")
     : renderSmartEmptyState({
@@ -315,7 +325,7 @@ function renderOverviewWorkPositions(order, related) {
 
 export function renderOrderDetailView(order, allPositions, related, positionBundles = {}) {
   const tab = state.ordersView.detailTab || "overview";
-  const hero = renderOrderHero(order, related);
+  const hero = renderOrderHero(order, related, tab);
   const tabs = renderDetailTabs(order, related, tab);
   const panel = renderTabContent(tab, order, allPositions, related, positionBundles);
   const work = getWorkPositions(order, related);

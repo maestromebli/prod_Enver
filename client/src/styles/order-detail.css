@@ -43,6 +43,13 @@
   color: var(--text);
 }
 
+.order-hero-position {
+  margin: 6px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .order-hero-client {
   margin: 2px 0 0;
   font-size: 0.85rem;

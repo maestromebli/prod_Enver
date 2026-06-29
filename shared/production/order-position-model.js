@@ -42,15 +42,27 @@ export function getRootPositions(order, positions = []) {
 }
 
 /**
+ * Службовий контейнер замовлення (авто root «Інше» або root з підпозиціями).
+ * Такі рядки не показують у списках і не вважають робочими.
+ */
+export function isOrderContainerPosition(position, related = []) {
+  if (!isRootPosition(position)) return false;
+  const id = pid(position);
+  if (related.some((p) => parentId(p) === id)) return true;
+  const type = String(position?.itemType ?? position?.item_type ?? "").trim();
+  return type === "Інше";
+}
+
+/**
  * Робочі позиції — одиниці workflow (конструктив, закупка, ЧПК, оператор).
- * Якщо є sub-позиції — робочими є вони; інакше — root.
+ * Якщо є sub-позиції — робочими є вони; інакше — root (крім службового контейнера).
  */
 export function getWorkPositions(order, positions = []) {
   let related = order ? positionsForOrder(order, positions) : [...positions];
   if (!related.length && positions.length) related = [...positions];
   const subs = related.filter((p) => isSubPosition(p));
   if (subs.length) return subs;
-  return related.filter((p) => isRootPosition(p));
+  return related.filter((p) => isRootPosition(p) && !isOrderContainerPosition(p, related));
 }
 
 export function isSinglePositionOrder(order, positions = []) {
@@ -58,7 +70,10 @@ export function isSinglePositionOrder(order, positions = []) {
 }
 
 export function shouldUseRootAsWorkPosition(order, positions = []) {
-  return getSubPositions(order, positions).length === 0;
+  return (
+    getSubPositions(order, positions).length === 0 &&
+    getWorkPositions(order, positions).some((p) => isRootPosition(p))
+  );
 }
 
 export function getPositionDisplayName(position) {
@@ -96,7 +111,7 @@ export function workflowPositions(order, positions = []) {
   const related = [...positions];
   const subs = related.filter((p) => isSubPosition(p));
   if (subs.length) return subs;
-  return related.filter((p) => isRootPosition(p));
+  return related.filter((p) => isRootPosition(p) && !isOrderContainerPosition(p, related));
 }
 
 /** Унікальні робочі позиції для набору замовлень. */

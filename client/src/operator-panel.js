@@ -359,7 +359,10 @@ function renderQueueItem(p, field, freshIds) {
   const blocking = hasBlockingSession();
   const working = blocking && p.id === activeSessionPositionId();
   const locked = blocking && p.id !== activeSessionPositionId();
-  const { title: objectTitle } = formatObjectHeader(null, p);
+  const order = state.orders.find(
+    (o) => o.id === p.orderId || (p.orderNumber && o.orderNumber === p.orderNumber)
+  );
+  const { title: objectTitle } = formatObjectHeader(order, p);
 
   return `
     <div class="op-queue-swipe enver-swipe-host" data-queue-wrap="${p.id}">
@@ -382,6 +385,23 @@ function renderQueueItem(p, field, freshIds) {
     </button>
       </div>
     </div>`;
+}
+
+function renderOperatorTaskHero(pos, field, stageKey, inWork) {
+  const order = state.orders.find(
+    (o) => o.id === pos.orderId || (pos.orderNumber && o.orderNumber === pos.orderNumber)
+  );
+  const { title: objectTitle, positionName } = formatObjectHeader(order, pos);
+  const heroCompact = isCuttingOneScreen(stageKey) ? " op-task-hero--compact" : "";
+  const heroLive = inWork && activeSessionPositionId() === pos.id ? " op-task-hero--live" : "";
+  return `
+            <div class="op-task-hero${heroCompact}${heroLive}">
+              <div class="op-task-hero-top"><span class="op-task-id">#${pos.id}</span>${badge(pos[field])}</div>
+              <h2 class="op-task-title">${escapeHtml(objectTitle)}</h2>
+              ${positionName ? `<p class="op-task-subtitle">${escapeHtml(positionName)}</p>` : ""}
+              <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span>Загальний прогрес</span></div>
+              ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
+            </div>`;
 }
 
 export function renderOperatorView() {
@@ -485,26 +505,8 @@ export function renderOperatorView() {
         <main class="op-work-panel">
           ${
             pos
-              ? (() => {
-                  const { title: objectTitle, positionName } = formatObjectHeader(
-                    state.orders.find(
-                      (o) =>
-                        o.id === pos.orderId ||
-                        (pos.orderNumber && o.orderNumber === pos.orderNumber)
-                    ),
-                    pos
-                  );
-                  const heroCompact = isCuttingOneScreen(stageKey) ? " op-task-hero--compact" : "";
-                  const heroLive = inWork && activeSessionPositionId() === pos.id ? " op-task-hero--live" : "";
-                  return `
-            <div class="op-task-hero${heroCompact}${heroLive}">
-              <div class="op-task-hero-top"><span class="op-task-id">#${pos.id}</span>${badge(pos[field])}</div>
-              <h2 class="op-task-title">${escapeHtml(objectTitle)}</h2>
-              ${positionName ? `<p class="op-task-subtitle">${escapeHtml(positionName)}</p>` : ""}
-              <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span>Загальний прогрес</span></div>
-              ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
-            </div>`;
-                })()
+              ? `
+            ${renderOperatorTaskHero(pos, field, stageKey, inWork)}
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
             <section class="op-order-3d" id="operatorOrder3dSection" hidden>

@@ -26,6 +26,11 @@ import {
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { attentionTabBadgeCount } from "./attention-view.js";
+import { formatObjectHeader } from "@enver/shared/production/object-display.js";
+import {
+  getWorkPositions,
+  positionsForOrder
+} from "@enver/shared/production/order-position-model.js";
 import {
   mountGodmodeNotifyChrome,
   syncGodmodeNotifyForView,
@@ -76,10 +81,21 @@ export function renderPageChrome() {
   if (state.activeTab === "Замовлення" && state.selectedOrderId) {
     const order = state.orders.find((o) => o.id === state.selectedOrderId);
     if (order) {
-      if (title) title.textContent = order.orderNumber;
+      const tab = state.ordersView?.detailTab || "overview";
+      const { title: objectTitle } = formatObjectHeader(order);
+      if (title) title.textContent = objectTitle;
       if (sub) {
-        sub.textContent =
-          [order.client, order.object].filter(Boolean).join(" · ") || "Позиції замовлення";
+        if (tab.startsWith("pos-")) {
+          const related = positionsForOrder(order, state.positions);
+          const position = getWorkPositions(order, related).find(
+            (p) => p.id === Number(tab.slice(4))
+          );
+          sub.textContent =
+            String(position?.item ?? "").trim() || order.client || "Позиція замовлення";
+        } else {
+          sub.textContent =
+            [order.client, order.object].filter(Boolean).join(" · ") || "Позиції замовлення";
+        }
       }
       return;
     }

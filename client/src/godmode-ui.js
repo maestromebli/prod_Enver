@@ -338,14 +338,15 @@ export async function executePrimaryOrderAction(
 ) {
   const gm = resolveOrderGodmode(order, positions);
   const next = gm.nextAction;
-  const root = rootPositionForOrder(order, positions);
+  const work = getWorkPositions(order, positions);
+  const focusPosition = work[0] || rootPositionForOrder(order, positions) || null;
 
   if (!next?.type) {
     return { action: "open_order" };
   }
 
-  if (HANDOFF_ACTION_TYPES.has(next.type) && root?.id && next.allowed !== false) {
-    const updated = await runOptimisticHandoff(root.id, next.type, {
+  if (HANDOFF_ACTION_TYPES.has(next.type) && focusPosition?.id && next.allowed !== false) {
+    const updated = await runOptimisticHandoff(focusPosition.id, next.type, {
       api,
       upsertPosition,
       getPositions: () => positions
@@ -353,15 +354,15 @@ export async function executePrimaryOrderAction(
     return { action: "handoff", position: updated, message: next.label };
   }
 
-  if (UI_ACTION_TYPES.has(next.type) && root?.id) {
+  if (UI_ACTION_TYPES.has(next.type) && focusPosition?.id) {
     if (next.type === "assign_constructor") {
-      return { action: "open_constructor_desk", orderId: order.id, positionId: root.id };
+      return { action: "open_constructor_desk", orderId: order.id, positionId: focusPosition.id };
     }
     if (next.type === "upload_constructive" || next.type === "upload_constructive_package") {
       return {
         action: "open_constructor_desk",
         orderId: order.id,
-        positionId: root.id,
+        positionId: focusPosition.id,
         workspaceTab: "package"
       };
     }
@@ -369,14 +370,14 @@ export async function executePrimaryOrderAction(
     if (subTab || next.type === "fill_manager_data") {
       return {
         action: "open_order",
-        tab: `pos-${root.id}`,
+        tab: `pos-${focusPosition.id}`,
         subTab: subTab || "manager",
-        positionId: root.id
+        positionId: focusPosition.id
       };
     }
     return {
       action: "open_position",
-      positionId: root.id,
+      positionId: focusPosition.id,
       panel: next.type === "schedule_install" ? "install" : "more",
       focus: next.type
     };

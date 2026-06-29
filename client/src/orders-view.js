@@ -9,7 +9,7 @@ import {
 } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { openOrderDetailDrawer, shouldUseOrderDrawer } from "./order-detail-drawer.js";
-import { buildVisiblePositionRows, togglePositionExpanded } from "./position-tree.js";
+import { togglePositionExpanded } from "./position-tree.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
@@ -35,24 +35,17 @@ function orderPositionsToggleBtn(order, related, expanded) {
 
 function renderOrderPositionsInline(order, allPositions) {
   const related = positionsForOrder(order, allPositions);
-  if (!related.length) {
+  const work = getWorkPositions(order, related);
+  if (!work.length) {
     return '<p class="orders-inline-pos-empty enver-meta">Позицій ще немає</p>';
   }
 
-  const rows = buildVisiblePositionRows(allPositions, related, state.expandedPositionIds);
-  return rows
-    .map((row) => {
-      const { position: p, depth, isSub, childCount } = row;
-      const expanded = state.expandedPositionIds.has(p.id);
-      const subToggle =
-        !isSub && childCount > 0
-          ? `<button type="button" class="btn-tree" data-toggle-position="${p.id}" title="${expanded ? "Згорнути" : "Підпозиції"}">${expanded ? "▼" : "▶"}</button>`
-          : '<span class="btn-tree-spacer" aria-hidden="true"></span>';
+  return work
+    .map((p) => {
       const stage = p.currentStage ? stageLabel(p.currentStage) : "—";
-      const subClass = depth > 0 ? " orders-inline-pos--sub" : "";
 
-      return `<div class="orders-inline-pos${subClass}">
-        ${subToggle}
+      return `<div class="orders-inline-pos">
+        <span class="btn-tree-spacer" aria-hidden="true"></span>
         <button type="button" class="orders-inline-pos-name" data-open-position="${p.id}">${escapeHtml(p.item || "—")}</button>
         <span class="orders-inline-pos-stage stage-pill stage-pill--compact">${escapeHtml(stage)}</span>
         <span class="orders-inline-pos-pct">${p.progress ?? 0}%</span>

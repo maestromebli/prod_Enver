@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatObjectHeader,
   looksLikeAddressFragment,
   resolveObjectName,
   resolveObjectNameFromOrders
@@ -26,5 +27,14 @@ describe("object-display", () => {
     const order = { object: "Проєкт А" };
     const position = { object: "м. Львів", deliveryAddress: "м. Львів" };
     assert.equal(resolveObjectName(position, order), "Проєкт А");
+  });
+
+  it("formatObjectHeader — номер, об'єкт і позиція", () => {
+    const order = { orderNumber: "E-100", object: "ЖК Riverside" };
+    const position = { orderNumber: "E-100", item: "Кухня" };
+    assert.deepEqual(formatObjectHeader(order, position), {
+      title: "E-100 · ЖК Riverside",
+      positionName: "Кухня"
+    });
   });
 });

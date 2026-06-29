@@ -61,6 +61,22 @@ describe("order-position-model", () => {
     );
   });
 
+  it("getWorkPositions ігнорує службовий контейнер «Інше» без підпозицій", () => {
+    const containerOnly = [
+      {
+        id: 30,
+        orderId: 3,
+        orderNumber: "2026-003",
+        parentId: null,
+        item: "ЖК Тест",
+        itemType: "Інше"
+      }
+    ];
+    const work = getWorkPositions({ id: 3, orderNumber: "2026-003" }, containerOnly);
+    assert.deepEqual(work, []);
+    assert.equal(shouldUseRootAsWorkPosition({ id: 3 }, containerOnly), false);
+  });
+
   it("isSinglePositionOrder", () => {
     assert.equal(isSinglePositionOrder(order, positionsWithSubs), false);
     assert.equal(isSinglePositionOrder({ id: 2 }, singleRoot), true);

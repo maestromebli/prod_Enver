@@ -115,7 +115,6 @@ function positionsTable(data, title = "Позиції замовлення", sho
   return `
     <div class="card positions-view">
       ${headerRow}
-      <p class="positions-hint">У кожному замовленні є одна основна позиція; вироби та зони завжди додаються як <strong>підпозиції</strong> через <strong>+</strong> біля неї (окремий конструктор, збирач і монтажник).</p>
       <div class="positions-cards" aria-label="Позиції (картки)">${cards}</div>
       <div class="table-wrap positions-table-wrap" aria-label="Позиції (таблиця)">
         <table class="positions-table">

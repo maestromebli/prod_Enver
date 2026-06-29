@@ -1,3 +1,4 @@
+import { isOrderContainerPosition } from "@enver/shared/production/order-position-model.js";
 import { state } from "./state.js";
 
 /** Рядки таблиці: основна позиція або підпозиція (depth 1). */
@@ -45,6 +46,16 @@ export function buildVisiblePositionRows(
 
   for (const parent of roots) {
     const childCount = (byParent.get(parent.id) || []).length;
+    const isContainer = isOrderContainerPosition(parent, pool);
+
+    if (isContainer && childCount > 0) {
+      for (const child of byParent.get(parent.id) || []) {
+        rows.push({ position: child, depth: 0, isSub: false, childCount: 0 });
+      }
+      continue;
+    }
+    if (isContainer) continue;
+
     rows.push({ position: parent, depth: 0, isSub: false, childCount });
     if (childCount === 0 || expandedIds.has(parent.id)) {
       appendChildren(parent.id, 1);
