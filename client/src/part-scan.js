@@ -9,8 +9,22 @@ import {
   formatPartDimensionsMm
 } from "@enver/shared/production/constructive-package.js";
 
-/** Етапи зі скануванням етикеток (верстат і етапи працюють без штрихкодів у системі). */
-export const PART_SCAN_OPERATOR_STAGES = [];
+/** Етапи зі скануванням етикеток деталей. */
+export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
+
+/** Імʼя mesh для підсвітки деталі в GLB (panel-{code} з Bazis / order-3d). */
+export function resolveHighlightTarget(part) {
+  if (!part) return null;
+  if (part.modelMeshName || part.modelNodeId) {
+    return {
+      meshName: part.modelMeshName || part.modelNodeId,
+      nodeId: part.modelNodeId || part.modelMeshName
+    };
+  }
+  const code = String(part.partCode || part.partNo || "").trim();
+  if (!code) return null;
+  return { meshName: `panel-${code}`, nodeId: `panel-${code}` };
+}
 
 export function isPartScanStage(stageKey) {
   return PART_SCAN_OPERATOR_STAGES.includes(stageKey);
@@ -83,7 +97,7 @@ async function lookupBarcode(code) {
 
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
   const p = data.part;
-  const unmapped = !data.model?.mapped;
+  const unmapped = Boolean(data.model?.viewerUrl) && !resolveHighlightTarget(p);
   const cncActions = showCncActions
     ? `
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
@@ -167,9 +181,15 @@ async function mountViewer(container, data) {
     viewer = await createPartViewer(container);
     const url = modelFileUrl(data.model.viewerUrl);
     await viewer.loadModel(url, getStoredToken(), { format: data.model.viewerFormat || "glb" });
-    if (data.part.modelMeshName || data.part.modelNodeId) {
+    const catalog = data.model?.parts;
+    if (Array.isArray(catalog) && catalog.length) {
+      viewer.setPartCatalog(catalog);
+    }
+    const target = resolveHighlightTarget(data.part);
+    if (target) {
       viewer.highlightPart({
-        meshName: data.part.modelMeshName || data.part.modelNodeId,
+        meshName: target.meshName,
+        nodeId: target.nodeId,
         ghost: true
       });
     }
@@ -213,7 +233,8 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
   detailEl.querySelectorAll("[data-viewer-action]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const action = btn.dataset.viewerAction;
-      if (action === "isolate") viewer?.isolatePart(data.part.modelMeshName);
+      const target = resolveHighlightTarget(data.part);
+      if (action === "isolate" && target) viewer?.isolatePart(target.meshName);
       if (action === "all") viewer?.showAll();
       if (action === "reset") viewer?.resetCamera();
     });
@@ -276,6 +297,9 @@ async function handleScan(
       });
       detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
+
+    const { highlightOperatorOrder3dPart } = await import("./operator-3d.js");
+    highlightOperatorOrder3dPart(data.part);
     scanInput?.focus();
   } catch (err) {
     if (statusEl) statusEl.textContent = err.message || "Помилка";

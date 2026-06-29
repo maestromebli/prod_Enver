@@ -153,6 +153,47 @@ describe("constructive-package shared", () => {
     assert.equal(formatPartDimensionsMm({ length: "", width: "" }), "—");
   });
 
+  it("resolvePartByMeshName — зіставлення mesh з деталлю", async () => {
+    const { resolvePartByMeshName, formatPartPickerInfo } =
+      await import("../../shared/production/constructive-package.js");
+    const parts = [
+      {
+        blockCode: "B1",
+        partNo: "21",
+        partName: "Бік лівий",
+        material: "ДСП 18",
+        length: "500",
+        width: "720",
+        thickness: "18",
+        modelMeshName: "B1-21"
+      },
+      { partNo: "10", partName: "Стійка", length: "1896", width: "540" }
+    ];
+    assert.equal(resolvePartByMeshName("B1-21", parts)?.partName, "Бік лівий");
+    assert.equal(resolvePartByMeshName("panel-10", parts)?.partName, "Стійка");
+    assert.equal(resolvePartByMeshName("10", parts)?.partName, "Стійка");
+    const info = formatPartPickerInfo(parts[0]);
+    assert.equal(info.numberLine, "B1 · №21");
+    assert.equal(info.dimensions, "500×720×18 мм");
+    assert.equal(info.material, "ДСП 18");
+  });
+
+  it("isStalePackageParsing — завислий parsing", async () => {
+    const { isStalePackageParsing, PACKAGE_PARSING_STALE_MS } =
+      await import("../../shared/production/constructive-package.js");
+    const recent = {
+      status: "parsing",
+      updatedAt: new Date(Date.now() - PACKAGE_PARSING_STALE_MS + 5000).toISOString()
+    };
+    const old = {
+      status: "parsing",
+      updatedAt: new Date(Date.now() - PACKAGE_PARSING_STALE_MS - 1000).toISOString()
+    };
+    assert.equal(isStalePackageParsing(recent), false);
+    assert.equal(isStalePackageParsing(old), true);
+    assert.equal(isStalePackageParsing({ status: "parsed", updatedAt: old.updatedAt }), false);
+  });
+
   it("canReleasePackageToCnc лише після перевірки", () => {
     assert.equal(canReleasePackageToCnc("uploaded"), false);
     assert.equal(canReleasePackageToCnc("parsed"), false);

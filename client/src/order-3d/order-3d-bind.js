@@ -66,7 +66,7 @@ export function bindOrder3DTab(root, order, { onRefresh } = {}) {
   if ((asset?.status === "READY" || asset?.status === "PARTIAL_READY") && asset?.webModelUrl) {
     const viewerEl = panel.querySelector("#order3dViewer");
     if (viewerEl) {
-      mountOrder3DViewer(viewerEl, { orderId, asset });
+      mountOrder3DViewer(viewerEl, { orderId, asset, order });
     }
   }
 

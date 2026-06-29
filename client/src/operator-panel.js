@@ -10,7 +10,10 @@ import { state } from "./state.js";
 import { OPERATOR_STAGES, stageLabel } from "./users-constants.js";
 import { brandLogoHtml } from "./brand-logo.js";
 import { STAGE_STATUS_FIELD, stageClientField } from "@enver/shared/production/stages.js";
-import { resolveObjectNameFromOrders } from "@enver/shared/production/object-display.js";
+import {
+  formatObjectHeader,
+  resolveObjectNameFromOrders
+} from "@enver/shared/production/object-display.js";
 import {
   emitRoleNotifications,
   initializeOperatorStageBaseline,
@@ -186,6 +189,10 @@ function isOnActiveSessionStage() {
   return !sk || sk === state.operatorStage;
 }
 
+function workOrderId(pos) {
+  return pos?.orderId || state.operatorJobDetail?.position?.orderId || null;
+}
+
 function workPosition() {
   const pos = selectedPosition();
   if (pos) return pos;
@@ -352,6 +359,7 @@ function renderQueueItem(p, field, freshIds) {
   const blocking = hasBlockingSession();
   const working = blocking && p.id === activeSessionPositionId();
   const locked = blocking && p.id !== activeSessionPositionId();
+  const { title: objectTitle } = formatObjectHeader(null, p);
 
   return `
     <div class="op-queue-swipe enver-swipe-host" data-queue-wrap="${p.id}">
@@ -368,8 +376,8 @@ function renderQueueItem(p, field, freshIds) {
         ${working ? '<span class="op-pulse-dot"></span>' : ""}
         ${(p.overdueDays || 0) > 0 ? `<span class="op-overdue-tag">+${p.overdueDays} д</span>` : ""}
       </div>
-      <span class="op-queue-order">${escapeHtml(p.orderNumber)}</span>
-      <span class="op-queue-item">${escapeHtml(p.item)}</span>
+      <span class="op-queue-order">${escapeHtml(objectTitle)}</span>
+      ${p.item ? `<span class="op-queue-item">${escapeHtml(p.item)}</span>` : ""}
       <div class="op-queue-footer">${badge(status)} · ${p.progress || 0}%</div>
     </button>
       </div>
@@ -477,16 +485,40 @@ export function renderOperatorView() {
         <main class="op-work-panel">
           ${
             pos
-              ? `
-            <div class="op-task-hero">
-              <div class="op-task-hero-top"><span>#${pos.id}</span>${badge(pos[field])}</div>
-              <h2>${escapeHtml(pos.item)}</h2>
-              <p class="op-task-subtitle">${escapeHtml(pos.orderNumber)} · ${escapeHtml(resolveObjectNameFromOrders(pos, state.orders) || "—")}</p>
+              ? (() => {
+                  const { title: objectTitle, positionName } = formatObjectHeader(
+                    state.orders.find(
+                      (o) =>
+                        o.id === pos.orderId ||
+                        (pos.orderNumber && o.orderNumber === pos.orderNumber)
+                    ),
+                    pos
+                  );
+                  const heroCompact = isCuttingOneScreen(stageKey) ? " op-task-hero--compact" : "";
+                  const heroLive = inWork && activeSessionPositionId() === pos.id ? " op-task-hero--live" : "";
+                  return `
+            <div class="op-task-hero${heroCompact}${heroLive}">
+              <div class="op-task-hero-top"><span class="op-task-id">#${pos.id}</span>${badge(pos[field])}</div>
+              <h2 class="op-task-title">${escapeHtml(objectTitle)}</h2>
+              ${positionName ? `<p class="op-task-subtitle">${escapeHtml(positionName)}</p>` : ""}
               <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span>Загальний прогрес</span></div>
               ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
-            </div>
+            </div>`;
+                })()
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
+            <section class="op-order-3d" id="operatorOrder3dSection" hidden>
+              <div class="op-order-3d-head">
+                <h3 class="op-section-title">3D модель</h3>
+                <button type="button" class="btn btn-sm op-order-3d-reset" id="operatorOrder3dResetCam" hidden>Скинути камеру</button>
+              </div>
+              <div
+                id="operatorOrder3dMount"
+                class="op-order-3d-mount"
+                data-order-id="${workOrderId(pos) || ""}"
+                data-position-id="${pos.id}"
+              ></div>
+            </section>
           `
               : renderSmartEmptyState({
                   icon: "👆",
@@ -603,6 +635,11 @@ export function bindOperatorActions(onChange) {
   document.addEventListener("click", async (e) => {
     if (e.target.closest("#operatorScanBtn, #operatorClientScanBtn, #operatorWorkScanBtn")) {
       focusOperatorScanInput();
+      return;
+    }
+    if (e.target.closest("#operatorOrder3dResetCam")) {
+      const { getOperatorOrder3dViewer } = await import("./operator-3d.js");
+      getOperatorOrder3dViewer()?.resetCamera?.();
       return;
     }
     if (e.target.closest("#operatorCameraBtn, #operatorClientCameraBtn, #operatorWorkCameraBtn")) {

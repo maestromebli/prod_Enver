@@ -9,7 +9,8 @@ import {
 } from "./constants.js";
 import { historyTab } from "./history.js";
 import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
-import { bindOperatorScanPanel } from "./part-scan.js";
+import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
+import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { syncOperatorBuildChip } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
@@ -217,8 +218,11 @@ export function renderApp(options = {}) {
       return;
     }
     document.querySelector("#content").innerHTML = renderOperatorView();
+    destroyOperatorOrder3d();
     bindOperatorQueueSwipe();
     bindOperatorScanPanel(state.operatorStage);
+    syncOperatorClientScanButtons(state.operatorStage);
+    void bindOperatorOrder3d();
     syncOperatorBuildChip("operatorBuildChipInline");
     if (!options.preserveScroll) {
       window.scrollTo(0, 0);

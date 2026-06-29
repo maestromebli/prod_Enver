@@ -15,7 +15,8 @@ import {
   hasB3dMappingFile,
   hasProjectMappingFile,
   pickComplementMappingPackage,
-  PACKAGE_FILE_KIND_LABELS
+  PACKAGE_FILE_KIND_LABELS,
+  PACKAGE_PARSING_STALE_MS
 } from "../../../shared/production/constructive-package.js";
 import { isMultiInstancePackageFileKind } from "../../../shared/production/cnc-file-meta.js";
 import {
@@ -33,6 +34,22 @@ import { recordHistory } from "../audit.js";
 import { tryAutoCreateProcurementFromPackage } from "./procurement-service.js";
 
 const AUTO_PREVIEW_GLB_NAME = "3d-preview.glb";
+
+/** Скидає завислий parsing → uploaded (після таймауту або падіння процесу). */
+export async function recoverStaleParsingIfNeeded(packageId) {
+  const row = await one(`SELECT id, status, updated_at FROM constructive_packages WHERE id = $1`, [
+    packageId
+  ]);
+  if (!row || row.status !== "parsing") return false;
+  const age = Date.now() - new Date(row.updated_at).getTime();
+  if (Number.isFinite(age) && age < PACKAGE_PARSING_STALE_MS) return false;
+  await run(
+    `UPDATE constructive_packages SET status = 'uploaded', updated_at = now() WHERE id = $1 AND status = 'parsing'`,
+    [packageId]
+  );
+  console.warn(`[constructive] скинуто завислий статус parsing для пакета #${packageId}`);
+  return true;
+}
 
 export function mapPackageRow(row) {
   if (!row) return null;
@@ -303,6 +320,7 @@ async function enrichPackageFilesPreviewLayout(fileRows = []) {
 }
 
 export async function getPackageDetail(packageId) {
+  await recoverStaleParsingIfNeeded(packageId);
   const pkg = await getPackageById(packageId);
   if (!pkg) return null;
   let files = await getPackageFiles(packageId);
@@ -312,9 +330,11 @@ export async function getPackageDetail(packageId) {
     try {
       const buf = await readStoredFile(legacyPreview.storage_path);
       if (isLegacySharedMeshPreviewGlb(buf)) {
-        await withTransaction(async (client) => {
-          await ensureB3dPreviewGlb(packageId, pkg.position_id, files, client);
-        });
+        try {
+          await ensureB3dPreviewGlb(packageId, pkg.position_id, files);
+        } catch {
+          /* ignore */
+        }
         files = await getPackageFiles(packageId);
       }
     } catch {
@@ -429,7 +449,7 @@ export async function deletePackageFile(packageId, fileId, actor) {
 }
 
 /** GLB для перегляду: витягується з GibLab .b3d після завантаження. */
-async function ensureB3dPreviewGlb(packageId, positionId, fileRows, client) {
+async function ensureB3dPreviewGlb(packageId, positionId, fileRows) {
   const hasUser3dPreview = fileRows.some(
     (f) =>
       f.kind === "wrl_model" ||
@@ -450,7 +470,7 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, client) {
 
   for (const old of fileRows.filter((f) => f.original_name === AUTO_PREVIEW_GLB_NAME)) {
     if (old?.id) {
-      await client.query(`DELETE FROM constructive_package_files WHERE id = $1`, [old.id]);
+      await run(`DELETE FROM constructive_package_files WHERE id = $1`, [old.id]);
     }
   }
 
@@ -492,7 +512,7 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, client) {
     mime: "model/gltf-binary"
   });
   const checksum = computeChecksum(preview.buffer);
-  const insert = await client.query(
+  const insert = await run(
     `INSERT INTO constructive_package_files
      (package_id, kind, original_name, mime, size_bytes, storage_path, checksum, material_type, material_decor)
      VALUES ($1, 'glb_model', $2, $3, $4, $5, $6, '', '')
@@ -513,18 +533,14 @@ async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
     if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
       const fileRows = await getPackageFiles(packageId);
       await autoSyncEnver3ToPackageB3d({ fileRows });
-      await withTransaction(async (client) => {
-        await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
-      });
+      await ensureB3dPreviewGlb(packageId, positionId, fileRows);
     } else if (
       savedFiles.some((f) => f.kind === "other" && isEnverAssemblyJsonName(f.originalName))
     ) {
       const fileRows = await getPackageFiles(packageId);
       const synced = await autoSyncEnver3ToPackageB3d({ fileRows });
       if (synced.applied) {
-        await withTransaction(async (client) => {
-          await ensureB3dPreviewGlb(packageId, positionId, fileRows, client);
-        });
+        await ensureB3dPreviewGlb(packageId, positionId, fileRows);
       }
     }
   } catch (err) {
@@ -719,10 +735,18 @@ export async function createConstructivePackage({
 
 /** Розбір пакета → parts/materials/hardware. */
 export async function parseConstructivePackage(packageId, actor) {
+  await recoverStaleParsingIfNeeded(packageId);
+
   const pkg = await one(`SELECT * FROM constructive_packages WHERE id = $1`, [packageId]);
   if (!pkg) {
     const err = new Error("Пакет не знайдено");
     err.status = 404;
+    throw err;
+  }
+
+  if (pkg.status === "parsing") {
+    const err = new Error("Пакет уже розбирається — зачекайте кілька секунд");
+    err.status = 409;
     throw err;
   }
 
@@ -732,13 +756,41 @@ export async function parseConstructivePackage(packageId, actor) {
   );
 
   try {
-    const fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
+    let fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
       packageId
     ]);
     const parseResults = await parsePackageFiles(fileRows, readStoredFile);
 
     const merged = mergeParseResults(parseResults);
     const position = await one(`SELECT * FROM positions WHERE id = $1`, [pkg.position_id]);
+
+    try {
+      await autoSyncEnver3ToPackageB3d({ fileRows });
+      fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
+        packageId
+      ]);
+    } catch (syncErr) {
+      console.warn("[constructive] enver3 sync під час розбору:", syncErr?.message || syncErr);
+    }
+
+    let previewGlbRow = null;
+    try {
+      previewGlbRow = await ensureB3dPreviewGlb(packageId, pkg.position_id, fileRows);
+      if (previewGlbRow) {
+        fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
+          packageId
+        ]);
+      }
+    } catch (previewErr) {
+      console.warn("[constructive] 3D-превʼю під час розбору:", previewErr?.message || previewErr);
+    }
+
+    const glbFile =
+      previewGlbRow ||
+      fileRows.find((f) => f.kind === "wrl_model") ||
+      fileRows.find((f) => f.kind === "glb_model" || f.kind === "gltf_model");
+    const b3dFile = fileRows.find((f) => f.kind === "b3d");
+    const modelSourceFile = glbFile || b3dFile;
 
     await withTransaction(async (client) => {
       await client.query(`DELETE FROM constructive_parts WHERE package_id = $1`, [packageId]);
@@ -883,13 +935,6 @@ export async function parseConstructivePackage(packageId, actor) {
         );
       }
 
-      const previewGlbRow = await ensureB3dPreviewGlb(packageId, pkg.position_id, fileRows, client);
-      const glbFile =
-        previewGlbRow ||
-        fileRows.find((f) => f.kind === "wrl_model") ||
-        fileRows.find((f) => f.kind === "glb_model" || f.kind === "gltf_model");
-      const b3dFile = fileRows.find((f) => f.kind === "b3d");
-      const modelSourceFile = glbFile || b3dFile;
       const manifestPayload = JSON.stringify({
         nodes: merged.manifestNodes || [],
         autoMapped: autoMapped.length > 0,

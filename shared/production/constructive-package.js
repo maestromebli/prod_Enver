@@ -16,6 +16,9 @@ export const PACKAGE_STATUSES = [
   "rejected"
 ];
 
+/** Після цього часу статус parsing вважається завислим (сервер скидає на uploaded). */
+export const PACKAGE_PARSING_STALE_MS = 90_000;
+
 export const PACKAGE_FILE_KINDS = [
   "spec_xls",
   "project",
@@ -294,6 +297,15 @@ export function isPackageParsingStatus(status) {
   return String(status || "").trim() === "parsing";
 }
 
+/** Чи завис розбір (немає активного процесу на сервері). */
+export function isStalePackageParsing(pkg) {
+  if (!pkg || !isPackageParsingStatus(pkg.status)) return false;
+  const raw = pkg.updatedAt ?? pkg.updated_at;
+  if (!raw) return true;
+  const age = Date.now() - new Date(raw).getTime();
+  return !Number.isFinite(age) || age > PACKAGE_PARSING_STALE_MS;
+}
+
 /** Пакет уже розібрано (є деталі / наступні етапи). */
 export function isPackageParsedStatus(status) {
   const s = String(status || "").trim();
@@ -310,6 +322,7 @@ export function packageParseDisplay(status, partsCount = 0) {
     return {
       parsed: false,
       parsing: true,
+      stale: false,
       title: "Розбір пакета",
       subtitle: "Обробляємо файли конструктива…"
     };
@@ -700,6 +713,104 @@ export function formatPartDimensionsMm(part = {}) {
   const dims = [length || "—", width || "—"];
   if (thickness) dims.push(thickness);
   return `${dims.join("×")} мм`;
+}
+
+/** Ключі імені mesh для зіставлення з деталлю (panel-10, B1-21, …). */
+export function meshNameLookupKeys(meshName) {
+  const keys = new Set();
+  const s = String(meshName || "").trim();
+  if (!s) return keys;
+  keys.add(s);
+  keys.add(s.toLowerCase());
+  const bare = s.replace(/^panel-/i, "");
+  if (bare !== s) {
+    keys.add(bare);
+    keys.add(bare.toLowerCase());
+  }
+  const noZeros = s.replace(/^0+/, "") || s;
+  keys.add(noZeros);
+  keys.add(noZeros.toLowerCase());
+  const tailNum = s.match(/(\d{1,6})$/);
+  if (tailNum) keys.add(tailNum[1]);
+  return keys;
+}
+
+/** Знайти деталь каталогу за іменем mesh у 3D-моделі. */
+export function resolvePartByMeshName(meshName, parts = []) {
+  if (!parts.length) return null;
+  const keys = meshNameLookupKeys(meshName);
+  if (!keys.size) return null;
+
+  const keyMatches = (value) => {
+    const v = String(value || "").trim();
+    if (!v) return false;
+    return keys.has(v) || keys.has(v.toLowerCase());
+  };
+
+  for (const part of parts) {
+    if (keyMatches(part.modelMeshName) || keyMatches(part.modelNodeId)) return part;
+  }
+
+  for (const part of parts) {
+    const partNo = String(part.partNo || "").trim();
+    const blockCode = String(part.blockCode || "").trim();
+    const compositeKey = blockCode && partNo ? `${blockCode}-${partNo}` : partNo;
+    const partCode = String(part.partCode || part.code || "").trim();
+
+    for (const key of keys) {
+      const lower = key.toLowerCase();
+      if (compositeKey && lower === compositeKey.toLowerCase()) return part;
+      if (partNo && (key === partNo || key === partNo.replace(/^0+/, ""))) return part;
+      if (partCode && (key === partCode || key === partCode.replace(/^0+/, ""))) return part;
+      if (partNo && key.includes(partNo)) return part;
+      if (compositeKey && lower.includes(compositeKey.toLowerCase())) return part;
+    }
+  }
+
+  return null;
+}
+
+/** Зібрати всі імена вузлів mesh (сам mesh + батьки). */
+export function collectMeshNodeNames(mesh) {
+  const names = [];
+  let node = mesh;
+  while (node) {
+    if (node.name) names.push(node.name);
+    node = node.parent;
+  }
+  return names;
+}
+
+/** Знайти деталь за Three.js mesh (перебір імен вузлів). */
+export function resolvePartByMesh(mesh, parts = []) {
+  if (!mesh) return null;
+  for (const name of collectMeshNodeNames(mesh)) {
+    const part = resolvePartByMeshName(name, parts);
+    if (part) return part;
+  }
+  return null;
+}
+
+/** Заголовок і підпис для панелі вибраної деталі в 3D. */
+export function formatPartPickerInfo(part, { meshName = "", sizeLabel = "" } = {}) {
+  const blockCode = String(part?.blockCode || "").trim();
+  const partNo = String(part?.partNo || "").trim();
+  const partName = String(part?.partName || "").trim();
+  const material = String(part?.material || "").trim();
+
+  let numberLine = "";
+  if (blockCode && partNo) numberLine = `${blockCode} · №${partNo}`;
+  else if (partNo) numberLine = `№${partNo}`;
+  else if (meshName) numberLine = `№${meshName.replace(/^panel-/i, "")}`;
+
+  const dims = part ? formatPartDimensionsMm(part) : sizeLabel || "—";
+
+  return {
+    numberLine: numberLine || "—",
+    name: partName || "Деталь",
+    dimensions: dims,
+    material: material || ""
+  };
 }
 
 /** Чи можна створити закупівлю з розбору XLS (без привʼязки до ЧПК). */

@@ -14,11 +14,38 @@ import {
   findPackagePreview3dFile,
   preview3dLoadFormat
 } from "../../../shared/production/constructive-package.js";
+import { detectOrder3DFileType } from "../../../shared/production/order-3d.js";
 import { recordHistory } from "../audit.js";
 import { config } from "../config.js";
 
 const router = Router();
 router.use(requireAuth);
+
+async function findOrderWebModel(orderId) {
+  if (!orderId) return null;
+  const row = await one(
+    `SELECT id, web_model_storage_path, original_file_type, status
+     FROM order_3d_assets
+     WHERE order_id = $1
+       AND status IN ('READY', 'PARTIAL_READY')
+       AND web_model_storage_path IS NOT NULL
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [orderId]
+  );
+  if (!row) return null;
+  const fileName =
+    String(row.web_model_storage_path || "")
+      .split("/")
+      .pop() || "";
+  const ext = detectOrder3DFileType(fileName);
+  return {
+    assetId: row.id,
+    orderId,
+    format: ext !== "unknown" ? ext : "glb",
+    status: row.status
+  };
+}
 
 async function buildScanResponse(part) {
   const position = await one(`SELECT * FROM positions WHERE id = $1`, [part.positionId]);
@@ -32,11 +59,22 @@ async function buildScanResponse(part) {
 
   const previewFile = findPackagePreview3dFile(detail);
   const pdfFile = detail?.files?.find((f) => f.kind === "assembly_pdf");
+  const orderWeb = order?.id ? await findOrderWebModel(order.id) : null;
 
   const host = config.domain ? `https://${config.domain}` : "";
-  const viewerUrl = previewFile
-    ? `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${previewFile.id}`
-    : null;
+  let viewerUrl = null;
+  let viewerFormat = null;
+  let viewerSource = null;
+
+  if (orderWeb) {
+    viewerUrl = `${host}/api/orders/${order.id}/3d/${orderWeb.assetId}/web-model`;
+    viewerFormat = orderWeb.format;
+    viewerSource = "order_3d";
+  } else if (previewFile) {
+    viewerUrl = `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${previewFile.id}`;
+    viewerFormat = preview3dLoadFormat(previewFile);
+    viewerSource = "constructive_package";
+  }
 
   return {
     part,
@@ -54,10 +92,13 @@ async function buildScanResponse(part) {
     cncJob,
     model: {
       viewerUrl,
-      viewerFormat: previewFile ? preview3dLoadFormat(previewFile) : null,
+      viewerFormat: viewerFormat || (previewFile ? preview3dLoadFormat(previewFile) : null),
+      viewerSource,
       glbFileId: previewFile?.id || null,
+      order3dAssetId: orderWeb?.assetId || null,
       manifest: detail?.manifest?.manifestJson || null,
-      mapped: Boolean(part.modelNodeId || part.modelMeshName),
+      parts: detail?.parts || [],
+      mapped: Boolean(part.modelNodeId || part.modelMeshName || part.partCode || part.partNo),
       assemblyPdfUrl: pdfFile
         ? `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${pdfFile.id}`
         : null

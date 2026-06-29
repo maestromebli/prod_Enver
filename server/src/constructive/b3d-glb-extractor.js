@@ -49,11 +49,12 @@ function tryExtractGlbAt(buf, offset) {
 /** Шукає вбудований GLB у бінарному .b3d. */
 export function findEmbeddedGlb(buf) {
   if (!buf?.length) return null;
-  const limit = Math.min(buf.length - 12, 8_000_000);
-  for (let i = 0; i <= limit; i += 1) {
-    const slice = tryExtractGlbAt(buf, i);
-    if (slice) return slice;
-    if (i > 0 && i % 4 !== 0) continue;
+  const limit = Math.min(buf.length - 12, 4_000_000);
+  for (let i = 0; i <= limit; i += 4) {
+    for (let j = 0; j < 4 && i + j <= limit; j += 1) {
+      const slice = tryExtractGlbAt(buf, i + j);
+      if (slice) return slice;
+    }
   }
   return null;
 }

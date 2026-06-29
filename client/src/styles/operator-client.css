@@ -957,3 +957,38 @@ body.enver-operator-ui.view-operator {
     grid-template-rows: minmax(140px, 28vh) minmax(0, 1fr);
   }
 }
+
+/* 3D-модель замовлення в робочій панелі оператора */
+.op-order-3d {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--enver-border, #e2e8f0);
+  background: var(--enver-surface, #fff);
+}
+
+.op-order-3d-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.op-order-3d-head .op-section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.op-order-3d-viewer {
+  min-height: 220px;
+  height: min(42vh, 360px);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+}
+
+.op-order-3d-loading {
+  margin: 0;
+  padding: 1rem 0;
+  text-align: center;
+}

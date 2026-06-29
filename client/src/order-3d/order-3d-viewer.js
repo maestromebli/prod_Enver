@@ -1,8 +1,27 @@
 import { order3dFileUrl } from "./order-3d-api.js";
+import { api } from "../api.js";
+import { state } from "../state.js";
 
 let viewerInstance = null;
 
-export async function mountOrder3DViewer(container, { orderId, asset }) {
+async function loadOrderConstructiveParts(order) {
+  if (!order?.id) return [];
+  const { getWorkPositions } = await import("@enver/shared/production/order-position-model.js");
+  const related = state.positions.filter((p) => p.orderId === order.id);
+  const work = getWorkPositions(order, related);
+  const parts = [];
+  for (const pos of work) {
+    try {
+      const detail = await api.getConstructivePackageLatest(pos.id);
+      if (detail?.parts?.length) parts.push(...detail.parts);
+    } catch {
+      /* пакет може бути відсутній */
+    }
+  }
+  return parts;
+}
+
+export async function mountOrder3DViewer(container, { orderId, asset, order, parts } = {}) {
   if (!container || !asset?.webModelUrl) return null;
 
   container.innerHTML = `<p class="order-3d-viewer-loading enver-meta">Завантаження 3D…</p>`;
@@ -16,6 +35,8 @@ export async function mountOrder3DViewer(container, { orderId, asset }) {
     const token = (await import("../api.js")).getStoredToken();
     const format = asset.webModelFormat || "glb";
     await viewer.loadModel(url, token, { format });
+    const catalog = parts?.length ? parts : await loadOrderConstructiveParts(order);
+    if (catalog.length) viewer.setPartCatalog(catalog);
     viewerInstance = viewer;
     return viewer;
   } catch (err) {

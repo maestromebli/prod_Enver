@@ -3,6 +3,7 @@ import { api } from "./api.js";
 import {
   CONSTRUCTIVE_PIPELINE_STEPS,
   constructivePipelineStepIndex,
+  isStalePackageParsing,
   packageParseDisplay,
   packageStatusLabel
 } from "@enver/shared/production/constructive-package.js";
@@ -14,6 +15,17 @@ const PARSE_PROGRESS_MESSAGES = [
   "Зіставляємо 3D-модель…",
   "Зберігаємо деталі та матеріали…"
 ];
+
+const PARSE_REQUEST_TIMEOUT_MS = 180_000;
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    })
+  ]);
+}
 
 export function renderConstructivePipeline(status) {
   const current = constructivePipelineStepIndex(status);
@@ -32,25 +44,35 @@ export function renderPackageParseBanner(detail) {
   const pkg = detail?.package;
   if (!pkg) return "";
 
+  const stale = isStalePackageParsing(pkg);
   const display = packageParseDisplay(pkg.status, detail?.parts?.length || 0);
-  const modifier = display.parsing
-    ? "cp-parse-banner--parsing"
-    : display.parsed
-      ? "cp-parse-banner--parsed"
-      : "cp-parse-banner--pending";
+  const modifier = stale
+    ? "cp-parse-banner--pending"
+    : display.parsing
+      ? "cp-parse-banner--parsing"
+      : display.parsed
+        ? "cp-parse-banner--parsed"
+        : "cp-parse-banner--pending";
 
-  const progress = display.parsing
-    ? `<div class="cp-parse-progress" aria-hidden="true"><div class="cp-parse-progress-bar" data-cp-parse-progress-bar></div></div>
+  const progress =
+    display.parsing && !stale
+      ? `<div class="cp-parse-progress" aria-hidden="true"><div class="cp-parse-progress-bar" data-cp-parse-progress-bar></div></div>
        <p class="cp-parse-progress-text enver-meta" data-cp-parse-progress-text>${escapeHtml(PARSE_PROGRESS_MESSAGES[0])}</p>`
+      : "";
+
+  const staleActions = stale
+    ? `<p class="cp-parse-stale-note enver-meta">Розбір перервався або завис. Спробуйте ще раз.</p>
+       <button type="button" class="btn btn-sm btn-primary" data-cp-parse-retry>Розібрати знову</button>`
     : "";
 
   return `
     <div class="cp-parse-banner ${modifier}" data-cp-parse-banner role="status" aria-live="polite">
       <div class="cp-parse-banner-main">
-        <strong class="cp-parse-banner-title">${escapeHtml(display.title)}</strong>
-        <span class="enver-meta cp-parse-banner-sub">${escapeHtml(display.subtitle)}</span>
+        <strong class="cp-parse-banner-title">${escapeHtml(stale ? "Розбір не завершено" : display.title)}</strong>
+        <span class="enver-meta cp-parse-banner-sub">${escapeHtml(stale ? "Натисніть «Розібрати знову»" : display.subtitle)}</span>
       </div>
       ${progress}
+      ${staleActions}
     </div>`;
 }
 
@@ -151,7 +173,11 @@ export async function runPackageParseWithProgress(positionId, packageId, ctx = {
   await poll();
 
   try {
-    const after = await api.parseConstructivePackage(positionId, packageId);
+    const after = await withTimeout(
+      api.parseConstructivePackage(positionId, packageId),
+      PARSE_REQUEST_TIMEOUT_MS,
+      "Розбір занадто довгий — спробуйте ще раз або завантажте менші файли"
+    );
     liveCtx.detail = after;
     liveCtx.onDetailPatched?.(after);
     if (block && position) applyPackageParseUi(block, position, after);
@@ -190,12 +216,36 @@ export function applyPackageParseUi(block, position, detail, _constructiveFiles)
     }
   }
 
-  const parsing = pkg?.status === "parsing";
+  const parsing = pkg?.status === "parsing" && !isStalePackageParsing(pkg);
   block.classList.toggle("constructive-package-block--parsing", parsing);
   block.querySelectorAll("[data-cp-parse-btn]").forEach((btn) => {
     btn.disabled = parsing;
     if (parsing) btn.textContent = "Розбір…";
+    else if (btn.dataset.cpParseDefaultLabel) btn.textContent = btn.dataset.cpParseDefaultLabel;
   });
+}
+
+/** Оновити UI після завантаження detail — зняти «вічний» parsing. */
+export async function refreshStalePackageParseUi(block, position, detail, onRetry) {
+  if (!block || !detail?.package?.id) return detail;
+  if (!isStalePackageParsing(detail.package)) return detail;
+  try {
+    const fresh = await api.getConstructivePackageLatest(position.id);
+    if (fresh) {
+      applyPackageParseUi(block, position, fresh);
+      block.querySelector("[data-cp-parse-retry]")?.addEventListener("click", () => {
+        onRetry?.(fresh.package.id);
+      });
+      return fresh;
+    }
+  } catch {
+    /* ignore */
+  }
+  applyPackageParseUi(block, position, detail);
+  block.querySelector("[data-cp-parse-retry]")?.addEventListener("click", () => {
+    onRetry?.(detail.package.id);
+  });
+  return detail;
 }
 
 export { packageStatusLabel };

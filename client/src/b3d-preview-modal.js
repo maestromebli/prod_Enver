@@ -105,6 +105,7 @@ export async function openB3dPreviewModal(positionId, detail) {
     const url = constructivePackageFileUrl(positionId, detail.package.id, previewFile.id);
     const format = preview3dLoadFormat(previewFile);
     await previewViewer.loadModel(url, token, { format });
+    if (detail.parts?.length) previewViewer.setPartCatalog(detail.parts);
     container.querySelector(".b3d-preview-loading")?.remove();
   } catch {
     container.querySelector(".b3d-preview-loading")?.remove();

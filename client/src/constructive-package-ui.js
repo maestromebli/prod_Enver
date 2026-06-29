@@ -35,7 +35,8 @@ import {
   renderConstructivePipeline,
   renderPackageParseBanner,
   runPackageParseWithProgress,
-  applyPackageParseUi
+  applyPackageParseUi,
+  refreshStalePackageParseUi
 } from "./constructive-package-parse-ui.js";
 
 const packageDropZones = new WeakMap();
@@ -504,6 +505,14 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
 
   block.dataset.packageId = String(detail?.package?.id || "");
   applyPackageParseUi(block, position, detail, constructiveFiles);
+  void refreshStalePackageParseUi(block, position, detail, (packageId) => {
+    void runPackageParseWithProgress(position.id, packageId, {
+      root,
+      position,
+      liveCtx: getPackagePanelContext(position.id) || { detail },
+      notify: () => getPackagePanelContext(position.id)?.onUpdated?.()
+    }).catch((err) => toastError(err.message));
+  });
   patchConstructiveActionButtons(block, detail, {
     hideProcurement: getPackagePanelContext(position.id)?.hideProcurement === true
   });
@@ -605,9 +614,10 @@ function bindConstructivePackageActions(root, position, liveCtx, { signal, notif
     "click",
     async (e) => {
       const parseBtn = e.target.closest("[data-cp-parse-btn]");
-      if (parseBtn) {
-        if (parseBtn.disabled) return;
-        const block = parseBtn.closest(".constructive-package-block");
+      const parseRetryBtn = e.target.closest("[data-cp-parse-retry]");
+      if (parseBtn || parseRetryBtn) {
+        if (parseBtn?.disabled) return;
+        const block = (parseBtn || parseRetryBtn).closest(".constructive-package-block");
         try {
           const latest = await api.getConstructivePackageLatest(position.id);
           const packageId = latest?.package?.id;

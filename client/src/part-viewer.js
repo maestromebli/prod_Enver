@@ -3,6 +3,11 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLLoader } from "three/examples/jsm/loaders/VRMLLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { apiUrl } from "./api.js";
+import {
+  formatPartPickerInfo,
+  resolvePartByMesh
+} from "@enver/shared/production/constructive-package.js";
+import { escapeHtml } from "./utils.js";
 
 const SCENE_BG = 0xf0f2f5;
 const PART_COLOR = 0x5c6f82;
@@ -38,8 +43,11 @@ function detectModelFormat(url, format) {
   return "glb";
 }
 
-/** Three.js viewer з підсвіткою деталі. */
-export function createPartViewer(container, { onReady, onError } = {}) {
+/** Three.js viewer з підсвіткою деталі та вибором кліком. */
+export function createPartViewer(
+  container,
+  { onReady, onError, onPartSelect, pickable = true } = {}
+) {
   if (!container) return { destroy() {} };
 
   const scene = new THREE.Scene();
@@ -69,6 +77,21 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   `;
   wrap.appendChild(zoomBar);
 
+  const infoPanel = document.createElement("div");
+  infoPanel.className = "part-viewer-info";
+  infoPanel.hidden = true;
+  infoPanel.innerHTML = `
+    <button type="button" class="part-viewer-info-close" aria-label="Закрити">×</button>
+    <div class="part-viewer-info-body"></div>
+  `;
+  wrap.appendChild(infoPanel);
+
+  const pickHint = document.createElement("p");
+  pickHint.className = "part-viewer-pick-hint enver-meta";
+  pickHint.hidden = true;
+  pickHint.textContent = "Клікніть на деталь";
+  wrap.appendChild(pickHint);
+
   container.innerHTML = "";
   container.classList.add("part-viewer-host");
   container.appendChild(wrap);
@@ -87,10 +110,16 @@ export function createPartViewer(container, { onReady, onError } = {}) {
 
   let model = null;
   let highlightMesh = null;
+  let selectedMesh = null;
   let animId = null;
+  let partCatalog = [];
+  let pickingEnabled = pickable;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let pointerDown = null;
 
   function cloneSurfaceMaterial(mat) {
     if (!mat) {
@@ -169,6 +198,134 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   }
   bindZoomControls();
 
+  infoPanel.querySelector(".part-viewer-info-close")?.addEventListener("click", () => {
+    clearSelection();
+  });
+
+  function meshSizeLabelMm(mesh) {
+    if (!mesh) return "";
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3()).multiplyScalar(1000);
+    const dims = [size.x, size.y, size.z].map((v) => Math.round(v)).sort((a, b) => b - a);
+    return `${dims[0]}×${dims[1]}×${dims[2]} мм`;
+  }
+
+  function renderInfoPanel(part, mesh) {
+    const meshName = mesh?.name || mesh?.parent?.name || "";
+    const info = formatPartPickerInfo(part, {
+      meshName,
+      sizeLabel: meshSizeLabelMm(mesh)
+    });
+    const body = infoPanel.querySelector(".part-viewer-info-body");
+    if (!body) return;
+    body.innerHTML = `
+      <p class="part-viewer-info-number">${escapeHtml(info.numberLine)}</p>
+      <p class="part-viewer-info-name">${escapeHtml(info.name)}</p>
+      <p class="part-viewer-info-dims">${escapeHtml(info.dimensions)}</p>
+      ${info.material ? `<p class="part-viewer-info-material">${escapeHtml(info.material)}</p>` : ""}
+    `;
+    infoPanel.hidden = false;
+    pickHint.hidden = true;
+  }
+
+  function applySelection(mesh) {
+    if (!model) return;
+    selectedMesh = mesh || null;
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      const isTarget = child === selectedMesh;
+      if (isTarget) {
+        child.material = new THREE.MeshStandardMaterial({
+          color: HIGHLIGHT_COLOR,
+          emissive: 0x5c3a00,
+          metalness: 0.15,
+          roughness: 0.45
+        });
+        setEdgeStyle(child, EDGE_HIGHLIGHT_COLOR);
+      } else {
+        child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+      }
+      child.visible = true;
+    });
+  }
+
+  function showAll() {
+    if (!model) return;
+    highlightMesh = null;
+    selectedMesh = null;
+    infoPanel.hidden = true;
+    updatePickHint();
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      child.visible = true;
+      child.material = child.userData.originalMaterial || child.material;
+      setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+    });
+  }
+
+  function clearSelection() {
+    selectedMesh = null;
+    infoPanel.hidden = true;
+    pickHint.hidden = !pickingEnabled;
+    showAll();
+    onPartSelect?.(null);
+  }
+
+  function selectMesh(mesh) {
+    if (!mesh) {
+      clearSelection();
+      return;
+    }
+    if (selectedMesh === mesh) {
+      clearSelection();
+      return;
+    }
+    const part = resolvePartByMesh(mesh, partCatalog);
+    applySelection(mesh);
+    renderInfoPanel(part, mesh);
+    onPartSelect?.(part || null, mesh);
+  }
+
+  function pickMeshAt(clientX, clientY) {
+    if (!model || !pickingEnabled) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObject(model, true);
+    const hit = hits.find(
+      (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
+    );
+    selectMesh(hit?.object || null);
+  }
+
+  function bindPicking() {
+    const canvas = renderer.domElement;
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!pickingEnabled) return;
+      pointerDown = { x: e.clientX, y: e.clientY };
+    });
+    canvas.addEventListener("pointerup", (e) => {
+      if (!pickingEnabled || !pointerDown) return;
+      const dx = e.clientX - pointerDown.x;
+      const dy = e.clientY - pointerDown.y;
+      pointerDown = null;
+      if (dx * dx + dy * dy > 36) return;
+      pickMeshAt(e.clientX, e.clientY);
+    });
+  }
+  bindPicking();
+
+  function updatePickHint() {
+    pickHint.hidden = !pickingEnabled || Boolean(selectedMesh);
+  }
+
+  function setPartCatalog(parts = []) {
+    partCatalog = Array.isArray(parts) ? parts : [];
+    updatePickHint();
+  }
+
   function animate() {
     animId = requestAnimationFrame(animate);
     controls.update();
@@ -231,6 +388,9 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
+    selectedMesh = null;
+    infoPanel.hidden = true;
+    updatePickHint();
 
     model.traverse((child) => {
       if (!child.isMesh) return;
@@ -293,6 +453,7 @@ export function createPartViewer(container, { onReady, onError } = {}) {
     controls.minDistance = Math.max(0.05, maxDim * 0.08);
     controls.maxDistance = Math.max(10, maxDim * 12);
     controls.update();
+    updatePickHint();
     onReady?.();
     return model;
   }
@@ -338,15 +499,15 @@ export function createPartViewer(container, { onReady, onError } = {}) {
     highlightPart(opts) {
       applyHighlight(opts || {});
     },
-    showAll() {
-      if (!model) return;
-      model.traverse((child) => {
-        if (!child.isMesh) return;
-        child.visible = true;
-        child.material = child.userData.originalMaterial || child.material;
-        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
-      });
+    setPartCatalog(parts) {
+      setPartCatalog(parts);
     },
+    selectPart({ meshName, nodeId } = {}) {
+      const mesh = resolveMesh({ meshName, nodeId });
+      if (mesh) selectMesh(mesh);
+    },
+    clearSelection,
+    showAll,
     isolatePart(meshName) {
       applyHighlight({ meshName, isolate: true, ghost: false });
     },
