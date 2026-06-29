@@ -351,6 +351,10 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
   const isReady =
     asset && (asset.status === "READY" || asset.status === "PARTIAL_READY") && asset.webModelUrl;
   if (!isReady) {
+    if (highlightPartId) {
+      await loadPartMode(highlightPartId);
+      return;
+    }
     setError("3D модель замовлення ще не готова");
     return;
   }
@@ -406,9 +410,7 @@ async function main() {
   });
 
   try {
-    if (partId && orderId) {
-      await loadOrderMode(orderId, positionId, partId);
-    } else if (partId) {
+    if (partId) {
       await loadPartMode(partId);
     } else if (orderId) {
       await loadOrderMode(orderId, positionId, null);

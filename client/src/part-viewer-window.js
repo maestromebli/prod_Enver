@@ -6,6 +6,52 @@ const VIEWER_FEATURES =
 
 let viewerPopup = null;
 
+function isMobileLikeDevice() {
+  return (
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && window.innerWidth < 1200)
+  );
+}
+
+/** Синхронно відкрити вікно (до await) — інакше браузер блокує popup. */
+export function prepareViewerPopup() {
+  if (viewerPopup && !viewerPopup.closed) {
+    return viewerPopup;
+  }
+  try {
+    viewerPopup = window.open("about:blank", VIEWER_WINDOW_NAME);
+    return viewerPopup;
+  } catch {
+    return null;
+  }
+}
+
+export function closePreparedViewerPopup(popup = viewerPopup) {
+  try {
+    if (popup && !popup.closed) popup.close();
+  } catch {
+    /* ignore */
+  }
+  if (popup === viewerPopup) viewerPopup = null;
+}
+
+function openUrlWithFallback(href) {
+  let popup = window.open(href, VIEWER_WINDOW_NAME, VIEWER_FEATURES);
+  if (!popup) popup = window.open(href, "_blank");
+  if (!popup) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return null;
+  }
+  return popup;
+}
+
 export function buildViewerUrl({ partId = null, orderId = null, positionId = null } = {}) {
   const url = new URL("/viewer.html", window.location.origin);
   if (partId) url.searchParams.set("partId", String(partId));
@@ -14,23 +60,48 @@ export function buildViewerUrl({ partId = null, orderId = null, positionId = nul
   return url.toString();
 }
 
-export function openViewerWindow(params = {}) {
+export function openViewerWindow(params = {}, { preparedPopup = null } = {}) {
   const href = buildViewerUrl(params);
+  let popup = preparedPopup && !preparedPopup.closed ? preparedPopup : null;
+
+  if (popup) {
+    popup.location.replace(href);
+    try {
+      popup.focus();
+    } catch {
+      /* ignore */
+    }
+    viewerPopup = popup;
+    return popup;
+  }
+
   if (viewerPopup && !viewerPopup.closed) {
     viewerPopup.location.replace(href);
-    viewerPopup.focus();
-  } else {
-    viewerPopup = window.open(href, VIEWER_WINDOW_NAME, VIEWER_FEATURES);
+    viewerPopup.focus?.();
+    return viewerPopup;
   }
-  return viewerPopup;
+
+  if (isMobileLikeDevice()) {
+    const opened = openUrlWithFallback(href);
+    if (opened) {
+      viewerPopup = opened;
+      return opened;
+    }
+    window.location.assign(href);
+    return null;
+  }
+
+  popup = openUrlWithFallback(href);
+  viewerPopup = popup;
+  return popup;
 }
 
-export function openPartScanViewerWindow(scanData) {
+/** Після скану деталі — лише partId (модель з пакета або order-3d через API getPart). */
+export function openPartScanViewerWindow(scanData, options = {}) {
   const partId = scanData?.part?.id;
   if (!partId) return null;
-  const orderId = scanData?.order?.id || scanData?.part?.orderId || null;
   const positionId = scanData?.position?.id || scanData?.part?.positionId || null;
-  return openViewerWindow({ partId, orderId, positionId });
+  return openViewerWindow({ partId, positionId }, options);
 }
 
 export function openOrderViewerWindow(orderId, positionId = null) {

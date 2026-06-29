@@ -11,7 +11,12 @@ import {
   resolvePartHighlightMesh,
   normalizeBazisScanCode
 } from "@enver/shared/production/bazis-operation-code.js";
-import { highlightPartInViewerWindow, openPartScanViewerWindow } from "./part-viewer-window.js";
+import {
+  highlightPartInViewerWindow,
+  openPartScanViewerWindow,
+  prepareViewerPopup,
+  closePreparedViewerPopup
+} from "./part-viewer-window.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -251,10 +256,12 @@ async function handleScan(
     detailEl,
     scanInput,
     showCncActions = false,
-    closeLabel: _closeLabel = "Згорнути"
+    closeLabel: _closeLabel = "Згорнути",
+    preparedPopup = null
   } = {}
 ) {
   if (statusEl) statusEl.textContent = "Пошук…";
+  let popup = preparedPopup;
   try {
     const data = await lookupBarcode(code);
     recentScans = [code, ...recentScans.filter((c) => c !== code)].slice(0, 5);
@@ -277,14 +284,20 @@ async function handleScan(
     }
 
     if (data.model?.viewerUrl) {
-      const popup = openPartScanViewerWindow(data);
-      if (!popup) toastError("Дозвольте спливаючі вікна для 3D перегляду");
+      const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
+      popup = null;
+      if (!opened) {
+        toastError("Натисніть «Відкрити 3D» або дозвольте нові вкладки");
+      }
     } else {
+      if (popup) closePreparedViewerPopup(popup);
+      popup = null;
       highlightPartInViewerWindow(data.part, { cadGeometry: data.cadGeometry });
     }
 
     scanInput?.focus();
   } catch (err) {
+    if (popup) closePreparedViewerPopup(popup);
     if (statusEl) statusEl.textContent = err.message || "Помилка";
     if (err.message?.includes("fetch") || err.message?.includes("мереж")) {
       toastError("Немає зʼєднання, спробуйте ще раз");
@@ -324,8 +337,17 @@ function bindScanControls({
 
   if (!scanInput) return;
 
-  const onScan = (code) =>
-    handleScan(code, { statusEl, detailEl, scanInput, showCncActions, closeLabel });
+  const onScan = (code) => {
+    const preparedPopup = prepareViewerPopup();
+    void handleScan(code, {
+      statusEl,
+      detailEl,
+      scanInput,
+      showCncActions,
+      closeLabel,
+      preparedPopup
+    });
+  };
 
   attachScannerListener({ scanInput, onScan });
 
@@ -343,9 +365,21 @@ function bindScanControls({
     (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        const preparedPopup = prepareViewerPopup();
         const v = cleanScanCode(e.target.value);
         e.target.value = "";
-        if (v) onScan(v);
+        if (v) {
+          void handleScan(v, {
+            statusEl,
+            detailEl,
+            scanInput,
+            showCncActions,
+            closeLabel,
+            preparedPopup
+          });
+        } else {
+          closePreparedViewerPopup(preparedPopup);
+        }
       }
     },
     { signal }
