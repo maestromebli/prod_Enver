@@ -4,6 +4,7 @@ import { isNativeOperatorShell } from "./operator-native.js";
 
 const VIEWER_WINDOW_NAME = "enver-3d-viewer";
 const VIEWER_RETURN_KEY = "enver_viewer_return";
+const VIEWER_SCAN_KEY = "enver_viewer_scan";
 const VIEWER_FEATURES =
   "popup=yes,width=1360,height=900,menubar=no,toolbar=no,location=no,status=no";
 
@@ -90,11 +91,24 @@ export function closeViewerWindow() {
   }
 }
 
-export function openViewerWindow(params = {}, { preparedPopup = null } = {}) {
+function stashViewerScanPayload(scanPayload, partId) {
+  if (!scanPayload?.model?.viewerUrl) return;
+  try {
+    sessionStorage.setItem(
+      VIEWER_SCAN_KEY,
+      JSON.stringify({ partId: partId || scanPayload.part?.id || null, payload: scanPayload })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function openViewerWindow(params = {}, { preparedPopup = null, scanPayload = null } = {}) {
   const href = buildViewerUrl(params);
 
   if (isNativeOperatorShell()) {
     markViewerReturnPath();
+    stashViewerScanPayload(scanPayload, params.partId);
     window.location.assign(href);
     return null;
   }
@@ -138,7 +152,7 @@ export function openPartScanViewerWindow(scanData, options = {}) {
   const partId = scanData?.part?.id;
   if (!partId) return null;
   const positionId = scanData?.position?.id || scanData?.part?.positionId || null;
-  return openViewerWindow({ partId, positionId }, options);
+  return openViewerWindow({ partId, positionId }, { ...options, scanPayload: scanData });
 }
 
 export function openOrderViewerWindow(orderId, positionId = null) {

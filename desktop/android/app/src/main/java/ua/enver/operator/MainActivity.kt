@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var jsBridge: EnverJsBridge
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    private var serverBaseUrl: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun startWithUrl(serverUrl: String) {
+        serverBaseUrl = serverUrl.trimEnd('/')
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, true)
 
@@ -63,7 +65,7 @@ class MainActivity : AppCompatActivity() {
             setSupportMultipleWindows(true)
             val ua = userAgentString.orEmpty()
             if (!ua.contains("EnverOperator/")) {
-                userAgentString = "$ua EnverOperator/1.0.4"
+                userAgentString = "$ua EnverOperator/1.0.5"
             }
         }
 
@@ -78,6 +80,7 @@ class MainActivity : AppCompatActivity() {
                     if (request?.isForMainFrame != true) return false
                     val url = request.url?.toString().orEmpty()
                     if (url.isBlank()) return false
+                    if (isSameServerUrl(url)) return false
                     view?.loadUrl(url)
                     return true
                 }
@@ -85,6 +88,7 @@ class MainActivity : AppCompatActivity() {
                 @Deprecated("Deprecated in API 24")
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     if (url.isNullOrBlank()) return false
+                    if (isSameServerUrl(url)) return false
                     view?.loadUrl(url)
                     return true
                 }
@@ -116,8 +120,16 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        val base = serverUrl.trimEnd('/')
-        webView.loadUrl("$base/operator.html")
+        webView.loadUrl("$serverBaseUrl/operator.html")
+    }
+
+    private fun isSameServerUrl(url: String): Boolean {
+        val base = serverBaseUrl
+        if (base.isBlank()) return true
+        return url == base ||
+            url.startsWith("$base/") ||
+            url.startsWith("$base?") ||
+            url.startsWith("$base#")
     }
 
     override fun onResume() {

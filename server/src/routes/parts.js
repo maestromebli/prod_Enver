@@ -72,14 +72,15 @@ async function buildScanResponse(part) {
   let viewerFormat = null;
   let viewerSource = null;
 
-  if (orderWeb) {
-    viewerUrl = `${host}/api/orders/${order.id}/3d/${orderWeb.assetId}/web-model`;
-    viewerFormat = orderWeb.format;
-    viewerSource = "order_3d";
-  } else if (previewFile) {
-    viewerUrl = `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${previewFile.id}`;
+  // Для скану деталі — спочатку превʼю пакета (менший файл, швидше на планшеті).
+  if (previewFile) {
+    viewerUrl = `/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${previewFile.id}`;
     viewerFormat = preview3dLoadFormat(previewFile);
     viewerSource = "constructive_package";
+  } else if (orderWeb) {
+    viewerUrl = `/api/orders/${order.id}/3d/${orderWeb.assetId}/web-model`;
+    viewerFormat = orderWeb.format;
+    viewerSource = "order_3d";
   }
 
   return {

@@ -33,19 +33,21 @@ function resolveHighlightTarget(part) {
 function modelFileUrl(viewerUrl) {
   if (!viewerUrl) return null;
   const token = getStoredToken();
-  const q = token
-    ? (viewerUrl.includes("?") ? "&" : "?") + `access_token=${encodeURIComponent(token)}`
-    : "";
-  return (
-    apiUrl(viewerUrl.startsWith("http") ? viewerUrl : viewerUrl) +
-    (viewerUrl.startsWith("http") ? "" : q)
-  );
+  let url = apiUrl(viewerUrl);
+  if (token && !url.includes("access_token=")) {
+    url += (url.includes("?") ? "&" : "?") + `access_token=${encodeURIComponent(token)}`;
+  }
+  return url;
+}
+
+function hideLoading() {
+  const loading = document.getElementById("viewerLoading");
+  if (loading) loading.hidden = true;
 }
 
 function setError(message) {
+  hideLoading();
   const el = document.getElementById("viewerError");
-  const loading = document.getElementById("viewerLoading");
-  if (loading) loading.hidden = true;
   if (el) {
     el.textContent = message;
     el.hidden = !message;
@@ -309,7 +311,6 @@ async function mountFromScanData(container, data) {
     setError("3D модель для цієї деталі недоступна");
     return;
   }
-  const loading = document.getElementById("viewerLoading");
   viewer = await mountModelViewer(container, {
     url: modelFileUrl(data.model.viewerUrl),
     token: getStoredToken(),
@@ -317,7 +318,8 @@ async function mountFromScanData(container, data) {
     parts: data.model.parts || [],
     theme: "studio"
   });
-  loading?.remove();
+  hideLoading();
+  document.getElementById("viewerLoading")?.remove();
   currentPart = data.part;
   applyCadGeometry(data.cadGeometry);
   const title = [
@@ -342,9 +344,34 @@ async function loadPartMode(partId) {
   await mountFromScanData(container, data);
 }
 
+async function loadFromSessionCache() {
+  const raw = sessionStorage.getItem("enver_viewer_scan");
+  if (!raw) return false;
+  sessionStorage.removeItem("enver_viewer_scan");
+
+  let cached;
+  try {
+    cached = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+
+  const payload = cached?.payload;
+  if (!payload?.model?.viewerUrl) return false;
+
+  const params = new URLSearchParams(window.location.search);
+  const urlPartId = Number(params.get("partId")) || null;
+  const cachedPartId = Number(cached.partId) || payload.part?.id || null;
+  if (urlPartId && cachedPartId && urlPartId !== cachedPartId) return false;
+
+  const container = document.getElementById("viewerMount");
+  if (!container) return false;
+  await mountFromScanData(container, payload);
+  return true;
+}
+
 async function loadOrderMode(orderId, positionId, highlightPartId) {
   const container = document.getElementById("viewerMount");
-  const loading = document.getElementById("viewerLoading");
   if (!container) return;
 
   const assetData = await api.getOrder3DAsset(orderId);
@@ -377,7 +404,8 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
     parts,
     theme: "studio"
   });
-  loading?.remove();
+  hideLoading();
+  document.getElementById("viewerLoading")?.remove();
   setTitle("3D модель замовлення");
   bindToolbar();
   bindHotkeys();
@@ -411,10 +439,12 @@ async function main() {
   });
 
   try {
+    if (await loadFromSessionCache()) return;
+
     if (partId) {
       await loadPartMode(partId);
     } else if (orderId) {
-      await loadOrderMode(orderId, positionId, null);
+      await loadOrderMode(orderId, positionId, partId);
     } else {
       setError("Не вказано деталь або замовлення для перегляду");
     }
