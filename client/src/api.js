@@ -257,6 +257,8 @@ export const api = {
   operatorReportProblem: (body) =>
     request("/api/operator/report-problem", { method: "POST", body: JSON.stringify(body) }),
   getOperatorJob: (positionId) => request(`/api/operator/job/${positionId}`),
+  getOperatorStageEstimate: (positionId, stageKey) =>
+    request(`/api/operator/estimate/${positionId}/${stageKey}`),
 
   getHistory: (params = {}) => {
     const q = new URLSearchParams();
@@ -271,10 +273,11 @@ export const api = {
 
   getHealth: () => request("/api/health"),
 
-  scanPart: (barcode, station = "") => {
-    const q = station ? `?station=${encodeURIComponent(station)}` : "";
-    return request(`/api/parts/scan/${encodeURIComponent(barcode)}${q}`);
-  },
+  scanPart: (barcode, station = "") =>
+    request(`/api/parts/scan`, {
+      method: "POST",
+      body: JSON.stringify({ barcode, station })
+    }),
   partCncStart: (partId, body) =>
     request(`/api/parts/${partId}/cnc/start`, { method: "POST", body: JSON.stringify(body) }),
   partCncFinish: (partId, body) =>
@@ -338,7 +341,55 @@ export const api = {
     const q = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
     return request(`/api/procurement${q}`);
   },
-  getProcurementRequest: (requestId) => request(`/api/procurement/${requestId}`)
+  getProcurementRequest: (requestId) => request(`/api/procurement/${requestId}`),
+  getProcurementSummaries: () => request("/api/procurement/summaries"),
+  getProcurementCalendar: ({ from, to } = {}) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const q = params.toString();
+    return request(`/api/procurement/calendar${q ? `?${q}` : ""}`);
+  },
+  listProcurementMto: ({ filter = "open" } = {}) =>
+    request(`/api/procurement/mto?filter=${encodeURIComponent(filter)}`),
+  addProcurementMto: (positionId, body) =>
+    request(`/api/procurement/positions/${positionId}/mto`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  updateProcurementItem: (itemId, body) =>
+    request(`/api/procurement/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body)
+    }),
+  receiveProcurementItem: (itemId, body) =>
+    request(`/api/procurement/items/${itemId}/receive`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  issueProcurementItem: (itemId, body) =>
+    request(`/api/procurement/items/${itemId}/issue`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  listWarehousePending: ({ days = 7 } = {}) =>
+    request(`/api/procurement/warehouse/pending?days=${days}`),
+  listWarehouseMovements: ({ positionId, limit = 50 } = {}) => {
+    const params = new URLSearchParams();
+    if (positionId) params.set("positionId", String(positionId));
+    if (limit) params.set("limit", String(limit));
+    const q = params.toString();
+    return request(`/api/procurement/warehouse/movements${q ? `?${q}` : ""}`);
+  },
+  listProcurementReturns: ({ status = "active" } = {}) =>
+    request(`/api/procurement/returns?status=${encodeURIComponent(status)}`),
+  createProcurementReturn: (body) =>
+    request("/api/procurement/returns", { method: "POST", body: JSON.stringify(body) }),
+  updateProcurementReturnStatus: (id, body) =>
+    request(`/api/procurement/returns/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(body)
+    })
 };
 
 export function getPartLabelsUrl(positionId) {

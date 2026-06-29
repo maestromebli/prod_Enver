@@ -56,10 +56,9 @@ export async function findPackageIdsByProjectBazisCode(scanCode) {
 
   if (partNo) {
     const fromParts = await all(
-      `SELECT DISTINCT cp.package_id
-       FROM constructive_parts cp
-       INNER JOIN constructive_package_files f ON f.package_id = cp.package_id AND f.kind = 'project'
-       WHERE cp.part_no = $1 OR cp.part_no = $2 OR ltrim(cp.part_no, '0') = $1`,
+      `SELECT DISTINCT package_id
+       FROM constructive_parts
+       WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1`,
       [partNo, partNo.padStart(2, "0")]
     );
     for (const row of fromParts) found.add(row.package_id);
@@ -68,8 +67,7 @@ export async function findPackageIdsByProjectBazisCode(scanCode) {
   const files = await all(
     `SELECT package_id, storage_path FROM constructive_package_files
      WHERE kind = 'project'
-     ORDER BY id DESC
-     LIMIT 400`
+     ORDER BY id DESC`
   );
 
   for (const f of files) {
@@ -284,6 +282,25 @@ export async function syncBazisOperationCodesForPackage(packageId) {
   }
 
   return { updated };
+}
+
+export async function resyncBazisOperationCodesForAllPackages() {
+  const rows = await all(
+    `SELECT DISTINCT cp.id AS package_id
+     FROM constructive_packages cp
+     INNER JOIN constructive_package_files f ON f.package_id = cp.id AND f.kind = 'project'
+     ORDER BY cp.id`
+  );
+  let updated = 0;
+  for (const row of rows) {
+    try {
+      const r = await syncBazisOperationCodesForPackage(row.package_id);
+      updated += r.updated || 0;
+    } catch {
+      /* ignore */
+    }
+  }
+  return { packages: rows.length, partsUpdated: updated };
 }
 
 /** Резолв деталі за кодом Bazis через .project (lazy backfill). */

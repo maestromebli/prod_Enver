@@ -7,6 +7,7 @@
     "dev": "DOTENV_CONFIG_PATH=../.env NODE_ENV=development node -r dotenv/config src/index.js",
     "start": "DOTENV_CONFIG_PATH=../.env NODE_ENV=production node -r dotenv/config src/index.js",
     "migrate": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/migrate.mjs",
+    "resync:bazis": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/resync-bazis-codes.mjs",
     "test": "node --test test/*.test.js test/integration/*.test.mjs",
     "test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=src/**/*.js --test-coverage-include=../shared/production/**/*.js test/*.test.js test/integration/*.test.mjs",
     "test:integration": "node --test test/integration/*.test.mjs"

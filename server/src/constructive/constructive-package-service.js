@@ -34,7 +34,9 @@ import {
 } from "./bazis-operation-sync.js";
 import {
   bazisScanLookupVariants,
-  isBazisOperationScanCode
+  isBazisOperationScanCode,
+  normalizeBazisScanCode,
+  partNoFromBazisOperationCode
 } from "../../../shared/production/bazis-operation-code.js";
 import { readPreviewLayoutFromGlb } from "./project-glb-builder.js";
 import { isLegacySharedMeshPreviewGlb } from "./project-glb-builder.js";
@@ -982,7 +984,11 @@ export async function parseConstructivePackage(packageId, actor) {
       );
     });
 
-    await syncBazisOperationCodesForPackage(packageId);
+    try {
+      await syncBazisOperationCodesForPackage(packageId);
+    } catch {
+      /* bazis_operation_codes може ще не існувати до міграції 0026 */
+    }
 
     await run(`UPDATE positions SET has_constructive_file = TRUE WHERE id = $1`, [pkg.position_id]);
 
@@ -1128,14 +1134,19 @@ export async function findPartByBarcode(barcodeValue) {
   let row = await findPartRowByBarcodeOrQr(code);
   if (row) return mapPartRow(row);
 
-  // Коди Bazis з .project — до запитів по bazis_operation_codes (міграція може ще не бути на сервері).
   if (isBazisOperationScanCode(code)) {
+    row = await findPartRowByBazisCodesInDb(code);
+    if (row) return mapPartRow(row);
+
     row = await resolvePartRowByBazisProjectScan(code);
     if (row) return mapPartRow(row);
-  }
 
-  row = await findPartRowByBazisCodesInDb(code);
-  if (row) return mapPartRow(row);
+    row = await findPartRowByBazisPartNoGlobal(code);
+    if (row) return mapPartRow(row);
+  } else {
+    row = await findPartRowByBazisCodesInDb(code);
+    if (row) return mapPartRow(row);
+  }
 
   return null;
 }
@@ -1185,6 +1196,36 @@ async function findPartRowByBazisCodesInDb(code) {
   }
 
   return null;
+}
+
+/** Останній резерв: partNo з коду Bazis по всіх пакетах (коли .project недоступний на диску). */
+async function findPartRowByBazisPartNoGlobal(scanCode) {
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+  if (!partNo) return null;
+
+  const upperVariants = [...new Set(bazisScanLookupVariants(scanCode).map((v) => v.toUpperCase()))];
+  const rows = await all(
+    `SELECT * FROM constructive_parts
+     WHERE part_no = $1 OR part_no = $2 OR ltrim(part_no, '0') = $1
+     ORDER BY updated_at DESC
+     LIMIT 25`,
+    [partNo, partNo.padStart(2, "0")]
+  );
+  if (!rows.length) return null;
+
+  if (upperVariants.length) {
+    try {
+      const byCode = rows.find((r) => {
+        const codes = Array.isArray(r.bazis_operation_codes) ? r.bazis_operation_codes : [];
+        return codes.some((c) => upperVariants.includes(String(c).toUpperCase()));
+      });
+      if (byCode) return byCode;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return rows.length === 1 ? rows[0] : null;
 }
 
 export async function recordScanEvent({
@@ -1266,15 +1307,11 @@ export function autoMapManifestNodes(parts, nodes = []) {
         nodes.find(
           (n) =>
             n.meshName &&
-            blockCode &&
-            n.meshName.toLowerCase().includes(blockCode.toLowerCase()) &&
-            n.meshName.includes(partNo)
+            (String(n.meshName).toLowerCase() === `panel-${partNo}`.toLowerCase() ||
+              String(n.meshName).toLowerCase() === partNo.toLowerCase() ||
+              String(n.meshName).toLowerCase() === compositeKey.toLowerCase())
         )) ||
-      nodes.find((n) => n.meshName && partNo && n.meshName.includes(partNo)) ||
-      nodes.find((n) => n.partNo && partNo && String(n.partNo) === partNo) ||
-      nodes.find(
-        (n) => n.meshName && blockCode && n.meshName.toLowerCase().includes(blockCode.toLowerCase())
-      );
+      nodes.find((n) => n.partNo && partNo && String(n.partNo) === partNo);
     if (match) {
       const meshName = match.meshName || (partNo ? `panel-${partNo}` : "") || match.nodeId || "";
       mapped.push({

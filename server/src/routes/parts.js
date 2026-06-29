@@ -107,8 +107,24 @@ async function buildScanResponse(part) {
   };
 }
 
-router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => {
-  const barcodeValue = String(req.params.barcodeValue || "").trim();
+function readScanBarcode(req) {
+  let raw =
+    req.body?.barcode ??
+    req.body?.code ??
+    req.params?.barcodeValue ??
+    req.query?.code ??
+    req.query?.barcode ??
+    "";
+  try {
+    raw = decodeURIComponent(String(raw));
+  } catch {
+    raw = String(raw);
+  }
+  return String(raw).trim();
+}
+
+async function handlePartScan(req, res) {
+  const barcodeValue = readScanBarcode(req);
   const part = await findPartByBarcode(barcodeValue);
 
   if (!part) {
@@ -118,7 +134,9 @@ router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => 
     return;
   }
 
-  const station = String(req.query.station || req.headers["x-enver-station"] || "");
+  const station = String(
+    req.body?.station || req.query.station || req.headers["x-enver-station"] || ""
+  );
   await recordScanEvent({
     partId: part.id,
     barcodeValue,
@@ -129,6 +147,12 @@ router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => 
 
   const payload = await buildScanResponse(part);
   res.json(payload);
+}
+
+router.post("/scan", requireOperatorPanelView, handlePartScan);
+
+router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => {
+  await handlePartScan(req, res);
 });
 
 router.get("/:id", requireOperatorPanelView, async (req, res) => {
