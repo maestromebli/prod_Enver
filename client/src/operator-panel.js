@@ -473,7 +473,7 @@ function renderOperatorTaskHero(pos, field, stageKey, inWork) {
               <div class="op-task-hero-top"><span class="op-task-id">#${pos.id}</span>${badge(pos[field])}</div>
               <h2 class="op-task-title">${escapeHtml(objectTitle)}</h2>
               ${positionName ? `<p class="op-task-subtitle">${escapeHtml(positionName)}</p>` : ""}
-              <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span>Загальний прогрес</span></div>
+              <div class="op-progress-wrap">${progressRing(pos.progress || 0, { size: 72 })}<span class="op-progress-caption">Загальний прогрес</span></div>
               ${pos.problem ? `<p class="op-task-inline op-task-inline--problem">${escapeHtml(pos.problem)}</p>` : ""}
             </div>`;
 }

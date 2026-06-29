@@ -469,6 +469,45 @@ body {
   stroke: var(--enver-primary);
 }
 
+.progress-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.progress-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg,
+.progress-ring-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.progress-ring-fill {
+  transition: stroke-dashoffset 0.35s ease;
+}
+
+.progress-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--enver-text);
+  pointer-events: none;
+}
+
 /* ═══ Empty states ═══ */
 .enver-empty-state {
   display: flex;

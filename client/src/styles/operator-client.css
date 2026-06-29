@@ -363,6 +363,19 @@ body.operator-client-mode .operator-shell .op-header {
   font-size: 0.75rem;
 }
 
+.enver-operator-ui .op-progress-wrap {
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.enver-operator-ui .op-progress-caption {
+  font-size: 0.65rem;
+}
+
+.enver-operator-ui .op-progress-wrap .progress-ring-label {
+  font-size: 0.9rem;
+}
+
 .enver-operator-ui .op-task-grid {
   gap: 6px;
 }
