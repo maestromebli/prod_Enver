@@ -38,6 +38,7 @@ import {
   applyPackageParseUi,
   refreshStalePackageParseUi
 } from "./constructive-package-parse-ui.js";
+import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
 
 const packageDropZones = new WeakMap();
 const quickUploadZones = new WeakMap();
@@ -438,6 +439,7 @@ export function renderConstructivePackageBlock(
           <button type="button" class="btn btn-sm btn-primary" data-cp-handoff-cutting-btn ${PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status) ? "" : "disabled"}>На порізку</button>
         </div>
         ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
+        <div class="package-ai-mount" data-cp-package-ai></div>
       </div>
     </section>`;
 }
@@ -519,6 +521,41 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
     hideProcurement: getPackagePanelContext(position.id)?.hideProcurement === true
   });
   patchConstructiveUploadedFiles(root, position, detail, constructiveFiles);
+  const aiMount = block.querySelector("[data-cp-package-ai]");
+  if (aiMount) {
+    mountPackageAiBlock(aiMount, detail?.aiAnalysis, {
+      showRerun: Boolean(detail?.package?.id && detail?.parts?.length),
+      onRerun: async () => {
+        const packageId = detail?.package?.id;
+        if (!packageId) return;
+        mountPackageAiBlock(aiMount, { status: "pending" });
+        try {
+          const res = await api.analyzeConstructivePackageAi(position.id, packageId);
+          const next = res.aiAnalysis
+            ? { ...detail, aiAnalysis: res.aiAnalysis }
+            : await api.getConstructivePackageLatest(position.id);
+          mountPackageAiBlock(aiMount, next?.aiAnalysis || res.aiAnalysis, {
+            showRerun: true,
+            onRerun: () => aiMount.querySelector("[data-package-ai-rerun]")?.click()
+          });
+          getPackagePanelContext(position.id)?.onDetailPatched?.(next);
+        } catch (err) {
+          toastError(err.message);
+        }
+      }
+    });
+    if (detail?.aiAnalysis?.status === "pending") {
+      pollPackageAiAnalysis(position.id, {
+        onUpdate: (nextDetail) => {
+          mountPackageAiBlock(aiMount, nextDetail?.aiAnalysis, {
+            showRerun: Boolean(nextDetail?.parts?.length),
+            onRerun: () => aiMount.querySelector("[data-package-ai-rerun]")?.click()
+          });
+          getPackagePanelContext(position.id)?.onDetailPatched?.(nextDetail);
+        }
+      });
+    }
+  }
 }
 
 async function refreshAfterPackageFileChange(root, position, liveCtx, detail, constructiveFiles) {

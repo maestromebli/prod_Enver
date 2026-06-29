@@ -100,11 +100,15 @@ export async function openB3dPreviewModal(positionId, detail) {
 
   try {
     const { mountModelViewer } = await import("./part-viewer-mount.js");
+    const { openPartDetailModal } = await import("./part-detail-modal.js");
     previewViewer = await mountModelViewer(container, {
       url: constructivePackageFileUrl(positionId, detail.package.id, previewFile.id),
       token: getStoredToken(),
       format: preview3dLoadFormat(previewFile),
-      parts: detail.parts
+      parts: detail.parts,
+      onPartDoubleClick: (part) => {
+        if (part) void openPartDetailModal(positionId, detail, part);
+      }
     });
     container.querySelector(".b3d-preview-loading")?.remove();
   } catch {

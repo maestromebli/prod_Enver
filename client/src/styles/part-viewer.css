@@ -801,6 +801,14 @@
   background: rgba(200, 120, 0, 0.08);
 }
 
+.cp-parts-table tr.cp-part-row {
+  cursor: pointer;
+}
+
+.cp-parts-table tr.cp-part-row:hover {
+  background: rgba(36, 92, 59, 0.06);
+}
+
 .model-mapping-modal {
   max-width: 960px;
   width: 95vw;
@@ -875,6 +883,120 @@
   inset: auto 0 12px 0;
   text-align: center;
   pointer-events: none;
+}
+
+.part-detail-modal {
+  max-width: min(1200px, 98vw);
+  width: 98vw;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.part-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.part-detail-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.part-detail-body {
+  display: grid;
+  grid-template-columns: 1fr min(300px, 34vw);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.part-detail-viewer-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.part-detail-viewer {
+  flex: 1;
+  min-height: min(68vh, 560px);
+  height: min(68vh, 560px);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.part-detail-viewer-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+}
+
+.part-detail-aside {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.part-detail-section {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface-muted, #f8fafc);
+}
+
+.part-detail-section h3 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.part-detail-section--edge {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.part-detail-section--drill {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.part-detail-edge-code {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.part-detail-ops {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+}
+
+.part-detail-ops code {
+  font-size: 0.78rem;
+}
+
+.part-detail-empty {
+  margin: 0;
+}
+
+.part-detail-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 800px) {
+  .part-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .part-detail-viewer {
+    min-height: 50vh;
+    height: 50vh;
+  }
 }
 
 .model-mapping-body {

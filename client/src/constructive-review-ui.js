@@ -6,6 +6,7 @@ import {
   formatPartDimensionsMm
 } from "@enver/shared/production/constructive-package.js";
 import { toastError, toastSuccess } from "./toast.js";
+import { renderPackageAiResult } from "./package-ai-ui.js";
 
 function renderChecklist(checks = []) {
   return checks
@@ -60,26 +61,10 @@ function renderPdfPreview(positionId, packageId, pdfFile) {
 
 function renderAiSection(analysis) {
   if (!analysis) return "";
-  const checklist = (analysis.reviewChecklist || [])
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
-    .join("");
-  const aiWarnings = (analysis.warnings || []).map((w) => `<li>${escapeHtml(w)}</li>`).join("");
-  const actions = (analysis.suggestedActions || [])
-    .map((a) => `<li>${escapeHtml(a)}</li>`)
-    .join("");
-
-  return `
-    <section class="cr-ai-block">
-      <h3>ШІ-перевірка</h3>
-      ${checklist ? `<ul class="cr-warnings">${checklist}</ul>` : ""}
-      ${aiWarnings ? `<p class="enver-meta">Попередження ШІ:</p><ul class="cr-warnings">${aiWarnings}</ul>` : ""}
-      ${actions ? `<p class="enver-meta">Рекомендовані дії:</p><ul class="cr-actions">${actions}</ul>` : ""}
-      ${
-        analysis.cncReadiness
-          ? `<p class="enver-meta">ЧПК: ${analysis.cncReadiness.ready ? "готово" : "не готово"} — ${escapeHtml((analysis.cncReadiness.missing || []).join(", ") || "—")}</p>`
-          : ""
-      }
-    </section>`;
+  if (analysis.status) {
+    return `<section class="cr-ai-block">${renderPackageAiResult(analysis)}</section>`;
+  }
+  return `<section class="cr-ai-block">${renderPackageAiResult({ status: "done", analysis })}</section>`;
 }
 
 export function renderConstructiveReviewModal(positionId, detail, { canReview = false } = {}) {
@@ -166,6 +151,10 @@ export function openConstructiveReviewModal(positionId, detail, options = {}) {
   });
 
   $("#reviewRunAiBtn")?.addEventListener("click", () => runReviewAi(positionId, detail.package.id));
+  if (detail?.aiAnalysis) {
+    const mount = $("#reviewAiMount");
+    if (mount) mount.innerHTML = renderAiSection(detail.aiAnalysis);
+  }
   $("#reviewApproveBtn")?.addEventListener("click", () =>
     reviewAction(positionId, detail.package.id, "approve")
   );
@@ -179,7 +168,10 @@ async function runReviewAi(positionId, packageId) {
   if (mount) mount.innerHTML = `<p class="enver-meta">ШІ аналізує…</p>`;
   try {
     const res = await api.analyzeConstructivePackageAi(positionId, packageId);
-    if (mount) mount.innerHTML = renderAiSection(res.analysis || res);
+    if (mount)
+      mount.innerHTML = renderAiSection(
+        res.aiAnalysis || { status: "done", analysis: res.analysis }
+      );
   } catch (err) {
     if (mount) mount.innerHTML = `<p class="cr-error">${escapeHtml(err.message)}</p>`;
   }

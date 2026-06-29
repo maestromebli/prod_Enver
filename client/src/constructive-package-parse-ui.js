@@ -2,6 +2,7 @@ import { escapeHtml } from "./utils.js";
 import { api } from "./api.js";
 import { state } from "./state.js";
 import { toastError, toastSuccess } from "./toast.js";
+import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
 import {
   CONSTRUCTIVE_PIPELINE_STEPS,
   constructivePipelineStepIndex,
@@ -185,6 +186,24 @@ export async function runPackageParseWithProgress(positionId, packageId, ctx = {
     liveCtx.onDetailPatched?.(after);
     if (block && position) applyPackageParseUi(block, position, after);
     notify?.();
+    if (after?.aiAnalysis?.status === "pending" || after?.parts?.length) {
+      const aiMount = block?.querySelector?.("[data-cp-package-ai]");
+      if (aiMount) {
+        mountPackageAiBlock(aiMount, after.aiAnalysis || { status: "pending" });
+      }
+      pollPackageAiAnalysis(positionId, {
+        onUpdate: (detail) => {
+          liveCtx.detail = detail;
+          liveCtx.onDetailPatched?.(detail);
+          if (block && position) {
+            applyPackageParseUi(block, position, detail);
+            const mount = block.querySelector("[data-cp-package-ai]");
+            if (mount) mountPackageAiBlock(mount, detail?.aiAnalysis);
+          }
+          notify?.();
+        }
+      });
+    }
     onComplete?.(after);
     return after;
   } finally {

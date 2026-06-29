@@ -19,6 +19,12 @@ import {
 import { loadStageTimestampsMap, stageTimestampsForPosition } from "../stage-timestamps.js";
 import { getOperatorJobDetails } from "../folder-sync.js";
 import {
+  computeStageEstimateForPosition,
+  mapSessionEstimate,
+  recordStageCompletionFact,
+  saveSessionStageEstimate
+} from "../stage-duration-learning.js";
+import {
   auditActor,
   requireAuth,
   requireOperatorPanelView,
@@ -114,6 +120,9 @@ router.get("/queue/:stageKey", async (req, res) => {
     activeSession = null;
   } else if (activeSession) {
     activeSession.stage_status = stageStatusFromRow(activeSession, activeSession.stage_key);
+    const timing = mapSessionEstimate(activeSession);
+    activeSession.estimated_finish_at = timing?.estimatedFinishAt || null;
+    activeSession.stage_estimate = timing?.estimate || null;
   }
 
   res.json({ queue, activeSession: activeSession || null });
@@ -127,6 +136,30 @@ router.get("/job/:positionId", async (req, res) => {
     return;
   }
   res.json(job);
+});
+
+router.get("/estimate/:positionId/:stageKey", async (req, res) => {
+  const positionId = Number(req.params.positionId);
+  const stageKey = req.params.stageKey;
+  if (!STAGE_STATUS_FIELD[stageKey]) {
+    res.status(400).json({ error: "Невідомий етап" });
+    return;
+  }
+  const row = await getPosition(positionId);
+  if (!row) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+  try {
+    const estimate = await computeStageEstimateForPosition(
+      positionId,
+      stageKey,
+      req.user?.id || null
+    );
+    res.json(estimate);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
 });
 
 async function getOpenSession(userId, positionId, stageKey) {
@@ -184,9 +217,17 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
   const session = await one(
     `INSERT INTO operator_sessions (user_id, position_id, stage_key, status, started_at, updated_at)
      VALUES ($1, $2, $3, 'active', now(), now())
-     RETURNING id`,
+     RETURNING id, started_at`,
     [userId, positionId, stageKey]
   );
+
+  let stageEstimate = null;
+  try {
+    stageEstimate = await computeStageEstimateForPosition(positionId, stageKey, userId);
+    await saveSessionStageEstimate(session.id, stageEstimate);
+  } catch (err) {
+    console.error("[operator start estimate]", err.message);
+  }
 
   await savePosition(positionId, row);
   await logStageChange(
@@ -199,6 +240,8 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
 
   res.json({
     sessionId: session.id,
+    stageEstimate,
+    estimatedFinishAt: stageEstimate?.estimatedFinishAt || null,
     position: await mapOperatorPosition(await getPosition(positionId))
   });
 });
@@ -239,6 +282,14 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
     `UPDATE operator_sessions SET status = 'finished', finished_at = now(), updated_at = now() WHERE id = $1`,
     [session.id]
   );
+
+  const finishedSession = await one(`SELECT * FROM operator_sessions WHERE id = $1`, [session.id]);
+  await recordStageCompletionFact({
+    session: finishedSession,
+    positionId,
+    stageKey,
+    userId
+  }).catch((err) => console.error("[stage completion fact]", err.message));
 
   await savePosition(positionId, handedOff);
   const afterRow = await getPosition(positionId);

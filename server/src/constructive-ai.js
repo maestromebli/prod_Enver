@@ -73,6 +73,20 @@ function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learni
     {"stage": "cutting", "needed": true, "reason": "...", "confidence": 0.92}
   ],
   "estimatedComplexity": "low|medium|high",
+  "furnitureType": "kitchen|wardrobe|cabinet|bathroom|office|living|other",
+  "hardwareSummary": "зведення по фурнітурі",
+  "estimatedLabor": {
+    "constructorHours": 0,
+    "stages": {
+      "cutting": {"minutes": 0},
+      "edging": {"minutes": 0},
+      "drilling": {"minutes": 0},
+      "assembly": {"minutes": 0}
+    },
+    "totalHours": 0,
+    "confidence": 0.7,
+    "basis": "на чому базується оцінка"
+  },
   "missingInfo": ["..."],
   "operatorNotes": {
     "cutting": "...",
@@ -90,7 +104,8 @@ function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learni
 - Не створюй задачі без причини (reason обов'язковий).
 - operatorNotes — коротко і практично для оператора.
 - warnings — попередження; критичні проблеми теж у warnings.
-- confidence — число 0..1, чесно.
+- estimatedLabor — орієнтовний час (constructorHours + stages у хвилинах); знизь confidence якщо файл прочитано частково.
+- furnitureType — тип меблів з файлу або назви позиції.
 - Досвід ENVER враховуй як підказку; якщо суперечить файлу — додай warning.
 - Якщо досвід лише припущення — confidence не вище 0.75.
 - Не використовуй markdown. Поверни тільки JSON.

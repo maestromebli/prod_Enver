@@ -33,6 +33,7 @@ export const state = {
   operatorActiveSession: null,
   operatorSelectedPositionId: null,
   operatorJobDetail: null,
+  operatorStageEstimate: null,
   operatorLoadError: "",
   operatorQueueLoading: false,
   /** queue | scan — режим панелі оператора */
@@ -82,6 +83,6 @@ export const state = {
     /** cards | list — перегляд реєстру замовлень у конструктиві */
     displayMode: "cards"
   },
-  /** Реєстр заявок на закупівлю */
+  /** Робочий простір закупівлі */
   procurement: null
 };

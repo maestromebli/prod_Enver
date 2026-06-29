@@ -3,6 +3,7 @@ import { all } from "../db.js";
 import { OPERATOR_STAGES, STAGE_STATUS_FIELD } from "../roles.js";
 import { requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
 import { PRODUCTION_FLOOR_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
+import { listPositionSummaries } from "../constructive/procurement-service.js";
 
 const router = Router();
 router.use(requireAuth, requirePermissionOrAdmin("canViewProductionFloor"));
@@ -71,9 +72,15 @@ router.get("/floor", async (_req, res) => {
      LIMIT 30`
   );
 
+  const procurementSummaries = await listPositionSummaries();
+  const procurementByPosition = Object.fromEntries(
+    procurementSummaries.map((s) => [s.positionId, s])
+  );
+
   res.json({
     stages,
     activeSessions,
+    procurementByPosition,
     problemPositions: problemPositions.map((p) => ({
       id: p.id,
       orderNumber: p.order_number,

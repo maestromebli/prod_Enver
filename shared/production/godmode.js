@@ -23,6 +23,7 @@ import {
   getConstructivePackageNextAction,
   getConstructivePackageWarnings
 } from "./constructive-godmode.js";
+import { getProcurementBlockers, getProcurementWarnings } from "./procurement.js";
 import { isPackagePipelineBlocking, canHandoffPackageToCutting } from "./constructive-package.js";
 import { HANDOFF_ACTION_TYPES } from "./godmode-ui-helpers.js";
 import { isManagerDataComplete } from "./position-manager-data.js";
@@ -298,6 +299,16 @@ export function getPositionWarnings(position, context = {}) {
 
   warnings.push(...getConstructivePackageWarnings(context));
 
+  const procurementItems = context.procurementItems || context.procurement?.items || [];
+  if (procurementItems.length) {
+    warnings.push(
+      ...getProcurementWarnings(procurementItems, {
+        currentStage: row.current_stage,
+        openReturns: context.openReturns || 0
+      })
+    );
+  }
+
   return warnings;
 }
 
@@ -345,6 +356,15 @@ export function getPositionBlockers(position, context = {}) {
         message: `Призначте збирача для етапу «${stageLabel(currentKey)}».`
       });
     }
+  }
+
+  const procurementItems = context.procurementItems || context.procurement?.items || [];
+  if (procurementItems.length) {
+    blockers.push(
+      ...getProcurementBlockers(procurementItems, {
+        currentStage: currentKey
+      })
+    );
   }
 
   return blockers;

@@ -4,6 +4,7 @@
 import { api } from "./api.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { escapeHtml } from "./utils.js";
+import { formatLaborHours } from "@enver/shared/production/package-ai.js";
 
 function normalizeSuggestedTasks(result) {
   const raw = result?.suggestedTasks || result?.analysis?.suggestedTasks || [];
@@ -110,6 +111,23 @@ export function renderAiAnalysisResult(result) {
 
   const qualityReasons = (quality?.reasons || []).map((r) => `<li>${escapeHtml(r)}</li>`).join("");
 
+  const furnitureLabel =
+    result.furnitureTypeLabel ||
+    result.analysis?.furnitureTypeLabel ||
+    (result.furnitureType ? result.furnitureType : "");
+  const labor = result.estimatedLabor || result.analysis?.estimatedLabor;
+  const hardwareSummary = result.hardwareSummary || result.analysis?.hardwareSummary || "";
+
+  const laborHtml = labor
+    ? `<div class="ai-labor-estimate">
+        <h4>Орієнтовний час</h4>
+        <p>Разом: <strong>${escapeHtml(formatLaborHours(labor.totalHours))}</strong>
+          · конструктив ${escapeHtml(formatLaborHours(labor.constructorHours))}
+          · впевненість ${Math.round((labor.confidence ?? 0.6) * 100)}%</p>
+        ${labor.basis ? `<p class="enver-meta">${escapeHtml(labor.basis)}</p>` : ""}
+      </div>`
+    : "";
+
   return `
     <div class="analysis-card" data-analysis-id="${result.id || ""}">
       <header class="ai-analysis-header">
@@ -118,6 +136,7 @@ export function renderAiAnalysisResult(result) {
       </header>
 
       <div class="ai-analysis-meta-grid">
+        ${furnitureLabel ? `<span>Тип: ${escapeHtml(furnitureLabel)}</span>` : ""}
         ${result.estimatedComplexity ? `<span>Складність: ${escapeHtml(result.estimatedComplexity)}</span>` : ""}
         ${meta.extractionQuality ? `<span>Файл: ${escapeHtml(meta.sourceType || "—")} · ${escapeHtml(meta.extractionQuality)}</span>` : ""}
         ${result.model ? `<span>Модель: ${escapeHtml(result.model)}</span>` : ""}
@@ -126,6 +145,9 @@ export function renderAiAnalysisResult(result) {
       </div>
 
       ${meta.readPreview ? `<p class="ai-read-preview"><small>Що AI зміг прочитати: ${escapeHtml(meta.readPreview)}</small></p>` : ""}
+
+      ${hardwareSummary ? `<p class="ai-hardware-summary"><strong>Фурнітура:</strong> ${escapeHtml(hardwareSummary)}</p>` : ""}
+      ${laborHtml}
 
       ${renderLearningBlock(result.learningContext)}
 

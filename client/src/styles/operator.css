@@ -1347,6 +1347,33 @@ body.view-operator:not(.operator-client-mode) .op-header-actions {
   margin-left: 0;
 }
 
+.op-stage-estimate {
+  padding: 14px 16px;
+  border-radius: var(--op-radius, 12px);
+  background: var(--op-surface-2, #fff);
+  border: 1px solid var(--op-border, #e2e8f0);
+}
+
+.op-stage-estimate .op-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.op-estimate-total {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.op-estimate-deadline {
+  color: var(--op-accent, #245c3b);
+  font-weight: 600;
+}
+
+.op-estimate-metrics,
+.op-estimate-reason {
+  margin: 0 0 4px;
+}
+
 @media (max-width: 960px) {
   body.view-operator:not(.operator-client-mode) .op-layout {
     grid-template-columns: 1fr;

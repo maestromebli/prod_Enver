@@ -31,7 +31,10 @@ import {
 import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { detectPackageFileKind } from "../../../shared/production/constructive-package.js";
 import { renderPartLabelsHtml } from "../constructive/labels.js";
-import { analyzeConstructivePackage } from "../constructive/constructive-package-ai.js";
+import {
+  analyzeConstructivePackage,
+  rerunPackageAiAnalysis
+} from "../constructive/constructive-package-ai.js";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -132,11 +135,13 @@ router.post("/:packageId/analyze-ai", requireConstructorDeskWrite, async (req, r
     return;
   }
   try {
-    const result = await analyzeConstructivePackage(packageId, {
+    const result = await rerunPackageAiAnalysis(packageId, {
       orderNumber: position.order_number,
-      item: position.item
+      item: position.item,
+      itemType: position.item_type
     });
-    res.json(result);
+    const detail = await getPackageDetail(packageId);
+    res.json({ ...result, aiAnalysis: detail?.aiAnalysis || null });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

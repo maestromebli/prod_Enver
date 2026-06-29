@@ -766,75 +766,106 @@ export function normalizePartNoKey(value) {
   return t;
 }
 
+function addLookupKey(keys, value) {
+  const v = String(value ?? "").trim();
+  if (!v) return;
+  keys.add(v);
+  keys.add(v.toLowerCase());
+  const norm = normalizePartNoKey(v);
+  if (norm) {
+    keys.add(norm);
+    keys.add(norm.toLowerCase());
+  }
+}
+
 /** Ключі імені mesh для зіставлення з деталлю (panel-10, B1-21, …). */
 export function meshNameLookupKeys(meshName) {
   const keys = new Set();
   const s = String(meshName || "").trim();
   if (!s) return keys;
-  keys.add(s);
-  keys.add(s.toLowerCase());
+  addLookupKey(keys, s);
+
   const bare = s.replace(/^panel-/i, "");
-  if (bare !== s) {
-    keys.add(bare);
-    keys.add(bare.toLowerCase());
-    const bareNorm = normalizePartNoKey(bare);
-    if (bareNorm) {
-      keys.add(bareNorm);
-      keys.add(bareNorm.toLowerCase());
+  if (bare !== s) addLookupKey(keys, bare);
+
+  const noZeros = s.replace(/^0+/, "") || s;
+  if (noZeros !== s) addLookupKey(keys, noZeros);
+
+  const blockPart = bare.match(/^([BVБ]\d+)-(\d+)$/i);
+  if (blockPart) {
+    addLookupKey(keys, blockPart[0]);
+    addLookupKey(keys, blockPart[2]);
+  }
+
+  // Код операції Bazis (0010X002X1) — лише повне імʼя, без «хвостового» номера.
+  if (!/X/i.test(s)) {
+    if (/^\d{1,6}$/.test(bare)) {
+      addLookupKey(keys, bare);
+    } else {
+      const dashed = bare.match(/-(\d{1,6})$/);
+      if (dashed) addLookupKey(keys, dashed[1]);
     }
   }
-  const noZeros = s.replace(/^0+/, "") || s;
-  keys.add(noZeros);
-  keys.add(noZeros.toLowerCase());
-  const norm = normalizePartNoKey(s);
-  if (norm) {
-    keys.add(norm);
-    keys.add(norm.toLowerCase());
-  }
-  const tailNum = s.match(/(\d{1,6})$/);
-  if (tailNum) {
-    keys.add(tailNum[1]);
-    const tailNorm = normalizePartNoKey(tailNum[1]);
-    if (tailNorm) keys.add(tailNorm);
-  }
+
   return keys;
+}
+
+/** Усі ключі деталі каталогу для зіставлення з mesh. */
+export function partCatalogLookupKeys(part = {}) {
+  const keys = new Set();
+  const add = (value) => {
+    for (const key of meshNameLookupKeys(value)) keys.add(key);
+  };
+
+  add(part.modelMeshName);
+  add(part.modelNodeId);
+
+  const blockCode = String(part.blockCode || "").trim();
+  const partNo = String(part.partNo || "").trim();
+  const partCode = String(part.partCode || part.code || "").trim();
+  if (blockCode && partNo) add(`${blockCode}-${partNo}`);
+  if (partNo) add(partNo);
+  if (partCode) add(partCode);
+
+  return keys;
+}
+
+function lookupKeysIntersect(meshKeys, partKeys) {
+  for (const key of meshKeys) {
+    if (partKeys.has(key)) return key;
+    const lower = key.toLowerCase();
+    if (partKeys.has(lower)) return lower;
+  }
+  return "";
 }
 
 /** Знайти деталь каталогу за іменем mesh у 3D-моделі. */
 export function resolvePartByMeshName(meshName, parts = []) {
   if (!parts.length) return null;
-  const keys = meshNameLookupKeys(meshName);
-  if (!keys.size) return null;
+  const meshKeys = meshNameLookupKeys(meshName);
+  if (!meshKeys.size) return null;
 
-  const keyMatches = (value) => {
-    const v = String(value || "").trim();
-    if (!v) return false;
-    if (keys.has(v) || keys.has(v.toLowerCase())) return true;
-    const norm = normalizePartNoKey(v);
-    return norm ? keys.has(norm) || keys.has(norm.toLowerCase()) : false;
-  };
+  let best = null;
+  let bestScore = 0;
 
   for (const part of parts) {
-    if (keyMatches(part.modelMeshName) || keyMatches(part.modelNodeId)) return part;
-  }
+    const partKeys = partCatalogLookupKeys(part);
+    const hit = lookupKeysIntersect(meshKeys, partKeys);
+    if (!hit) continue;
 
-  for (const part of parts) {
-    const partNo = normalizePartNoKey(part.partNo);
-    const blockCode = String(part.blockCode || "").trim();
-    const compositeKey = blockCode && partNo ? `${blockCode}-${partNo}` : partNo;
-    const partCode = normalizePartNoKey(part.partCode || part.code || "");
+    let score = hit.length;
+    if (part.modelMeshName && meshKeys.has(String(part.modelMeshName).trim())) score += 100;
+    if (part.modelNodeId && meshKeys.has(String(part.modelNodeId).trim())) score += 100;
+    if (hit.includes("-")) score += 20;
+    if (/X/i.test(hit)) score += 15;
 
-    for (const key of keys) {
-      const lower = key.toLowerCase();
-      if (compositeKey && lower === compositeKey.toLowerCase()) return part;
-      if (partNo && (key === partNo || normalizePartNoKey(key) === partNo)) return part;
-      if (partCode && (key === partCode || normalizePartNoKey(key) === partCode)) return part;
-      if (partNo && key.includes(partNo)) return part;
-      if (compositeKey && lower.includes(compositeKey.toLowerCase())) return part;
+    if (score > bestScore) {
+      bestScore = score;
+      best = part;
     }
   }
 
-  return null;
+  return best;
 }
 
 /** Зібрати всі імена вузлів mesh (сам mesh + батьки). */

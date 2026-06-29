@@ -8,8 +8,15 @@ import {
   formatMeshBoundingBoxMm,
   scaleLocalMeshExtents,
   detectSceneExtentsPreferMm,
+  meshNameLookupKeys,
+  partCatalogLookupKeys,
   resolvePartByMesh
 } from "@enver/shared/production/constructive-package.js";
+import {
+  edgeSideMask,
+  splitPartBazisOperations
+} from "@enver/shared/production/part-detail-display.js";
+import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import { escapeHtml } from "./utils.js";
 
 const SCENE_BG = 0xf0f2f5;
@@ -19,7 +26,10 @@ const GHOST_COLOR = 0x94a3b8;
 const EDGE_COLOR = 0x1e293b;
 const EDGE_HIGHLIGHT_COLOR = 0xb45309;
 const EDGE_GHOST_COLOR = 0x64748b;
+const EDGE_KROMKA_COLOR = 0x16a34a;
+const DRILL_MARKER_COLOR = 0xea580c;
 const EDGE_THRESHOLD_DEG = 12;
+const DRILL_MARKER_RADIUS = 0.006;
 
 /** Bazis VRML: невалідні DEF-імена (3-D, 8, кирилиця, +) ламають VRMLLoader. */
 function sanitizeVrmlDefName(name) {
@@ -49,7 +59,7 @@ function detectModelFormat(url, format) {
 /** Three.js viewer з підсвіткою деталі та вибором кліком. */
 export function createPartViewer(
   container,
-  { onReady, onError, onPartSelect, pickable = true } = {}
+  { onReady, onError, onPartSelect, onPartDoubleClick, pickable = true } = {}
 ) {
   if (!container) return { destroy() {} };
 
@@ -92,7 +102,7 @@ export function createPartViewer(
   const pickHint = document.createElement("p");
   pickHint.className = "part-viewer-pick-hint enver-meta";
   pickHint.hidden = true;
-  pickHint.textContent = "Клікніть на деталь";
+  pickHint.textContent = "Клік — інфо · Подвійний клік — деталь з кромкою та сверлінням";
   wrap.appendChild(pickHint);
 
   container.innerHTML = "";
@@ -117,6 +127,7 @@ export function createPartViewer(
   let animId = null;
   let partCatalog = [];
   let pickingEnabled = pickable;
+  let detailMarkers = null;
   /** @type {boolean | null} */
   let sceneExtentsPreferMm = null;
 
@@ -164,6 +175,212 @@ export function createPartViewer(
     lines.material.color.set(color);
     lines.material.opacity = opacity;
     lines.material.transparent = opacity < 1;
+  }
+
+  function clearDetailMarkers() {
+    if (!detailMarkers) return;
+    const sharedGeom = detailMarkers.userData?.sharedDrillGeom;
+    scene.remove(detailMarkers);
+    detailMarkers.traverse((child) => {
+      if (child.geometry && child.geometry !== sharedGeom) child.geometry.dispose?.();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose?.());
+        else child.material.dispose?.();
+      }
+    });
+    sharedGeom?.dispose?.();
+    detailMarkers = null;
+  }
+
+  /** Підсвітка ребер кромки на верхньому периметрі панелі. */
+  function applyKromkaEdgeHighlight(mesh, edgeCode) {
+    const mask = edgeSideMask(edgeCode);
+    if (!mask.some(Boolean)) return;
+
+    mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3());
+    const thinAxis =
+      size.x <= size.y && size.x <= size.z ? "x" : size.y <= size.x && size.y <= size.z ? "y" : "z";
+    const topValue = thinAxis === "x" ? box.max.x : thinAxis === "y" ? box.max.y : box.max.z;
+    const tol = Math.max(size[thinAxis] * 0.6, 0.0005);
+
+    const lines = mesh.userData.edgeLines;
+    if (!lines?.geometry) return;
+
+    const pos = lines.geometry.getAttribute("position");
+    if (!pos) return;
+
+    const colorAttr = new Float32Array(pos.count * 3);
+    const base = new THREE.Color(EDGE_COLOR);
+    const kromka = new THREE.Color(EDGE_KROMKA_COLOR);
+    const center = box.getCenter(new THREE.Vector3());
+    const p0 = new THREE.Vector3();
+    const p1 = new THREE.Vector3();
+
+    for (let i = 0; i < pos.count; i += 2) {
+      p0.fromBufferAttribute(pos, i);
+      p1.fromBufferAttribute(pos, i + 1);
+      p0.applyMatrix4(mesh.matrixWorld);
+      p1.applyMatrix4(mesh.matrixWorld);
+
+      const onTop =
+        thinAxis === "x"
+          ? Math.abs(p0.x - topValue) < tol && Math.abs(p1.x - topValue) < tol
+          : thinAxis === "y"
+            ? Math.abs(p0.y - topValue) < tol && Math.abs(p1.y - topValue) < tol
+            : Math.abs(p0.z - topValue) < tol && Math.abs(p1.z - topValue) < tol;
+
+      let sideIdx = -1;
+      if (onTop) {
+        const mid = p0.clone().add(p1).multiplyScalar(0.5);
+        const dx = mid.x - center.x;
+        const dz = mid.z - center.z;
+        if (Math.abs(dz) >= Math.abs(dx)) {
+          sideIdx = dz >= 0 ? 0 : 2;
+        } else {
+          sideIdx = dx >= 0 ? 1 : 3;
+        }
+      }
+
+      const useKromka = sideIdx >= 0 && mask[sideIdx];
+      const c = useKromka ? kromka : base;
+      c.toArray(colorAttr, i * 3);
+      c.toArray(colorAttr, (i + 1) * 3);
+    }
+
+    lines.geometry.setAttribute("color", new THREE.BufferAttribute(colorAttr, 3));
+    lines.material.vertexColors = true;
+    lines.material.needsUpdate = true;
+  }
+
+  /** Маркери зон сверління на верхній грані панелі. */
+  function addDrillMarkers(mesh, part) {
+    clearDetailMarkers();
+    const { drilling } = splitPartBazisOperations(part);
+    if (!drilling.length) return;
+
+    mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3());
+    const thinAxis =
+      size.x <= size.y && size.x <= size.z ? "x" : size.y <= size.x && size.y <= size.z ? "y" : "z";
+    const topValue = thinAxis === "x" ? box.max.x : thinAxis === "y" ? box.max.y : box.max.z;
+    const group = new THREE.Group();
+    group.name = "part-detail-drill-markers";
+
+    const markerGeom = new THREE.CylinderGeometry(DRILL_MARKER_RADIUS, DRILL_MARKER_RADIUS, 1, 10);
+    const markerMat = new THREE.MeshStandardMaterial({
+      color: DRILL_MARKER_COLOR,
+      emissive: 0x7c2d12,
+      metalness: 0.2,
+      roughness: 0.5
+    });
+
+    const cols = Math.ceil(Math.sqrt(drilling.length * 3));
+    const inset = 0.12;
+    let idx = 0;
+    for (let op = 0; op < drilling.length; op++) {
+      const perOp = 3;
+      for (let j = 0; j < perOp; j++) {
+        const row = Math.floor(idx / cols);
+        const col = idx % cols;
+        const u = (col + 0.5) / cols;
+        const v = (row + 0.5) / Math.max(1, Math.ceil((drilling.length * perOp) / cols));
+        const px = THREE.MathUtils.lerp(box.min.x + size.x * inset, box.max.x - size.x * inset, u);
+        const pz = THREE.MathUtils.lerp(box.min.z + size.z * inset, box.max.z - size.z * inset, v);
+        const marker = new THREE.Mesh(markerGeom, markerMat);
+        if (thinAxis === "y") {
+          marker.position.set(px, topValue + DRILL_MARKER_RADIUS * 2, pz);
+          marker.scale.y = Math.max(size.y * 0.35, DRILL_MARKER_RADIUS * 4);
+        } else if (thinAxis === "z") {
+          marker.position.set(px, pz, topValue + DRILL_MARKER_RADIUS * 2);
+          marker.rotation.x = Math.PI / 2;
+          marker.scale.y = Math.max(size.z * 0.35, DRILL_MARKER_RADIUS * 4);
+        } else {
+          marker.position.set(topValue + DRILL_MARKER_RADIUS * 2, px, pz);
+          marker.rotation.z = Math.PI / 2;
+          marker.scale.y = Math.max(size.x * 0.35, DRILL_MARKER_RADIUS * 4);
+        }
+        group.add(marker);
+        idx++;
+      }
+    }
+
+    group.userData.sharedDrillGeom = markerGeom;
+    detailMarkers = group;
+    scene.add(group);
+  }
+
+  function frameMesh(mesh) {
+    if (!mesh) return;
+    mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.05);
+    camera.position.copy(center).add(new THREE.Vector3(maxDim * 1.1, maxDim * 0.9, maxDim * 1.3));
+    controls.target.copy(center);
+    controls.minDistance = Math.max(0.02, maxDim * 0.15);
+    controls.maxDistance = Math.max(5, maxDim * 8);
+    controls.update();
+  }
+
+  function meshesForPart(part) {
+    if (!model || !part) return [];
+    const partKeys = partCatalogLookupKeys(part);
+    const found = new Set();
+    model.traverse((child) => {
+      if (!child.isMesh || String(child.name || "").endsWith("-edges")) return;
+      const nameKeys = meshNameLookupKeys(child.name);
+      for (const key of nameKeys) {
+        if (partKeys.has(key)) {
+          found.add(child);
+          break;
+        }
+      }
+    });
+    const target = resolveMesh(resolvePartHighlightMesh(part) || {});
+    if (target) found.add(target);
+    return [...found];
+  }
+
+  function applyPartDetailView(part, targetHint = null) {
+    if (!model || !part) return null;
+    clearDetailMarkers();
+    clearSelection();
+
+    const targets = meshesForPart(part);
+    const primary =
+      resolveMesh(targetHint || resolvePartHighlightMesh(part) || {}) || targets[0] || null;
+    if (!primary) return null;
+
+    const targetSet = new Set(targets.length ? targets : [primary]);
+    highlightMesh = primary;
+    selectedMesh = null;
+    infoPanel.hidden = true;
+    updatePickHint();
+
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      const isTarget = targetSet.has(child);
+      if (isTarget) {
+        child.material = new THREE.MeshStandardMaterial({
+          color: PART_COLOR,
+          metalness: 0.1,
+          roughness: 0.55
+        });
+        setEdgeStyle(child, EDGE_COLOR);
+        applyKromkaEdgeHighlight(child, part.edgeCode || part.edge_code);
+        child.visible = true;
+      } else {
+        child.visible = false;
+      }
+    });
+
+    addDrillMarkers(primary, part);
+    frameMesh(primary);
+    return primary;
   }
 
   function prepareModelMeshes(object) {
@@ -273,6 +490,7 @@ export function createPartViewer(
 
   function showAll() {
     if (!model) return;
+    clearDetailMarkers();
     highlightMesh = null;
     selectedMesh = null;
     infoPanel.hidden = true;
@@ -335,6 +553,21 @@ export function createPartViewer(
       if (dx * dx + dy * dy > 36) return;
       pickMeshAt(e.clientX, e.clientY);
     });
+    canvas.addEventListener("dblclick", (e) => {
+      if (!pickingEnabled || !onPartDoubleClick) return;
+      e.preventDefault();
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObject(model, true);
+      const hit = hits.find(
+        (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
+      );
+      if (!hit?.object) return;
+      const part = resolvePartByMesh(hit.object, partCatalog);
+      onPartDoubleClick(part || null, hit.object);
+    });
   }
   bindPicking();
 
@@ -386,21 +619,17 @@ export function createPartViewer(
   }
 
   function resolveMesh({ meshName, nodeId }) {
-    const keys = new Set();
+    const searchKeys = new Set();
     for (const raw of [meshName, nodeId]) {
-      const s = String(raw || "").trim();
-      if (!s) continue;
-      keys.add(s);
-      keys.add(s.replace(/^0+/, "") || s);
-      const n = Number(s);
-      if (Number.isFinite(n)) keys.add(String(n));
+      for (const key of meshNameLookupKeys(raw)) searchKeys.add(key);
     }
-    for (const key of keys) {
+    for (const key of searchKeys) {
       if (meshMap.has(key)) return meshMap.get(key);
     }
     for (const [name, mesh] of meshMap.entries()) {
-      for (const key of keys) {
-        if (name === key || name.endsWith(`-${key}`) || name.includes(key)) return mesh;
+      const nameKeys = meshNameLookupKeys(name);
+      for (const key of searchKeys) {
+        if (nameKeys.has(key)) return mesh;
       }
     }
     return null;
@@ -533,6 +762,9 @@ export function createPartViewer(
     isolatePart(meshName) {
       applyHighlight({ meshName, isolate: true, ghost: false });
     },
+    showPartDetail(part, targetHint) {
+      return applyPartDetailView(part, targetHint);
+    },
     resetCamera,
     zoomIn() {
       zoomBy(0.82);
@@ -542,6 +774,7 @@ export function createPartViewer(
     },
     destroy() {
       if (animId) cancelAnimationFrame(animId);
+      clearDetailMarkers();
       ro.disconnect();
       controls.dispose();
       renderer.dispose();

@@ -1,10 +1,36 @@
 import { api } from "./api.js";
-import { canManageProcurement } from "./auth.js";
+import { canManageProcurement, canViewProcurement } from "./auth.js";
 import { PROCUREMENT_TAB } from "./constants.js";
 import { renderProcurementPanel } from "./constructive-pipeline-panel.js";
+import {
+  bindProcurementCalendar,
+  loadProcurementCalendar,
+  renderProcurementCalendar
+} from "./procurement-calendar.js";
+import {
+  bindProcurementMto,
+  bindProcurementWarehouse,
+  loadProcurementMto,
+  loadWarehousePending,
+  renderProcurementMto,
+  renderProcurementWarehouse
+} from "./procurement-warehouse-view.js";
+import {
+  bindProcurementReturns,
+  loadProcurementReturns,
+  renderProcurementReturns
+} from "./procurement-returns-view.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { procurementStatusLabel } from "@enver/shared/production/constructive-package.js";
+
+export const PROCUREMENT_MODES = [
+  { key: "calendar", label: "Календар" },
+  { key: "registry", label: "Реєстр" },
+  { key: "mto", label: "Під замовлення" },
+  { key: "warehouse", label: "Склад" },
+  { key: "returns", label: "Рекламації" }
+];
 
 const FILTERS = [
   { key: "active", label: "Активні" },
@@ -15,12 +41,16 @@ const FILTERS = [
 function ensureProcurementState() {
   if (!state.procurement) {
     state.procurement = {
+      mode: "calendar",
       items: [],
       loading: false,
       filter: "active",
       selectedId: null,
       detail: null,
-      detailLoading: false
+      detailLoading: false,
+      summariesByPositionId: {},
+      mtoFilter: "open",
+      returnsFilter: "active"
     };
   }
   return state.procurement;
@@ -31,6 +61,23 @@ export function invalidateProcurementListCache() {
     state.procurement.items = [];
     state.procurement.detail = null;
     state.procurement.selectedId = null;
+    state.procurement.summariesByPositionId = {};
+  }
+}
+
+export async function loadProcurementSummaries() {
+  if (!canViewProcurement()) return {};
+  const proc = ensureProcurementState();
+  try {
+    const rows = await api.getProcurementSummaries();
+    const map = {};
+    for (const row of rows) {
+      map[row.positionId] = row;
+    }
+    proc.summariesByPositionId = map;
+    return map;
+  } catch {
+    return proc.summariesByPositionId || {};
   }
 }
 
@@ -42,9 +89,14 @@ function syncProcurementSelection(proc) {
 }
 
 export function procurementTabBadgeCount() {
-  const items = state.procurement?.items || [];
-  if (!items.length) return 0;
-  return items.filter((item) => item.isActive).length;
+  const proc = state.procurement;
+  const items = proc?.items || [];
+  const mtoOverdue = (proc?.mtoItems || []).filter(
+    (i) => i.expectedDeliveryDate && i.expectedDeliveryDate < new Date().toISOString().slice(0, 10)
+  ).length;
+  const active = items.filter((i) => i.isActive).length;
+  const returns = (proc?.returns || []).filter((r) => r.isActive).length;
+  return active + mtoOverdue + returns;
 }
 
 function filteredItems(items, filter) {
@@ -77,6 +129,24 @@ async function loadProcurementDetail(requestId) {
   }
 }
 
+export async function loadProcurementModeData(mode = state.procurement?.mode) {
+  const m = mode || "calendar";
+  if (m === "calendar") {
+    const anchor = state.procurement?.calendar?.anchor;
+    const from = anchor || undefined;
+    await loadProcurementCalendar({ from });
+  } else if (m === "registry") {
+    await loadProcurementList();
+  } else if (m === "mto") {
+    await loadProcurementMto();
+  } else if (m === "warehouse") {
+    await loadWarehousePending();
+  } else if (m === "returns") {
+    await loadProcurementReturns();
+  }
+  await loadProcurementSummaries();
+}
+
 function formatDate(value) {
   if (!value) return "—";
   const d = new Date(value);
@@ -92,6 +162,8 @@ function filterCounts(items = []) {
 function renderRow(row, selectedId) {
   const title = [row.orderNumber, row.item].filter(Boolean).join(" · ") || `Заявка #${row.id}`;
   const meta = [row.orderClient, row.object, row.constructor].filter(Boolean).join(" · ");
+  const mtoBadge =
+    row.mtoCount > 0 ? `<span class="proc-mto-badge">MTO ${row.mtoCount}</span>` : "";
   return `
     <button
       type="button"
@@ -104,7 +176,7 @@ function renderRow(row, selectedId) {
         <span class="enver-meta">${escapeHtml(meta || "—")}</span>
       </span>
       <span class="procurement-row-status procurement-status--${escapeHtml(row.status)}">${escapeHtml(procurementStatusLabel(row.status))}</span>
-      <span class="procurement-row-meta enver-meta">${row.itemCount} поз. · ${formatDate(row.createdAt)}</span>
+      <span class="procurement-row-meta enver-meta">${row.itemCount} поз. ${mtoBadge} · ${formatDate(row.createdAt)}</span>
     </button>`;
 }
 
@@ -131,25 +203,7 @@ function renderDetail(proc, detail, listRow) {
     </div>`;
 }
 
-function procurementSkeleton() {
-  return `
-    <div class="procurement-screen" aria-busy="true">
-      <div class="enver-skeleton procurement-skeleton-hero"></div>
-      <div class="procurement-layout">
-        <div class="enver-skeleton procurement-skeleton-list"></div>
-        <div class="enver-skeleton procurement-skeleton-detail"></div>
-      </div>
-    </div>`;
-}
-
-export function renderProcurementTab() {
-  if (!canManageProcurement()) {
-    return `<div class="note">Немає доступу до реєстру закупівель.</div>`;
-  }
-
-  const proc = ensureProcurementState();
-  if (proc.loading && !proc.items.length) return procurementSkeleton();
-
+function renderRegistry(proc) {
   const counts = filterCounts(proc.items);
   const visibleItems = filteredItems(proc.items, proc.filter);
   const selectedId = proc.selectedId;
@@ -159,40 +213,106 @@ export function renderProcurementTab() {
     null;
 
   const filterBtns = FILTERS.map(
-    (f) => `
-      <button
-        type="button"
-        class="enver-segmented-btn ${proc.filter === f.key ? "active" : ""}"
-        data-procurement-filter="${f.key}"
-      >${escapeHtml(f.label)}${counts[f.key] != null ? ` (${counts[f.key]})` : ""}</button>`
+    (f) =>
+      `<button type="button" class="enver-segmented-btn ${proc.filter === f.key ? "active" : ""}" data-procurement-filter="${f.key}">${escapeHtml(f.label)}${counts[f.key] != null ? ` (${counts[f.key]})` : ""}</button>`
   ).join("");
 
   const rows = visibleItems.length
     ? visibleItems.map((row) => renderRow(row, selectedId)).join("")
-    : `<p class="enver-meta procurement-empty">Заявок ще немає. Створіть їх кнопкою «В закупівлю» у пакеті конструктива після розбору Excel.</p>`;
+    : `<p class="enver-meta procurement-empty">Заявок ще немає. Створіть їх з пакета конструктива або додайте MTO.</p>`;
+
+  return `
+    <div class="procurement-layout">
+      <div class="procurement-list card" role="list">${rows}</div>
+      ${renderDetail(proc, proc.detail, listRow)}
+    </div>
+    <div class="enver-segmented procurement-filters" role="tablist">${filterBtns}</div>`;
+}
+
+function modeButtons(mode) {
+  return PROCUREMENT_MODES.map(
+    (m) =>
+      `<button type="button" class="enver-segmented-btn ${mode === m.key ? "active" : ""}" data-proc-mode="${m.key}">${escapeHtml(m.label)}</button>`
+  ).join("");
+}
+
+function renderModeBody(proc) {
+  if (proc.mode === "calendar") return renderProcurementCalendar();
+  if (proc.mode === "mto") return renderProcurementMto();
+  if (proc.mode === "warehouse") return renderProcurementWarehouse();
+  if (proc.mode === "returns") return renderProcurementReturns();
+  return renderRegistry(proc);
+}
+
+function procurementSkeleton() {
+  return `
+    <div class="procurement-screen" aria-busy="true">
+      <div class="enver-skeleton procurement-skeleton-hero"></div>
+      <div class="enver-skeleton procurement-skeleton-list"></div>
+    </div>`;
+}
+
+export function renderProcurementTab() {
+  if (!canViewProcurement()) {
+    return `<div class="note">Немає доступу до закупівель.</div>`;
+  }
+
+  const proc = ensureProcurementState();
+  if (proc.loading && proc.mode === "registry" && !proc.items.length) return procurementSkeleton();
+
+  const counts = filterCounts(proc.items);
 
   return `
     <div class="procurement-screen">
       <section class="procurement-hero card">
-        <h2 class="procurement-hero-title">Заявки на закупівлю</h2>
-        <p class="procurement-hero-sub">Список формується з Excel-специфікації конструктора після натискання «В закупівлю» у пакеті конструктива.</p>
+        <h2 class="procurement-hero-title">Закупівля</h2>
+        <p class="procurement-hero-sub">Календар MTO, реєстр заявок, приймання на склад і рекламації.</p>
         <div class="procurement-stats">
-          <div class="procurement-stat procurement-stat--active"><strong>${counts.active}</strong><span>Активні</span></div>
-          <div class="procurement-stat"><strong>${counts.all}</strong><span>Усього</span></div>
-          <div class="procurement-stat procurement-stat--done"><strong>${counts.done}</strong><span>Завершені</span></div>
+          <div class="procurement-stat procurement-stat--active"><strong>${counts.active}</strong><span>Активні заявки</span></div>
+          <div class="procurement-stat"><strong>${(proc.mtoItems || []).length}</strong><span>MTO</span></div>
+          <div class="procurement-stat"><strong>${(proc.warehousePending || []).length}</strong><span>Очікується</span></div>
+          <div class="procurement-stat procurement-stat--done"><strong>${(proc.returns || []).filter((r) => r.isActive).length}</strong><span>Рекламації</span></div>
         </div>
-        <div class="enver-segmented procurement-filters" role="tablist">${filterBtns}</div>
+        <div class="enver-segmented procurement-mode-bar" role="tablist">${modeButtons(proc.mode)}</div>
       </section>
-      <div class="procurement-layout">
-        <div class="procurement-list card" role="list">${rows}</div>
-        ${renderDetail(proc, proc.detail, listRow)}
-      </div>
+      <div id="procurementModeMount">${renderModeBody(proc)}</div>
     </div>`;
 }
 
 export function bindProcurementTab(root, { onRefresh, onOpenPosition } = {}) {
-  if (!root || !canManageProcurement()) return;
+  if (!root || !canViewProcurement()) return;
 
+  root.querySelectorAll("[data-proc-mode]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const mode = btn.dataset.procMode;
+      if (!mode) return;
+      ensureProcurementState().mode = mode;
+      try {
+        await loadProcurementModeData(mode);
+        onRefresh?.();
+      } catch (err) {
+        const { toastError } = await import("./toast.js");
+        toastError(err.message);
+      }
+    });
+  });
+
+  const proc = ensureProcurementState();
+
+  if (proc.mode === "calendar") {
+    bindProcurementCalendar(root, { onRefresh, onOpenPosition });
+  } else if (proc.mode === "mto") {
+    bindProcurementMto(root, { onRefresh, onOpenPosition });
+  } else if (proc.mode === "warehouse") {
+    bindProcurementWarehouse(root, { onRefresh });
+  } else if (proc.mode === "returns") {
+    bindProcurementReturns(root, { onRefresh });
+  } else {
+    bindProcurementRegistry(root, { onRefresh, onOpenPosition });
+  }
+}
+
+function bindProcurementRegistry(root, { onRefresh, onOpenPosition } = {}) {
   root.querySelectorAll("[data-procurement-filter]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const filter = btn.dataset.procurementFilter;
@@ -259,12 +379,17 @@ export function bindProcurementTab(root, { onRefresh, onOpenPosition } = {}) {
   });
 }
 
-/** Перехід на вкладку закупівлі з фокусом на заявку (після створення з конструктива). */
 export async function openProcurementRequest(requestId) {
-  ensureProcurementState().selectedId = requestId || null;
+  const proc = ensureProcurementState();
+  proc.mode = "registry";
+  proc.selectedId = requestId || null;
   state.activeTab = PROCUREMENT_TAB;
   await loadProcurementList();
   if (requestId) {
     await loadProcurementDetail(requestId);
   }
+}
+
+export function getProcurementSummaryForPosition(positionId) {
+  return state.procurement?.summariesByPositionId?.[positionId] || null;
 }

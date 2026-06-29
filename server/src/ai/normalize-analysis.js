@@ -5,6 +5,7 @@ import {
   STAGE_ALIASES,
   createEmptyAnalysis
 } from "./constructive-schema.js";
+import { normalizePackageAiAnalysis } from "../../../shared/production/package-ai.js";
 
 function clampConfidence(value) {
   const n = Number(value);
@@ -139,13 +140,23 @@ export function normalizeAnalysisResult(raw) {
   const suggestedTasks = normalizeSuggestedTasks(raw.suggestedTasks, extraWarnings);
   const warnings = [...normalizeWarnings(raw.warnings), ...extraWarnings];
 
+  const panels = normalizePanels(raw.panels);
+  const pkgFields = normalizePackageAiAnalysis(raw, {
+    partsCount: panels.length,
+    hardwareCount: 0
+  });
+
   const analysis = {
     summary: String(raw.summary || "").trim(),
     materials: normalizeMaterials(raw.materials),
-    panels: normalizePanels(raw.panels),
+    panels,
     warnings,
     suggestedTasks,
     estimatedComplexity: normalizeComplexity(raw.estimatedComplexity),
+    furnitureType: pkgFields.furnitureType,
+    furnitureTypeLabel: pkgFields.furnitureTypeLabel,
+    hardwareSummary: pkgFields.hardwareSummary,
+    estimatedLabor: pkgFields.estimatedLabor,
     missingInfo: normalizeMissingInfo(raw.missingInfo),
     operatorNotes: normalizeOperatorNotes(raw.operatorNotes),
     quality: {

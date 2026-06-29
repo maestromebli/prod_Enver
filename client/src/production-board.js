@@ -6,6 +6,7 @@ import { resolveProductionDrop } from "./interactions/production-handoff.js";
 import { state } from "./state.js";
 import { escapeHtml, badge, humanizeUserMessage } from "./utils.js";
 import { resolvePositionGodmode, canQuickRunGodmodeAction } from "./godmode-ui.js";
+import { getProcurementSummaryForPosition } from "./procurement-view.js";
 import { toastError } from "./toast.js";
 
 const BOARD_STAGES = STAGES.map((s) => s.key);
@@ -61,6 +62,11 @@ function renderBoardCard(p) {
       ? `<button type="button" class="btn btn-sm pf-board-handoff enver-pressable" data-pf-board-handoff="${p.id}" data-pf-action="${escapeHtml(next.type)}" title="${escapeHtml(next.label || "Передати")}" aria-label="${escapeHtml(next.label || "Передати на наступний етап")}">→</button>`
       : "";
   const pb = problemBadge(p, gm);
+  const procSum = getProcurementSummaryForPosition(p.id);
+  const procLine =
+    procSum && (procSum.blockingCount > 0 || procSum.overdueCount > 0)
+      ? `<small class="pf-board-proc ${procSum.overdueCount > 0 ? "pf-board-proc--overdue" : ""}">Закупівля: ${procSum.blockingCount > 0 ? `${procSum.blockingCount} очікує` : "OK"}${procSum.overdueCount > 0 ? ` · ${procSum.overdueCount} простроч.` : ""}</small>`
+      : "";
 
   return `
     <article
@@ -76,6 +82,7 @@ function renderBoardCard(p) {
         ${handoffBtn}
       </div>
       ${responsibleLine(p)}
+      ${procLine}
       <div class="pf-board-card-status">
         ${badge(p.positionStatus || "—")}
         ${pb}

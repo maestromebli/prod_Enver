@@ -10,6 +10,7 @@ export const ROLES = {
   admin: "admin",
   manager: "manager",
   production: "production",
+  procurement: "procurement",
   operator: "operator"
 };
 

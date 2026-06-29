@@ -19,7 +19,7 @@ import {
 } from "./constants.js";
 import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-desk.js";
 import { loadProductionFloor } from "./production-floor.js";
-import { loadProcurementList } from "./procurement-view.js";
+import { loadProcurementModeData, loadProcurementSummaries } from "./procurement-view.js";
 import { toastError } from "./toast.js";
 import { syncOperatorBuildChip } from "./operator-ui.js";
 import { initOrderModal, openOrderModal, setOrderSaveHandler } from "./orders.js";
@@ -431,12 +431,12 @@ async function prepareViewData() {
   }
   if (state.activeTab === PROCUREMENT_TAB) {
     try {
-      await loadProcurementList();
+      await loadProcurementModeData();
     } catch (err) {
       toastError(`Не вдалося завантажити закупівлі: ${err.message}`);
     }
-  } else if (canViewProcurement() && !state.procurement?.items?.length) {
-    loadProcurementList().catch(() => {});
+  } else if (canViewProcurement()) {
+    loadProcurementSummaries().catch(() => {});
   }
 }
 
@@ -500,7 +500,7 @@ async function setTab(tab, { ordersDisplayMode } = {}) {
   }
   if (tab === PROCUREMENT_TAB) {
     try {
-      await loadProcurementList();
+      await loadProcurementModeData();
     } catch (err) {
       toastError(`Не вдалося завантажити закупівлі: ${err.message}`);
     }

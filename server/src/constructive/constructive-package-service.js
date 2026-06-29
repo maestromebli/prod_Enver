@@ -26,6 +26,7 @@ import {
   computeChecksum
 } from "./part-code.js";
 import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
+import { getLatestPackageAiAnalysis, kickoffPackageAiAnalysis } from "./constructive-package-ai.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
 import {
@@ -368,6 +369,7 @@ export async function getPackageDetail(packageId) {
     `SELECT * FROM procurement_requests WHERE package_id = $1 ORDER BY id DESC LIMIT 1`,
     [packageId]
   );
+  const aiAnalysis = await getLatestPackageAiAnalysis(packageId);
   return {
     package: pkg,
     files,
@@ -384,7 +386,8 @@ export async function getPackageDetail(packageId) {
           totalEstimated: procurement.total_estimated
         }
       : null,
-    unmappedParts: parts.filter((p) => !p.modelNodeId && !p.modelMeshName)
+    unmappedParts: parts.filter((p) => !p.modelNodeId && !p.modelMeshName),
+    aiAnalysis
   };
 }
 
@@ -1014,6 +1017,13 @@ export async function parseConstructivePackage(packageId, actor) {
     } else if (procurementResult.error) {
       autoProcurementError = procurementResult.error;
     }
+
+    await kickoffPackageAiAnalysis(packageId, {
+      orderNumber: position.order_number,
+      item: position.item,
+      itemType: position.item_type
+    });
+    detail = await getPackageDetail(packageId);
 
     return { ...detail, autoProcurement, autoProcurementError };
   } catch (err) {

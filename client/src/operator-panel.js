@@ -27,6 +27,7 @@ import { iconSvg, stageIconSvg } from "./icons.js";
 import { resolvePositionGodmode, renderSmartEmptyState } from "./godmode-ui.js";
 import { createSwipeActions } from "./interactions/gestures.js";
 import { formatConstructiveSize } from "@enver/shared/production/constructive-files.js";
+import { formatStageEstimateLabel } from "@enver/shared/production/stage-duration-estimate.js";
 import { notifyUiChanged, persistUiState } from "./ui-persistence.js";
 import {
   isPartScanStage,
@@ -147,12 +148,24 @@ export async function loadOperatorData() {
 export async function loadOperatorJobDetail(positionId) {
   if (!positionId) {
     state.operatorJobDetail = null;
+    state.operatorStageEstimate = null;
     return;
   }
   try {
     state.operatorJobDetail = await api.getOperatorJob(positionId);
+    if (state.operatorStage) {
+      try {
+        state.operatorStageEstimate = await api.getOperatorStageEstimate(
+          positionId,
+          state.operatorStage
+        );
+      } catch {
+        state.operatorStageEstimate = null;
+      }
+    }
   } catch {
     state.operatorJobDetail = null;
+    state.operatorStageEstimate = null;
   }
 }
 
@@ -312,6 +325,67 @@ function renderOperatorNextAction(pos, field) {
       ${advanceCta}
       ${warnList}
     </div>`;
+}
+
+function formatEstimateDeadline(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("uk-UA", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "";
+  }
+}
+
+function currentStageEstimate() {
+  const sess = state.operatorActiveSession;
+  if (
+    sess?.position_id === workPosition()?.id &&
+    sess?.stage_key === state.operatorStage &&
+    sess?.stage_estimate
+  ) {
+    return {
+      estimate: sess.stage_estimate,
+      finishAt: sess.estimated_finish_at || sess.stage_estimate.estimatedFinishAt
+    };
+  }
+  if (canStart() && state.operatorStageEstimate) {
+    return { estimate: state.operatorStageEstimate, finishAt: null, preview: true };
+  }
+  return null;
+}
+
+function renderStageEstimateBlock() {
+  const ctx = currentStageEstimate();
+  if (!ctx?.estimate?.estimatedMinutes) return "";
+  const est = ctx.estimate;
+  const m = est.metrics || {};
+  const finishLabel = ctx.finishAt ? formatEstimateDeadline(ctx.finishAt) : "";
+  const previewNote = ctx.preview
+    ? "Прогноз до натискання «Почав» — строк зафіксується при старті."
+    : "Строк виготовлення на цьому етапі";
+
+  return `
+    <section class="op-stage-estimate" aria-label="Прогноз часу етапу">
+      <h3 class="op-section-title">${ctx.preview ? "Прогноз" : "Строк виготовлення"}</h3>
+      <p class="op-estimate-total">
+        ${ctx.preview ? "Орієнтовно" : "Завершити до"}:
+        <strong>${escapeHtml(formatStageEstimateLabel(est))}</strong>
+        ${finishLabel ? ` · <span class="op-estimate-deadline">${escapeHtml(finishLabel)}</span>` : ""}
+      </p>
+      <p class="op-estimate-metrics enver-meta">
+        ${m.partsCount ? `${m.partsCount} дет.` : ""}
+        ${m.cutMeters ? ` · ${m.cutMeters} м порізки` : ""}
+        ${m.edgeMeters ? ` · ${m.edgeMeters} м кромки` : ""}
+        ${m.hardwareCount ? ` · ${m.hardwareCount} фурн.` : ""}
+      </p>
+      <p class="op-estimate-reason enver-meta">${escapeHtml(est.reason || "")} · впевненість ${Math.round((est.confidence || 0) * 100)}%</p>
+      <p class="op-hint">${escapeHtml(previewNote)}</p>
+    </section>`;
 }
 
 function renderJobMeta() {
@@ -504,6 +578,7 @@ export function renderOperatorView() {
             pos
               ? `
             ${renderOperatorTaskHero(pos, field, stageKey, inWork)}
+            ${renderStageEstimateBlock()}
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
             <section class="op-order-3d" id="operatorOrder3dSection" hidden>

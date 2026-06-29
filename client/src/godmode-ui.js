@@ -16,6 +16,7 @@ import { aggregateOrderAttention } from "./attention.js";
 import { positionsForOrder } from "./workflows.js";
 import { canManageConstructorDesk } from "./auth.js";
 import { CONSTRUCTOR_DESK_TAB } from "./constants.js";
+import { getProcurementSummaryForPosition } from "./procurement-view.js";
 import { escapeHtml } from "./utils.js";
 
 const HEALTH_LABELS = {
@@ -43,12 +44,15 @@ export function resolvePositionGodmode(position) {
   if (isCompletePositionGodmode(position?.godmode)) {
     return patchAssignConstructorAction(position.godmode);
   }
+  const summary = getProcurementSummaryForPosition(position.id);
   const gm = buildPositionGodmode(position, {
     planDate: position.planDate,
     hasConstructivePackage: position.hasConstructivePackage,
     packageStatus: position.constructivePackageStatus || null,
     unmappedPartsCount: position.unmappedPartsCount || 0,
-    orderHasSubPositions: position.orderHasSubPositions
+    orderHasSubPositions: position.orderHasSubPositions,
+    procurementItems: position.procurement?.items,
+    openReturns: summary?.openReturns || 0
   });
   return patchAssignConstructorAction(gm);
 }

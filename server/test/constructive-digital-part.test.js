@@ -218,6 +218,40 @@ describe("constructive-package shared", () => {
     assert.equal(meshOnly.dimensions, "600×320×16 мм");
   });
 
+  it("resolvePartByMeshName — не плутає №1 з panel-10 та №2 з panel-21", async () => {
+    const { resolvePartByMeshName } =
+      await import("../../shared/production/constructive-package.js");
+    const parts = [
+      { partNo: "1", partName: "Полиця 1", length: "400", width: "300" },
+      { partNo: "2", partName: "Полиця 2", length: "500", width: "320" },
+      { partNo: "10", partName: "Стійка", length: "1896", width: "540" },
+      { partNo: "21", partName: "Бік", length: "720", width: "500" }
+    ];
+    assert.equal(resolvePartByMeshName("panel-10", parts)?.partName, "Стійка");
+    assert.equal(resolvePartByMeshName("panel-21", parts)?.partName, "Бік");
+    assert.equal(resolvePartByMeshName("panel-1", parts)?.partName, "Полиця 1");
+    assert.equal(resolvePartByMeshName("panel-2", parts)?.partName, "Полиця 2");
+    assert.equal(resolvePartByMeshName("panel-0010X002X1", parts), null);
+  });
+
+  it("resolvePartByMeshName — код операції Bazis збігається лише повністю", async () => {
+    const { resolvePartByMeshName } =
+      await import("../../shared/production/constructive-package.js");
+    const parts = [
+      {
+        partNo: "10",
+        partCode: "0010X002X1",
+        partName: "Фасад",
+        length: "716",
+        width: "397"
+      },
+      { partNo: "1", partName: "Дно", length: "800", width: "500" }
+    ];
+    assert.equal(resolvePartByMeshName("panel-0010X002X1", parts)?.partName, "Фасад");
+    assert.equal(resolvePartByMeshName("0010X002X1", parts)?.partName, "Фасад");
+    assert.notEqual(resolvePartByMeshName("panel-0010X002X1", parts)?.partName, "Дно");
+  });
+
   it("isStalePackageParsing — завислий parsing", async () => {
     const { isStalePackageParsing, PACKAGE_PARSING_STALE_MS } =
       await import("../../shared/production/constructive-package.js");

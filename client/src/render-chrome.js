@@ -62,7 +62,7 @@ const TAB_META = {
   [ATTENTION_TAB]: { subtitle: "Блокери, попередження та наступні кроки" },
   [PRODUCTION_FLOOR_TAB]: { subtitle: "Черги, сесії та проблеми" },
   [CONSTRUCTOR_DESK_TAB]: { subtitle: "Картки або список замовлень у конструктиві" },
-  [PROCUREMENT_TAB]: { subtitle: "Заявки з Excel-специфікації конструктора" },
+  [PROCUREMENT_TAB]: { subtitle: "Календар MTO, склад, рекламації" },
   Встановлення: { subtitle: "Календар монтажу" },
   "Історія змін": { subtitle: "Аудит дій у системі" }
 };

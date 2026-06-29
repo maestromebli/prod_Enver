@@ -4,6 +4,7 @@ export const UI_ROLES = [
   { id: "admin", label: "Адміністратор" },
   { id: "production", label: "Начальник виробництва" },
   { id: "manager", label: "Менеджер (продажі)" },
+  { id: "procurement", label: "Закупівля" },
   { id: "operator", label: "Оператор" }
 ];
 
@@ -22,6 +23,8 @@ export const DEFAULT_PERMISSIONS = {
     canApproveConstructive: true,
     canReleaseToCnc: true,
     canManageProcurement: true,
+    canViewProcurement: true,
+    canReceiveWarehouse: true,
     canEditPositionManagerData: true,
     canScanParts: true,
     canMap3dParts: true,
@@ -42,6 +45,8 @@ export const DEFAULT_PERMISSIONS = {
     canApproveConstructive: false,
     canReleaseToCnc: false,
     canManageProcurement: true,
+    canViewProcurement: true,
+    canReceiveWarehouse: false,
     canScanParts: false,
     canMap3dParts: false,
     stages: []
@@ -60,10 +65,33 @@ export const DEFAULT_PERMISSIONS = {
     canApproveConstructive: true,
     canReleaseToCnc: true,
     canManageProcurement: true,
+    canViewProcurement: true,
+    canReceiveWarehouse: true,
     canEditPositionManagerData: true,
     canScanParts: true,
     canMap3dParts: true,
     stages: ALL_STAGE_KEYS
+  },
+  procurement: {
+    canViewSettings: false,
+    canManageUsers: false,
+    canManageAccess: false,
+    canEditOrders: false,
+    canEditPositions: false,
+    canUseOperatorPanel: false,
+    canViewProductionFloor: false,
+    canManageConstructorDesk: false,
+    canWorkConstructorDesk: false,
+    canReviewConstructive: false,
+    canApproveConstructive: false,
+    canReleaseToCnc: false,
+    canManageProcurement: true,
+    canViewProcurement: true,
+    canReceiveWarehouse: true,
+    canEditPositionManagerData: false,
+    canScanParts: false,
+    canMap3dParts: false,
+    stages: []
   },
   operator: {
     canViewSettings: false,
@@ -79,6 +107,8 @@ export const DEFAULT_PERMISSIONS = {
     canApproveConstructive: false,
     canReleaseToCnc: false,
     canManageProcurement: false,
+    canViewProcurement: false,
+    canReceiveWarehouse: false,
     canScanParts: true,
     canMap3dParts: false,
     stages: []

@@ -67,7 +67,8 @@ router.post("/analyze-constructive/:positionId", requirePositionWrite, async (re
   if (packageId) {
     const result = await analyzeConstructivePackage(packageId, {
       orderNumber: position.order_number,
-      item: position.item
+      item: position.item,
+      itemType: position.item_type
     });
     res.json(result);
     return;

@@ -109,7 +109,13 @@ export function canManageProcurement() {
 }
 
 export function canViewProcurement() {
-  return canManageProcurement();
+  return Boolean(
+    effectivePermissions().canViewProcurement || effectivePermissions().canManageProcurement
+  );
+}
+
+export function canReceiveWarehouse() {
+  return Boolean(effectivePermissions().canReceiveWarehouse);
 }
 
 export function canReviewConstructive() {

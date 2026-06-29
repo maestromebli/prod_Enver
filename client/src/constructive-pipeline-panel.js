@@ -10,6 +10,7 @@ import {
   packageParseDisplay,
   PACKAGE_HANDOFF_TO_CUTTING_STATUSES
 } from "@enver/shared/production/constructive-package.js";
+import { mtoCategoryLabel } from "@enver/shared/production/procurement.js";
 import { runPackageParseWithProgress } from "./constructive-package-parse-ui.js";
 import {
   formatCncFileMaterialLabel,
@@ -17,6 +18,7 @@ import {
 } from "@enver/shared/production/cnc-file-meta.js";
 import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
 import { getConstructivePackageNextAction } from "@enver/shared/production/constructive-godmode.js";
+import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
 
 export async function loadProcurementSummary(positionId) {
   return api.getPositionProcurement(positionId);
@@ -96,9 +98,10 @@ export function renderProcurementPanel(procurement = null, { canManage = false }
     .map(
       (item) => `
     <tr>
-      <td>${escapeHtml(item.itemType || "—")}</td>
+      <td>${escapeHtml(item.procurementClass === "mto" ? mtoCategoryLabel(item.category) : item.itemType || "—")}</td>
       <td>${escapeHtml(item.name || "—")}</td>
       <td>${escapeHtml(item.qty || "—")} ${escapeHtml(item.unit || "")}</td>
+      <td>${escapeHtml(item.expectedDeliveryDate || "—")}</td>
       <td>${escapeHtml(procurementStatusLabel(item.status))}</td>
     </tr>`
     )
@@ -114,7 +117,7 @@ export function renderProcurementPanel(procurement = null, { canManage = false }
       <p class="enver-meta">${procurement.items?.length || 0} позицій · план ${Number(procurement.totalEstimated || 0).toFixed(2)} UAH</p>
       ${
         items
-          ? `<table class="cp-parts-table procurement-items-table"><thead><tr><th>Тип</th><th>Назва</th><th>Кількість</th><th>Статус</th></tr></thead><tbody>${items}</tbody></table>`
+          ? `<table class="cp-parts-table procurement-items-table"><thead><tr><th>Тип</th><th>Назва</th><th>Кількість</th><th>Поставка</th><th>Статус</th></tr></thead><tbody>${items}</tbody></table>`
           : ""
       }
       ${
@@ -160,8 +163,8 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
   const partsList = (detail.parts || [])
     .slice(0, 50)
     .map(
-      (p) => `
-    <tr class="${p.modelNodeId || p.modelMeshName ? "" : "is-unmapped"}">
+      (p, idx) => `
+    <tr class="cp-part-row ${p.modelNodeId || p.modelMeshName ? "" : "is-unmapped"}" data-cp-part-row="${idx}" title="Подвійний клік — деталь з кромкою та сверлінням">
       <td>${escapeHtml(p.blockCode || "—")}</td>
       <td>${escapeHtml(p.partNo)}</td>
       <td>${escapeHtml(p.partName)}</td>
@@ -196,9 +199,9 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
         }
         <button type="button" class="btn btn-sm btn-primary" id="openConstructiveReviewBtn">Перевірка конструктива</button>
         <button type="button" class="btn btn-sm" id="openB3dPreviewBtn">Перегляд 3D</button>
-        <button type="button" class="btn btn-sm" id="analyzePackageAiBtn">ШІ-аналіз пакета</button>
+        <button type="button" class="btn btn-sm" id="analyzePackageAiBtn">Перезапустити ШІ</button>
       </div>
-      <div id="packageAiResult" class="package-ai-result" hidden></div>
+      <div id="packageAiResult" class="package-ai-result"></div>
       <div id="cncQueuePanelMount">${renderCncQueuePanel(options.cncJobs || [], { packageFiles: detail?.files || [] })}</div>
       <div class="cp-parts-section" data-cp-parts-section>
         <div class="cp-parts-section-head">
@@ -247,6 +250,17 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
     btn.title = next ? "Згорнути деталіровку" : "Показати деталіровку";
     btn.setAttribute("aria-label", btn.title);
     body.hidden = !next;
+  });
+
+  root.querySelector("[data-cp-parts-body]")?.addEventListener("dblclick", async (e) => {
+    const row = e.target.closest("[data-cp-part-row]");
+    if (!row) return;
+    const idx = Number(row.dataset.cpPartRow);
+    const detail = getPackageDetail();
+    const part = detail?.parts?.[idx];
+    if (!part || !detail?.package?.id) return;
+    const { openPartDetailModal } = await import("./part-detail-modal.js");
+    void openPartDetailModal(positionId, detail, part);
   });
 
   const afterPipelineAction = () => {
@@ -352,19 +366,42 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
     const pkgId = detail?.package?.id;
     if (!pkgId) return;
     const box = root.querySelector("#packageAiResult");
-    if (box) {
-      box.hidden = false;
-      box.textContent = "ШІ аналізує пакет…";
-    }
+    mountPackageAiBlock(box, { status: "pending" });
     try {
       const res = await api.analyzeConstructivePackageAi(positionId, pkgId);
-      if (box) {
-        box.innerHTML = `<pre class="package-ai-json">${escapeHtml(JSON.stringify(res.analysis || res, null, 2))}</pre>`;
-      }
+      mountPackageAiBlock(box, res.aiAnalysis || { status: "done", analysis: res }, {
+        showRerun: true,
+        onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
+      });
+      onPackageUpdated?.(res.aiAnalysis ? { ...detail, aiAnalysis: res.aiAnalysis } : detail);
     } catch (err) {
-      if (box) box.textContent = err.message;
+      if (box)
+        box.querySelector("[data-package-ai-body]").innerHTML =
+          `<p class="form-error visible">${escapeHtml(err.message)}</p>`;
     }
   });
+
+  const initialDetail = getPackageDetail();
+  const aiBox = root.querySelector("#packageAiResult");
+  if (initialDetail?.aiAnalysis) {
+    mountPackageAiBlock(aiBox, initialDetail.aiAnalysis, {
+      showRerun: true,
+      onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
+    });
+    if (initialDetail.aiAnalysis.status === "pending") {
+      pollPackageAiAnalysis(positionId, {
+        onUpdate: (detail) => {
+          mountPackageAiBlock(aiBox, detail?.aiAnalysis, {
+            showRerun: true,
+            onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
+          });
+          onPackageUpdated?.(detail);
+        }
+      });
+    }
+  } else if (initialDetail?.parts?.length) {
+    mountPackageAiBlock(aiBox, null);
+  }
 
   if (!hideProcurement) {
     root.querySelector("#advanceProcurementBtn")?.addEventListener("click", async () => {
