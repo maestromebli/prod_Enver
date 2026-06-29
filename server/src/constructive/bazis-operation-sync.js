@@ -89,6 +89,25 @@ export async function findPackageIdsByProjectBazisCode(scanCode) {
   return [...found];
 }
 
+/** Знайти деталь у пакеті за partNo з коду Bazis (без колонки bazis_operation_codes). */
+async function findPartRowByPartNoInPackage(packageId, scanCode) {
+  const partNo = partNoFromBazisOperationCode(normalizeBazisScanCode(scanCode));
+  if (!partNo) return null;
+
+  return one(
+    `SELECT * FROM constructive_parts
+     WHERE package_id = $1
+       AND (
+         part_no = $2
+         OR part_no = $3
+         OR ltrim(part_no, '0') = $2
+       )
+     ORDER BY id
+     LIMIT 1`,
+    [packageId, partNo, partNo.padStart(2, "0")]
+  );
+}
+
 async function findPartRowInPackageByBazis(packageId, scanCode) {
   const variants = bazisScanLookupVariants(scanCode).map((v) => v.toUpperCase());
   if (!variants.length) return null;
@@ -277,22 +296,43 @@ export async function resolvePartRowByBazisProjectScan(scanCode) {
 
   const packageIds = await findPackageIdsByProjectBazisCode(scanCode);
   for (const packageId of packageIds) {
-    await syncBazisOperationCodesForPackage(packageId);
+    try {
+      await syncBazisOperationCodesForPackage(packageId);
+    } catch {
+      /* bazis_operation_codes може ще не існувати до міграції 0026 */
+    }
 
-    let row = await findPartRowInPackageByBazis(packageId, scanCode);
+    let row = null;
+    try {
+      row = await findPartRowInPackageByBazis(packageId, scanCode);
+    } catch {
+      row = await findPartRowByPartNoInPackage(packageId, scanCode);
+    }
     if (row) return row;
 
     const texts = await readProjectTextsForPackage(packageId);
     const codes = [...new Set(texts.flatMap((t) => extractBazisOperationCodesFromProjectText(t)))];
     const opCodes = groupBazisOperationCodesByPartNo(codes).get(partNo) || [];
 
-    row = await ensurePartRowForBazis(packageId, partNo, opCodes);
-    if (!row) continue;
-
-    await syncBazisOperationCodesForPackage(packageId);
-    row = await findPartRowInPackageByBazis(packageId, scanCode);
-    if (row) return row;
-    return row;
+    try {
+      row = await ensurePartRowForBazis(packageId, partNo, opCodes);
+      if (row) {
+        try {
+          await syncBazisOperationCodesForPackage(packageId);
+        } catch {
+          /* ignore */
+        }
+        try {
+          row = (await findPartRowInPackageByBazis(packageId, scanCode)) || row;
+        } catch {
+          /* ignore */
+        }
+        return row;
+      }
+    } catch {
+      row = await findPartRowByPartNoInPackage(packageId, scanCode);
+      if (row) return row;
+    }
   }
 
   return null;

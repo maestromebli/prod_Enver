@@ -1125,21 +1125,23 @@ export async function findPartByBarcode(barcodeValue) {
   const code = String(barcodeValue || "").trim();
   if (!code) return null;
 
-  let row = await findPartRowByScanCode(code);
+  let row = await findPartRowByBarcodeOrQr(code);
   if (row) return mapPartRow(row);
 
+  // Коди Bazis з .project — до запитів по bazis_operation_codes (міграція може ще не бути на сервері).
   if (isBazisOperationScanCode(code)) {
     row = await resolvePartRowByBazisProjectScan(code);
     if (row) return mapPartRow(row);
   }
 
+  row = await findPartRowByBazisCodesInDb(code);
+  if (row) return mapPartRow(row);
+
   return null;
 }
 
-async function findPartRowByScanCode(code) {
+async function findPartRowByBarcodeOrQr(code) {
   const variants = bazisScanLookupVariants(code);
-  const upperVariants = [...new Set(variants.map((v) => v.toUpperCase()))];
-
   for (const v of variants) {
     let row = await one(`SELECT * FROM constructive_parts WHERE barcode_value = $1`, [v]);
     if (row) return row;
@@ -1147,8 +1149,15 @@ async function findPartRowByScanCode(code) {
     row = await one(`SELECT * FROM constructive_parts WHERE qr_value = $1`, [v]);
     if (row) return row;
   }
+  return null;
+}
 
-  if (upperVariants.length) {
+async function findPartRowByBazisCodesInDb(code) {
+  const variants = bazisScanLookupVariants(code);
+  const upperVariants = [...new Set(variants.map((v) => v.toUpperCase()))];
+  if (!upperVariants.length) return null;
+
+  try {
     let row = await one(
       `SELECT * FROM constructive_parts
        WHERE EXISTS (
@@ -1159,18 +1168,20 @@ async function findPartRowByScanCode(code) {
       [upperVariants]
     );
     if (row) return row;
-  }
 
-  for (const v of upperVariants) {
-    const inst = await one(
-      `SELECT * FROM constructive_part_instances
-       WHERE upper(barcode_value) = $1 OR upper(bazis_operation_code) = $1`,
-      [v]
-    );
-    if (inst) {
-      const row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
-      if (row) return row;
+    for (const v of upperVariants) {
+      const inst = await one(
+        `SELECT * FROM constructive_part_instances
+         WHERE upper(barcode_value) = $1 OR upper(bazis_operation_code) = $1`,
+        [v]
+      );
+      if (inst) {
+        row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [inst.part_id]);
+        if (row) return row;
+      }
     }
+  } catch {
+    return null;
   }
 
   return null;
