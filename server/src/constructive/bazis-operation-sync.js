@@ -310,7 +310,10 @@ export async function resyncBazisOperationCodesForAllPackages() {
 }
 
 /** Резолв деталі за кодом Bazis через .project (lazy backfill). */
-export async function resolvePartRowByBazisProjectScan(scanCode, positionId = null) {
+export async function resolvePartRowByBazisProjectScan(
+  scanCode,
+  { positionId = null, orderId = null } = {}
+) {
   if (!isBazisOperationScanCode(scanCode)) return null;
 
   const normalized = normalizeBazisScanCode(scanCode);
@@ -334,6 +337,23 @@ export async function resolvePartRowByBazisProjectScan(scanCode, positionId = nu
         [positionId]
       );
       packageIds = posPackages.map((r) => r.id);
+    }
+  } else if (orderId) {
+    const scoped = await all(
+      `SELECT id FROM constructive_packages
+       WHERE order_id = $1 AND id = ANY($2::int[])
+       ORDER BY version DESC, id DESC`,
+      [orderId, packageIds.length ? packageIds : [0]]
+    );
+    packageIds = scoped.map((r) => r.id);
+    if (!packageIds.length) {
+      const orderPackages = await all(
+        `SELECT id FROM constructive_packages
+         WHERE order_id = $1
+         ORDER BY version DESC, id DESC`,
+        [orderId]
+      );
+      packageIds = orderPackages.map((r) => r.id);
     }
   }
   for (const packageId of packageIds) {

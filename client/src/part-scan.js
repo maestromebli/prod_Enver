@@ -65,7 +65,11 @@ function modelFileUrl(viewerUrl) {
 async function lookupBarcode(code) {
   const positionId =
     state.operatorSelectedPositionId || state.operatorActiveSession?.position_id || null;
-  return api.scanPart(code, { positionId });
+  const pos = positionId
+    ? state.operatorQueue.find((p) => p.id === positionId) || state.operatorJobDetail?.position
+    : null;
+  const orderId = pos?.orderId || state.operatorJobDetail?.position?.orderId || null;
+  return api.scanPart(code, { positionId, orderId });
 }
 
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {

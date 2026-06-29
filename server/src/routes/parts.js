@@ -126,7 +126,8 @@ function readScanBarcode(req) {
 async function handlePartScan(req, res) {
   const barcodeValue = readScanBarcode(req);
   const positionId = Number(req.body?.positionId ?? req.query?.positionId) || null;
-  const part = await findPartByBarcode(barcodeValue, { positionId });
+  const orderId = Number(req.body?.orderId ?? req.query?.orderId) || null;
+  const part = await findPartByBarcode(barcodeValue, { positionId, orderId });
 
   if (!part) {
     let error = "Деталь не знайдено. Перевірте етикетку або введіть код вручну.";
@@ -134,7 +135,9 @@ async function handlePartScan(req, res) {
       const stats = await one(
         `SELECT
            (SELECT count(*)::int FROM constructive_packages WHERE position_id = $1) AS packages,
-           (SELECT count(*)::int FROM constructive_parts WHERE position_id = $1) AS parts`,
+           (SELECT count(*)::int FROM constructive_parts cp
+            WHERE cp.position_id = $1
+               OR cp.package_id IN (SELECT id FROM constructive_packages WHERE position_id = $1)) AS parts`,
         [positionId]
       );
       if (!stats?.packages) {
@@ -143,10 +146,10 @@ async function handlePartScan(req, res) {
         error = "У пакеті цієї позиції немає деталей. Перевірте, чи пакет повністю розібрано.";
       } else {
         error =
-          "Деталь не знайдено серед деталей цієї позиції. Перевірте етикетку або обрану позицію.";
+          "Деталь не знайдено. Перевірте код етикетки або оберіть правильну позицію замовлення.";
       }
     }
-    res.status(404).json({ error });
+    res.status(404).json({ error, barcode: barcodeValue });
     return;
   }
 
