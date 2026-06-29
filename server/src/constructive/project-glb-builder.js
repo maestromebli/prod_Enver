@@ -27,6 +27,7 @@ export function extractProjectPanels(projectBuffer) {
     seen.add(code);
 
     const partName = pickXmlAttr(attrs, ["name", "Name", "Title"]) || `Деталь ${code}`;
+    const colorFactor = parsePartColorFactor(attrs);
     const lengthMm = Number(pickXmlAttr(attrs, ["dl", "Length", "L"])) || 0;
     const widthMm = Number(pickXmlAttr(attrs, ["dw", "Width", "W"])) || 0;
     const thicknessMm =
@@ -39,6 +40,7 @@ export function extractProjectPanels(projectBuffer) {
     panels.push({
       code: String(code),
       partName,
+      colorFactor,
       lengthMm,
       widthMm,
       thicknessMm: thicknessMm > 0 ? thicknessMm : 18
@@ -80,6 +82,53 @@ export function layoutPreviewPanels(panels = []) {
       position
     };
   });
+}
+
+function panelBaseColorFactor(code, index) {
+  let hash = (index + 1) * 131;
+  for (const ch of String(code)) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  const hue = hash % 360;
+  const s = 0.3;
+  const l = 0.6;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hue < 60) [r, g, b] = [c, x, 0];
+  else if (hue < 120) [r, g, b] = [x, c, 0];
+  else if (hue < 180) [r, g, b] = [0, c, x];
+  else if (hue < 240) [r, g, b] = [0, x, c];
+  else if (hue < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return [r + m, g + m, b + m, 1];
+}
+
+function parsePartColorFactor(attrs) {
+  const raw =
+    pickXmlAttr(attrs, ["color", "Color", "colour", "rgb", "RGB"]) ||
+    pickXmlAttr(attrs, ["decor", "Decor", "material_decor", "MaterialDecor"]);
+  if (!raw) return null;
+
+  const hex = raw.match(/^#?([0-9a-f]{6})$/i);
+  if (hex) {
+    const n = Number.parseInt(hex[1], 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1];
+  }
+
+  const parts = raw
+    .split(/[,;\s]+/)
+    .map(Number)
+    .filter((n) => Number.isFinite(n));
+  if (parts.length >= 3) {
+    const scale = parts.some((n) => n > 1) ? 255 : 1;
+    return [parts[0] / scale, parts[1] / scale, parts[2] / scale, 1];
+  }
+
+  return null;
 }
 
 function unitBoxGeometry() {
@@ -133,12 +182,21 @@ export function buildPreviewGlbFromPanels(
   // Окремий mesh на кожну панель — інакше Three.js переміщує спільний mesh лише до останнього вузла.
   const nodes = panels.map((panel, i) => gltfNodeFromPanel(panel, i));
 
-  const panelPrimitive = {
+  const panelPrimitive = (materialIndex) => ({
     attributes: { POSITION: 0 },
     indices: 1,
-    material: 0,
+    material: materialIndex,
     mode: 4
-  };
+  });
+
+  const materials = panels.map((panel, i) => ({
+    name: `panel-${panel.code}`,
+    pbrMetallicRoughness: {
+      baseColorFactor: panel.colorFactor || panelBaseColorFactor(panel.code, i),
+      metallicFactor: 0.05,
+      roughnessFactor: 0.82
+    }
+  }));
 
   const gltf = {
     asset: {
@@ -151,20 +209,11 @@ export function buildPreviewGlbFromPanels(
     scene: 0,
     scenes: [{ name: productName || "preview", nodes: nodes.map((_, i) => i) }],
     nodes,
-    meshes: panels.map((panel) => ({
+    meshes: panels.map((panel, i) => ({
       name: `panel-${panel.code}`,
-      primitives: [panelPrimitive]
+      primitives: [panelPrimitive(i)]
     })),
-    materials: [
-      {
-        name: "panel-wood",
-        pbrMetallicRoughness: {
-          baseColorFactor: [0.78, 0.72, 0.64, 1],
-          metallicFactor: 0.05,
-          roughnessFactor: 0.82
-        }
-      }
-    ],
+    materials,
     accessors: [
       {
         bufferView: 0,

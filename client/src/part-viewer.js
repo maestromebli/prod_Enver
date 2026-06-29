@@ -8,6 +8,10 @@ const SCENE_BG = 0xf0f2f5;
 const PART_COLOR = 0x5c6f82;
 const HIGHLIGHT_COLOR = 0xd97706;
 const GHOST_COLOR = 0x94a3b8;
+const EDGE_COLOR = 0x1e293b;
+const EDGE_HIGHLIGHT_COLOR = 0xb45309;
+const EDGE_GHOST_COLOR = 0x64748b;
+const EDGE_THRESHOLD_DEG = 12;
 
 /** Bazis VRML: невалідні DEF-імена (3-D, 8, кирилиця, +) ламають VRMLLoader. */
 function sanitizeVrmlDefName(name) {
@@ -88,16 +92,57 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
 
-  function applyDefaultMaterials(object) {
-    object.traverse((child) => {
-      if (!child.isMesh) return;
-      const mat = new THREE.MeshStandardMaterial({
+  function cloneSurfaceMaterial(mat) {
+    if (!mat) {
+      return new THREE.MeshStandardMaterial({
         color: PART_COLOR,
         metalness: 0.08,
         roughness: 0.62
       });
-      child.material = mat;
-      child.userData.originalMaterial = mat;
+    }
+    if (mat.isMeshStandardMaterial) return mat.clone();
+    return new THREE.MeshStandardMaterial({
+      color: mat.color?.clone?.() ?? new THREE.Color(PART_COLOR),
+      metalness: mat.metalness ?? 0.08,
+      roughness: mat.roughness ?? 0.62,
+      map: mat.map ?? null,
+      transparent: Boolean(mat.transparent),
+      opacity: mat.opacity ?? 1,
+      side: mat.side ?? THREE.FrontSide
+    });
+  }
+
+  function addPartEdges(mesh) {
+    if (!mesh.geometry || mesh.userData.edgeLines) return;
+    const edges = new THREE.EdgesGeometry(mesh.geometry, EDGE_THRESHOLD_DEG);
+    const lineMat = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
+    const lines = new THREE.LineSegments(edges, lineMat);
+    lines.name = `${mesh.name || "mesh"}-edges`;
+    lines.raycast = () => {};
+    mesh.add(lines);
+    mesh.userData.edgeLines = lines;
+    mesh.userData.originalEdgeColor = EDGE_COLOR;
+  }
+
+  function setEdgeStyle(mesh, color, { opacity = 1 } = {}) {
+    const lines = mesh.userData.edgeLines;
+    if (!lines?.material) return;
+    lines.material.color.set(color);
+    lines.material.opacity = opacity;
+    lines.material.transparent = opacity < 1;
+  }
+
+  function prepareModelMeshes(object) {
+    object.traverse((child) => {
+      if (!child.isMesh) return;
+      addPartEdges(child);
+      const source = child.material;
+      if (Array.isArray(source)) {
+        child.material = source.map((mat) => cloneSurfaceMaterial(mat));
+      } else {
+        child.material = cloneSurfaceMaterial(source);
+      }
+      child.userData.originalMaterial = child.material;
     });
   }
 
@@ -198,6 +243,7 @@ export function createPartViewer(container, { onReady, onError } = {}) {
           metalness: 0.15,
           roughness: 0.45
         });
+        setEdgeStyle(child, EDGE_HIGHLIGHT_COLOR);
         child.visible = true;
       } else if (isolate) {
         child.visible = false;
@@ -209,8 +255,10 @@ export function createPartViewer(container, { onReady, onError } = {}) {
           opacity: 0.22,
           depthWrite: false
         });
+        setEdgeStyle(child, EDGE_GHOST_COLOR, { opacity: 0.45 });
       } else {
         child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
         child.visible = true;
       }
     });
@@ -225,7 +273,7 @@ export function createPartViewer(container, { onReady, onError } = {}) {
   function frameModel(object) {
     if (model) scene.remove(model);
     model = object;
-    applyDefaultMaterials(model);
+    prepareModelMeshes(model);
     scene.add(model);
     indexMeshes(model);
     const box = new THREE.Box3().setFromObject(model);
@@ -293,10 +341,10 @@ export function createPartViewer(container, { onReady, onError } = {}) {
     showAll() {
       if (!model) return;
       model.traverse((child) => {
-        if (child.isMesh) {
-          child.visible = true;
-          child.material = child.userData.originalMaterial || child.material;
-        }
+        if (!child.isMesh) return;
+        child.visible = true;
+        child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
       });
     },
     isolatePart(meshName) {

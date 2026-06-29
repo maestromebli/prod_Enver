@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiLogin, authHeaders, createOrderWithPackage, loginAdmin } from "../helpers/api.js";
+import { authHeaders, createOrderWithPackage, loginAdmin } from "../helpers/api.js";
 
 const MINIMAL_PDF_B64 = Buffer.from("%PDF-1.0\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF").toString(
   "base64"
