@@ -1,4 +1,8 @@
 import { buildOrderGodmode } from "@enver/shared/production/godmode.js";
+import {
+  deriveOrderStatusFromPositions,
+  shouldUpdateOrderStatus
+} from "@enver/shared/production/order-status-from-positions.js";
 import { api } from "./api.js";
 import { expandParentsWithChildren } from "./position-tree.js";
 import { invalidateProductionFloorCache } from "./production-floor.js";
@@ -12,9 +16,12 @@ export function reconcileOrderFromPositions(orderId) {
   if (idx < 0) return;
   const order = state.orders[idx];
   const related = positionsForOrder(order, state.positions);
+  const derived = deriveOrderStatusFromPositions(order, related);
+  const status = shouldUpdateOrderStatus(order.status, derived) ? derived : order.status;
+  const synced = { ...order, status };
   state.orders[idx] = {
-    ...order,
-    godmode: buildOrderGodmode(order, related, { planDate: order.planDate })
+    ...synced,
+    godmode: buildOrderGodmode(synced, related, { planDate: order.planDate })
   };
 }
 

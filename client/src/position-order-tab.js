@@ -11,7 +11,6 @@ import {
 import {
   loadCncJobsSummary,
   loadProcurementSummary,
-  bindConstructivePipelinePanel,
   renderCncQueuePanel
 } from "./constructive-pipeline-panel.js";
 import { renderProcurementWorkspace, bindProcurementWorkspace } from "./procurement-panel.js";
@@ -171,7 +170,7 @@ export function bindPositionOrderTab(
   root,
   position,
   bundle,
-  { subTab, onRefresh, onOpenConstructor: _onOpenConstructor, onOpenPosition }
+  { subTab, onRefresh, onOpenConstructor: _onOpenConstructor, onOpenPosition: _onOpenPosition }
 ) {
   const positionId = position.id;
   const activeSub = subTab || "manager";

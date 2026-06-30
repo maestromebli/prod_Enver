@@ -85,6 +85,25 @@
 .godmode-next-reason {
   color: var(--enver-warning, #b45309);
 }
+.godmode-automation-hints {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.godmode-automation-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--enver-text-muted, #64748b);
+  background: var(--enver-surface-muted, rgba(88, 86, 214, 0.08));
+  border-radius: 8px;
+}
+.godmode-automation-hint-icon {
+  flex-shrink: 0;
+}
 .godmode-warnings,
 .godmode-blockers {
   list-style: none;

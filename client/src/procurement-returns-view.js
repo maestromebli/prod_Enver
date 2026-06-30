@@ -110,7 +110,7 @@ export function bindProcurementReturns(root, { onRefresh } = {}) {
         reasonCode: body.reasonCode,
         description: body.description || ""
       });
-      const { toastSuccess, toastError } = await import("./toast.js");
+      const { toastSuccess } = await import("./toast.js");
       toastSuccess("Рекламацію створено");
       e.target.reset();
       await loadProcurementReturns();
@@ -142,7 +142,7 @@ export function bindProcurementReturns(root, { onRefresh } = {}) {
         await api.updateProcurementReturnStatus(Number(btn.dataset.retReplace), {
           orderReplacement: true
         });
-        const { toastSuccess, toastError } = await import("./toast.js");
+        const { toastSuccess } = await import("./toast.js");
         toastSuccess("Замовлення заміни створено");
         await loadProcurementReturns();
         onRefresh?.();

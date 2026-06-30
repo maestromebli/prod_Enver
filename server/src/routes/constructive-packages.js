@@ -31,10 +31,7 @@ import {
 import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { detectPackageFileKind } from "../../../shared/production/constructive-package.js";
 import { renderPartLabelsHtml } from "../constructive/labels.js";
-import {
-  analyzeConstructivePackage,
-  rerunPackageAiAnalysis
-} from "../constructive/constructive-package-ai.js";
+import { rerunPackageAiAnalysis } from "../constructive/constructive-package-ai.js";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);

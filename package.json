@@ -18,6 +18,8 @@
     "test:b3d-converter": "python3 -m pip install -q ./tools/b3d-converter[dev] && cd tools/b3d-converter && python3 -m pytest -q",
     "test:coverage": "npm run test:coverage --prefix server",
     "test:coverage:check": "node scripts/check-coverage.mjs",
+    "test:coverage:shared": "npm run test:coverage:shared --prefix server",
+    "quality:check": "node scripts/quality-score.mjs",
     "test:client": "node --test client/test/*.test.js",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
     "test:e2e:visual": "playwright test -c e2e/playwright.config.js e2e/specs/visual-audit.spec.js",
@@ -27,7 +29,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test"
+    "validate": "npm run format:check && npm run lint -- --max-warnings 0 && npm run typecheck && npm test && npm run quality:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

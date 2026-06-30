@@ -7,7 +7,6 @@ import {
   formatShortDay,
   formatShortWeekday,
   fromIsoDate,
-  isSameDay,
   isToday,
   monthGridDays,
   startOfMonth,

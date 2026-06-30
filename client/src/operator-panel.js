@@ -86,20 +86,31 @@ const STAGE_THEME = {
   }
 };
 
-export function openOperatorView(stageKey, { preserveSelection = false } = {}) {
+export function openOperatorView(stageKey, { preserveSelection = false, positionId = null } = {}) {
   state.view = "operator";
   state.operatorStage = stageKey;
-  if (!preserveSelection) {
+  if (positionId != null) {
+    state.operatorSelectedPositionId = Number(positionId);
+  } else if (!preserveSelection) {
     state.operatorSelectedPositionId = null;
   }
 }
 
-export async function enterOperatorView(stageKey, { preserveScroll = false } = {}) {
+export async function enterOperatorView(
+  stageKey,
+  { preserveScroll = false, positionId = null } = {}
+) {
   const { ensureOperatorStyles } = await import("./operator-styles.js");
   await ensureOperatorStyles();
-  openOperatorView(stageKey);
+  openOperatorView(stageKey, {
+    preserveSelection: preserveScroll || positionId != null,
+    positionId
+  });
   try {
     await loadOperatorData();
+    if (state.operatorSelectedPositionId) {
+      await loadOperatorJobDetail(state.operatorSelectedPositionId);
+    }
   } catch (err) {
     state.operatorQueue = [];
     state.operatorLoadError = err?.message || "Не вдалося завантажити чергу";

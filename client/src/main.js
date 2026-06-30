@@ -18,7 +18,7 @@ import {
   PROCUREMENT_TAB
 } from "./constants.js";
 import { bindConstructorDeskActions, loadConstructorDesk } from "./constructor-desk.js";
-import { loadProductionFloor } from "./production-floor.js";
+import { loadProductionFloor, startProductionFloorAutoRefresh } from "./production-floor.js";
 import { loadProcurementModeData, loadProcurementSummaries } from "./procurement-view.js";
 import { toastError } from "./toast.js";
 import { syncOperatorBuildChip } from "./operator-ui.js";
@@ -466,12 +466,6 @@ async function setTab(tab, { ordersDisplayMode } = {}) {
     markProductionTasksSeenForCurrentRole(state.positions);
   }
   if (tab === CONSTRUCTOR_DESK_TAB) {
-    if (prevTab !== CONSTRUCTOR_DESK_TAB) {
-      state.constructorDesk.selectedOrderId = null;
-      state.constructorDesk.selectedPositionId = null;
-      state.constructorDesk.detail = null;
-      state.constructorDesk.workspaceTab = "work";
-    }
     try {
       const hasWorkspace = state.constructorDesk.selectedPositionId != null;
       await loadConstructorDesk({ silent: hasWorkspace });
@@ -592,7 +586,68 @@ initCommandPalette({
     const stages = operatorStages();
     await enterOperatorView(stages[0] || "cutting");
   },
+  openConstructiveUpload: async () => {
+    const { getWorkPositions } = await import("@enver/shared/production/order-position-model.js");
+    const { positionsForOrder } = await import("./workflows.js");
+    const { openConstructiveWorkspace } = await import("./position-workspace.js");
+    const { openPositionInOrderDetail } = await import("./order-detail.js");
+    const { canWorkConstructorDesk } = await import("./auth.js");
+    let position = null;
+    if (state.selectedOrderId) {
+      const order = state.orders.find((o) => o.id === state.selectedOrderId);
+      if (order) {
+        position = getWorkPositions(order, positionsForOrder(order, state.positions))[0];
+      }
+    }
+    if (!position) {
+      position =
+        state.positions.find((p) => p.parentId && !p.hasConstructivePackage) ||
+        state.positions.find(
+          (p) => !p.parentId && !p.hasConstructivePackage && p.itemType !== "Інше"
+        );
+    }
+    if (!position) {
+      hintToast("Оберіть замовлення або додайте позицію для завантаження конструктива");
+      return;
+    }
+    if (canWorkConstructorDesk()) {
+      await openConstructiveWorkspace(position.id, { workspaceTab: "package" });
+    } else if (openPositionInOrderDetail(position.id, "constructive")) {
+      state.activeTab = "Замовлення";
+    }
+    renderApp();
+  },
+  openAiAnalysis: async () => {
+    const { getWorkPositions } = await import("@enver/shared/production/order-position-model.js");
+    const { positionsForOrder } = await import("./workflows.js");
+    const { openPositionInOrderDetail } = await import("./order-detail.js");
+    let position =
+      state.positions.find((p) => p.hasConstructiveFile || p.hasConstructivePackage) || null;
+    if (!position && state.selectedOrderId) {
+      const order = state.orders.find((o) => o.id === state.selectedOrderId);
+      if (order) {
+        position = getWorkPositions(order, positionsForOrder(order, state.positions))[0];
+      }
+    }
+    if (!position) {
+      hintToast("Немає позиції з конструктивом — спочатку завантажте пакет");
+      return;
+    }
+    if (openPositionInOrderDetail(position.id, "constructive")) {
+      state.activeTab = "Замовлення";
+      renderApp();
+    }
+  },
   hint: hintToast
+});
+
+startProductionFloorAutoRefresh(async () => {
+  try {
+    await loadProductionFloor();
+    renderApp({ contentOnly: true });
+  } catch {
+    /* тихе оновлення */
+  }
 });
 
 initKeyboardShortcuts({

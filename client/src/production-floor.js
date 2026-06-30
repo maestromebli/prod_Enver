@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { PRODUCTION_FLOOR_TAB } from "./constants.js";
 import {
   markProductionTasksSeenForCurrentRole,
   newProductionTaskIdsForCurrentRole
@@ -142,7 +143,7 @@ function renderSessions(sessions) {
             ${badge(stageStatusLabel(s.stageStatus))}
             <small>${escapeHtml(s.startedAt || "")}</small>
           </div>
-          <button type="button" class="btn btn-sm" data-open-operator-stage="${escapeHtml(s.stageKey)}">Відкрити етап</button>
+          <button type="button" class="btn btn-sm" data-open-operator-stage="${escapeHtml(s.stageKey)}" data-open-operator-position="${s.positionId}">Відкрити етап</button>
         </div>`
         )
         .join("")}
@@ -255,6 +256,24 @@ export function renderProductionFloorTab(data = getProductionFloorCache()) {
 
 let floorActionsBound = false;
 let floorHandlers = {};
+let floorAutoRefreshTimer = null;
+
+/** Автооновлення зведення цеху кожні 45 с на активній вкладці. */
+export function startProductionFloorAutoRefresh(onRefresh) {
+  stopProductionFloorAutoRefresh();
+  floorAutoRefreshTimer = setInterval(() => {
+    if (document.hidden) return;
+    if (state.activeTab !== PRODUCTION_FLOOR_TAB || state.view !== "main") return;
+    onRefresh?.();
+  }, 45000);
+}
+
+export function stopProductionFloorAutoRefresh() {
+  if (floorAutoRefreshTimer) {
+    clearInterval(floorAutoRefreshTimer);
+    floorAutoRefreshTimer = null;
+  }
+}
 
 export function bindProductionFloorActions(handlers = {}) {
   floorHandlers = handlers;
@@ -286,7 +305,10 @@ export function bindProductionFloorActions(handlers = {}) {
     const stageBtn = e.target.closest("[data-open-operator-stage]");
     if (stageBtn) {
       const { enterOperatorView } = await import("./operator-panel.js");
-      await enterOperatorView(stageBtn.dataset.openOperatorStage);
+      const positionId = stageBtn.dataset.openOperatorPosition;
+      await enterOperatorView(stageBtn.dataset.openOperatorStage, {
+        positionId: positionId ? Number(positionId) : null
+      });
       return;
     }
 

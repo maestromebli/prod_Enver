@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { canManageProcurement, canReceiveWarehouse } from "./auth.js";
+import { canReceiveWarehouse } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import {
   PROCUREMENT_STATUSES,

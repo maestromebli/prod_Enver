@@ -147,7 +147,7 @@ export function bindPositionConstructivePanel(
     const block = stack.querySelector(".constructive-package-block");
     const detail = resolveDownstream().packageDetail;
     if (block && detail?.package) {
-      void refreshStalePackageParseUi(block, position, detail, (packageId) => {
+      void refreshStalePackageParseUi(block, position, detail, (_packageId) => {
         void (async () => {
           const { requestAutoParsePackage, runAutoParsePackageIfRequested } =
             await import("./constructive-package-parse-ui.js");

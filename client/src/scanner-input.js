@@ -3,7 +3,7 @@
  */
 export function createScannerInputListener({
   target,
-  scanField,
+  scanField: _scanField,
   minLength = 4,
   timeoutMs = 80,
   suffix = "Enter",

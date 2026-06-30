@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   canQuickRunGodmodeAction,
+  canAttentionQuickRun,
   isRunnableGodmodeAction,
   orderDetailSubTabForGodmodeAction,
   panelForGodmodeAction,
@@ -26,6 +27,13 @@ describe("godmode UI helpers", () => {
     assert.equal(canQuickRunGodmodeAction("ready_for_install"), true);
     assert.equal(canQuickRunGodmodeAction("close_order"), true);
     assert.equal(canQuickRunGodmodeAction("upload_constructive"), false);
+  });
+
+  it("canAttentionQuickRun — розширені дії з вкладки уваги", () => {
+    assert.equal(canAttentionQuickRun("create_procurement"), true);
+    assert.equal(canAttentionQuickRun("schedule_install"), true);
+    assert.equal(canAttentionQuickRun("parse_constructive_package"), true);
+    assert.equal(canAttentionQuickRun("upload_constructive"), false);
   });
 
   it("isRunnableGodmodeAction — UI-дії не quick-run", () => {

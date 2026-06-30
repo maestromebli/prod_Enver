@@ -368,7 +368,7 @@ export async function addMtoProcurementItem(positionId, body, actor) {
   return mapItemRow(row, { positionId });
 }
 
-export async function updateProcurementItem(itemId, body, actor) {
+export async function updateProcurementItem(itemId, body, _actor) {
   const item = await one(`SELECT * FROM procurement_request_items WHERE id = $1`, [itemId]);
   if (!item) {
     const err = new Error("Рядок закупівлі не знайдено");

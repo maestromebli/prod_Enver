@@ -98,7 +98,7 @@ export function bindProcurementWarehouse(root, { onRefresh } = {}) {
       const location = window.prompt("Комірка складу (необовʼязково)", "") ?? "";
       try {
         await api.receiveProcurementItem(itemId, { location });
-        const { toastSuccess, toastError } = await import("./toast.js");
+        const { toastSuccess } = await import("./toast.js");
         toastSuccess("Матеріал прийнято на склад");
         await loadWarehousePending();
         onRefresh?.();
@@ -250,7 +250,7 @@ export function bindProcurementMto(root, { onRefresh, onOpenPosition } = {}) {
         requiredByDate: body.requiredByDate || null,
         supplier: body.supplier || ""
       });
-      const { toastSuccess, toastError } = await import("./toast.js");
+      const { toastSuccess } = await import("./toast.js");
       toastSuccess("MTO додано");
       e.target.reset();
       await loadProcurementMto();

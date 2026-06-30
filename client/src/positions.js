@@ -91,10 +91,10 @@ function applyOrderDefaults(orderNumber) {
 
 function renderDrawerContent() {
   const p = draft;
-  const godmodeBanner =
-    p.id && !p.parentId
-      ? `${renderNextActionBanner(resolvePositionGodmode(p), { positionId: p.id, showCta: true })}${renderAutomationHints(resolvePositionGodmode(p))}`
-      : "";
+  const gm = p.id && !p.parentId ? resolvePositionGodmode(p) : null;
+  const godmodeBanner = gm
+    ? `${renderNextActionBanner(gm, { positionId: p.id, showCta: true })}${renderAutomationHints(gm)}`
+    : "";
   const orderOptions = state.orders
     .map(
       (o) =>

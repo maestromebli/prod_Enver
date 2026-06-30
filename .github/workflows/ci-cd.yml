@@ -60,7 +60,8 @@ jobs:
       - name: Coverage (unit, без БД)
         run: npm run test:coverage:check
         env:
-          COVERAGE_MIN_LINES: "46"
+          COVERAGE_SCOPE: shared
+          COVERAGE_MIN_LINES: "95"
 
   e2e:
     needs: validate
@@ -107,7 +108,8 @@ jobs:
           CI_INTEGRATION_MIGRATED: "1"
           DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
           DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
-          COVERAGE_MIN_LINES: "55"
+          COVERAGE_SCOPE: all
+          COVERAGE_MIN_LINES_ALL: "55"
         run: npm run test:coverage:check
 
       - name: Install Playwright
