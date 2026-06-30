@@ -97,6 +97,10 @@ async function lookupBarcode(code) {
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
   const p = data.part;
   const unmapped = Boolean(data.model?.viewerUrl) && !resolveHighlightTarget(p);
+  const pdfUrl = data.model?.assemblyPdfUrl
+    ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
+    : null;
+  const pdfTarget = isNativeOperatorShell() ? "_self" : "_blank";
   const cncActions = showCncActions
     ? `
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
@@ -116,12 +120,12 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
         ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
-        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D відкривається в окремому вікні</p>` : ""}
+        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">${isNativeOperatorShell() ? "3D відкриється на цьому екрані" : "3D відкривається в окремому вікні"}</p>` : ""}
       </div>
       <div class="part-detail-actions">
         ${cncActions}
         ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg btn-primary" data-open-3d>Відкрити 3D</button>` : ""}
-        ${data.model?.assemblyPdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(data.model.assemblyPdfUrl)}" target="_blank" rel="noopener">Креслення</a>` : ""}
+        ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
         <button type="button" class="btn btn-lg" data-part-scan-close>${escapeHtml(closeLabel)}</button>
       </div>
     </div>`;
@@ -137,7 +141,7 @@ export function renderOperatorScanPanel(stageKey) {
           <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn">← Назад</button>
           <h3 class="op-part-scan-title">Сканування деталі</h3>
         </div>
-        <p class="op-part-scan-hint">Після сканування 3D відкриється в окремому вікні</p>
+        <p class="op-part-scan-hint">${isNativeOperatorShell() ? "Після сканування 3D відкриється на цьому екрані" : "Після сканування 3D відкриється в окремому вікні"}</p>
       </div>
       <div class="op-part-scan-bar" id="operatorScanScannerPane">
         <input

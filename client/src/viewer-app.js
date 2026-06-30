@@ -173,9 +173,12 @@ function populateSidebar(data) {
     )
     .join("");
 
-  const pdfUrl = data.model?.assemblyPdfUrl;
+  const pdfUrl = data.model?.assemblyPdfUrl
+    ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
+    : null;
+  const pdfTarget = isNativeOperatorShell() ? "_self" : "_blank";
   const pdfLink = pdfUrl
-    ? `<p class="viewer-pdf-link"><a class="btn btn-sm" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener">Креслення збірки (PDF)</a></p>`
+    ? `<p class="viewer-pdf-link"><a class="btn btn-sm" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення збірки (PDF)</a></p>`
     : "";
 
   if (holesEl) {
