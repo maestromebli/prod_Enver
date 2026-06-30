@@ -36,8 +36,13 @@ export function computeAnalysisQuality(analysis, sourceMeta = {}, learningContex
   let safeToCreateTasks = false;
 
   const tasks = (analysis.suggestedTasks || []).filter((t) => t.needed !== false);
-  const hasMaterials = (analysis.materials || []).length > 0;
-  const hasPanels = (analysis.panels || []).length > 0;
+  let hasMaterials = (analysis.materials || []).length > 0;
+  let hasPanels = (analysis.panels || []).length > 0;
+  const parsedPackage = Boolean(sourceMeta.parsedPackage);
+  if (parsedPackage) {
+    if (!hasMaterials && (sourceMeta.materialsCount || 0) > 0) hasMaterials = true;
+    if (!hasPanels && (sourceMeta.partsCount || 0) > 0) hasPanels = true;
+  }
   const hasSummary = Boolean(analysis.summary?.trim());
   const missingInfo = analysis.missingInfo || [];
   const warnings = analysis.warnings || [];
@@ -53,9 +58,11 @@ export function computeAnalysisQuality(analysis, sourceMeta = {}, learningContex
   }
 
   if (!hasMaterials && !hasPanels) {
-    reasons.push("Не вистачає даних про матеріали");
-    score -= 0.1;
-    needsHumanReview = true;
+    if (!parsedPackage) {
+      reasons.push("Не вистачає даних про матеріали");
+      score -= 0.1;
+      needsHumanReview = true;
+    }
   } else {
     score += 0.1;
   }
@@ -83,6 +90,11 @@ export function computeAnalysisQuality(analysis, sourceMeta = {}, learningContex
     reasons.push("Бракує даних у файлі конструктива");
     needsHumanReview = true;
     score -= 0.1;
+  }
+
+  if (parsedPackage && (sourceMeta.partsCount || 0) > 0) {
+    reasons.push(`Розібраний пакет: ${sourceMeta.partsCount} деталей`);
+    score += 0.05;
   }
 
   const extractionQuality = sourceMeta.extractionQuality || "good";

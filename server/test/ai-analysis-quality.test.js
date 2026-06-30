@@ -124,4 +124,22 @@ describe("computeAnalysisQuality", () => {
     assert.equal(q.needsHumanReview, true);
     assert.ok(q.reasons.some((r) => /DWG/i.test(r)));
   });
+
+  it("розібраний пакет не штрафує за відсутність echo-матеріалів моделі", () => {
+    const analysis = normalizeAnalysisResult({
+      summary: "Кухня",
+      suggestedTasks: [
+        { stage: "cutting", needed: true, reason: "деталі", confidence: 0.9 },
+        { stage: "edging", needed: true, reason: "крайка", confidence: 0.88 }
+      ]
+    });
+    const q = computeAnalysisQuality(analysis, {
+      parsedPackage: true,
+      extractionQuality: "good",
+      partsCount: 30,
+      materialsCount: 2
+    });
+    assert.ok(q.score >= 0.6);
+    assert.ok(q.reasons.some((r) => /розібраний пакет/i.test(r)));
+  });
 });
