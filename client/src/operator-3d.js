@@ -1,5 +1,5 @@
 import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
-import { mountModelViewer } from "./part-viewer-mount.js";
+import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
 import { resolve3dPreviewContext } from "@enver/shared/production/resolve-3d-preview.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
@@ -354,7 +354,7 @@ export async function bindOperatorOrder3d() {
       token,
       format: ctx.format,
       parts: ctx.parts,
-      theme: "studio",
+      theme: DEFAULT_PART_VIEWER_THEME,
       viewerOptions: {
         pickable: true,
         onPartSelect: (part) => {

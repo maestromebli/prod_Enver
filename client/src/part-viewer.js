@@ -27,16 +27,23 @@ import {
 import { takePrefetchedModelBuffer } from "./part-viewer-prefetch.js";
 import { escapeHtml } from "./utils.js";
 
+/** Палітри 3D-перегляду. `bazis` — наближено до вікна 3D у Базіс-Мебельщик (лише превʼю). */
 const THEMES = {
-  light: {
-    sceneBg: 0xf0f2f5,
-    partColor: 0x5c6f82,
-    highlightColor: 0xd97706,
-    ghostColor: 0x94a3b8,
-    edgeColor: 0x1e293b,
-    edgeHighlight: 0xb45309,
-    edgeGhost: 0x64748b,
-    wrapClass: ""
+  bazis: {
+    sceneBg: 0xc6cacf,
+    partColor: 0xc9a87c,
+    highlightColor: 0xffcc00,
+    ghostColor: 0x8e99a6,
+    edgeColor: 0x383838,
+    edgeHighlight: 0xff9900,
+    edgeGhost: 0x6b7280,
+    wrapClass: "part-viewer-wrap--bazis",
+    cinematic: false,
+    showGrid: true,
+    castShadows: false,
+    fog: false,
+    exposure: 1.0,
+    useLambert: true
   },
   studio: {
     sceneBg: 0x121a24,
@@ -46,12 +53,20 @@ const THEMES = {
     edgeColor: 0xcbd5e1,
     edgeHighlight: 0xfcd34d,
     edgeGhost: 0x475569,
-    wrapClass: "part-viewer-wrap--studio"
+    wrapClass: "part-viewer-wrap--studio",
+    cinematic: true,
+    showGrid: true,
+    castShadows: true,
+    fog: true,
+    exposure: 1.18,
+    useLambert: false
   }
 };
 
+export const DEFAULT_PART_VIEWER_THEME = "bazis";
+
 function pickTheme(name) {
-  return THEMES[name === "studio" ? "studio" : "light"] || THEMES.light;
+  return name === "studio" ? THEMES.studio : THEMES.bazis;
 }
 const EDGE_KROMKA_COLOR = 0x16a34a;
 const DRILL_MARKER_COLOR = 0xea580c;
@@ -92,7 +107,7 @@ export function createPartViewer(
     onPartSelect,
     onPartDoubleClick,
     pickable = true,
-    theme = "light",
+    theme = DEFAULT_PART_VIEWER_THEME,
     detailOnly = false
   } = {}
 ) {
@@ -108,7 +123,7 @@ export function createPartViewer(
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(palette.sceneBg);
-  if (theme === "studio") {
+  if (palette.fog) {
     scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
   }
 
@@ -128,9 +143,9 @@ export function createPartViewer(
     powerPreference: "high-performance"
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = theme === "studio" ? 1.18 : 1.05;
-  renderer.shadowMap.enabled = true;
+  renderer.toneMapping = palette.cinematic ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  renderer.toneMappingExposure = palette.exposure;
+  renderer.shadowMap.enabled = palette.castShadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.localClippingEnabled = true;
   renderer.setPixelRatio(
@@ -210,19 +225,27 @@ export function createPartViewer(
   controls.panSpeed = 0.75;
   controls.maxPolarAngle = Math.PI;
 
-  scene.add(new THREE.HemisphereLight(0xe8eef8, 0x2a3544, theme === "studio" ? 0.62 : 0.45));
-  const dir = new THREE.DirectionalLight(0xfffaf5, theme === "studio" ? 1.05 : 0.85);
-  dir.position.set(5, 10, 7);
-  dir.castShadow = true;
-  dir.shadow.mapSize.set(1024, 1024);
-  dir.shadow.bias = -0.0002;
-  scene.add(dir);
-  const fill = new THREE.DirectionalLight(0xc8d8f0, theme === "studio" ? 0.42 : 0.35);
-  fill.position.set(-4, 2, -6);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xffffff, theme === "studio" ? 0.28 : 0.18);
-  rim.position.set(-6, 5, 8);
-  scene.add(rim);
+  if (palette.cinematic) {
+    scene.add(new THREE.HemisphereLight(0xe8eef8, 0x2a3544, 0.62));
+    const dir = new THREE.DirectionalLight(0xfffaf5, 1.05);
+    dir.position.set(5, 10, 7);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(1024, 1024);
+    dir.shadow.bias = -0.0002;
+    scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xc8d8f0, 0.42);
+    fill.position.set(-4, 2, -6);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.28);
+    rim.position.set(-6, 5, 8);
+    scene.add(rim);
+  } else {
+    scene.add(new THREE.AmbientLight(0xffffff, 0.68));
+    scene.add(new THREE.HemisphereLight(0xf2f4f7, 0x8a9199, 0.42));
+    const bazisDir = new THREE.DirectionalLight(0xffffff, 0.32);
+    bazisDir.position.set(4, 9, 6);
+    scene.add(bazisDir);
+  }
 
   let model = null;
   let gridHelper = null;
@@ -259,8 +282,12 @@ export function createPartViewer(
   let pointerDown = null;
 
   function cloneSurfaceMaterial(mat) {
-    const baseMetal = theme === "studio" ? 0.14 : 0.08;
-    const baseRough = theme === "studio" ? 0.56 : 0.62;
+    if (palette.useLambert) {
+      const color = mat?.color?.clone?.() ?? new THREE.Color(PART_COLOR);
+      return new THREE.MeshLambertMaterial({ color, side: THREE.FrontSide });
+    }
+    const baseMetal = palette.cinematic ? 0.14 : 0.08;
+    const baseRough = palette.cinematic ? 0.56 : 0.62;
     if (!mat) {
       return new THREE.MeshStandardMaterial({
         color: PART_COLOR,
@@ -281,10 +308,17 @@ export function createPartViewer(
   }
 
   function highlightSurfaceMaterial() {
+    if (palette.useLambert) {
+      return new THREE.MeshLambertMaterial({
+        color: HIGHLIGHT_COLOR,
+        emissive: new THREE.Color(HIGHLIGHT_COLOR),
+        emissiveIntensity: 0.18
+      });
+    }
     return new THREE.MeshStandardMaterial({
       color: HIGHLIGHT_COLOR,
-      emissive: theme === "studio" ? 0x92400e : 0x5c3a00,
-      emissiveIntensity: theme === "studio" ? 0.35 : 0.2,
+      emissive: palette.cinematic ? 0x92400e : 0x5c3a00,
+      emissiveIntensity: palette.cinematic ? 0.35 : 0.2,
       metalness: 0.15,
       roughness: 0.45
     });
@@ -398,7 +432,7 @@ export function createPartViewer(
 
   function partSurfaceColor(part) {
     const m = String(part?.material || "").toLowerCase();
-    if (/біл|white|w980|snow/i.test(m)) return theme === "studio" ? 0xe2e8f0 : 0xa8b8c8;
+    if (/біл|white|w980|snow/i.test(m)) return palette.useLambert ? 0xf0f0ec : 0xa8b8c8;
     if (/дуб|oak/i.test(m)) return 0xb8956a;
     if (/горіх|walnut|горх/i.test(m)) return 0x8b6914;
     if (/сонома|sonoma/i.test(m)) return 0xc4a574;
@@ -684,14 +718,14 @@ export function createPartViewer(
     camera.updateProjectionMatrix();
   }
 
-  const DRAWING_BG = theme === "studio" ? 0x0f1724 : 0xf1f5f9;
-  const DRAWING_EDGE = theme === "studio" ? 0xe2e8f0 : 0x0f172a;
+  const DRAWING_BG = palette.cinematic ? 0x0f1724 : 0xffffff;
+  const DRAWING_EDGE = palette.cinematic ? 0xe2e8f0 : 0x1a1a1a;
 
   function drawingSurfaceMaterial(part) {
     const base = partSurfaceColor(part);
     const color = new THREE.Color(base);
-    if (theme === "studio") color.lerp(new THREE.Color(0x94a3b8), 0.35);
-    else color.lerp(new THREE.Color(0xffffff), 0.55);
+    if (palette.cinematic) color.lerp(new THREE.Color(0x94a3b8), 0.35);
+    else color.lerp(new THREE.Color(0xffffff), 0.42);
     return new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
   }
 
@@ -704,8 +738,8 @@ export function createPartViewer(
       wrap.classList.add("part-viewer-wrap--drawing");
     } else {
       scene.background = new THREE.Color(palette.sceneBg);
-      if (theme === "studio") scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
-      renderer.shadowMap.enabled = true;
+      if (palette.fog) scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
+      renderer.shadowMap.enabled = palette.castShadows;
       if (gridHelper) gridHelper.visible = true;
       wrap.classList.remove("part-viewer-wrap--drawing");
     }
@@ -734,8 +768,8 @@ export function createPartViewer(
     applyDrawingSceneStyle(false);
   }
 
-  function syncStudioGrid(box) {
-    if (theme !== "studio" || !box || box.isEmpty()) return;
+  function syncFloorGrid(box) {
+    if (!palette.showGrid || !box || box.isEmpty()) return;
     if (gridHelper) {
       scene.remove(gridHelper);
       gridHelper.geometry?.dispose?.();
@@ -744,7 +778,8 @@ export function createPartViewer(
     }
     const size = box.getSize(new THREE.Vector3());
     const span = Math.max(size.x, size.z, 1.2) * 2.8;
-    gridHelper = new THREE.GridHelper(span, 32, 0x3d5268, 0x243040);
+    const [major, minor] = palette.cinematic ? [0x3d5268, 0x243040] : [0xa8adb5, 0x959aa3];
+    gridHelper = new THREE.GridHelper(span, palette.cinematic ? 32 : 24, major, minor);
     gridHelper.position.y = box.min.y - 0.002;
     scene.add(gridHelper);
   }
@@ -974,7 +1009,7 @@ export function createPartViewer(
       shadowReceiver.material?.dispose?.();
       shadowReceiver = null;
     }
-    if (theme !== "studio" || !box || box.isEmpty()) return;
+    if (!palette.cinematic || !box || box.isEmpty()) return;
     const size = box.getSize(new THREE.Vector3());
     const span = Math.max(size.x, size.z, 1) * 1.6;
     const geom = new THREE.PlaneGeometry(span, span);
@@ -1034,8 +1069,8 @@ export function createPartViewer(
         child.material = cloneSurfaceMaterial(source);
       }
       child.userData.originalMaterial = child.material;
-      child.castShadow = true;
-      child.receiveShadow = true;
+      child.castShadow = palette.castShadows;
+      child.receiveShadow = palette.castShadows;
     });
   }
 
@@ -1360,12 +1395,21 @@ export function createPartViewer(
 
   function applyGhostMaterial(child) {
     const opacity = transparentMeshes.has(child.name) ? 0.08 : 0.22;
-    child.material = new THREE.MeshStandardMaterial({
-      color: GHOST_COLOR,
-      transparent: true,
-      opacity,
-      depthWrite: false
-    });
+    if (palette.useLambert) {
+      child.material = new THREE.MeshLambertMaterial({
+        color: GHOST_COLOR,
+        transparent: true,
+        opacity,
+        depthWrite: false
+      });
+    } else {
+      child.material = new THREE.MeshStandardMaterial({
+        color: GHOST_COLOR,
+        transparent: true,
+        opacity,
+        depthWrite: false
+      });
+    }
     setEdgeStyle(child, EDGE_GHOST_COLOR, {
       opacity: transparentMeshes.has(child.name) ? 0.25 : 0.45
     });
@@ -1555,7 +1599,7 @@ export function createPartViewer(
     camera.far = Math.max(1000, maxDim * 10);
     camera.near = Math.max(0.01, maxDim / 10000);
     camera.updateProjectionMatrix();
-    syncStudioGrid(box);
+    syncFloorGrid(box);
     syncShadowReceiver(box);
     if (detailOnly) {
       model.traverse((child) => {

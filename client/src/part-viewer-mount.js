@@ -1,4 +1,8 @@
 /** Єдиний вхід для монтування 3D viewer у контейнер. */
+import { DEFAULT_PART_VIEWER_THEME } from "./part-viewer.js";
+
+export { DEFAULT_PART_VIEWER_THEME };
+
 export async function mountModelViewer(
   container,
   {
@@ -8,7 +12,7 @@ export async function mountModelViewer(
     parts = [],
     onPartDoubleClick,
     onPartSelect,
-    theme = "light",
+    theme = DEFAULT_PART_VIEWER_THEME,
     viewerOptions = {},
     detailOnly = false,
     initialPart = null,
@@ -19,7 +23,7 @@ export async function mountModelViewer(
   if (!container || !url) return null;
 
   const { createPartViewerLazy } = await import("./part-viewer-lazy.js");
-  const resolvedTheme = theme || viewerOptions.theme || "light";
+  const resolvedTheme = theme || viewerOptions.theme || DEFAULT_PART_VIEWER_THEME;
   const viewer = await createPartViewerLazy(container, {
     onPartDoubleClick,
     onPartSelect,

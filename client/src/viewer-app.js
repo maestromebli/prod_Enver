@@ -9,7 +9,7 @@ import {
   findPackagePreview3dFile,
   preview3dLoadFormat
 } from "@enver/shared/production/constructive-package.js";
-import { mountModelViewer } from "./part-viewer-mount.js";
+import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
 import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
@@ -181,7 +181,7 @@ async function mountPartDetailViewer(part, cadGeometry) {
       token: getStoredToken(),
       format: currentModelFormat,
       parts: currentModelParts,
-      theme: "studio",
+      theme: DEFAULT_PART_VIEWER_THEME,
       detailOnly: true,
       initialPart: part,
       initialPartHint: target,
@@ -195,7 +195,7 @@ async function mountPartDetailViewer(part, cadGeometry) {
 
 function assemblyViewerOptions() {
   return {
-    theme: "studio",
+    theme: DEFAULT_PART_VIEWER_THEME,
     viewerOptions: {
       pickable: true,
       onPartSelect: (part) => {

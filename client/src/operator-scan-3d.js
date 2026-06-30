@@ -1,7 +1,7 @@
 /** 3D при скануванні / кліку на Android: збірка зверху, окрема деталь знизу. */
 
 import { api, getStoredToken } from "./api.js";
-import { mountModelViewer } from "./part-viewer-mount.js";
+import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import {
   formatEdgeCodeLabel,
@@ -133,7 +133,7 @@ async function mountStripDetailViewer(part, cadGeometry, modelCtx) {
       token: getStoredToken(),
       format: modelCtx.format,
       parts: modelCtx.parts,
-      theme: "studio",
+      theme: DEFAULT_PART_VIEWER_THEME,
       detailOnly: true,
       initialPart: part,
       initialPartHint: target,
