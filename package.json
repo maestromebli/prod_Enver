@@ -25,6 +25,7 @@
     "test:e2e:visual": "playwright test -c e2e/playwright.config.js e2e/specs/visual-audit.spec.js",
     "typecheck": "tsc -p shared/tsconfig.json && tsc -p server/tsconfig.json",
     "migrate": "npm run migrate --prefix server",
+    "automation:apply": "node server/scripts/apply-automation-production.mjs",
     "seed": "npm run migrate --prefix server",
     "lint": "eslint .",
     "format": "prettier --write .",
