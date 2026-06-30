@@ -279,6 +279,12 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
       const res = await api.analyzeConstructivePackageAi(positionId, pkgId);
       mountPackageAiBlock(box, res.aiAnalysis || { status: "done", analysis: res }, {
         showRerun: true,
+        positionId,
+        showError: (msg) => {
+          if (box)
+            box.querySelector("[data-package-ai-body]").innerHTML =
+              `<p class="form-error visible">${escapeHtml(msg)}</p>`;
+        },
         onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
       });
       onPackageUpdated?.(res.aiAnalysis ? { ...detail, aiAnalysis: res.aiAnalysis } : detail);
@@ -294,6 +300,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
   if (initialDetail?.aiAnalysis) {
     mountPackageAiBlock(aiBox, initialDetail.aiAnalysis, {
       showRerun: true,
+      positionId,
       onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
     });
     if (initialDetail.aiAnalysis.status === "pending") {
@@ -301,6 +308,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
         onUpdate: (detail) => {
           mountPackageAiBlock(aiBox, detail?.aiAnalysis, {
             showRerun: true,
+            positionId,
             onRerun: () => root.querySelector("#analyzePackageAiBtn")?.click()
           });
           onPackageUpdated?.(detail);

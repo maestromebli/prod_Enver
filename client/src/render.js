@@ -21,7 +21,7 @@ import {
 } from "./order-detail.js";
 import { bindOrdersGrid, renderOrdersGrid, renderOrdersModeBar } from "./orders-view.js";
 import { bindSettingsActions, renderSettingsView } from "./settings.js";
-import { filteredPositions, filteredOrders, hasActiveFilters } from "./filters.js";
+import { filteredPositions, filteredOrders, hasActiveFilters, setListFilters } from "./filters.js";
 import { newProductionTaskIdsForCurrentRole } from "./role-notifications.js";
 import { renderInstallTab } from "./install-calendar.js";
 import {
@@ -32,7 +32,7 @@ import {
 import { renderConstructorDeskTab, bindConstructorDeskWorkspace } from "./constructor-desk.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
-import { activePositions } from "./archive.js";
+import { activePositions, ORDER_DONE_STATUS } from "./archive.js";
 import { positionsForOrder } from "./workflows.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 import { notifyAiContextChanged } from "./ai-assistant.js";
@@ -403,6 +403,15 @@ export function renderApp(options = {}) {
           renderApp();
           window.scrollTo({ top: 0, behavior: "instant" });
         }
+      },
+      onNavigateArchive: () => {
+        state.showArchived = true;
+        state.selectedOrderId = null;
+        setListFilters({ status: ORDER_DONE_STATUS });
+        state.activeTab = "Замовлення";
+        notifyUiChanged();
+        renderApp();
+        window.scrollTo({ top: 0, behavior: "instant" });
       }
     });
   }

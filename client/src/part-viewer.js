@@ -198,7 +198,7 @@ export function createPartViewer(
   controls.enablePan = true;
   controls.rotateSpeed = 0.85;
   controls.panSpeed = 0.75;
-  controls.maxPolarAngle = Math.PI * 0.495;
+  controls.maxPolarAngle = Math.PI;
 
   scene.add(new THREE.HemisphereLight(0xe8eef8, 0x2a3544, theme === "studio" ? 0.62 : 0.45));
   const dir = new THREE.DirectionalLight(0xfffaf5, theme === "studio" ? 1.05 : 0.85);
@@ -235,6 +235,9 @@ export function createPartViewer(
   let detailMarkers = null;
   /** @type {boolean | null} */
   let sceneExtentsPreferMm = null;
+  const hiddenMeshes = new Set();
+  const transparentMeshes = new Set();
+  let assemblyGhostActive = false;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
@@ -567,14 +570,24 @@ export function createPartViewer(
     scene.add(group);
   }
 
-  function fitToView(object = model) {
-    if (!object) return;
+  function modelBounds(object = model) {
+    if (!object) return null;
     object.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(object);
-    if (box.isEmpty()) return;
-    const center = box.getCenter(new THREE.Vector3());
+    if (box.isEmpty()) return null;
     const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 0.05);
+    return {
+      box,
+      center: box.getCenter(new THREE.Vector3()),
+      size,
+      maxDim: Math.max(size.x, size.y, size.z, 0.05)
+    };
+  }
+
+  function fitToView(object = model) {
+    const bounds = modelBounds(object);
+    if (!bounds) return;
+    const { center, maxDim } = bounds;
     camera.position
       .copy(center)
       .add(new THREE.Vector3(maxDim * 1.05, maxDim * 0.82, maxDim * 1.22));
@@ -586,6 +599,30 @@ export function createPartViewer(
       scene.fog.near = maxDim * 2.5;
       scene.fog.far = Math.max(40, maxDim * 18);
     }
+  }
+
+  const CAMERA_PRESETS = {
+    iso: (center, maxDim) =>
+      center.clone().add(new THREE.Vector3(maxDim * 1.05, maxDim * 0.82, maxDim * 1.22)),
+    top: (center, maxDim) => center.clone().add(new THREE.Vector3(0, maxDim * 1.6, 0.001)),
+    bottom: (center, maxDim) => center.clone().add(new THREE.Vector3(0, -maxDim * 1.6, 0.001)),
+    front: (center, maxDim) =>
+      center.clone().add(new THREE.Vector3(0, maxDim * 0.15, maxDim * 1.6)),
+    left: (center, maxDim) =>
+      center.clone().add(new THREE.Vector3(-maxDim * 1.6, maxDim * 0.15, 0)),
+    right: (center, maxDim) => center.clone().add(new THREE.Vector3(maxDim * 1.6, maxDim * 0.15, 0))
+  };
+
+  function setCameraPreset(preset = "iso") {
+    const bounds = modelBounds();
+    if (!bounds) return;
+    const { center, maxDim } = bounds;
+    const fn = CAMERA_PRESETS[preset] || CAMERA_PRESETS.iso;
+    camera.position.copy(fn(center, maxDim));
+    controls.target.copy(center);
+    controls.minDistance = Math.max(0.02, maxDim * 0.12);
+    controls.maxDistance = Math.max(8, maxDim * 14);
+    controls.update();
   }
 
   function syncStudioGrid(box) {
@@ -972,14 +1009,23 @@ export function createPartViewer(
     if (!model) return;
     clearDetailMarkers();
     highlightMesh = null;
+    assemblyGhostActive = false;
     selectedMesh = null;
     infoPanel.hidden = true;
     updatePickHint();
     model.traverse((child) => {
-      if (!child.isMesh) return;
+      if (!isRenderableMesh(child)) return;
+      if (hiddenMeshes.has(child.name)) {
+        child.visible = false;
+        return;
+      }
       child.visible = true;
-      child.material = child.userData.originalMaterial || child.material;
-      setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+      if (transparentMeshes.has(child.name)) {
+        applyGhostMaterial(child);
+      } else {
+        child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+      }
     });
   }
 
@@ -1147,7 +1193,102 @@ export function createPartViewer(
     return found;
   }
 
+  function isRenderableMesh(child) {
+    return child.isMesh && !String(child.name || "").endsWith("-edges");
+  }
+
+  function meshDisplayName(mesh) {
+    const part = resolvePartByMesh(mesh, partCatalog);
+    if (part?.partName) return part.partName;
+    return mesh.name || "Деталь";
+  }
+
+  function listMeshes() {
+    if (!model) return [];
+    const items = [];
+    model.traverse((child) => {
+      if (!isRenderableMesh(child)) return;
+      const part = resolvePartByMesh(child, partCatalog);
+      items.push({
+        name: child.name,
+        label: meshDisplayName(child),
+        partNo: part?.partNo || part?.part_no || "",
+        blockCode: part?.blockCode || "",
+        visible: !hiddenMeshes.has(child.name),
+        transparent: transparentMeshes.has(child.name)
+      });
+    });
+    return items;
+  }
+
+  function applyGhostMaterial(child) {
+    const opacity = transparentMeshes.has(child.name) ? 0.08 : 0.22;
+    child.material = new THREE.MeshStandardMaterial({
+      color: GHOST_COLOR,
+      transparent: true,
+      opacity,
+      depthWrite: false
+    });
+    setEdgeStyle(child, EDGE_GHOST_COLOR, {
+      opacity: transparentMeshes.has(child.name) ? 0.25 : 0.45
+    });
+  }
+
+  function setMeshVisible(meshName, visible) {
+    if (!meshName) return;
+    if (visible) hiddenMeshes.delete(meshName);
+    else hiddenMeshes.add(meshName);
+    refreshMeshVisibility();
+  }
+
+  function setMeshTransparent(meshName, transparent) {
+    if (!meshName) return;
+    if (transparent) transparentMeshes.add(meshName);
+    else transparentMeshes.delete(meshName);
+    refreshMeshVisibility();
+  }
+
+  function resetMeshVisibility() {
+    hiddenMeshes.clear();
+    transparentMeshes.clear();
+    refreshMeshVisibility();
+  }
+
+  function refreshMeshVisibility() {
+    if (!model) return;
+    if (assemblyGhostActive && highlightMesh) {
+      applyHighlight({
+        meshName: highlightMesh.name,
+        nodeId: highlightMesh.name,
+        ghost: true,
+        isolate: false
+      });
+      return;
+    }
+    model.traverse((child) => {
+      if (!isRenderableMesh(child)) return;
+      if (hiddenMeshes.has(child.name)) {
+        child.visible = false;
+        return;
+      }
+      child.visible = true;
+      if (transparentMeshes.has(child.name)) {
+        applyGhostMaterial(child);
+      } else {
+        child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+      }
+    });
+  }
+
+  function setDrawingMode(enabled) {
+    const on = Boolean(enabled);
+    setWireframe(on);
+    if (on) setCameraPreset("top");
+  }
+
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
+    assemblyGhostActive = Boolean(ghost && !isolate);
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
     if (ghost && !highlightMesh && (meshName || nodeId)) {
@@ -1159,8 +1300,13 @@ export function createPartViewer(
     updatePickHint();
 
     model.traverse((child) => {
-      if (!child.isMesh) return;
+      if (!isRenderableMesh(child)) return;
       const isTarget = child === highlightMesh;
+
+      if (hiddenMeshes.has(child.name) && !isTarget) {
+        child.visible = false;
+        return;
+      }
 
       if (isTarget) {
         child.material = highlightSurfaceMaterial();
@@ -1170,13 +1316,7 @@ export function createPartViewer(
         child.visible = false;
       } else if (ghost) {
         child.visible = true;
-        child.material = new THREE.MeshStandardMaterial({
-          color: GHOST_COLOR,
-          transparent: true,
-          opacity: 0.22,
-          depthWrite: false
-        });
-        setEdgeStyle(child, EDGE_GHOST_COLOR, { opacity: 0.45 });
+        applyGhostMaterial(child);
       } else {
         child.material = child.userData.originalMaterial || child.material;
         setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
@@ -1339,6 +1479,24 @@ export function createPartViewer(
     },
     setAxesVisible(enabled) {
       setAxesVisible(enabled);
+    },
+    setCameraPreset(preset) {
+      setCameraPreset(preset);
+    },
+    setDrawingMode(enabled) {
+      setDrawingMode(enabled);
+    },
+    listMeshes() {
+      return listMeshes();
+    },
+    setMeshVisible(meshName, visible) {
+      setMeshVisible(meshName, visible);
+    },
+    setMeshTransparent(meshName, transparent) {
+      setMeshTransparent(meshName, transparent);
+    },
+    resetMeshVisibility() {
+      resetMeshVisibility();
     },
     resetCamera,
     fitToView,

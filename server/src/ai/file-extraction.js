@@ -1,8 +1,10 @@
 import { inflateRawSync } from "node:zlib";
+import { decodeProjectText } from "../constructive/parsers/project-text.js";
+import { extractEnverAssemblyFromB3d } from "../constructive/parsers/assembly-export.js";
 
 const MAX_TEXT_CHARS = 120_000;
 
-const TEXT_EXTENSIONS = new Set([".txt", ".xml", ".csv", ".json", ".dxf"]);
+const TEXT_EXTENSIONS = new Set([".txt", ".xml", ".csv", ".json", ".dxf", ".project"]);
 
 function detectSourceType(name, mime) {
   const n = String(name || "").toLowerCase();
@@ -11,6 +13,8 @@ function detectSourceType(name, mime) {
   if (n.endsWith(".pdf") || t.includes("pdf")) return "pdf";
   if (n.endsWith(".zip") || t.includes("zip")) return "zip";
   if (n.endsWith(".dxf")) return "dxf";
+  if (n.endsWith(".b3d")) return "b3d";
+  if (n.endsWith(".project")) return "project";
   if (n.endsWith(".dwg") || t.includes("dwg")) return "dwg";
   if (
     t.includes("text") ||
@@ -201,6 +205,55 @@ function extractDxfText(buffer) {
   };
 }
 
+function extractProjectText(buffer, originalName) {
+  const text = truncateText(decodeProjectText(buffer));
+  if (text.length > 200 && (text.includes("<") || text.includes("part"))) {
+    return { text, quality: text.length > 800 ? "good" : "partial", warnings: [] };
+  }
+  return {
+    text: text || `[.project: ${originalName}]`,
+    quality: "partial",
+    warnings: [".project розпізнано частково — перевірте XML"]
+  };
+}
+
+function extractB3dText(buffer, originalName) {
+  const assembly = extractEnverAssemblyFromB3d(buffer);
+  if (assembly?.panels?.length) {
+    const lines = assembly.panels.slice(0, 80).map((p) => {
+      const size = Array.isArray(p.sizeMm) ? p.sizeMm.join("x") : "";
+      return `${p.code} ${p.name || ""} ${size}`.trim();
+    });
+    const text = truncateText(
+      `ENVER3 збірка (${assembly.panels.length} панелей)\n${lines.join("\n")}`
+    );
+    return { text, quality: "good", warnings: [] };
+  }
+
+  const raw = buffer.toString("latin1");
+  const strings = (raw.match(/[\x20-\x7E\u0400-\u04FF]{4,}/g) || [])
+    .filter((s) => /[a-zA-Zа-яА-ЯіїєґІЇЄҐ0-9]/.test(s))
+    .slice(0, 400)
+    .join(" ");
+  if (strings.length > 80) {
+    return {
+      text: truncateText(strings),
+      quality: "partial",
+      warnings: [
+        ".b3d без ENVER3 — для точного аналізу запустіть enver-b3d-assembly-export.js у Базіс"
+      ]
+    };
+  }
+
+  return {
+    text: `[.b3d: ${originalName}, ${buffer.length} байт]`,
+    quality: "poor",
+    warnings: [
+      ".b3d без читабельних даних — додайте .project або ENVER3 (скрипт enver-b3d-assembly-export.js)"
+    ]
+  };
+}
+
 function extractPlainText(buffer, name) {
   const text = truncateText(buffer.toString("utf8"));
   if (name.toLowerCase().endsWith(".json")) {
@@ -272,6 +325,16 @@ export async function extractTextFromBuffer(buffer, mime, originalName) {
       extractionQuality: "poor",
       warnings: ["Для точного AI-аналізу DWG краще експортувати в DXF/PDF/XML"]
     };
+  }
+
+  if (sourceType === "project") {
+    const { text, quality, warnings } = extractProjectText(buffer, originalName);
+    return { ...base, text, extractionQuality: quality, warnings };
+  }
+
+  if (sourceType === "b3d") {
+    const { text, quality, warnings } = extractB3dText(buffer, originalName);
+    return { ...base, text, extractionQuality: quality, warnings };
   }
 
   return {

@@ -15,7 +15,11 @@ import {
   listRecentAnalyses,
   saveAiFeedback
 } from "../constructive-ai.js";
-import { analyzeConstructivePackage } from "../constructive/constructive-package-ai.js";
+import {
+  analyzeConstructivePackage,
+  rerunPackageAiAnalysis,
+  savePackageAiFeedback
+} from "../constructive/constructive-package-ai.js";
 import { chatWithAssistant, fetchAssistantHints, getAiAvailability } from "../ai-assistant.js";
 import {
   createAiRule,
@@ -31,6 +35,18 @@ import { getLearningSummaryForAdmin } from "../ai/ai-learning.js";
 const router = Router();
 router.use(requireAuth);
 
+const PARSED_PACKAGE_STATUSES = new Set([
+  "parsed",
+  "needs_review",
+  "approved_by_constructor",
+  "approved_by_production",
+  "sent_to_procurement",
+  "procurement_done",
+  "cnc_ready",
+  "sent_to_cnc",
+  "released_to_cnc"
+]);
+
 router.post("/analyze-constructive/:positionId", requirePositionWrite, async (req, res) => {
   const positionId = Number(req.params.positionId);
   const position = await one(
@@ -40,6 +56,25 @@ router.post("/analyze-constructive/:positionId", requirePositionWrite, async (re
   if (!position) {
     res.status(404).json({ error: "Позицію не знайдено" });
     return;
+  }
+
+  const packageId = Number(position.constructive_package_id);
+  if (packageId) {
+    const pkgRow = await one(
+      `SELECT cp.status,
+              (SELECT COUNT(*)::int FROM constructive_parts WHERE package_id = cp.id) AS parts_count
+       FROM constructive_packages cp WHERE cp.id = $1`,
+      [packageId]
+    );
+    if (pkgRow && PARSED_PACKAGE_STATUSES.has(pkgRow.status) && Number(pkgRow.parts_count) > 0) {
+      const result = await rerunPackageAiAnalysis(packageId, {
+        orderNumber: position.order_number,
+        item: position.item,
+        itemType: position.item_type
+      });
+      res.json(result);
+      return;
+    }
   }
 
   const file = await one(
@@ -63,7 +98,6 @@ router.post("/analyze-constructive/:positionId", requirePositionWrite, async (re
     return;
   }
 
-  const packageId = Number(position.constructive_package_id);
   if (packageId) {
     const result = await analyzeConstructivePackage(packageId, {
       orderNumber: position.order_number,
@@ -169,6 +203,50 @@ router.post("/feedback", requirePermissionOrAdmin("canEditPositions"), async (re
     correctedTasks,
     correctedMaterials,
     correctedWarnings,
+    userId: auditActor(req)?.id,
+    learningMeta
+  });
+  res.json({ ok: true });
+});
+
+router.post("/feedback/package", requirePermissionOrAdmin("canEditPositions"), async (req, res) => {
+  const { analysisId, rating, correctionText, correctedTasks, rememberCorrection, positionId } =
+    req.body || {};
+
+  if (!analysisId) {
+    res.status(400).json({ error: "analysisId обов'язковий" });
+    return;
+  }
+
+  if (containsSecret(correctionText)) {
+    res.status(400).json({ error: "Корекція не може містити секрети або ключі" });
+    return;
+  }
+
+  let learningMeta = { saveEvent: rememberCorrection !== false };
+  if (positionId) {
+    const position = await one(
+      `SELECT order_number, item, item_type, material FROM positions WHERE id = $1`,
+      [Number(positionId)]
+    );
+    if (position) {
+      learningMeta = {
+        ...learningMeta,
+        orderNumber: position.order_number,
+        itemName: position.item,
+        itemType: position.item_type,
+        material: position.material,
+        entityType: "position",
+        entityId: Number(positionId)
+      };
+    }
+  }
+
+  await savePackageAiFeedback({
+    analysisId,
+    rating,
+    correctionText,
+    correctedTasks,
     userId: auditActor(req)?.id,
     learningMeta
   });

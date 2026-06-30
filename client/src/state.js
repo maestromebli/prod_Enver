@@ -36,6 +36,8 @@ export const state = {
   operatorStageEstimate: null,
   operatorLoadError: "",
   operatorQueueLoading: false,
+  /** Перегляд архіву завершених задач на етапі (лише читання). */
+  operatorShowArchive: false,
   /** Підказки з /api/operator/queue (auto-select, auto-start) */
   operatorAutomation: null,
   /** queue | scan — режим панелі оператора */

@@ -133,4 +133,37 @@ ENDSEC
     assert.equal(r.sourceType, "dxf");
     assert.ok(r.text.includes("Панель") || r.text.includes("Layer1"));
   });
+
+  it("читає .project XML", async () => {
+    const xml = `<?xml version="1.0"?><project><part code="10" name="Стійка" dl="720" dw="560"/></project>`;
+    const r = await extractTextFromBuffer(Buffer.from(xml, "utf8"), "", "kitchen.project");
+    assert.equal(r.sourceType, "project");
+    assert.ok(r.text.includes("Стійка"));
+    assert.ok(["good", "partial"].includes(r.extractionQuality));
+  });
+
+  it("читає ENVER3 з .b3d", async () => {
+    const { appendEnverAssemblyToB3d } =
+      await import("../src/constructive/parsers/assembly-export.js");
+    const b3d = Buffer.from("BZ85" + "x".repeat(20));
+    const patched = appendEnverAssemblyToB3d(b3d, {
+      version: 1,
+      source: "bazis",
+      panels: [
+        {
+          code: "10",
+          name: "Стійка",
+          centerMm: [1, 2, 3],
+          sizeMm: [720, 560, 18],
+          axisX: [1, 0, 0],
+          axisY: [0, 1, 0],
+          axisZ: [0, 0, 1]
+        }
+      ]
+    });
+    const r = await extractTextFromBuffer(patched, "", "model.b3d");
+    assert.equal(r.sourceType, "b3d");
+    assert.ok(r.text.includes("ENVER3"));
+    assert.equal(r.extractionQuality, "good");
+  });
 });

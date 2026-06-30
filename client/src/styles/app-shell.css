@@ -489,6 +489,21 @@ body.enver-v3 {
   padding: 4px 0;
 }
 
+.orders-archive-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 12px 18px;
+  border-radius: var(--v3-radius);
+  background: color-mix(in srgb, var(--enver-primary) 8%, var(--v3-elevated));
+  border: 1px solid color-mix(in srgb, var(--enver-primary) 22%, transparent);
+  color: var(--enver-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .orders-view--detail .card {
   margin-top: 4px;
 }

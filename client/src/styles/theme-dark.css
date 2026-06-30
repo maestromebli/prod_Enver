@@ -166,10 +166,23 @@
 }
 
 [data-theme="dark"] .history-field {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
-[data-theme="dark"] .history-new {
+[data-theme="dark"] .history-new,
+[data-theme="dark"] .history-summary,
+[data-theme="dark"] .history-timeline-summary {
+  color: var(--text);
+}
+
+[data-theme="dark"] .history-timeline-item {
+  background: var(--surface-2, var(--surface-muted));
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .history-view .card-header-row {
+  background: var(--surface-muted);
+  border-color: var(--border);
   color: var(--text);
 }
 

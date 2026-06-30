@@ -93,7 +93,7 @@ export async function getRelevantLearningContext({
   itemName = "",
   itemType = "",
   material = "",
-  extractedText: _extractedText = "",
+  extractedText: extractedText = "",
   limit = 5
 } = {}) {
   const aiSettings = await getAiSettings();
@@ -107,7 +107,7 @@ export async function getRelevantLearningContext({
   const scored = events
     .map((ev) => ({
       event: ev,
-      score: combinedSimilarity({ itemName, itemType, material }, ev)
+      score: combinedSimilarity({ itemName, itemType, material, extractedText }, ev)
     }))
     .filter((x) => x.score >= 0.25)
     .sort((a, b) => b.score - a.score)

@@ -18,6 +18,7 @@ import {
   OPERATOR_STAGE_KEY_SET,
   stageClientField
 } from "@enver/shared/production/stages.js";
+import { activePositions } from "./archive.js";
 import { bindProductionBoard, renderProductionBoard } from "./production-board.js";
 
 let floorCache = null;
@@ -64,7 +65,7 @@ function stageStatusLabel(status) {
 function countNewTasksByStage(stages = []) {
   const freshIds = newProductionTaskIdsForCurrentRole(state.positions);
   const counters = Object.fromEntries((stages || []).map((stage) => [stage.key, 0]));
-  for (const position of state.positions) {
+  for (const position of activePositions(state.positions, state.orders)) {
     if (!freshIds.has(Number(position.id))) continue;
     for (const stage of stages) {
       if (!OPERATOR_STAGE_KEY_SET.has(stage.key)) continue;
@@ -244,15 +245,17 @@ export function renderProductionFloorTab(data = getProductionFloorCache()) {
   return `
     <div class="production-floor${syncingClass}">
       ${quietGuide}
-      <div class="card pf-hero">
-        <div class="block-title">Цех зараз</div>
-        <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів і проблемні позиції. «Панель етапу» — огляд без кнопок оператора.</p>
-        <div class="pf-fresh-reminder">
-          Нові задачі у цеху: <strong>${freshTotal}</strong>
-          <span class="pf-fresh-empty">${freshTotal > 0 ? "" : "нових поки немає"}</span>
-          ${freshTotal > 0 ? '<button type="button" class="btn btn-sm btn-ghost" id="pfMarkSeenBtn">Позначити переглянутими</button>' : ""}
+      <div class="pf-toolbar card">
+        <p class="pf-toolbar-hint enver-meta">Черги, сесії операторів і проблемні позиції. «Панель етапу» — огляд без кнопок оператора.</p>
+        <div class="pf-toolbar-actions">
+          <div class="pf-fresh-reminder">
+            Нові задачі: <strong>${freshTotal}</strong>
+            <span class="pf-fresh-empty">${freshTotal > 0 ? "" : "нових поки немає"}</span>
+            ${freshTotal > 0 ? '<button type="button" class="btn btn-sm btn-ghost" id="pfMarkSeenBtn">Переглянуто</button>' : ""}
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost" id="pfArchiveBtn">Архів замовлень</button>
+          <button type="button" class="btn btn-sm" id="pfRefreshBtn">Оновити</button>
         </div>
-        <button type="button" class="btn btn-sm" id="pfRefreshBtn">Оновити</button>
       </div>
 
       ${godmodeSections}
@@ -312,6 +315,12 @@ export function bindProductionFloorActions(handlers = {}) {
   floorActionsBound = true;
 
   document.addEventListener("click", async (e) => {
+    const archiveBtn = e.target.closest("#pfArchiveBtn");
+    if (archiveBtn) {
+      floorHandlers.onNavigateArchive?.();
+      return;
+    }
+
     const refreshBtn = e.target.closest("#pfRefreshBtn");
     if (refreshBtn) {
       const { setSubmitLoading } = await import("./save-flow.js");

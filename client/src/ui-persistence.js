@@ -116,6 +116,7 @@ export function captureUiState() {
     selectedOrderId: state.selectedOrderId,
     operatorStage: state.operatorStage,
     operatorSelectedPositionId: state.operatorSelectedPositionId,
+    operatorShowArchive: state.operatorShowArchive === true,
     scrollY: window.scrollY,
     operatorScroll: captureOperatorScroll(),
     overlays: captureOverlays()
@@ -289,6 +290,9 @@ export function applyUiState(snapshot) {
   if (snapshot.operatorStage) state.operatorStage = snapshot.operatorStage;
   if (snapshot.operatorSelectedPositionId != null) {
     state.operatorSelectedPositionId = snapshot.operatorSelectedPositionId;
+  }
+  if (typeof snapshot.operatorShowArchive === "boolean") {
+    state.operatorShowArchive = snapshot.operatorShowArchive;
   }
 
   rememberScroll(snapshot);

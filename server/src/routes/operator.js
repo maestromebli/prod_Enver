@@ -11,7 +11,11 @@ import {
 } from "../operator-sessions.js";
 import { updatePositionStages } from "../db/position-persistence.js";
 import { syncOrderStatusFromPositions } from "../order-status-from-positions.js";
-import { OPERATOR_QUEUE_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
+import {
+  OPERATOR_QUEUE_STATUSES,
+  sqlLiteralsIn,
+  STAGE_ARCHIVE_STATUSES
+} from "../../../shared/production/stages.js";
 import {
   AI_COUNT_SUBQUERY,
   ACTIVE_SESSION_SUBQUERY,
@@ -91,12 +95,32 @@ router.get("/queue/:stageKey", async (req, res) => {
   await reconcileOperatorSessionsForUser(userId);
   await reconcileStaleStageStatuses(stageKey);
 
+  const archive =
+    req.query.archive === "1" || String(req.query.archive || "").toLowerCase() === "true";
+
+  if (archive) {
+    const archiveIn = sqlLiteralsIn(STAGE_ARCHIVE_STATUSES);
+    const rows = await all(
+      `SELECT p.*, o.priority AS order_priority, o.plan_date
+       FROM positions p
+       LEFT JOIN orders o ON o.id = p.order_id
+       WHERE p.${field} IN (${archiveIn})
+       ORDER BY p.id DESC
+       LIMIT 200`
+    );
+    const queue = await Promise.all(rows.map((r) => mapOperatorPosition(r)));
+    res.json({ queue, activeSession: null, automation: null, archive: true });
+    return;
+  }
+
   const queueIn = sqlLiteralsIn(OPERATOR_QUEUE_STATUSES);
   const rows = await all(
     `SELECT p.*, o.priority AS order_priority, o.plan_date
      FROM positions p
      LEFT JOIN orders o ON o.id = p.order_id
      WHERE p.${field} IN (${queueIn})
+       AND trim(coalesce(p.position_status, '')) <> 'Завершено'
+       AND trim(coalesce(o.status, '')) <> 'Завершено'
      ORDER BY
        CASE p.${field} WHEN 'В роботі' THEN 0 WHEN 'На паузі' THEN 0 ELSE 1 END,
        CASE WHEN p.problem <> '' THEN 0 ELSE 1 END,

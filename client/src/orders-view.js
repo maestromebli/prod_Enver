@@ -13,6 +13,7 @@ import { togglePositionExpanded } from "./position-tree.js";
 import { positionsForOrder } from "./workflows.js";
 import { state } from "./state.js";
 import { escapeHtml, progressRing, badge } from "./utils.js";
+import { setListFilters } from "./filters.js";
 import { notifyUiChanged } from "./ui-persistence.js";
 
 const DISPLAY_LABELS = { cards: "Картки", list: "Список", positions: "Позиції" };
@@ -292,6 +293,14 @@ function renderOrdersList(orders, rootPositions, allPositions, filtersActive = f
   </div>`;
 }
 
+function renderArchiveBanner() {
+  if (!state.showArchived) return "";
+  return `<div class="orders-archive-banner" role="status">
+    <span>Архів завершених замовлень</span>
+    <button type="button" class="btn btn-sm btn-ghost" data-orders-exit-archive>← До активних</button>
+  </div>`;
+}
+
 export function renderOrdersGrid(orders, positions, { filtersActive = false } = {}) {
   const rootPositions = positions.filter((p) => !p.parentId);
   const sorted = sortOrdersByAttention(orders, positions);
@@ -301,7 +310,7 @@ export function renderOrdersGrid(orders, positions, { filtersActive = false } = 
       ? renderOrdersList(sorted, rootPositions, positions, filtersActive)
       : renderOrdersCards(sorted, rootPositions, positions, filtersActive);
 
-  return `<div class="orders-view">${renderOrdersModeBar()}${body}</div>`;
+  return `<div class="orders-view">${renderArchiveBanner()}${renderOrdersModeBar()}${body}</div>`;
 }
 
 export function renderOrderDetailHeader(order, positions, { canEditOrder = false } = {}) {
@@ -469,6 +478,12 @@ function bindOrdersList(root, handlers) {
 }
 
 export function bindOrdersGrid(root, handlers) {
+  root?.querySelector("[data-orders-exit-archive]")?.addEventListener("click", () => {
+    state.showArchived = false;
+    setListFilters({ status: "" });
+    notifyUiChanged();
+    window.__enverRender?.();
+  });
   root?.querySelectorAll("[data-orders-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const prev = state.ordersView.displayMode || "cards";

@@ -1,6 +1,7 @@
 import { readStoredFile } from "../file-storage.js";
 import { decodeProjectText } from "./parsers/project-text.js";
 import { extractEnverAssemblyFromB3d } from "./parsers/assembly-export.js";
+import { formatPackageMetricsForPrompt } from "../../../shared/production/infer-package-tasks.js";
 
 const MAX_PROJECT_CHARS = 28_000;
 const MAX_ENVER3_PANELS = 80;
@@ -80,6 +81,9 @@ export async function buildPackageAiSourceContext(packageDetail) {
         .join("; ")}`
     );
   }
+
+  const metricsBlock = formatPackageMetricsForPrompt(parts, hardware);
+  if (metricsBlock) blocks.push(metricsBlock);
 
   const projectFile = files.find((f) => f.kind === "project");
   if (projectFile?.storage_path) {

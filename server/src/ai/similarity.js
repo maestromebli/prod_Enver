@@ -46,9 +46,12 @@ export function fieldMatchScore(value, candidate) {
   return jaccardSimilarity(a, b);
 }
 
-export function combinedSimilarity({ itemName, itemType, material }, event) {
-  const nameScore = itemNameSimilarity(itemName, event.item_name) * 0.5;
-  const typeScore = fieldMatchScore(itemType, event.item_type) * 0.25;
-  const matScore = fieldMatchScore(material, event.material) * 0.25;
-  return nameScore + typeScore + matScore;
+export function combinedSimilarity({ itemName, itemType, material, extractedText }, event) {
+  const nameScore = itemNameSimilarity(itemName, event.item_name) * 0.45;
+  const typeScore = fieldMatchScore(itemType, event.item_type) * 0.2;
+  const matScore = fieldMatchScore(material, event.material) * 0.2;
+  const textScore = extractedText
+    ? jaccardSimilarity(extractedText, event.input_summary || event.inputSummary || "") * 0.15
+    : 0;
+  return nameScore + typeScore + matScore + textScore;
 }

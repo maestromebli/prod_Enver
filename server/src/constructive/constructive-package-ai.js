@@ -90,6 +90,8 @@ Unmapped 3D: ${packageDetail.unmappedParts?.length || 0}
 - Якщо немає GLB/GLTF — modelReadiness.needsGlbExport = true.
 - B3D без GLB — не вважай 3D готовим.
 - Не пропонуй автоматично відправку на ЧПК чи finance.
+- suggestedTasks узгоджуй із «Сигналами розбору ENVER»; пропуск етапу — лише з причиною у warnings.
+- Якщо є фурнітура — drilling з confidence ≥ 0.85; якщо є крайка — edging ≥ 0.85; деталі → cutting ≥ 0.9.
 - Усі тексти українською.
 - Не використовуй markdown.${learningBlock}${durationBlock}${feedbackBlock}${sourceBlock}
 
@@ -295,6 +297,8 @@ export async function analyzeConstructivePackage(
     materialsCount: detail.materials?.length || 0,
     itemName: item,
     itemType,
+    parts: detail.parts || [],
+    hardware: detail.hardware || [],
     sourceMeta: sourceContext.sourceMeta,
     materialNames: sourceContext.materialNames,
     partsForQuality: sourceContext.partsForQuality

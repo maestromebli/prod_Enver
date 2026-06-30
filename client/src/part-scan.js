@@ -21,6 +21,12 @@ import { isNativeOperatorShell } from "./operator-native.js";
 import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getStoredToken } from "./api.js";
+import {
+  applyScanToAssembly3d,
+  bindScanPartDetail3d,
+  destroyScanPartDetailViewer,
+  renderScanPartDetailLayout
+} from "./operator-scan-3d.js";
 
 /** Етапи зі скануванням етикеток деталей. */
 export const PART_SCAN_OPERATOR_STAGES = ["cutting", "edging", "drilling", "assembly"];
@@ -101,12 +107,38 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
     ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
     : null;
   const pdfTarget = isNativeOperatorShell() ? "_self" : "_blank";
+  const useInline3d = isNativeOperatorShell() && Boolean(data.model?.viewerUrl);
   const cncActions = showCncActions
     ? `
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="finish">Готово</button>
         <button type="button" class="btn btn-lg btn-danger" data-cnc-action="problem">Проблема</button>`
     : "";
+
+  if (useInline3d) {
+    return `
+    <div class="part-detail-card part-detail-card--scan-3d">
+      <div class="part-detail-toolbar">
+        <button type="button" class="btn btn-sm part-scan-back" data-part-scan-close>${escapeHtml(closeLabel)}</button>
+      </div>
+      ${renderScanPartDetailLayout(data)}
+      <div class="part-detail-actions part-detail-actions--compact">
+        ${cncActions}
+        ${
+          data.suggestCompleteStage
+            ? `<button type="button" class="btn btn-lg btn-primary" data-operator-finish-stage>Завершити етап</button>`
+            : ""
+        }
+        ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
+        ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
+        ${
+          data.scanProgress
+            ? `<p class="part-scan-progress enver-meta">Скановано ${data.scanProgress.scannedDistinct || 0} / ${data.scanProgress.totalParts || 0} деталей</p>`
+            : ""
+        }
+      </div>
+    </div>`;
+  }
 
   return `
     <div class="part-detail-card">
@@ -151,7 +183,7 @@ export function renderOperatorScanPanel(stageKey) {
           <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn">← Назад</button>
           <h3 class="op-part-scan-title">Сканування деталі</h3>
         </div>
-        <p class="op-part-scan-hint">Після сканування деталь підсвітиться на 3D-моделі в панелі роботи</p>
+        <p class="op-part-scan-hint">Після сканування деталь підсвітиться на 3D-моделі зверху, знизу — вигляд деталі з отворами та кромкою</p>
       </div>
       <div class="op-part-scan-bar" id="operatorScanScannerPane">
         <input
@@ -192,6 +224,7 @@ function syncOperatorScanButtonState(open) {
 }
 
 function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
+  destroyScanPartDetailViewer();
   if (detailEl) {
     detailEl.hidden = true;
     detailEl.innerHTML = "";
@@ -214,7 +247,11 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
     const { highlightOperatorOrder3dPart, getOperatorOrder3dViewer } =
       await import("./operator-3d.js");
     const section = document.getElementById("operatorOrder3dSection");
-    if (getOperatorOrder3dViewer() && data.part && highlightOperatorOrder3dPart(data.part)) {
+    if (
+      getOperatorOrder3dViewer() &&
+      data.part &&
+      highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry })
+    ) {
       section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
@@ -338,6 +375,12 @@ async function handleScan(
           if (statusEl) statusEl.textContent = "Наведіть штрихридер на етикетку";
         }
       });
+
+      if (isNativeOperatorShell() && data.model?.viewerUrl) {
+        void bindScanPartDetail3d(detailEl, data);
+        void applyScanToAssembly3d(data);
+      }
+
       detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
@@ -346,10 +389,16 @@ async function handleScan(
       const modelUrl = resolveViewerModelUrl(data.model.viewerUrl, token);
       if (modelUrl) void prefetchViewerModel(modelUrl, token);
       void warmPartViewerChunk();
-      const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
-      popup = null;
-      if (!opened && !isNativeOperatorShell()) {
-        toastError("Натисніть «Відкрити 3D» або дозвольте нові вкладки");
+
+      if (isNativeOperatorShell()) {
+        if (popup) closePreparedViewerPopup(popup);
+        popup = null;
+      } else {
+        const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
+        popup = null;
+        if (!opened) {
+          toastError("Натисніть «Відкрити 3D» або дозвольте нові вкладки");
+        }
       }
     } else {
       if (popup) closePreparedViewerPopup(popup);

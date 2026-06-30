@@ -895,10 +895,10 @@ body.enver-operator-ui.view-operator {
 }
 
 .enver-operator-ui .operator-shell.op-one-screen .op-action-btn {
-  min-height: 44px;
-  padding: 0 6px;
-  gap: 5px;
-  border-radius: 10px;
+  min-height: 52px;
+  padding: 0 8px;
+  gap: 6px;
+  border-radius: 12px;
   flex-direction: row;
   justify-content: center;
   box-shadow: 0 1px 4px rgba(15, 42, 68, 0.08);
@@ -1059,9 +1059,10 @@ html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-act
 }
 
 html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-btn {
-  min-height: 56px;
-  padding: 0 8px;
-  border-radius: 12px;
+  min-height: 64px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 1rem;
 }
 
 html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-icon {
@@ -1075,7 +1076,7 @@ html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-act
 }
 
 html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-text strong {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
 html.enver-native-shell .login-submit {
@@ -1188,4 +1189,49 @@ html.enver-native-shell .enver-operator-ui .op-problem-sheet-actions .btn {
 
 .operator-header-menu-item:hover {
   background: var(--enver-surface-soft, #f0f2ec);
+}
+
+.op-queue-mode {
+  display: inline-flex;
+  border-radius: 10px;
+  border: 1px solid var(--enver-border, #e2e8f0);
+  overflow: hidden;
+  background: var(--enver-surface-soft, #f8fafc);
+}
+
+.op-queue-mode-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: var(--enver-text-muted, #64748b);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.op-queue-mode-btn.is-active {
+  background: var(--op-accent, var(--enver-primary));
+  color: #fff;
+}
+
+.op-archive-banner {
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--enver-primary) 25%, transparent);
+  background: color-mix(in srgb, var(--enver-primary) 8%, var(--op-surface, #fff));
+  color: var(--enver-text, #171a16);
+}
+
+.op-archive-banner p {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--enver-text-muted, #64748b);
+}
+
+html.enver-native-shell .op-queue-mode-btn {
+  min-height: 48px;
+  padding: 0 18px;
+  font-size: 0.9rem;
 }

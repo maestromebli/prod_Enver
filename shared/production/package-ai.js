@@ -1,5 +1,7 @@
 /** Спільна схема ШІ-аналізу пакета конструктива. */
 
+import { inferSuggestedTasksFromPackage, mergeSuggestedTasks } from "./infer-package-tasks.js";
+
 export const FURNITURE_TYPES = [
   "kitchen",
   "wardrobe",
@@ -133,7 +135,7 @@ function mergeLabor(aiLabor, heuristic) {
 
 /**
  * @param {unknown} raw
- * @param {{ partsCount?: number, hardwareCount?: number, itemName?: string, itemType?: string }} [context]
+ * @param {{ partsCount?: number, hardwareCount?: number, materialsCount?: number, itemName?: string, itemType?: string, parts?: object[], hardware?: object[] }} [context]
  */
 export function normalizePackageAiAnalysis(raw, context = {}) {
   const partsCount = context.partsCount ?? 0;
@@ -199,7 +201,19 @@ export function normalizePackageAiAnalysis(raw, context = {}) {
     suggestedActions: Array.isArray(data.suggestedActions)
       ? data.suggestedActions.map((s) => String(s).trim()).filter(Boolean)
       : [],
-    suggestedTasks: Array.isArray(data.suggestedTasks) ? data.suggestedTasks : []
+    suggestedTasks: (() => {
+      const aiTasks = Array.isArray(data.suggestedTasks) ? data.suggestedTasks : [];
+      const pkgParts = context.parts || [];
+      const pkgHardware = context.hardware || [];
+      if (!pkgParts.length && !pkgHardware.length) return aiTasks;
+      const inferred = inferSuggestedTasksFromPackage({
+        parts: pkgParts,
+        hardware: pkgHardware,
+        itemName: context.itemName || "",
+        itemType: context.itemType || ""
+      });
+      return mergeSuggestedTasks(aiTasks, inferred);
+    })()
   };
 }
 

@@ -260,7 +260,10 @@ export const api = {
       body: JSON.stringify({ actionType })
     }),
 
-  getOperatorQueue: (stageKey) => request(`/api/operator/queue/${stageKey}`),
+  getOperatorQueue: (stageKey, { archive = false } = {}) => {
+    const q = archive ? "?archive=1" : "";
+    return request(`/api/operator/queue/${stageKey}${q}`);
+  },
   operatorStart: (body) =>
     request("/api/operator/start", { method: "POST", body: JSON.stringify(body) }),
   operatorPause: (body) =>

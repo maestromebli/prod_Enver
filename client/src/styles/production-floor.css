@@ -95,6 +95,29 @@
   background: var(--surface-hover);
 }
 
+.pf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 14px 18px;
+}
+
+.pf-toolbar-hint {
+  flex: 1 1 240px;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.pf-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
 .pf-hero {
   display: flex;
   flex-wrap: wrap;

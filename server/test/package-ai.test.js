@@ -41,3 +41,30 @@ describe("shared/production/package-ai", () => {
     assert.equal(formatLaborHours(2.5), "2 год 30 хв");
   });
 });
+
+describe("shared/production/infer-package-tasks", () => {
+  it("inferSuggestedTasksFromPackage визначає етапи з деталей", async () => {
+    const { inferSuggestedTasksFromPackage, mergeSuggestedTasks } =
+      await import("../../shared/production/infer-package-tasks.js");
+    const tasks = inferSuggestedTasksFromPackage({
+      itemName: "Кухня",
+      parts: [
+        { partName: "Стійка", length: 720, width: 560, qty: 2, edgeCode: "1111" },
+        { partName: "Полиця", length: 600, width: 400, qty: 4, edgeCode: "0100" }
+      ],
+      hardware: [{ name: "Петля", qty: 4 }]
+    });
+    const stages = tasks.map((t) => t.stage);
+    assert.ok(stages.includes("cutting"));
+    assert.ok(stages.includes("edging"));
+    assert.ok(stages.includes("drilling"));
+    assert.ok(stages.includes("assembly"));
+
+    const merged = mergeSuggestedTasks(
+      [{ stage: "cutting", needed: true, reason: "AI", confidence: 0.7 }],
+      tasks
+    );
+    assert.equal(merged.find((t) => t.stage === "cutting")?.confidence, 0.93);
+    assert.ok(merged.length >= 4);
+  });
+});

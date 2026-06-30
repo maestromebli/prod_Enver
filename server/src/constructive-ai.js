@@ -3,6 +3,10 @@ import { getAiSettings } from "./app-settings.js";
 import { readStoredFile } from "./file-storage.js";
 import { parseJsonObject } from "./json-utils.js";
 import { attachQualityToAnalysis } from "./ai/analysis-quality.js";
+import {
+  inferSuggestedTasksFromPanels,
+  mergeSuggestedTasks
+} from "../../shared/production/infer-package-tasks.js";
 import { extractTextFromBuffer, MAX_TEXT_CHARS } from "./ai/file-extraction.js";
 import { normalizeAnalysisResult } from "./ai/normalize-analysis.js";
 import { callOpenAiChat } from "./ai/openai-client.js";
@@ -101,6 +105,7 @@ function buildPrompt({ orderNumber, item, text, feedback, extractionMeta, learni
 - Якщо впевненість нижче 0.8 — додай warning або missingInfo про ручну перевірку.
 - Якщо файл прочитано частково — попередь у warnings.
 - Для suggestedTasks використовуй ТІЛЬКИ: cutting, edging, drilling, assembly.
+- Якщо у panels є edge/крайка — edging обов'язковий; якщо згадується фурнітура — drilling.
 - Не створюй задачі без причини (reason обов'язковий).
 - operatorNotes — коротко і практично для оператора.
 - warnings — попередження; критичні проблеми теж у warnings.
@@ -200,6 +205,11 @@ export async function analyzeConstructiveFile({
 
   const { raw: parsedRaw } = parseRawAnalysisContent(content);
   let analysis = normalizeAnalysisResult(parsedRaw);
+
+  if (analysis.panels?.length) {
+    const inferred = inferSuggestedTasksFromPanels(analysis.panels, { itemName: item, itemType });
+    analysis.suggestedTasks = mergeSuggestedTasks(analysis.suggestedTasks, inferred);
+  }
 
   if (extractedTextMeta.warnings?.length) {
     analysis.warnings = [...new Set([...analysis.warnings, ...extractedTextMeta.warnings])];

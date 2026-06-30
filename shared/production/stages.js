@@ -22,6 +22,9 @@ export const POSITION_STATUSES = [
 
 export const STAGE_STATUS_DONE = new Set(["Готово", "Не потрібно"]);
 
+/** Завершені етапи для архіву оператора (SQL IN). */
+export const STAGE_ARCHIVE_STATUSES = ["Готово", "Не потрібно"];
+
 export const STAGE_ACTIVE_STATUSES = new Set(["Передано", "В роботі", "На паузі", "Проблема"]);
 
 /** Черга оператора та сповіщення про нові виробничі задачі. */

@@ -147,23 +147,40 @@ export async function loadOperatorData() {
 
   state.operatorQueueLoading = true;
   try {
-    const data = await api.getOperatorQueue(stageKey);
+    const data = await api.getOperatorQueue(stageKey, { archive: state.operatorShowArchive });
     state.operatorQueue = data.queue || [];
     state.operatorLoadError = "";
-    initializeOperatorStageBaseline(stageKey, state.operatorQueue);
-    await emitRoleNotifications(
-      reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue }),
-      { silent: true }
-    );
-    state.operatorActiveSession = data.activeSession;
-    state.operatorAutomation = data.automation || null;
+    if (!state.operatorShowArchive) {
+      initializeOperatorStageBaseline(stageKey, state.operatorQueue);
+      await emitRoleNotifications(
+        reminderSnapshot({ operatorStage: stageKey, operatorQueue: state.operatorQueue }),
+        { silent: true }
+      );
+      state.operatorActiveSession = data.activeSession;
+      state.operatorAutomation = data.automation || null;
 
-    if (data.activeSession?.position_id) {
-      state.operatorSelectedPositionId = data.activeSession.position_id;
-      await loadOperatorJobDetail(data.activeSession.position_id);
+      if (data.activeSession?.position_id) {
+        state.operatorSelectedPositionId = data.activeSession.position_id;
+        await loadOperatorJobDetail(data.activeSession.position_id);
+      } else {
+        state.operatorJobDetail = null;
+        await autoSelectNextOperatorJob({ loadDetail: loadOperatorJobDetail });
+      }
     } else {
-      state.operatorJobDetail = null;
-      await autoSelectNextOperatorJob({ loadDetail: loadOperatorJobDetail });
+      state.operatorActiveSession = null;
+      state.operatorAutomation = null;
+      if (
+        state.operatorSelectedPositionId &&
+        !state.operatorQueue.some((p) => p.id === state.operatorSelectedPositionId)
+      ) {
+        state.operatorSelectedPositionId = state.operatorQueue[0]?.id ?? null;
+      }
+      if (state.operatorSelectedPositionId) {
+        await loadOperatorJobDetail(state.operatorSelectedPositionId);
+      } else {
+        state.operatorJobDetail = null;
+        state.operatorStageEstimate = null;
+      }
     }
   } finally {
     state.operatorQueueLoading = false;
@@ -187,6 +204,13 @@ export async function loadOperatorJobDetail(positionId) {
       } catch {
         state.operatorStageEstimate = null;
       }
+    }
+    const orderId =
+      state.operatorJobDetail?.position?.orderId ||
+      state.operatorQueue.find((p) => p.id === positionId)?.orderId;
+    if (orderId) {
+      const { prefetchOperatorOrder3d } = await import("./operator-3d.js");
+      void prefetchOperatorOrder3d(orderId, positionId);
     }
   } catch {
     state.operatorJobDetail = null;
@@ -582,18 +606,35 @@ export function renderOperatorView() {
 
       ${isSupervisorOperatorPanel() ? `<div class="op-supervisor-banner"><strong>Режим огляду</strong> — кнопки дій доступні лише операторам.</div>` : ""}
 
+      ${
+        state.operatorShowArchive
+          ? `<div class="op-archive-banner" role="status">
+        <strong>Архів етапу</strong>
+        <p>Завершені задачі — лише перегляд. Поверніться до черги для нових завдань.</p>
+      </div>`
+          : ""
+      }
+
       <div class="op-layout">
         <aside class="op-queue-panel">
-          <div class="op-panel-head"><h2>Черга</h2><span class="op-count-badge">${state.operatorQueue.length}</span></div>
-          ${freshQueueIds.size ? `<button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими (${freshQueueIds.size})</button>` : ""}
+          <div class="op-panel-head">
+            <div class="op-queue-mode" role="tablist" aria-label="Режим черги">
+              <button type="button" class="op-queue-mode-btn ${state.operatorShowArchive ? "" : "is-active"}" data-operator-queue-mode="active" role="tab" aria-selected="${state.operatorShowArchive ? "false" : "true"}">Черга</button>
+              <button type="button" class="op-queue-mode-btn ${state.operatorShowArchive ? "is-active" : ""}" data-operator-queue-mode="archive" role="tab" aria-selected="${state.operatorShowArchive ? "true" : "false"}">Архів</button>
+            </div>
+            <span class="op-count-badge">${state.operatorQueue.length}</span>
+          </div>
+          ${!state.operatorShowArchive && freshQueueIds.size ? `<button type="button" class="op-btn-ghost" id="operatorMarkSeenBtn">Позначити переглянутими (${freshQueueIds.size})</button>` : ""}
           <div class="op-queue-list">${
             state.operatorQueueLoading && !state.operatorQueue.length
               ? operatorQueueSkeleton()
               : queueItems ||
                 renderSmartEmptyState({
-                  icon: "🎯",
-                  title: "Черга порожня",
-                  text: "Нових задач на цьому етапі поки немає — перевірте пізніше або оберіть інший етап."
+                  icon: state.operatorShowArchive ? "📦" : "🎯",
+                  title: state.operatorShowArchive ? "Архів порожній" : "Черга порожня",
+                  text: state.operatorShowArchive
+                    ? "На цьому етапі ще немає завершених задач."
+                    : "Нових задач на цьому етапі поки немає — перевірте пізніше або оберіть інший етап."
                 })
           }</div>
         </aside>
@@ -630,7 +671,10 @@ export function renderOperatorView() {
 
           ${renderOperatorScanPanel(stageKey)}
 
-          <div class="op-action-bar">
+          ${
+            state.operatorShowArchive
+              ? ""
+              : `<div class="op-action-bar">
             <button type="button" class="op-action-btn op-action-btn--start enver-pressable" id="operatorStartBtn" ${canStart() ? "" : "disabled"}>Почав</button>
             <button type="button" class="op-action-btn op-action-btn--pause enver-pressable" id="operatorPauseBtn" ${canPause() || canResume() ? "" : "disabled"}>${canResume() ? "Продовжити" : "Пауза"}</button>
             <button type="button" class="op-action-btn op-action-btn--finish enver-pressable" id="operatorFinishBtn" ${canFinish() ? "" : "disabled"}>Закінчив</button>
@@ -651,7 +695,8 @@ export function renderOperatorView() {
               </div>
             </div>
           </div>
-          ${inWork && isSessionPaused() ? '<p class="op-hint">Завдання на паузі</p>' : ""}
+          ${inWork && isSessionPaused() ? '<p class="op-hint">Завдання на паузі</p>' : ""}`
+          }
         </main>
       </div>
     </div>`;
@@ -773,6 +818,23 @@ export function bindOperatorActions(onChange) {
       logout();
       state.view = "main";
       document.querySelector("#loginModal")?.classList.add("open");
+      operatorOnChange();
+      return;
+    }
+    const queueModeBtn = e.target.closest("[data-operator-queue-mode]");
+    if (queueModeBtn) {
+      const wantArchive = queueModeBtn.dataset.operatorQueueMode === "archive";
+      if (wantArchive === state.operatorShowArchive) return;
+      state.operatorShowArchive = wantArchive;
+      state.operatorSelectedPositionId = null;
+      try {
+        await loadOperatorData();
+      } catch (err) {
+        state.operatorQueue = [];
+        state.operatorLoadError = err?.message || "Не вдалося завантажити чергу";
+      }
+      notifyUiChanged();
+      persistUiState();
       operatorOnChange();
       return;
     }
