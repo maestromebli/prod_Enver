@@ -171,7 +171,12 @@ function bindOperator3dToolbar(section, viewer) {
         syncPartsPanel(partsPanel, viewer);
       }
       if (action === "parts-toggle") {
-        partsPanel?.classList.toggle("is-open");
+        const panel = partsPanel;
+        if (!panel) return;
+        const open = panel.hidden;
+        panel.hidden = !open;
+        panel.classList.toggle("is-open", open);
+        if (open) syncPartsPanel(panel, viewer);
       }
     },
     { signal }
@@ -227,14 +232,6 @@ function mountOperator3dToolbar(section) {
     if (viewerWrap) viewerWrap.before(toolbar);
     else section.appendChild(toolbar);
   }
-
-  toolbar.querySelector("[data-3d-action=parts-toggle]")?.addEventListener("click", () => {
-    const panel = toolbar.querySelector("#operatorOrder3dParts");
-    if (!panel) return;
-    const open = panel.classList.toggle("is-open");
-    panel.hidden = !open;
-    if (open) syncPartsPanel(panel, viewerInstance);
-  });
 }
 
 export function highlightOperatorOrder3dPart(part, { cadGeometry = null } = {}) {

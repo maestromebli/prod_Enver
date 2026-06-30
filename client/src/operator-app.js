@@ -24,6 +24,7 @@ import {
 } from "./operator-panel.js";
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
 import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
+import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import {
   registerOperatorServiceWorker,
   reloadIfAppBuildChanged,
@@ -250,6 +251,7 @@ async function startOperatorApp() {
   initOperatorPwaShell();
   bindOperatorHeaderMenu();
   watchAppBuildUpdates();
+  void warmPartViewerChunk();
   if (await reloadIfAppBuildChanged()) return;
   await bootstrap();
   registerOperatorServiceWorker();

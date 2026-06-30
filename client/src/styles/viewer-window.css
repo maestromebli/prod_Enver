@@ -242,16 +242,16 @@ body.viewer-tablet-mode .viewer-window-body {
 html.viewer-tablet-mode .viewer-window-main,
 body.viewer-tablet-mode .viewer-window-main {
   order: 1;
-  flex: 1 1 72%;
+  flex: 1 1 58%;
   min-height: 0;
-  max-height: 72%;
+  max-height: 58%;
 }
 
 html.viewer-tablet-mode .viewer-sidebar,
 body.viewer-tablet-mode .viewer-sidebar {
   order: 2;
   flex: 0 0 auto;
-  max-height: 28%;
+  max-height: 42%;
   width: 100%;
   border-right: none;
   border-top: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
@@ -272,6 +272,78 @@ body.viewer-tablet-mode .viewer-hotkeys-hint {
 html.viewer-tablet-mode .viewer-toolbar-advanced,
 body.viewer-tablet-mode .viewer-toolbar-advanced {
   display: none;
+}
+
+html.viewer-tablet-mode .viewer-toolbar-tablet,
+body.viewer-tablet-mode .viewer-toolbar-tablet {
+  display: inline-flex;
+}
+
+.viewer-toolbar-tablet {
+  display: none;
+}
+
+.viewer-sidebar-assembly-hint {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+}
+
+.viewer-part-detail-mount {
+  min-height: 120px;
+  height: min(22vh, 180px);
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a1018;
+}
+
+.viewer-parts-panel {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
+}
+
+.viewer-parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 20vh;
+  overflow-y: auto;
+}
+
+.viewer-part-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.viewer-part-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-part-ghost {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 32px;
+  opacity: 0.75;
+}
+
+.viewer-part-ghost[aria-pressed="true"] {
+  opacity: 1;
+  color: #fbbf24;
+}
+
+html.viewer-tablet-mode .viewer-part-detail-mount,
+body.viewer-tablet-mode .viewer-part-detail-mount {
+  height: min(24vh, 200px);
 }
 
 /* Android APK — збільшені кнопки тулбару 3D-переглядача */

@@ -984,6 +984,138 @@ body.enver-operator-ui.view-operator {
   overflow: hidden;
 }
 
+html.enver-native-shell .op-order-3d--native .op-order-3d-viewer {
+  min-height: 200px;
+  height: min(38vh, 320px);
+}
+
+.op-order-3d-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.op-order-3d-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.op-order-3d-toolbar .btn {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+}
+
+.op-order-3d-parts {
+  max-height: 28vh;
+  overflow-y: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--enver-border, #e2e8f0);
+  background: var(--enver-surface-soft, #f8fafc);
+}
+
+.op-order-3d-part-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+}
+
+.op-order-3d-part-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-order-3d-part-ghost {
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.7;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.op-order-3d-part-ghost[aria-pressed="true"] {
+  opacity: 1;
+  color: var(--enver-primary, #245c3b);
+}
+
+.op-scan-part-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.op-scan-part-3d {
+  min-height: 160px;
+  height: min(28vh, 220px);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #121a24;
+}
+
+.op-scan-part-info {
+  font-size: 0.88rem;
+}
+
+.op-scan-part-title {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.op-scan-part-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.op-scan-part-meta dt {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--enver-text-muted, #64748b);
+}
+
+.op-scan-part-meta dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.op-scan-part-holes {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.part-detail-card--scan-3d .part-detail-actions--compact {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+html.enver-native-shell .op-part-scan.is-detail-open .op-order-3d {
+  order: -1;
+}
+
+html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
+  min-height: 180px;
+  height: min(32vh, 240px);
+}
+
 .op-order-3d-loading {
   margin: 0;
   padding: 1rem 0;

@@ -44,9 +44,13 @@ function formatHoleListItem(hole) {
 }
 
 let viewer = null;
+let partDetailViewer = null;
 let currentPart = null;
 let currentCadGeometry = null;
-let cadFlags = { section: false, measure: false, wireframe: false, axes: false };
+let currentModelUrl = null;
+let currentModelFormat = "glb";
+let currentModelParts = [];
+let cadFlags = { section: false, measure: false, wireframe: false, axes: false, drawing: false };
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -147,6 +151,88 @@ function renderHoleList(cadGeometry, part) {
   return sections.join("");
 }
 
+function destroyPartDetailViewer() {
+  partDetailViewer?.destroy?.();
+  partDetailViewer = null;
+  const mount = document.getElementById("viewerPartDetailMount");
+  if (mount) {
+    mount.innerHTML = "";
+    mount.hidden = true;
+  }
+}
+
+async function mountPartDetailViewer(part, cadGeometry) {
+  const mount = document.getElementById("viewerPartDetailMount");
+  if (!mount || !part || !currentModelUrl) {
+    destroyPartDetailViewer();
+    return;
+  }
+  mount.hidden = false;
+  if (partDetailViewer) {
+    partDetailViewer.setCadGeometry?.(cadGeometry);
+    partDetailViewer.showPartDetail?.(part, resolveHighlightTarget(part));
+    return;
+  }
+  mount.innerHTML = `<p class="enver-meta viewer-part-detail-loading">3D деталі…</p>`;
+  try {
+    partDetailViewer = await mountModelViewer(mount, {
+      url: currentModelUrl,
+      token: getStoredToken(),
+      format: currentModelFormat,
+      parts: currentModelParts,
+      theme: "studio",
+      viewerOptions: { pickable: false }
+    });
+    partDetailViewer.setCadGeometry?.(cadGeometry);
+    partDetailViewer.showPartDetail?.(part, resolveHighlightTarget(part));
+  } catch {
+    mount.innerHTML = `<p class="enver-meta">3D деталі недоступна</p>`;
+  }
+}
+
+function renderPartsPanel(viewer) {
+  const panel = document.getElementById("viewerPartsPanel");
+  if (!panel || !viewer?.listMeshes) return;
+  const meshes = viewer.listMeshes();
+  if (!meshes.length) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    return;
+  }
+  panel.hidden = false;
+  panel.innerHTML = `
+    <h3 class="viewer-hole-list-title">Видимість деталей</h3>
+    <div class="viewer-parts-list">
+      ${meshes
+        .map(
+          (m) => `
+        <label class="viewer-part-row">
+          <input type="checkbox" data-mesh-visible="${escapeHtml(m.name)}" ${m.visible ? "checked" : ""} />
+          <span>${escapeHtml(m.label)}</span>
+          <button type="button" class="viewer-part-ghost" data-mesh-ghost="${escapeHtml(m.name)}" aria-pressed="${m.transparent ? "true" : "false"}" title="Прозорість">◐</button>
+        </label>`
+        )
+        .join("")}
+    </div>`;
+
+  panel.querySelectorAll("[data-mesh-visible]").forEach((input) => {
+    input.addEventListener("change", () => {
+      viewer.setMeshVisible?.(input.dataset.meshVisible, input.checked);
+    });
+  });
+  panel.querySelectorAll("[data-mesh-ghost]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const on = btn.getAttribute("aria-pressed") !== "true";
+      btn.setAttribute("aria-pressed", String(on));
+      viewer.setMeshTransparent?.(btn.dataset.meshGhost, on);
+    });
+  });
+}
+
+function syncPartsPanel() {
+  renderPartsPanel(viewer);
+}
+
 function populateSidebar(data) {
   const sidebar = document.getElementById("viewerSidebar");
   const meta = document.getElementById("viewerMeta");
@@ -199,6 +285,7 @@ function populateSidebar(data) {
   }
 
   sidebar.hidden = false;
+  void mountPartDetailViewer(part, cad);
 }
 
 function setToolbarActive(action) {
@@ -243,6 +330,7 @@ async function showPartDetailView(part) {
   } else {
     await highlightPartGhost(part);
   }
+  void mountPartDetailViewer(part, currentCadGeometry);
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
 }
@@ -308,7 +396,23 @@ function bindToolbar() {
       }
       if (action === "all") {
         viewer?.showAll?.();
+        viewer?.resetMeshVisibility?.();
+        syncPartsPanel();
         setToolbarActive("all");
+      }
+      if (action === "camera-bottom") {
+        viewer?.setCameraPreset?.("bottom");
+      }
+      if (action === "drawing") {
+        toggleCadFlag("drawing", (on) => viewer?.setDrawingMode?.(on));
+      }
+      if (action === "parts-panel") {
+        const panel = document.getElementById("viewerPartsPanel");
+        if (!panel) return;
+        const show = panel.hidden;
+        panel.hidden = !show;
+        if (show) syncPartsPanel();
+        btn.classList.toggle("is-active", show);
       }
       if (action === "fit") viewer?.fitToView?.();
       if (action === "reset") viewer?.resetCamera?.();
@@ -398,11 +502,15 @@ async function mountFromScanData(container, data) {
     setError("3D модель для цієї деталі недоступна");
     return;
   }
+  destroyPartDetailViewer();
+  currentModelUrl = modelFileUrl(data.model.viewerUrl);
+  currentModelFormat = data.model.viewerFormat || "glb";
+  currentModelParts = data.model.parts || [];
   viewer = await mountModelViewer(container, {
-    url: modelFileUrl(data.model.viewerUrl),
+    url: currentModelUrl,
     token: getStoredToken(),
-    format: data.model.viewerFormat || "glb",
-    parts: data.model.parts || [],
+    format: currentModelFormat,
+    parts: currentModelParts,
     theme: "studio"
   });
   hideLoading();
@@ -420,6 +528,7 @@ async function mountFromScanData(container, data) {
   setTitle(title || "3D модель");
   populateSidebar(data);
   await showPartOnAssembly(data.part);
+  syncPartsPanel();
   bindToolbar();
   bindHotkeys();
 }

@@ -38,6 +38,23 @@
         <button type="button" class="btn btn-sm" data-viewer-action="detail">Деталь</button>
         <button
           type="button"
+          class="btn btn-sm viewer-toolbar-tablet"
+          data-viewer-action="camera-bottom"
+        >
+          Знизу
+        </button>
+        <button type="button" class="btn btn-sm viewer-toolbar-tablet" data-viewer-action="drawing">
+          Креслення
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm viewer-toolbar-tablet"
+          data-viewer-action="parts-panel"
+        >
+          Деталі
+        </button>
+        <button
+          type="button"
           class="btn btn-sm viewer-toolbar-advanced"
           data-viewer-action="isolate"
         >
@@ -86,9 +103,19 @@
     </header>
     <div class="viewer-window-body">
       <aside class="viewer-sidebar" id="viewerSidebar" hidden>
+        <div class="viewer-sidebar-assembly-hint enver-meta">
+          Зверху — 3D виробу · нижче — деталь з отворами та кромкою
+        </div>
         <h2 class="viewer-sidebar-title">Деталь</h2>
+        <div
+          id="viewerPartDetailMount"
+          class="viewer-part-detail-mount part-viewer-3d"
+          hidden
+          aria-label="3D деталі"
+        ></div>
         <dl class="viewer-meta-list" id="viewerMeta"></dl>
         <div id="viewerHoles" class="viewer-holes-wrap" hidden></div>
+        <div id="viewerPartsPanel" class="viewer-parts-panel" hidden></div>
         <p class="viewer-hotkeys-hint enver-meta">
           Обертання — перетягування · Масштаб — колесо · <kbd>G</kbd> на виробі ·
           <kbd>D</kbd> деталь · <kbd>R</kbd> огляд · <kbd>F</kbd> вмістити · <kbd>M</kbd> вимір ·
