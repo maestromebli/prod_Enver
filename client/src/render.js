@@ -40,6 +40,7 @@ import { bindAttentionTab, renderAttentionTab } from "./attention-view.js";
 import { renderDashboard } from "./dashboard.js";
 import { bindProcurementTab, renderProcurementTab } from "./procurement-view.js";
 import { emptyStateIcon } from "./icons.js";
+import { positionsColumnPresetClass, renderPositionsColumnPresetBar } from "./positions-columns.js";
 import {
   renderHeaderChrome,
   renderKpis,
@@ -79,7 +80,13 @@ function positionsTable(data, title = "Позиції замовлення", sho
     allowActions,
     newTaskIds
   );
-  const headerRow = `<div class="block-title">${escapeHtml(title)}</div>`;
+  const preset = state.ordersView.positionsColumnPreset || "manager";
+  const presetClass = positionsColumnPresetClass(preset);
+  const presetBar = renderPositionsColumnPresetBar(preset);
+  const headerRow = `<div class="positions-view-head">
+    <div class="block-title">${escapeHtml(title)}</div>
+    ${presetBar}
+  </div>`;
 
   const tableHead = `
           <thead>
@@ -91,13 +98,13 @@ function positionsTable(data, title = "Позиції замовлення", sho
               <th scope="col" class="col-opt-type">Тип виробу</th>
               <th scope="col" class="col-opt-manager">Менеджер</th>
               <th scope="col" class="col-opt-constructor">Конструктор</th>
-              <th scope="col">Порізка</th>
+              <th scope="col" class="col-opt-cutting">Порізка</th>
               <th scope="col" class="col-opt-edging">Крайкування</th>
               <th scope="col" class="col-opt-drilling">Присадка</th>
-              <th scope="col">Збірка</th>
+              <th scope="col" class="col-opt-assembly">Збірка</th>
               <th scope="col" class="col-opt-ready">Дата готовності</th>
               <th scope="col" class="col-opt-install-date">Період монтажу</th>
-              <th scope="col">Монтажник</th>
+              <th scope="col" class="col-opt-installer">Монтажник</th>
               <th scope="col">Статус позиції</th>
               <th scope="col">Готово, %</th>
               <th scope="col" class="col-opt-overdue">Прострочка, днів</th>
@@ -108,7 +115,7 @@ function positionsTable(data, title = "Позиції замовлення", sho
           </thead>`;
 
   return `
-    <div class="card positions-view">
+    <div class="card positions-view ${presetClass}">
       ${headerRow}
       <div class="positions-cards" aria-label="Позиції (картки)">${cards}</div>
       <div class="table-wrap positions-table-wrap" aria-label="Позиції (таблиця)">

@@ -92,6 +92,29 @@ describe("shared/production", () => {
     assert.equal(deriveCurrentStage(row), "constructor");
   });
 
+  it("deriveCurrentStage з конструктивом без передачі в цех — етап constructor", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Не розпочато",
+      edging_status: "Не розпочато",
+      drilling_status: "Не розпочато",
+      assembly_status: "Не розпочато"
+    };
+    assert.equal(deriveCurrentStage(row), "constructor");
+  });
+
+  it("deriveCurrentStage після всіх етапів — монтаж", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Готово",
+      edging_status: "Готово",
+      drilling_status: "Готово",
+      assembly_status: "Готово",
+      position_status: "Готово до встановлення"
+    };
+    assert.equal(deriveCurrentStage(row), "install");
+  });
+
   it("hasConstructive — пакет конструктива без legacy-прапорця", async () => {
     const { hasConstructive } = await import("../../shared/production/position-logic.js");
     assert.equal(

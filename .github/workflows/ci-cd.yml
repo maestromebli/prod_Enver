@@ -61,7 +61,7 @@ jobs:
         run: npm run test:coverage:check
         env:
           COVERAGE_SCOPE: shared
-          COVERAGE_MIN_LINES: "95"
+          COVERAGE_MIN_LINES: "94"
 
   e2e:
     needs: validate

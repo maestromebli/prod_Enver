@@ -12,8 +12,13 @@ import { resolveObjectNameFromOrders } from "@enver/shared/production/object-dis
 import { state } from "./state.js";
 import { escapeHtml, overdue } from "./utils.js";
 import { activeOrders, activePositions, archivedOrders, archivedPositions } from "./archive.js";
+import {
+  getDashboardOnboardingContent,
+  isDashboardOnboardingDismissed,
+  migrateLegacyOnboardingDismiss
+} from "./dashboard-onboarding.js";
 
-const ONBOARDING_DISMISSED_KEY = "enver_dashboard_onboarding_dismissed";
+migrateLegacyOnboardingDismiss();
 
 const ICONS = {
   alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>`,
@@ -130,12 +135,7 @@ function installDateRank(position) {
 }
 
 function isOnboardingDismissed() {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return isDashboardOnboardingDismissed();
 }
 
 function operationalStatus(problems, overdueCount, inWorkCount) {
@@ -289,6 +289,7 @@ export function renderDashboard() {
   );
 
   const showOnboarding = !isOnboardingDismissed();
+  const onboarding = getDashboardOnboardingContent();
   const stickyBar = renderDashboardStickyBar(focusPool);
 
   return `
@@ -344,17 +345,22 @@ export function renderDashboard() {
 
       ${
         showOnboarding
-          ? `<section class="dash-onboarding" role="region" aria-label="Швидкий старт">
-              <p class="dash-onboarding-text">
-                <strong>Швидкий старт:</strong>
-                замовлення → позиції → етапи до монтажу
-              </p>
+          ? `<section class="dash-onboarding dash-onboarding--${escapeHtml(onboarding.persona)}" role="region" aria-label="Швидкий старт">
+              <div class="dash-onboarding-body">
+                <p class="dash-onboarding-kicker">${escapeHtml(onboarding.title)}</p>
+                <p class="dash-onboarding-text">${escapeHtml(onboarding.lead)}</p>
+                <ol class="dash-onboarding-steps">
+                  ${onboarding.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
+                </ol>
+              </div>
               <div class="dash-onboarding-actions">
-                <button type="button" class="btn btn-primary btn-sm" data-dash-tour-start="1">Міні-тур</button>
+                <button type="button" class="btn btn-primary btn-sm" data-dash-nav="${escapeHtml(onboarding.primaryNav)}">${escapeHtml(onboarding.primaryLabel)}</button>
+                <button type="button" class="btn btn-sm" data-dash-tour-start="1">Міні-тур</button>
                 <button
                   type="button"
                   class="btn btn-sm btn-ghost"
                   data-dash-dismiss-onboarding="1"
+                  data-dash-onboarding-persona="${escapeHtml(onboarding.persona)}"
                   aria-label="Не показувати підказку швидкого старту"
                 >
                   Закрити

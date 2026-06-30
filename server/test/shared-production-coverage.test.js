@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  getConstructivePackageWarnings,
+  getConstructiveProcurementNextAction
+} from "../../shared/production/constructive-godmode.js";
+import {
   buildConstructorAssigneesFromDirectory,
   mergeConstructorAssignees,
   parseConstructorAssigneeValue
@@ -780,5 +784,37 @@ describe("shared/production coverage — timing, files, package-ai, metrics", ()
       { role: "production" }
     );
     assert.equal(closePos.allowed, true);
+  });
+});
+
+describe("shared/production coverage — constructive-godmode", () => {
+  it("warnings — rejected, unmapped, not parsed", () => {
+    const rejected = getConstructivePackageWarnings({
+      packageStatus: "rejected",
+      rejectedReason: "Невірний Excel"
+    });
+    assert.ok(rejected.some((w) => w.type === "constructive_rejected"));
+
+    const unmapped = getConstructivePackageWarnings({ unmappedPartsCount: 5 });
+    assert.ok(unmapped.some((w) => w.type === "unmapped_3d_parts"));
+
+    const uploaded = getConstructivePackageWarnings({ packageStatus: "uploaded" });
+    assert.ok(uploaded.some((w) => w.type === "package_not_parsed"));
+  });
+
+  it("procurement next action — wait і create", () => {
+    const wait = getConstructiveProcurementNextAction({
+      packageStatus: "approved_by_constructor",
+      procurementStatus: "ordered",
+      hasProcurementRequest: true
+    });
+    assert.equal(wait?.type, "wait_procurement");
+
+    const create = getConstructiveProcurementNextAction({
+      packageStatus: "approved_by_constructor",
+      hasProcurementRequest: false,
+      hasProcurementSource: true
+    });
+    assert.equal(create?.type, "create_procurement");
   });
 });

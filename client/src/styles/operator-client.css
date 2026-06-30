@@ -989,3 +989,133 @@ body.enver-operator-ui.view-operator {
   padding: 1rem 0;
   text-align: center;
 }
+
+/* Android APK (WebView) — збільшені touch-зони для роботи в цеху */
+html.enver-native-shell {
+  --enver-touch-min: 48px;
+  --enver-touch-lg: 64px;
+}
+
+html.enver-native-shell .operator-client-header {
+  min-height: 52px;
+  gap: 0.45rem;
+  padding: calc(0.45rem + env(safe-area-inset-top, 0px)) 0.6rem 0.45rem;
+}
+
+html.enver-native-shell .operator-client-header .btn-header-action {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+html.enver-native-shell .operator-client-header .operator-client-scan-btn .op-scan-glyph {
+  font-size: 0.8rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-stage-tab {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-stage-tab-icon {
+  width: 18px;
+  height: 18px;
+}
+
+html.enver-native-shell .enver-operator-ui .op-work-scan-btn {
+  min-height: 56px;
+  font-size: 1rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-action-bar {
+  gap: 10px;
+}
+
+html.enver-native-shell .enver-operator-ui .op-action-btn {
+  min-height: 64px;
+  padding: 0 12px;
+  gap: 8px;
+  font-size: 1rem;
+  border-radius: 14px;
+}
+
+html.enver-native-shell .enver-operator-ui .op-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+html.enver-native-shell .enver-operator-ui .op-action-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+html.enver-native-shell .enver-operator-ui .op-action-text strong {
+  font-size: 0.95rem;
+}
+
+html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-bar {
+  gap: 8px;
+}
+
+html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-btn {
+  min-height: 56px;
+  padding: 0 8px;
+  border-radius: 12px;
+}
+
+html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-icon {
+  width: 32px;
+  height: 32px;
+}
+
+html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+html.enver-native-shell .enver-operator-ui .operator-shell.op-one-screen .op-action-text strong {
+  font-size: 0.88rem;
+}
+
+html.enver-native-shell .login-submit {
+  height: 56px;
+  font-size: 1rem;
+}
+
+html.enver-native-shell .kiosk-password-actions .btn {
+  min-height: 48px;
+  padding: 0 1rem;
+  font-size: 0.95rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-part-scan-back,
+html.enver-native-shell .enver-operator-ui .part-scan-back {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-scan-input {
+  min-height: 56px;
+  font-size: 1rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-part-scan-actions .scan-btn,
+html.enver-native-shell .enver-operator-ui .part-scan-actions .scan-btn {
+  min-height: 56px;
+  min-width: 132px;
+  font-size: 1rem;
+}
+
+html.enver-native-shell .enver-operator-ui .part-detail-toolbar-actions .btn {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
+html.enver-native-shell .enver-operator-ui .op-problem-sheet-actions .btn {
+  min-height: 48px;
+  padding: 0 1rem;
+  font-size: 0.95rem;
+}

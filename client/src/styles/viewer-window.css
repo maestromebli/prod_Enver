@@ -273,3 +273,26 @@ html.viewer-tablet-mode .viewer-toolbar-advanced,
 body.viewer-tablet-mode .viewer-toolbar-advanced {
   display: none;
 }
+
+/* Android APK — збільшені кнопки тулбару 3D-переглядача */
+html.enver-native-shell .viewer-window-header {
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+html.enver-native-shell .viewer-window-header .btn.btn-sm,
+html.enver-native-shell .viewer-window-close.btn.btn-sm {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+}
+
+html.enver-native-shell .viewer-window-toolbar {
+  gap: 8px;
+}
+
+html.enver-native-shell .viewer-window-toolbar .btn {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+}

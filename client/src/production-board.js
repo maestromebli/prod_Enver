@@ -1,3 +1,4 @@
+import { deriveCurrentStage } from "@enver/shared/production/position-logic.js";
 import { STAGES } from "@enver/shared/production/stages.js";
 import { canEditPositions } from "./auth.js";
 import { activePositions } from "./archive.js";
@@ -17,10 +18,14 @@ function boardPositions() {
   return activePositions(state.positions, state.orders).filter((p) => !p.parentId);
 }
 
+function resolveBoardStage(position) {
+  return deriveCurrentStage(position) || position.currentStage || "constructor";
+}
+
 function groupByStage(positions) {
   const groups = Object.fromEntries(BOARD_STAGES.map((k) => [k, []]));
   for (const p of positions) {
-    const key = p.currentStage || "constructor";
+    const key = resolveBoardStage(p);
     if (groups[key]) groups[key].push(p);
     else groups.constructor.push(p);
   }
@@ -73,7 +78,7 @@ function renderBoardCard(p) {
       class="pf-board-card enver-interactive enver-draggable enver-pressable"
       data-board-card
       data-position-id="${p.id}"
-      data-current-stage="${escapeHtml(p.currentStage || "constructor")}"
+      data-current-stage="${escapeHtml(resolveBoardStage(p))}"
       tabindex="0"
       aria-grabbed="false"
     >

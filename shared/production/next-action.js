@@ -158,6 +158,25 @@ export function deriveNextAction(row) {
     };
   }
 
+  if (currentKey === "install") {
+    if (positionStatus(row) === "Готово до встановлення") {
+      return {
+        type: "done",
+        stageKey: "install",
+        label: "Запланувати монтаж",
+        actionKey: "schedule_install",
+        targetStatus: null
+      };
+    }
+    return {
+      type: "done",
+      stageKey: "install",
+      label: "Всі етапи виробництва завершено",
+      actionKey: "schedule_install",
+      targetStatus: null
+    };
+  }
+
   if (STAGE_STATUS_DONE.has(status) || status === "Не потрібно") {
     const order = ALL_STAGE_KEYS;
     const idx = order.indexOf(currentKey);

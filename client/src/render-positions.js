@@ -46,13 +46,13 @@ function positionRowCells(p, row, showActions) {
     <td class="col-opt-type">${escapeHtml(p.itemType || "—")}</td>
     <td class="col-opt-manager">${escapeHtml(p.manager || "—")}</td>
     <td class="col-opt-constructor">${escapeHtml(p.constructor || "—")}</td>
-    <td>${badge(p.cuttingStatus)}</td>
+    <td class="col-opt-cutting">${badge(p.cuttingStatus)}</td>
     <td class="col-opt-edging">${badge(p.edgingStatus)}</td>
     <td class="col-opt-drilling">${badge(p.drillingStatus)}</td>
-    <td>${badge(p.assemblyStatus)}</td>
+    <td class="col-opt-assembly">${badge(p.assemblyStatus)}</td>
     <td class="col-opt-ready">${escapeHtml(p.readyDate || "—")}</td>
     <td class="col-opt-install-date">${escapeHtml(formatInstallPeriod(p))}</td>
-    <td>${escapeHtml(p.installResponsible || "—")}</td>
+    <td class="col-opt-installer">${escapeHtml(p.installResponsible || "—")}</td>
     <td>${badge(p.positionStatus)}</td>
     <td>${progress(p.progress)}</td>
     <td class="col-opt-overdue">${overdue(p.overdueDays)}</td>

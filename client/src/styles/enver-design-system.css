@@ -679,6 +679,32 @@ body {
   line-height: 1.4;
 }
 
+.order-card-next-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--enver-space-3) 0 0;
+  padding: var(--enver-space-2) var(--enver-space-3);
+  border-radius: var(--enver-radius-sm);
+  background: color-mix(in srgb, var(--enver-primary) 10%, var(--enver-surface));
+  border: 1px solid color-mix(in srgb, var(--enver-primary) 22%, transparent);
+}
+
+.order-card-next-kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--enver-primary);
+}
+
+.order-card-next-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--enver-text);
+  line-height: 1.35;
+}
+
 .order-card-warnings {
   display: inline-flex;
   align-items: center;

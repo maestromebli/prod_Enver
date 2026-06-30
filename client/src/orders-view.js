@@ -154,6 +154,15 @@ function orderCardWarnings(attn) {
   return `<p class="order-card-warnings" aria-label="${label}">${iconSvg("alertTriangle", "enver-icon")}<span>${label}</span></p>`;
 }
 
+function orderCardNextBanner(attn) {
+  const next = attn.nextAction;
+  if (!next?.label) return "";
+  return `<div class="order-card-next-banner" role="status">
+    <span class="order-card-next-kicker">Наступний крок</span>
+    <strong class="order-card-next-label">${escapeHtml(next.label)}</strong>
+  </div>`;
+}
+
 function orderCardActions(order, attn) {
   const ctaLabel = attn.nextAction?.label || "Деталі";
   const hasCta = Boolean(attn.nextAction?.label);
@@ -193,9 +202,6 @@ function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = 
       const swipeRightLabel = nextLabel ? escapeHtml(nextLabel.slice(0, 24)) : "Дія";
       const healthBadge = gm ? renderHealthBadge(gm.health) : "";
       const attentionBadge = gm ? renderAttentionBadge(gm.attentionScore) : "";
-      const nextLine = nextLabel
-        ? `<p class="order-card-stage-line">Далі: <strong>${escapeHtml(nextLabel)}</strong></p>`
-        : "";
 
       return `
         <article class="order-card enver-interactive enver-pressable enver-swipe-host ${cardClass}" data-order-card="${order.id}" tabindex="0">
@@ -210,9 +216,9 @@ function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = 
           </div>
           <p class="order-card-meta order-card-object">${escapeHtml(order.object || "—")}</p>
           ${order.client ? `<p class="order-card-meta enver-meta">${escapeHtml(order.client)}</p>` : ""}
+          ${orderCardNextBanner(attn)}
           ${progressBarHtml(progress)}
           <p class="order-card-stage-line">Зараз: <strong>${escapeHtml(stage)}</strong></p>
-          ${nextLine}
           ${orderCardBadges(attn)}
           ${orderCardWarnings(attn)}
           <div class="order-card-foot">

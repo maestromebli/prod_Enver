@@ -306,7 +306,7 @@ body.view-dashboard #content {
 
 .dash-onboarding {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
@@ -316,10 +316,36 @@ body.view-dashboard #content {
   background: var(--surface-muted);
 }
 
+.dash-onboarding-body {
+  min-width: 0;
+}
+
+.dash-onboarding-kicker {
+  margin: 0 0 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--enver-primary, var(--accent));
+}
+
 .dash-onboarding-text {
+  margin: 0 0 var(--space-2);
+  font-size: 0.875rem;
+  color: var(--text-strong);
+  line-height: 1.45;
+}
+
+.dash-onboarding-steps {
   margin: 0;
+  padding-left: 1.15rem;
   font-size: 0.8125rem;
   color: var(--text);
+  line-height: 1.5;
+}
+
+.dash-onboarding-steps li + li {
+  margin-top: 2px;
 }
 
 .dash-onboarding-text strong {

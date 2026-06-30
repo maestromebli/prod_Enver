@@ -2,7 +2,7 @@
 import { expect, test } from "@playwright/test";
 
 const ANDROID_UA =
-  "Mozilla/5.0 (Linux; Android 13; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 EnverOperator/1.0.7";
+  "Mozilla/5.0 (Linux; Android 13; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 EnverOperator/1.0.8";
 
 test.describe("Android APK / WebView", () => {
   test("operator.html — EnverNative вмикає native shell", async ({ page }) => {
@@ -13,11 +13,12 @@ test.describe("Android APK / WebView", () => {
     await expect(page.locator("body.enver-native-shell")).toBeVisible();
   });
 
-  test("viewer.html — EnverOperator UA вмикає tablet mode", async ({ browser }) => {
+  test("viewer.html — EnverOperator UA вмикає tablet mode і native shell", async ({ browser }) => {
     const context = await browser.newContext({ userAgent: ANDROID_UA });
     const page = await context.newPage();
     await page.goto("/viewer.html");
     await expect(page.locator("html.viewer-tablet-mode")).toBeVisible();
+    await expect(page.locator("html.enver-native-shell")).toBeVisible();
     await context.close();
   });
 

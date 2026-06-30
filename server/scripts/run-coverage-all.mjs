@@ -28,8 +28,11 @@ const args = [
 const result = spawnSync(process.execPath, args, {
   cwd: serverDir,
   encoding: "utf8",
-  stdio: "inherit",
+  stdio: ["ignore", "pipe", "pipe"],
   shell: false
 });
+
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
 
 process.exit(result.status ?? 1);

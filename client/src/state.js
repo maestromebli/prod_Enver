@@ -61,7 +61,9 @@ export const state = {
     positionTabDownstream: {},
     order3dAssets: {},
     /** Фільтр пріоритету на реєстрі замовлень */
-    priorityFilter: ""
+    priorityFilter: "",
+    /** manager | floor | full — пресет колонок реєстру позицій */
+    positionsColumnPreset: "manager"
   },
   showArchived: false,
   constructorDesk: {

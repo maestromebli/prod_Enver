@@ -676,3 +676,67 @@ tr.row-position-fresh {
     display: none;
   }
 }
+
+/* Пресети колонок реєстру позицій */
+
+.positions-view-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--enver-space-3, 12px);
+  flex-wrap: wrap;
+  padding: 12px 20px 0;
+}
+
+.positions-col-preset-bar {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--surface-muted, var(--enver-surface-soft));
+  border: 1px solid var(--border-soft, var(--enver-border));
+}
+
+.positions-col-preset-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted, var(--enver-text-muted));
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.positions-col-preset-btn:hover {
+  color: var(--text-strong, var(--enver-text));
+}
+
+.positions-col-preset-btn.active {
+  background: var(--surface, var(--enver-surface));
+  color: var(--text-strong, var(--enver-text));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.positions-view--cols-manager .col-opt-id,
+.positions-view--cols-manager .col-opt-type,
+.positions-view--cols-manager .col-opt-constructor,
+.positions-view--cols-manager .col-opt-cutting,
+.positions-view--cols-manager .col-opt-edging,
+.positions-view--cols-manager .col-opt-drilling,
+.positions-view--cols-manager .col-opt-assembly {
+  display: none;
+}
+
+.positions-view--cols-floor .col-opt-id,
+.positions-view--cols-floor .col-opt-object,
+.positions-view--cols-floor .col-opt-type,
+.positions-view--cols-floor .col-opt-manager,
+.positions-view--cols-floor .col-opt-constructor,
+.positions-view--cols-floor .col-opt-ready,
+.positions-view--cols-floor .col-opt-install-date,
+.positions-view--cols-floor .col-opt-installer,
+.positions-view--cols-floor .col-opt-note {
+  display: none;
+}

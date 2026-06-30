@@ -3,12 +3,63 @@ import { all } from "../db.js";
 import { OPERATOR_STAGES, STAGE_STATUS_FIELD } from "../roles.js";
 import { requireAuth, requirePermissionOrAdmin } from "../middleware/auth.js";
 import { PRODUCTION_FLOOR_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
+import {
+  deriveCurrentStage,
+  hasConstructive,
+  isOnConstructorStage
+} from "../../../shared/production/position-logic.js";
 import { listPositionSummaries } from "../constructive/procurement-service.js";
+import {
+  HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY,
+  PACKAGE_PARTS_COUNT_SUBQUERY
+} from "../constructive-package-enrich.js";
 
 const router = Router();
 router.use(requireAuth, requirePermissionOrAdmin("canViewProductionFloor"));
 
+function emptyStageCounts() {
+  return { handed: 0, inWork: 0, paused: 0, problem: 0, overdue: 0 };
+}
+
+function bumpProblemOverdue(counts, row) {
+  if (row.problem?.trim()) counts.problem += 1;
+  if ((row.overdue_days || 0) > 0) counts.overdue += 1;
+}
+
+function countConstructorStage(rows) {
+  const counts = emptyStageCounts();
+  for (const row of rows) {
+    if (!isOnConstructorStage(row)) continue;
+    if (hasConstructive(row)) counts.inWork += 1;
+    else counts.handed += 1;
+    bumpProblemOverdue(counts, row);
+  }
+  return counts;
+}
+
+function countInstallStage(rows) {
+  const counts = emptyStageCounts();
+  for (const row of rows) {
+    if (deriveCurrentStage(row) !== "install") continue;
+    const status = String(row.position_status || "").trim();
+    if (status === "На встановленні") counts.inWork += 1;
+    else if (status === "На паузі") counts.paused += 1;
+    else counts.handed += 1;
+    bumpProblemOverdue(counts, row);
+  }
+  return counts;
+}
+
 router.get("/floor", async (_req, res) => {
+  const positionRows = await all(
+    `SELECT has_constructive_file, cutting_status, edging_status, drilling_status, assembly_status,
+            position_status, problem, overdue_days,
+            ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
+            ${PACKAGE_PARTS_COUNT_SUBQUERY}
+     FROM positions
+     WHERE trim(coalesce(position_status, '')) <> 'Завершено'`
+  );
+
   const sessionRows = await all(
     `SELECT os.id, os.user_id, os.position_id, os.stage_key, os.started_at,
             u.name AS user_name,
@@ -38,14 +89,22 @@ router.get("/floor", async (_req, res) => {
     };
   });
 
-  const stages = [];
+  const stages = [
+    {
+      key: "constructor",
+      label: "Конструктив",
+      ...countConstructorStage(positionRows)
+    }
+  ];
+
+  const floorIn = sqlLiteralsIn(PRODUCTION_FLOOR_STATUSES);
   for (const stage of OPERATOR_STAGES) {
     const field = STAGE_STATUS_FIELD[stage.key];
-    const counts = { handed: 0, inWork: 0, paused: 0, problem: 0, overdue: 0 };
-    const floorIn = sqlLiteralsIn(PRODUCTION_FLOOR_STATUSES);
+    const counts = emptyStageCounts();
     const rows = await all(
       `SELECT ${field} AS status, problem, overdue_days FROM positions
-       WHERE ${field} IN (${floorIn})`
+       WHERE ${field} IN (${floorIn})
+         AND trim(coalesce(position_status, '')) <> 'Завершено'`
     );
 
     for (const r of rows) {
@@ -62,6 +121,12 @@ router.get("/floor", async (_req, res) => {
       ...counts
     });
   }
+
+  stages.push({
+    key: "install",
+    label: "Монтаж",
+    ...countInstallStage(positionRows)
+  });
 
   const problemPositions = await all(
     `SELECT id, order_number, item, object, problem, position_status,

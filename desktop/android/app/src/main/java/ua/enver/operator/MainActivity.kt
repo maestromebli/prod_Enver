@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
             setSupportMultipleWindows(true)
             val ua = userAgentString.orEmpty()
             if (!ua.contains("EnverOperator/")) {
-                userAgentString = "$ua EnverOperator/1.0.7"
+                userAgentString = "$ua EnverOperator/${BuildConfig.VERSION_NAME}"
             }
         }
 

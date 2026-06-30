@@ -82,19 +82,25 @@ export function derivePositionStatus(row) {
   return row.position_status?.trim() || "У виробництві";
 }
 
+/** Позиція ще на столі конструктора (конструктив не передано в цех). */
+export function isOnConstructorStage(row) {
+  if (!hasConstructive(row)) return true;
+  const cutting = readStageStatus(row, "cutting");
+  return !cutting || cutting === "Не розпочато";
+}
+
 /** Поточний активний етап для UI та operator queue. */
 export function deriveCurrentStage(row) {
-  if (!hasConstructive(row)) return "constructor";
+  if (isOnConstructorStage(row)) return "constructor";
 
   const order = ["cutting", "edging", "drilling", "assembly"];
   for (const key of order) {
-    const field = STAGE_STATUS_FIELD[key];
-    const status = row[field];
+    const status = readStageStatus(row, key);
     if (!status || status === "Не розпочато") return key;
     if (STAGE_ACTIVE_STATUSES.has(status)) return key;
     if (!STAGE_STATUS_DONE.has(status)) return key;
   }
-  return "assembly";
+  return "install";
 }
 
 export function computeOverdueDays(row, planDateStr) {

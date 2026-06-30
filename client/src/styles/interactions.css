@@ -1368,3 +1368,91 @@ body.order-drawer-open {
 .package-ai-result:not(:empty) {
   margin-top: 12px;
 }
+
+/* Гарячі клавіші */
+
+.shortcuts-hint-btn {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.shortcuts-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+
+.shortcuts-sheet.open {
+  display: flex;
+}
+
+.shortcuts-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.shortcuts-sheet-panel {
+  position: relative;
+  width: min(420px, 100%);
+  border-radius: 12px;
+  background: var(--surface, var(--enver-surface));
+  border: 1px solid var(--border, var(--enver-border));
+  box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.18));
+  padding: var(--space-4, 16px);
+}
+
+.shortcuts-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.shortcuts-sheet-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.shortcuts-sheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcuts-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+
+.shortcuts-sheet-kbd {
+  display: inline-flex;
+  min-width: 3.25rem;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft, var(--enver-border));
+  background: var(--surface-muted, var(--enver-surface-soft));
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.shortcuts-sheet-foot {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+}

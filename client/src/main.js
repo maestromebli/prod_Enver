@@ -69,6 +69,7 @@ import {
 } from "./ui-persistence.js";
 import { wireAppRenderBus } from "./app-bus.js";
 import { applyTourHighlights, nextTourStep, startTour, stopTour } from "./tour.js";
+import { dismissDashboardOnboarding } from "./dashboard-onboarding.js";
 import { initTheme } from "./theme.js";
 import { hideAiAssistant, initAiAssistant } from "./ai-assistant.js";
 import {
@@ -219,11 +220,7 @@ function bindContentActions() {
   document.querySelectorAll("[data-dash-dismiss-onboarding]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      try {
-        localStorage.setItem("enver_dashboard_onboarding_dismissed", "1");
-      } catch {
-        /* ignore */
-      }
+      dismissDashboardOnboarding(el.dataset.dashOnboardingPersona || undefined);
       renderApp({ contentOnly: true });
     });
   });
@@ -327,6 +324,17 @@ function bindContentActions() {
 
   $("#exportCsvBtn")?.addEventListener("click", () => {
     import("./export.js").then(({ exportPositionsCsv }) => exportPositionsCsv());
+  });
+
+  document.querySelectorAll("[data-pos-cols]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const preset = btn.dataset.posCols;
+      if (!preset) return;
+      state.ordersView.positionsColumnPreset = preset;
+      notifyUiChanged();
+      renderApp({ contentOnly: true });
+    });
   });
 
   if (state.activeTab === "Встановлення") {

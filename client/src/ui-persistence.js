@@ -14,8 +14,9 @@ const STORAGE_KEYS = {
   main: "enver_ui_state",
   operator: "enver_operator_ui_state"
 };
-const VERSION = 5;
-const SUPPORTED_VERSIONS = new Set([3, 4, 5]);
+const VERSION = 6;
+const SUPPORTED_VERSIONS = new Set([3, 4, 5, 6]);
+const VALID_POSITIONS_COLUMN_PRESETS = new Set(["manager", "floor", "full"]);
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
 const VALID_INSTALL_DISPLAY = new Set(["calendar", "list"]);
@@ -100,7 +101,8 @@ export function captureUiState() {
     ordersView: {
       displayMode: state.ordersView.displayMode,
       priorityFilter: state.ordersView.priorityFilter ?? "",
-      detailTab: state.ordersView.detailTab ?? "overview"
+      detailTab: state.ordersView.detailTab ?? "overview",
+      positionsColumnPreset: state.ordersView.positionsColumnPreset ?? "manager"
     },
     constructorDesk: {
       displayMode: state.constructorDesk.displayMode,
@@ -243,6 +245,12 @@ export function applyUiState(snapshot) {
   }
   if (ordersView?.detailTab) {
     state.ordersView.detailTab = ordersView.detailTab;
+  }
+  if (
+    ordersView?.positionsColumnPreset &&
+    VALID_POSITIONS_COLUMN_PRESETS.has(ordersView.positionsColumnPreset)
+  ) {
+    state.ordersView.positionsColumnPreset = ordersView.positionsColumnPreset;
   }
 
   const constructorDesk = snapshot.constructorDesk;

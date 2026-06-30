@@ -38,6 +38,7 @@ import {
 import { navIconSvg, iconSvg } from "./icons.js";
 import { setOperatorUiActive } from "./operator-ui.js";
 import { procurementTabBadgeCount } from "./procurement-view.js";
+import { renderShortcutsHintButton, bindShortcutsHintButton } from "./keyboard-shortcuts.js";
 
 function isOrdersRegistry() {
   return state.activeTab === "Замовлення" && !state.selectedOrderId && state.view === "main";
@@ -377,6 +378,21 @@ export function renderHeaderChrome() {
     if (!gear.querySelector(".enver-icon")) gear.innerHTML = iconSvg("settings");
   }
   if (logout) logout.hidden = !user;
+
+  let shortcutsBtn = document.querySelector("#shortcutsHintBtn");
+  if (user && showMainChrome) {
+    if (!shortcutsBtn) {
+      const actions = document.querySelector("#headerActions");
+      const mount = document.createElement("span");
+      mount.innerHTML = renderShortcutsHintButton();
+      shortcutsBtn = mount.firstElementChild;
+      actions?.insertBefore(shortcutsBtn, actions.querySelector("#themeToggleBtn"));
+      bindShortcutsHintButton();
+    }
+    shortcutsBtn.hidden = false;
+  } else if (shortcutsBtn) {
+    shortcutsBtn.hidden = true;
+  }
 
   if (user && state.view === "main") {
     mountGodmodeNotifyChrome();

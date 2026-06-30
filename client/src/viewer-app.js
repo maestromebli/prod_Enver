@@ -13,7 +13,7 @@ import {
   formatPartDetailSummary
 } from "@enver/shared/production/part-detail-display.js";
 import { closeViewerWindow, resolveViewerModelUrl } from "./part-viewer-window.js";
-import { isNativeOperatorShell } from "./operator-native.js";
+import { isNativeOperatorShell, markEnverNativeShell } from "./operator-native.js";
 import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 
 const HOLE_FACE_LABELS = {
@@ -374,6 +374,7 @@ function bindHotkeys() {
 }
 
 function initViewerShell() {
+  markEnverNativeShell();
   const tablet =
     isNativeOperatorShell() ||
     /Android|iPad|Tablet/i.test(navigator.userAgent) ||

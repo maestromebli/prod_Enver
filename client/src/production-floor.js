@@ -12,7 +12,11 @@ import {
 import { state } from "./state.js";
 import { stageLabel } from "./users-constants.js";
 import { badge, escapeHtml } from "./utils.js";
-import { NOTIFICATION_TASK_STATUSES, stageClientField } from "@enver/shared/production/stages.js";
+import {
+  NOTIFICATION_TASK_STATUSES,
+  OPERATOR_STAGE_KEY_SET,
+  stageClientField
+} from "@enver/shared/production/stages.js";
 import { bindProductionBoard, renderProductionBoard } from "./production-board.js";
 
 let floorCache = null;
@@ -62,6 +66,7 @@ function countNewTasksByStage(stages = []) {
   for (const position of state.positions) {
     if (!freshIds.has(Number(position.id))) continue;
     for (const stage of stages) {
+      if (!OPERATOR_STAGE_KEY_SET.has(stage.key)) continue;
       const field = stageClientField(stage.key);
       if (NOTIFICATION_TASK_STATUSES.has(position[field])) {
         counters[stage.key] = (counters[stage.key] || 0) + 1;
@@ -79,8 +84,11 @@ function renderPipelineStrip(stages, freshByStage = {}) {
       const fresh = freshByStage[s.key] || 0;
       const arrow =
         i < stages.length - 1 ? '<span class="pf-pipe-arrow" aria-hidden="true">→</span>' : "";
+      const openStageAttrs = OPERATOR_STAGE_KEY_SET.has(s.key)
+        ? ` data-open-operator-stage="${escapeHtml(s.key)}"`
+        : "";
       return `
-        <button type="button" class="pf-pipe-col ${fresh > 0 ? "is-fresh" : ""}" data-pf-stage="${escapeHtml(s.key)}" data-open-operator-stage="${escapeHtml(s.key)}">
+        <button type="button" class="pf-pipe-col ${fresh > 0 ? "is-fresh" : ""}" data-pf-stage="${escapeHtml(s.key)}"${openStageAttrs}>
           <span class="pf-pipe-label">${escapeHtml(s.label)}</span>
           <span class="pf-pipe-count">${total}</span>
           <span class="pf-pipe-sub">
@@ -100,11 +108,14 @@ function renderStageCards(stages, freshByStage = {}) {
     .map((s) => {
       const total = (s.handed || 0) + (s.inWork || 0) + (s.paused || 0);
       const fresh = freshByStage[s.key] || 0;
+      const panelBtn = OPERATOR_STAGE_KEY_SET.has(s.key)
+        ? `<button type="button" class="btn btn-sm" data-open-operator-stage="${escapeHtml(s.key)}">Панель етапу</button>`
+        : "";
       return `
         <article class="pf-stage-card ${fresh > 0 ? "is-fresh" : ""}" data-pf-stage="${escapeHtml(s.key)}">
           <header class="pf-stage-head">
             <h3>${escapeHtml(s.label)} ${fresh > 0 ? `<span class="pf-fresh-pill">+${fresh} нов.</span>` : ""}</h3>
-            <button type="button" class="btn btn-sm" data-open-operator-stage="${escapeHtml(s.key)}">Панель етапу</button>
+            ${panelBtn}
           </header>
           <div class="pf-stage-stats">
             <div class="pf-stat"><span class="pf-stat-val">${s.inWork || 0}</span><span class="pf-stat-lbl">В роботі</span></div>
