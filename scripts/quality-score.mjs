@@ -44,10 +44,12 @@ function sharedCoverageScore() {
   const result = spawnSync("node", ["scripts/run-coverage-shared.mjs"], {
     cwd: serverDir,
     encoding: "utf8",
-    shell: false
+    shell: false,
+    maxBuffer: 32 * 1024 * 1024
   });
   const out = `${result.stdout || ""}${result.stderr || ""}`;
-  const match = out.match(/all files\s+\|\s+([\d.]+)/);
+  const matches = [...out.matchAll(/all files\s+\|\s+([\d.]+)/g)];
+  const match = matches.at(-1);
   if (!match) {
     process.stdout.write(out);
     return { score: 0, detail: "no coverage report", pct: 0, testsOk: false };

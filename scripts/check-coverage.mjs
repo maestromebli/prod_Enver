@@ -19,13 +19,15 @@ const script = scope === "all" ? "run-coverage-all.mjs" : "run-coverage-shared.m
 const result = spawnSync("node", [`scripts/${script}`], {
   cwd: serverDir,
   encoding: "utf8",
-  shell: false
+  shell: false,
+  maxBuffer: 32 * 1024 * 1024
 });
 
 const output = `${result.stdout || ""}${result.stderr || ""}`;
 process.stdout.write(output);
 
-const match = output.match(/all files\s+\|\s+([\d.]+)/);
+const matches = [...output.matchAll(/all files\s+\|\s+([\d.]+)/g)];
+const match = matches.at(-1);
 if (!match) {
   console.error("\n[coverage] не знайдено рядок all files у звіті");
   process.exit(1);
