@@ -1,6 +1,7 @@
 import { order3dFileUrl } from "./order-3d-api.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
+import { DEFAULT_PART_VIEWER_THEME } from "../part-viewer-mount.js";
 
 let viewerInstance = null;
 
@@ -27,18 +28,22 @@ export async function mountOrder3DViewer(container, { orderId, asset, order, par
   container.innerHTML = `<p class="order-3d-viewer-loading enver-meta">Завантаження 3D…</p>`;
 
   try {
-    const { createPartViewerLazy } = await import("../part-viewer-lazy.js");
     viewerInstance?.destroy?.();
-    container.innerHTML = "";
-    const viewer = await createPartViewerLazy(container);
+    const { mountModelViewer } = await import("../part-viewer-mount.js");
+    const { getStoredToken } = await import("../api.js");
     const url = order3dFileUrl(orderId, asset.id, "web-model");
-    const token = (await import("../api.js")).getStoredToken();
-    const format = asset.webModelFormat || "glb";
-    await viewer.loadModel(url, token, { format });
     const catalog = parts?.length ? parts : await loadOrderConstructiveParts(order);
-    if (catalog.length) viewer.setPartCatalog(catalog);
-    viewerInstance = viewer;
-    return viewer;
+
+    container.innerHTML = "";
+    viewerInstance = await mountModelViewer(container, {
+      url,
+      token: getStoredToken(),
+      format: asset.webModelFormat || "glb",
+      parts: catalog,
+      theme: DEFAULT_PART_VIEWER_THEME,
+      viewerOptions: { pickable: false }
+    });
+    return viewerInstance;
   } catch (err) {
     const msg = err?.message?.includes("геометрії")
       ? "VRML без видимої геометрії"

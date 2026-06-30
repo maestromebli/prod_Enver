@@ -161,7 +161,7 @@
   width: 100%;
   min-height: 280px;
   height: 100%;
-  background: #f0f2f5;
+  background: #c6cacf;
   border-radius: 8px;
   margin: 12px 0;
   position: relative;
@@ -178,6 +178,54 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.part-viewer-wrap--bazis .part-viewer-zoom-btn {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #334155;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+.part-viewer-wrap--bazis .part-viewer-zoom-btn:hover {
+  background: #fff;
+  border-color: #ff9900;
+  color: #1e293b;
+}
+
+.part-viewer-wrap--bazis .part-viewer-pick-hint {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+.part-viewer-wrap--bazis .part-viewer-info {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.part-viewer-wrap--bazis .part-viewer-info-close {
+  color: #64748b;
+}
+
+.part-viewer-wrap--bazis .part-viewer-info-close:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.part-viewer-wrap--bazis .part-viewer-info-number {
+  color: #c2410c;
+}
+
+.part-viewer-wrap--bazis .part-viewer-info-dims {
+  color: #334155;
+}
+
+.part-viewer-wrap--bazis.part-viewer-wrap--drawing .part-viewer-zoom-btn {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .part-viewer-wrap--studio .part-viewer-zoom-btn {

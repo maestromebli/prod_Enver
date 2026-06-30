@@ -1059,7 +1059,7 @@ html.enver-native-shell .op-order-3d--native .op-order-3d-viewer {
   height: min(28vh, 220px);
   border-radius: 8px;
   overflow: hidden;
-  background: #121a24;
+  background: #c6cacf;
 }
 
 .op-scan-part-info {
@@ -1137,7 +1137,7 @@ html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
   height: min(30vh, 220px);
   border-radius: 8px;
   overflow: hidden;
-  background: #121a24;
+  background: #c6cacf;
 }
 
 .op-part-detail-info {

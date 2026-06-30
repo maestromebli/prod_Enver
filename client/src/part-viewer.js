@@ -816,6 +816,18 @@ export function createPartViewer(
     return [...found];
   }
 
+  function panelSurfaceMaterial(part) {
+    const color = partSurfaceColor(part);
+    if (palette.useLambert) {
+      return new THREE.MeshLambertMaterial({ color, side: THREE.FrontSide });
+    }
+    return new THREE.MeshStandardMaterial({
+      color,
+      metalness: 0.1,
+      roughness: 0.55
+    });
+  }
+
   function applyPartDetailView(part, targetHint = null) {
     if (!model || !part) return null;
     exitDrawingModeForOverlay();
@@ -839,11 +851,7 @@ export function createPartViewer(
       if (!isRenderableMesh(child)) return;
       const isTarget = targetSet.has(child);
       if (isTarget) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: partSurfaceColor(part),
-          metalness: 0.1,
-          roughness: 0.55
-        });
+        child.material = panelSurfaceMaterial(part);
         setEdgeStyle(child, EDGE_COLOR);
         applyKromkaEdgeHighlight(child, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
         child.visible = true;

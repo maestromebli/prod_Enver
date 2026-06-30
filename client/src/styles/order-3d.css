@@ -43,7 +43,7 @@
   min-height: 420px;
   height: min(62vh, 640px);
   border-radius: var(--enver-radius-md, 8px);
-  background: #f0f2f5;
+  background: #c6cacf;
 }
 
 .order-3d-toolbar {
