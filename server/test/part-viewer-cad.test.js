@@ -36,7 +36,11 @@ describe("shared/production/part-viewer-cad", () => {
   });
 
   it("mapCadHoleToLocal для лицьової панелі", () => {
-    const local = mapCadHoleToLocal(box, { face: "panel", xMm: 400, yMm: 300 }, { dx: 800, dy: 600, dz: 18 });
+    const local = mapCadHoleToLocal(
+      box,
+      { face: "panel", xMm: 400, yMm: 300 },
+      { dx: 800, dy: 600, dz: 18 }
+    );
     assert.ok(local.x > 0);
     assert.ok(local.y > 0);
     assert.equal(local.thinAxis, "y");
