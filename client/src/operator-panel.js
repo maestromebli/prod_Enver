@@ -36,11 +36,23 @@ import {
   handleOperatorScanBack
 } from "./part-scan.js";
 import { isCuttingOneScreen } from "./operator-ui.js";
+import { autoSelectNextOperatorJob, maybeAutoStartOperatorJob } from "./operator-automation.js";
 
-async function afterOperatorMutation(result, onChange) {
+async function afterOperatorMutation(result, onChange, { autoAdvance = false } = {}) {
   const { propagatePositionMutation } = await import("./data-sync.js");
   propagatePositionMutation(result);
   await loadOperatorData();
+  if (autoAdvance) {
+    const selected = await autoSelectNextOperatorJob({ loadDetail: loadOperatorJobDetail });
+    if (selected) {
+      await maybeAutoStartOperatorJob({
+        onMutation: async (startResult) => {
+          propagatePositionMutation(startResult);
+          await loadOperatorData();
+        }
+      });
+    }
+  }
   onChange?.();
 }
 
@@ -144,12 +156,14 @@ export async function loadOperatorData() {
       { silent: true }
     );
     state.operatorActiveSession = data.activeSession;
+    state.operatorAutomation = data.automation || null;
 
     if (data.activeSession?.position_id) {
       state.operatorSelectedPositionId = data.activeSession.position_id;
       await loadOperatorJobDetail(data.activeSession.position_id);
     } else {
       state.operatorJobDetail = null;
+      await autoSelectNextOperatorJob({ loadDetail: loadOperatorJobDetail });
     }
   } finally {
     state.operatorQueueLoading = false;
@@ -789,6 +803,9 @@ export function bindOperatorActions(onChange) {
         return;
       state.operatorSelectedPositionId = Number(posBtn.dataset.selectPosition);
       await loadOperatorJobDetail(state.operatorSelectedPositionId);
+      await maybeAutoStartOperatorJob({
+        onMutation: async (result) => afterOperatorMutation(result, operatorOnChange)
+      });
       operatorOnChange();
       return;
     }
@@ -850,7 +867,7 @@ export function bindOperatorActions(onChange) {
         onSuccess: async (result) => {
           state.operatorSelectedPositionId = null;
           await new Promise((r) => setTimeout(r, card ? 220 : 0));
-          await afterOperatorMutation(result, operatorOnChange);
+          await afterOperatorMutation(result, operatorOnChange, { autoAdvance: true });
         }
       }).catch(() => {});
     }

@@ -848,7 +848,21 @@ function buildAutomationHints(position, context) {
   if (hasAiAnalysis(row, context) && !tasksCreated(row, context)) {
     hints.push({
       type: "ai_tasks_ready",
-      message: "ШІ підготував рекомендації — можна створити задачі однією кнопкою."
+      message:
+        "ШІ підготував рекомендації — можна створити задачі однією кнопкою або увімкнути автостворення в Налаштуваннях."
+    });
+  }
+  const pkgStatus = String(context.packageStatus ?? row.constructive_package_status ?? "").trim();
+  if (pkgStatus === "parsed" || pkgStatus === "needs_review") {
+    hints.push({
+      type: "package_verify",
+      message: "Пакет розібрано — підтвердіть у wizard, щоб запустити автопередачу в цех."
+    });
+  }
+  if (pkgStatus === "approved_by_production" && !tasksCreated(row, context)) {
+    hints.push({
+      type: "handoff_ready",
+      message: "Пакет підтверджено — задачі мають створитись автоматично або вручну з ШІ."
     });
   }
   return hints;

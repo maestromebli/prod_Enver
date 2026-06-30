@@ -36,6 +36,8 @@ export const state = {
   operatorStageEstimate: null,
   operatorLoadError: "",
   operatorQueueLoading: false,
+  /** Підказки з /api/operator/queue (auto-select, auto-start) */
+  operatorAutomation: null,
   /** queue | scan — режим панелі оператора */
   operatorViewMode: "queue",
   /** Зведення цеху з /api/production/floor */

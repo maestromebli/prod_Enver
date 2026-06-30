@@ -131,14 +131,26 @@ router.put("/automation", async (req, res) => {
     const body = req.body || {};
     const saved = await saveAutomationSettings({
       autoCreateTasksFromAi: body.autoCreateTasksFromAi,
+      autoCreateTasksOnPackageApprove: body.autoCreateTasksOnPackageApprove,
       autoCreateTasksMinConfidence: body.autoCreateTasksMinConfidence,
       autoCreateTasksRequireSafeQuality: body.autoCreateTasksRequireSafeQuality,
+      autoCreateTasksShadowMode: body.autoCreateTasksShadowMode,
+      assignRulesEnabled: body.assignRulesEnabled,
+      assignRules: body.assignRules,
+      productionWebhookEnabled: body.productionWebhookEnabled,
+      productionWebhookUrl: body.productionWebhookUrl,
       overdueDigestEnabled: body.overdueDigestEnabled,
       overdueDigestHourKyiv: body.overdueDigestHourKyiv,
       overdueDigestWebhookUrl: body.overdueDigestWebhookUrl,
       overdueDigestSendWhenEmpty: body.overdueDigestSendWhenEmpty,
       procurementWebhookEnabled: body.procurementWebhookEnabled,
-      procurementWebhookUrl: body.procurementWebhookUrl
+      procurementWebhookUrl: body.procurementWebhookUrl,
+      stalledStageCheckEnabled: body.stalledStageCheckEnabled,
+      stalledStageHours: body.stalledStageHours,
+      autoCompleteStageOnFullScan: body.autoCompleteStageOnFullScan,
+      blockAutoHandoffOnPartialB3d: body.blockAutoHandoffOnPartialB3d,
+      autoSelectNextJob: body.autoSelectNextJob,
+      autoStartStageOnOpen: body.autoStartStageOnOpen
     });
     res.json({
       ok: true,
@@ -148,6 +160,35 @@ router.put("/automation", async (req, res) => {
   } catch (err) {
     console.error("PUT /api/settings/automation:", err);
     res.status(500).json({ error: "Не вдалося зберегти налаштування автоматизації" });
+  }
+});
+
+router.get("/automation/metrics", async (req, res) => {
+  try {
+    const { getAutomationMetrics } = await import("../automation/event-log.js");
+    const { listFailedWebhooks } = await import("../automation/outbox.js");
+    const days = Number(req.query.days) || 7;
+    const metrics = await getAutomationMetrics({ days });
+    const failed = await listFailedWebhooks(10);
+    res.json({ ...metrics, recentFailedWebhooks: failed });
+  } catch (err) {
+    console.error("GET /api/settings/automation/metrics:", err);
+    res.status(500).json({ error: "Не вдалося завантажити метрики автоматизації" });
+  }
+});
+
+router.post("/automation/retry-webhook/:id", async (req, res) => {
+  try {
+    const { retryFailedWebhook } = await import("../automation/outbox.js");
+    const result = await retryFailedWebhook(Number(req.params.id));
+    if (!result.ok) {
+      res.status(400).json({ error: result.error || "Повтор не вдався" });
+      return;
+    }
+    res.json({ ok: true, message: "Webhook надіслано повторно" });
+  } catch (err) {
+    console.error("POST retry-webhook:", err);
+    res.status(500).json({ error: "Помилка повтору webhook" });
   }
 });
 

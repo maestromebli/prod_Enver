@@ -1,0 +1,42 @@
+{
+  "name": "ENVER Automation Webhooks",
+  "description": "Імпорт у n8n: події ENVER CRM",
+  "workflows": [
+    {
+      "name": "ENVER — overdue_digest",
+      "trigger": "Webhook POST",
+      "path": "enver-overdue",
+      "filter": "body.event === 'overdue_digest'",
+      "actions": ["Telegram / Email з body.items"]
+    },
+    {
+      "name": "ENVER — position_ready_for_production",
+      "trigger": "Webhook POST",
+      "path": "enver-production",
+      "filter": "body.event === 'position_ready_for_production'",
+      "actions": ["Notify цех, body.stages, body.positionId"]
+    },
+    {
+      "name": "ENVER — procurement_request_created",
+      "trigger": "Webhook POST",
+      "path": "enver-procurement",
+      "filter": "body.event === 'procurement_request_created'",
+      "actions": ["Email постачальнику, body.itemsPreview"]
+    },
+    {
+      "name": "ENVER — stage_completed",
+      "trigger": "Webhook POST",
+      "path": "enver-production",
+      "filter": "body.event === 'stage_completed'",
+      "actions": ["KPI / Slack"]
+    },
+    {
+      "name": "ENVER — ai_analysis_needs_review",
+      "trigger": "Webhook POST",
+      "path": "enver-production",
+      "filter": "body.event === 'ai_analysis_needs_review'",
+      "actions": ["Notify начальника цеху"]
+    }
+  ],
+  "settingsPath": "Settings → Автоматизація → вкажіть URL webhook для кожного workflow"
+}

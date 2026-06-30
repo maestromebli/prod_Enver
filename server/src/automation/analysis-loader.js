@@ -34,20 +34,32 @@ export async function loadLatestConstructiveAnalysis(positionId) {
 }
 
 /** Додає quality і нормалізує suggestedTasks для автостворення задач. */
-export function enrichPackageAnalysisForAuto(analysis, _context = {}, learningContext = {}) {
+export function enrichPackageAnalysisForAuto(analysis, context = {}, learningContext = {}) {
+  const dbMaterials = (context.materialNames || []).filter(Boolean);
+  const dbPanels = context.partsForQuality || [];
+  const aiMaterials = (analysis.detectedMaterials || []).map((m) =>
+    typeof m === "string" ? m : m?.name || m?.material || ""
+  );
+  const aiPanels = analysis.detectedParts || [];
+
   const forQuality = {
     summary: analysis.summary,
-    materials: (analysis.detectedMaterials || []).map((m) =>
-      typeof m === "string" ? m : m?.name || m?.material || ""
-    ),
-    panels: analysis.detectedParts || [],
+    materials: dbMaterials.length ? dbMaterials : aiMaterials.filter(Boolean),
+    panels: dbPanels.length ? dbPanels : aiPanels,
     suggestedTasks: analysis.suggestedTasks,
-    warnings: analysis.warnings || [],
-    missingInfo: []
+    warnings: [...(analysis.warnings || []), ...(context.sourceMeta?.warnings || [])],
+    missingInfo: analysis.missingInfo || []
   };
   const warnings = [];
   forQuality.suggestedTasks = normalizeSuggestedTasks(forQuality.suggestedTasks, warnings);
-  attachQualityToAnalysis(forQuality, {}, learningContext || {});
+  const sourceMeta = context.sourceMeta || {
+    parsedPackage: true,
+    extractionQuality: (context.partsCount || 0) > 0 ? "good" : "poor",
+    partsCount: context.partsCount || 0,
+    materialsCount: context.materialsCount || 0,
+    hardwareCount: context.hardwareCount || 0
+  };
+  attachQualityToAnalysis(forQuality, sourceMeta, learningContext || {});
   analysis.quality = forQuality.quality;
   analysis.suggestedTasks = forQuality.suggestedTasks;
   return analysis;
@@ -76,11 +88,19 @@ export async function loadLatestPackageAiAnalysis(positionId) {
   return analysis;
 }
 
-/** Конструктивний аналіз має пріоритет над пакетним. */
+/** Пакетний аналіз має пріоритет, якщо якість не нижча за legacy-файл. */
 export async function loadLatestAiAnalysisForPosition(positionId) {
-  const constructive = await loadLatestConstructiveAnalysis(positionId);
-  if (constructive) return { analysis: constructive, source: "constructive" };
-  const pkg = await loadLatestPackageAiAnalysis(positionId);
+  const [constructive, pkg] = await Promise.all([
+    loadLatestConstructiveAnalysis(positionId),
+    loadLatestPackageAiAnalysis(positionId)
+  ]);
+  if (pkg && constructive) {
+    const pkgScore = pkg.quality?.score ?? 0;
+    const conScore = constructive.quality?.score ?? 0;
+    if (pkgScore >= conScore) return { analysis: pkg, source: "package" };
+    return { analysis: constructive, source: "constructive" };
+  }
   if (pkg) return { analysis: pkg, source: "package" };
+  if (constructive) return { analysis: constructive, source: "constructive" };
   return null;
 }

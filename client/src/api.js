@@ -189,6 +189,10 @@ export const api = {
   updateAutomationSettings: (body) =>
     request("/api/settings/automation", { method: "PUT", body: JSON.stringify(body) }),
   testOverdueDigest: () => request("/api/settings/automation/test-overdue", { method: "POST" }),
+  getAutomationMetrics: (days = 7) =>
+    request(`/api/settings/automation/metrics?days=${encodeURIComponent(days)}`),
+  retryAutomationWebhook: (id) =>
+    request(`/api/settings/automation/retry-webhook/${id}`, { method: "POST" }),
 
   analyzeConstructive: (positionId) =>
     request(`/api/ai/analyze-constructive/${positionId}`, { method: "POST" }),
@@ -196,6 +200,8 @@ export const api = {
   getRecentAiAnalyses: () => request("/api/ai/recent"),
   submitAiFeedback: (body) =>
     request("/api/ai/feedback", { method: "POST", body: JSON.stringify(body) }),
+  submitPackageAiFeedback: (body) =>
+    request("/api/ai/feedback/package", { method: "POST", body: JSON.stringify(body) }),
 
   getAiStatus: () => request("/api/ai/status"),
   aiAssist: (body) => request("/api/ai/assist", { method: "POST", body: JSON.stringify(body) }),

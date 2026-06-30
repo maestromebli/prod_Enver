@@ -480,6 +480,75 @@
   margin-bottom: 8px;
 }
 
+.cp-readiness {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--enver-radius-md, 12px);
+  background: var(--enver-surface-soft, #f5f7f2);
+  border: 1px solid var(--enver-border, #dfe4d8);
+}
+
+.cp-readiness-score {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+}
+
+.cp-readiness-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+}
+
+.cp-readiness-item {
+  padding: 0.2rem 0;
+}
+
+.cp-readiness-item.is-ok {
+  color: var(--enver-success, #2d6a4f);
+}
+
+.cp-readiness-item.is-fail {
+  color: var(--enver-danger, #c0392b);
+}
+
+.cp-readiness-item.is-warn {
+  color: var(--enver-warning, #b8860b);
+}
+
+.automation-metrics-card {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--enver-radius-md, 12px);
+  background: var(--enver-surface-soft, #f5f7f2);
+  border: 1px solid var(--enver-border, #dfe4d8);
+}
+
+.automation-metrics-list,
+.automation-failed-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+}
+
+.automation-failed-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.automation-failed-list li {
+  margin-top: 0.35rem;
+}
+
+.part-scan-progress {
+  font-weight: 600;
+}
+
+.part-scan-complete-hint {
+  color: var(--enver-success, #2d6a4f);
+  font-weight: 600;
+}
+
 /* Wizard пакета конструктива */
 .cp-wizard-stepper {
   display: flex;

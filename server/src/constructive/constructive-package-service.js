@@ -494,6 +494,7 @@ async function savePreview3dMeta(packageId, glbFileId, preview, enver3Sync = nul
   manifest.preview3d = {
     layout: preview?.layout || "flat",
     source: preview?.source || null,
+    conversionStatus: preview?.conversionStatus || preview?.status || null,
     panelCount: preview?.panelCount ?? null,
     assembledCount,
     missingCodes,
@@ -1135,6 +1136,19 @@ export async function approvePackage(packageId, { role, userId, actor }) {
     },
     actor
   });
+
+  if (status === "approved_by_production") {
+    const { onPackageApprovedByProduction } = await import("../automation/package-handoff.js");
+    const { notifyPackageApproved } = await import("../automation/dispatch.js");
+    void notifyPackageApproved(pkg.position_id, {
+      packageId,
+      version: pkg.version
+    }).catch((err) => console.error("[automation] package approved:", err?.message || err));
+    void onPackageApprovedByProduction(
+      { ...pkg, position_id: pkg.position_id, id: packageId },
+      { actor }
+    ).catch((err) => console.error("[automation] package approve:", err?.message || err));
+  }
 
   return getPackageById(packageId);
 }

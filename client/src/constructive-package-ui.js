@@ -37,6 +37,10 @@ import {
 } from "@enver/shared/production/constructive-package.js";
 import { get3dUpgradeHintText } from "@enver/shared/production/resolve-3d-preview.js";
 import {
+  evaluatePackageReadiness,
+  packageReadinessScore
+} from "@enver/shared/production/package-readiness.js";
+import {
   formatAssemblyMissingMessage,
   formatEnver3SyncMessage
 } from "@enver/shared/production/preview-3d-meta.js";
@@ -370,6 +374,31 @@ export function renderConstructivePackageReadOnly(
     </section>`;
 }
 
+function renderPackageReadinessChecklist(detail) {
+  const readiness = evaluatePackageReadiness(detail);
+  const score = packageReadinessScore(readiness);
+  const items = readiness.checks
+    .map(
+      (c) => `
+    <li class="cp-readiness-item ${c.ok ? "is-ok" : c.required ? "is-fail" : "is-warn"}">
+      <span aria-hidden="true">${c.ok ? "✓" : "○"}</span>
+      ${escapeHtml(c.label)}
+      ${c.hint ? `<span class="enver-meta"> — ${escapeHtml(c.hint)}</span>` : ""}
+    </li>`
+    )
+    .join("");
+  return `
+    <div class="cp-readiness" data-ready="${readiness.readyForAutoHandoff ? "1" : "0"}">
+      <p class="cp-readiness-score">Готовність до автопередачі: <strong>${score}%</strong></p>
+      <ul class="cp-readiness-list">${items}</ul>
+      ${
+        !readiness.readyForAutoHandoff && readiness.blockReason
+          ? `<p class="cp-warning">Блокер: ${escapeHtml(readiness.blockReason)}</p>`
+          : ""
+      }
+    </div>`;
+}
+
 function packageUploadFormatsLabel() {
   const mb = Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
   return `.project · .b3d · XLS · PDF · ЧПК · GLB — до ${mb} МБ`;
@@ -447,6 +476,7 @@ export function renderConstructivePackageBlock(
     "verify",
     `
       ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
+      ${detail ? renderPackageReadinessChecklist(detail) : ""}
       ${renderPackage3dStatusBlock(detail)}
       <div class="constructive-actions constructive-actions--cta cp-actions">
         <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length && ["parsed", "needs_review"].includes(status) ? "" : "disabled"}>Підтвердити пакет</button>
@@ -576,6 +606,8 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
   if (aiMount) {
     mountPackageAiBlock(aiMount, detail?.aiAnalysis, {
       showRerun: Boolean(detail?.package?.id && detail?.parts?.length),
+      positionId: position.id,
+      showError: toastError,
       onRerun: async () => {
         const packageId = detail?.package?.id;
         if (!packageId) return;
@@ -587,6 +619,8 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
             : await api.getConstructivePackageLatest(position.id);
           mountPackageAiBlock(aiMount, next?.aiAnalysis || res.aiAnalysis, {
             showRerun: true,
+            positionId: position.id,
+            showError: toastError,
             onRerun: () => aiMount.querySelector("[data-package-ai-rerun]")?.click()
           });
           getPackagePanelContext(position.id)?.onDetailPatched?.(next);
@@ -600,6 +634,8 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
         onUpdate: (nextDetail) => {
           mountPackageAiBlock(aiMount, nextDetail?.aiAnalysis, {
             showRerun: Boolean(nextDetail?.parts?.length),
+            positionId: position.id,
+            showError: toastError,
             onRerun: () => aiMount.querySelector("[data-package-ai-rerun]")?.click()
           });
           getPackagePanelContext(position.id)?.onDetailPatched?.(nextDetail);

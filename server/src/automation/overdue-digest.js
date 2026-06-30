@@ -1,6 +1,6 @@
 import { all } from "../db.js";
 import { getAutomationSettings, saveAutomationSettings } from "./settings.js";
-import { postAutomationWebhook } from "./webhook.js";
+import { enqueueAutomationWebhook } from "./outbox.js";
 
 function kyivParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -81,7 +81,7 @@ export async function runOverdueDigest({ force = false, now = new Date() } = {})
     items
   };
 
-  const result = await postAutomationWebhook(settings.overdueDigestWebhookUrl, payload, {
+  const result = await enqueueAutomationWebhook(settings.overdueDigestWebhookUrl, payload, {
     event: "overdue_digest"
   });
 
@@ -128,7 +128,7 @@ export async function sendProcurementWebhook(request, { materials = [], hardware
     ]
   };
 
-  const result = await postAutomationWebhook(settings.procurementWebhookUrl, payload, {
+  const result = await enqueueAutomationWebhook(settings.procurementWebhookUrl, payload, {
     event: "procurement_request_created"
   });
 

@@ -1,10 +1,10 @@
 const WEBHOOK_TIMEOUT_MS = 12_000;
 
 /**
- * Надсилає JSON на зовнішній webhook (n8n, Make, Zapier тощо).
+ * Прямий POST на webhook (без черги).
  * @returns {Promise<{ ok: boolean, status?: number, error?: string }>}
  */
-export async function postAutomationWebhook(url, payload, { event } = {}) {
+export async function postAutomationWebhookDirect(url, payload, { event } = {}) {
   const target = String(url || "").trim();
   if (!target) return { ok: false, error: "url_missing" };
 
@@ -43,4 +43,10 @@ export async function postAutomationWebhook(url, payload, { event } = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** @deprecated Використовуйте enqueueAutomationWebhook через dispatch.js */
+export async function postAutomationWebhook(url, payload, options = {}) {
+  const { enqueueAutomationWebhook } = await import("./outbox.js");
+  return enqueueAutomationWebhook(url, payload, options);
 }

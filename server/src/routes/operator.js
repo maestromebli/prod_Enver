@@ -107,6 +107,10 @@ router.get("/queue/:stageKey", async (req, res) => {
   );
   const queue = await Promise.all(rows.map((r) => mapOperatorPosition(r)));
 
+  const { getAutomationSettings, operatorAutomationHints } =
+    await import("../automation/settings.js");
+  const automation = operatorAutomationHints(await getAutomationSettings());
+
   let activeSession = await one(
     `SELECT os.*, p.order_number, p.item, p.object,
             p.cutting_status, p.edging_status, p.drilling_status, p.assembly_status, p.packaging_status
@@ -130,7 +134,7 @@ router.get("/queue/:stageKey", async (req, res) => {
     activeSession.stage_estimate = timing?.estimate || null;
   }
 
-  res.json({ queue, activeSession: activeSession || null });
+  res.json({ queue, activeSession: activeSession || null, automation });
 });
 
 router.get("/job/:positionId", async (req, res) => {
@@ -307,6 +311,12 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
     auditActor(req),
     autoHandoffs
   );
+
+  const { notifyStageCompleted } = await import("../automation/dispatch.js");
+  void notifyStageCompleted(positionId, {
+    stageKey,
+    autoHandoffs: autoHandoffs.map((h) => h.stageKey)
+  }).catch((err) => console.error("[automation] stage completed:", err?.message || err));
 
   res.json({ position: await mapOperatorPosition(afterRow) });
 });

@@ -6,6 +6,9 @@ import { STAGE_STATUS_FIELD } from "../roles.js";
 import { ALLOWED_STAGES } from "../ai/constructive-schema.js";
 import { normalizeSuggestedTasks } from "../ai/normalize-analysis.js";
 import { getAutomationSettings } from "./settings.js";
+import { logAutomationEvent } from "./event-log.js";
+import { applyAssignRulesForPosition } from "./assign-rules.js";
+import { notifyPositionReadyForProduction } from "./dispatch.js";
 
 const PRODUCTION_STATUS_FIELDS = [
   "cutting_status",
@@ -113,7 +116,9 @@ export async function tryAutoCreateTasksFromAnalysis(
   { source = "ai", actor = SYSTEM_ACTOR, settings: settingsIn, mode = "strict" } = {}
 ) {
   const settings = settingsIn || (await getAutomationSettings());
-  if (mode === "strict" && !settings.autoCreateTasksFromAi) {
+  const fromPackageApprove =
+    settings.autoCreateTasksOnPackageApprove && String(source).startsWith("package_approve");
+  if (mode === "strict" && !settings.autoCreateTasksFromAi && !fromPackageApprove) {
     return { applied: false, reason: "disabled", stages: [] };
   }
 
@@ -126,11 +131,39 @@ export async function tryAutoCreateTasksFromAnalysis(
     return { applied: false, reason: "no_matching_stages", stages: [] };
   }
 
+  if (settings.autoCreateTasksShadowMode) {
+    await logAutomationEvent("auto_create_tasks", {
+      entityType: "position",
+      entityId: positionId,
+      outcome: "shadow",
+      detail: { source, stages, mode }
+    });
+    console.info(
+      `[automation] shadow create_tasks position=${positionId} source=${source} stages=${stages.join(",")}`
+    );
+    return { applied: false, reason: "shadow_mode", stages, source, shadow: true };
+  }
+
   const result = await applyStagesToPosition(positionId, stages, { actor });
   if (result.applied) {
+    await applyAssignRulesForPosition(positionId, stages, { actor, settings });
+    await notifyPositionReadyForProduction(positionId, { stages, source });
+    await logAutomationEvent("auto_create_tasks", {
+      entityType: "position",
+      entityId: positionId,
+      outcome: "applied",
+      detail: { source, stages }
+    });
     console.info(
       `[automation] create_tasks_from_ai position=${positionId} source=${source} stages=${stages.join(",")}`
     );
+  } else {
+    await logAutomationEvent("auto_create_tasks", {
+      entityType: "position",
+      entityId: positionId,
+      outcome: result.reason || "skipped",
+      detail: { source, stages }
+    });
   }
   return { ...result, source };
 }

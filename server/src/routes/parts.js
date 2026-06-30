@@ -21,6 +21,7 @@ import {
 } from "../../../shared/production/constructive-package.js";
 import { detectOrder3DFileType } from "../../../shared/production/order-3d.js";
 import { recordHistory } from "../audit.js";
+import { shouldSuggestCompleteStage } from "../automation/scan-progress.js";
 import { config } from "../config.js";
 
 const router = Router();
@@ -187,6 +188,10 @@ async function handlePartScan(req, res) {
   });
 
   const payload = await buildScanResponse(part);
+  const scanHint = await shouldSuggestCompleteStage(part.positionId, station);
+  payload.scanProgress = scanHint.progress || null;
+  payload.suggestCompleteStage = scanHint.suggest === true;
+  payload.suggestCompleteStageKey = scanHint.stageKey || null;
   res.json(payload);
 }
 

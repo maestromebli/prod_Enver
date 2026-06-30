@@ -8,6 +8,8 @@ import { normalizePackageAiAnalysis } from "../../../shared/production/package-a
 import { parseJsonObject } from "../json-utils.js";
 import { loadStageDurationHints } from "../stage-duration-learning.js";
 import { enrichPackageAnalysisForAuto } from "../automation/analysis-loader.js";
+import { getRecentAiFeedback } from "../constructive-ai.js";
+import { buildPackageAiSourceContext } from "./package-ai-context.js";
 
 function buildPackageAiPrompt({
   orderNumber,
@@ -15,7 +17,9 @@ function buildPackageAiPrompt({
   itemType,
   packageDetail,
   learningContext,
-  durationHints
+  durationHints,
+  sourceContext,
+  feedback = []
 }) {
   const parts = packageDetail.parts || [];
   const materials = packageDetail.materials || [];
@@ -27,6 +31,15 @@ function buildPackageAiPrompt({
     : "";
   const durationBlock = durationHints
     ? `\n\nФактичні середні темпи ENVER з завершених етапів (калібруй estimatedLabor):\n${durationHints}`
+    : "";
+  const feedbackBlock =
+    feedback.length > 0
+      ? `\n\nПриклади корекцій від адміністратора:\n${feedback
+          .map((f, i) => `${i + 1}. [${f.rating}] ${f.correction_text}`)
+          .join("\n")}`
+      : "";
+  const sourceBlock = sourceContext?.promptExtra
+    ? `\n\nСтруктуровані джерела пакета:\n${sourceContext.promptExtra}`
     : "";
 
   return `Ти аналізуєш пакет конструктива ENVER для меблевого виробництва.
@@ -78,10 +91,10 @@ Unmapped 3D: ${packageDetail.unmappedParts?.length || 0}
 - B3D без GLB — не вважай 3D готовим.
 - Не пропонуй автоматично відправку на ЧПК чи finance.
 - Усі тексти українською.
-- Не використовуй markdown.${learningBlock}${durationBlock}
+- Не використовуй markdown.${learningBlock}${durationBlock}${feedbackBlock}${sourceBlock}
 
-Деталі (перші 40):
-${JSON.stringify(parts.slice(0, 40), null, 0)}
+Деталі (перші 60):
+${JSON.stringify(parts.slice(0, 60), null, 0)}
 
 Матеріали:
 ${JSON.stringify(materials.slice(0, 20), null, 0)}
@@ -236,12 +249,15 @@ export async function analyzeConstructivePackage(
     return empty;
   }
 
+  const sourceContext = await buildPackageAiSourceContext(detail);
   const learningContext = await getRelevantLearningContext({
     itemName: item,
     itemType,
-    material: detail.materials?.[0]?.materialName || ""
+    material: detail.materials?.[0]?.materialName || "",
+    extractedText: sourceContext.inputSummary
   });
   const durationHints = await loadStageDurationHints().catch(() => "");
+  const feedback = await getRecentAiFeedback(5);
 
   const prompt = buildPackageAiPrompt({
     orderNumber,
@@ -249,7 +265,9 @@ export async function analyzeConstructivePackage(
     itemType,
     packageDetail: detail,
     learningContext,
-    durationHints
+    durationHints,
+    sourceContext,
+    feedback
   });
 
   const started = Date.now();
@@ -274,8 +292,12 @@ export async function analyzeConstructivePackage(
   const context = {
     partsCount: detail.parts?.length || 0,
     hardwareCount: detail.hardware?.length || 0,
+    materialsCount: detail.materials?.length || 0,
     itemName: item,
-    itemType
+    itemType,
+    sourceMeta: sourceContext.sourceMeta,
+    materialNames: sourceContext.materialNames,
+    partsForQuality: sourceContext.partsForQuality
   };
   const analysis = normalizePackageAiAnalysis(rawData, context);
   enrichPackageAnalysisForAuto(analysis, context, learningContext);
@@ -286,8 +308,12 @@ export async function analyzeConstructivePackage(
     context,
     learningContext: {
       summary: learningContext.summary || "",
-      examplesCount: learningContext.examples?.length || 0
+      examplesCount: learningContext.examples?.length || 0,
+      examples: learningContext.examples || [],
+      rules: learningContext.rules || [],
+      frequentMistakeCount: learningContext.frequentMistakeCount || 0
     },
+    sourceMeta: sourceContext.sourceMeta,
     durationMs
   };
 
@@ -309,6 +335,14 @@ export async function analyzeConstructivePackage(
       void tryAutoCreateTasksFromAnalysis(pkgRow.position_id, analysis, {
         source: "package_ai"
       }).catch((err) => console.error("[automation] package ai tasks:", err?.message || err));
+
+      if (analysis?.quality?.needsHumanReview) {
+        const { notifyAiNeedsReview } = await import("../automation/dispatch.js");
+        void notifyAiNeedsReview(pkgRow.position_id, {
+          source: "package_ai",
+          summary: analysis.summary || ""
+        }).catch((err) => console.error("[automation] ai review notify:", err?.message || err));
+      }
     }
   }
 
@@ -401,4 +435,50 @@ export async function listPackageAiAnalyses(packageId, limit = 5) {
     [packageId, limit]
   );
   return rows.map(mapAiRow).filter(Boolean);
+}
+
+export async function savePackageAiFeedback({
+  analysisId,
+  rating,
+  correctionText,
+  correctedTasks,
+  userId,
+  learningMeta = {}
+}) {
+  const row = await one(
+    `SELECT summary_json, package_id FROM constructive_package_ai_analyses WHERE id = $1`,
+    [analysisId]
+  );
+  if (!row) {
+    const err = new Error("ШІ-аналіз пакета не знайдено");
+    err.status = 404;
+    throw err;
+  }
+
+  const payload = parseJsonObject(row.summary_json);
+  const aiOutput = payload?.analysis || payload;
+
+  if (learningMeta.saveEvent !== false) {
+    const { saveLearningEvent } = await import("../ai/ai-memory.js");
+    await saveLearningEvent(
+      {
+        eventType: learningMeta.eventType || "package_ai_feedback",
+        entityType: learningMeta.entityType || "package_ai_analysis",
+        entityId: analysisId,
+        orderNumber: learningMeta.orderNumber || "",
+        itemName: learningMeta.itemName || "",
+        itemType: learningMeta.itemType || "",
+        material: learningMeta.material || "",
+        source: learningMeta.source || "package_ai",
+        inputSummary: learningMeta.inputSummary || payload?.sourceMeta?.sourceType || "package",
+        aiOutput,
+        correctedOutput: { suggestedTasks: correctedTasks },
+        correctionText,
+        rating,
+        confidenceBefore: aiOutput?.quality?.score,
+        tags: learningMeta.tags
+      },
+      userId
+    ).catch((err) => console.error("[package ai feedback learning]", err.message));
+  }
 }

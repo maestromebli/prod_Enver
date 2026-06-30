@@ -119,6 +119,16 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         <p>${escapeHtml(p.material)} · ${escapeHtml(formatPartDimensionsMm(p))}</p>
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
         ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
+        ${
+          data.scanProgress
+            ? `<p class="part-scan-progress enver-meta">Скановано ${data.scanProgress.scannedDistinct || 0} / ${data.scanProgress.totalParts || 0} деталей</p>`
+            : ""
+        }
+        ${
+          data.suggestCompleteStage
+            ? `<button type="button" class="btn btn-lg btn-primary" data-operator-finish-stage>Завершити етап</button>`
+            : ""
+        }
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
         ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D на панелі роботи — натисніть кнопку нижче для підсвітки деталі</p>` : ""}
       </div>
@@ -209,6 +219,31 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
       return;
     }
     openPartScanViewerWindow(data);
+  });
+
+  detailEl.querySelector("[data-operator-finish-stage]")?.addEventListener("click", async () => {
+    const { state } = await import("./state.js");
+    const stageKey = data.suggestCompleteStageKey || state.operatorStage;
+    const positionId = data.position?.id || state.operatorSelectedPositionId;
+    if (!state.currentUser?.id || !positionId || !stageKey) {
+      toastError("Спочатку оберіть позицію на етапі");
+      return;
+    }
+    try {
+      const result = await api.operatorFinish({
+        userId: state.currentUser.id,
+        positionId,
+        stageKey
+      });
+      const { propagatePositionMutation } = await import("./data-sync.js");
+      propagatePositionMutation(result);
+      const { loadOperatorData } = await import("./operator-panel.js");
+      await loadOperatorData();
+      toastSuccess("Етап завершено");
+      closePartScanDetail(detailEl, { onClose, scanInput });
+    } catch (err) {
+      toastError(err.message || "Не вдалося завершити етап");
+    }
   });
 
   if (!showCncActions) return;

@@ -5,6 +5,7 @@ import {
   productionTasksExist,
   selectStagesFromAnalysis
 } from "../src/automation/auto-create-tasks.js";
+import { normalizeScanStation } from "../src/automation/scan-progress.js";
 
 describe("automation settings", () => {
   it("нормалізує URL і годину", () => {
@@ -18,11 +19,21 @@ describe("automation settings", () => {
     assert.equal(s.autoCreateTasksMinConfidence, 1);
   });
 
+  it("за замовчуванням auto-tasks увімкнено", () => {
+    const s = normalizeAutomationSettings({});
+    assert.equal(s.autoCreateTasksFromAi, true);
+    assert.equal(s.autoCreateTasksOnPackageApprove, true);
+    assert.equal(s.autoSelectNextJob, true);
+    assert.equal(s.autoStartStageOnOpen, true);
+  });
+
   it("приймає https webhook", () => {
     const s = normalizeAutomationSettings({
-      procurementWebhookUrl: "https://hooks.example.com/p"
+      procurementWebhookUrl: "https://hooks.example.com/p",
+      productionWebhookUrl: "https://hooks.example.com/prod"
     });
     assert.equal(s.procurementWebhookUrl, "https://hooks.example.com/p");
+    assert.equal(s.productionWebhookUrl, "https://hooks.example.com/prod");
   });
 });
 
@@ -69,5 +80,13 @@ describe("auto-create tasks", () => {
       { mode: "assisted" }
     );
     assert.deepEqual(stages, []);
+  });
+});
+
+describe("scan station", () => {
+  it("normalizeScanStation — українські аліаси", () => {
+    assert.equal(normalizeScanStation("cutting"), "cutting");
+    assert.equal(normalizeScanStation("порізка"), "cutting");
+    assert.equal(normalizeScanStation("збірка"), "assembly");
   });
 });

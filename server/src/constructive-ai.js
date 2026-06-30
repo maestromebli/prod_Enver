@@ -238,6 +238,14 @@ export async function analyzeConstructiveFile({
     void tryAutoCreateTasksFromAnalysis(fileRow.position_id, analysis, {
       source: "constructive_ai"
     }).catch((err) => console.error("[automation] constructive ai tasks:", err?.message || err));
+
+    if (analysis?.quality?.needsHumanReview) {
+      const { notifyAiNeedsReview } = await import("./automation/dispatch.js");
+      void notifyAiNeedsReview(fileRow.position_id, {
+        source: "constructive_ai",
+        summary: analysis.summary || ""
+      }).catch((err) => console.error("[automation] ai review notify:", err?.message || err));
+    }
   }
 
   return flattenAnalysisResponse({
