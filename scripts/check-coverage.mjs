@@ -14,6 +14,17 @@ const minAll = Number(process.env.COVERAGE_MIN_LINES_ALL || 48);
 const min = scope === "all" ? minAll : minShared;
 const serverDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server");
 
+// e2e job: інтеграційні тести з Postgres — без coverage-звіту (поріг shared уже в validate).
+if (scope === "all" && process.env.RUN_INTEGRATION_TESTS === "1") {
+  const result = spawnSync("npm", ["test"], {
+    cwd: serverDir,
+    encoding: "utf8",
+    shell: false,
+    stdio: "inherit"
+  });
+  process.exit(result.status ?? 1);
+}
+
 const script = scope === "all" ? "run-coverage-all.mjs" : "run-coverage-shared.mjs";
 
 const result = spawnSync("node", [`scripts/${script}`], {
