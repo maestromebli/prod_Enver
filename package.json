@@ -33,14 +33,14 @@
     "validate": "npm run format:check && npm run lint -- --max-warnings 0 && npm run typecheck && npm test && npm run quality:check"
   },
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.51.0",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.13.0",
-    "concurrently": "^9.1.2",
-    "eslint": "^9.18.0",
-    "globals": "^15.14.0",
-    "prettier": "^3.4.2",
-    "typescript": "^5.8.2"
+    "@types/node": "^26.0.1",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.4",
+    "typescript": "^6.0.3"
   }
 }
