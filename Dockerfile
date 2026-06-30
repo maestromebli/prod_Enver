@@ -1,4 +1,4 @@
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY server/package.json ./server/
@@ -6,7 +6,7 @@ COPY client/package.json ./client/
 RUN npm install --prefix server --omit=dev
 RUN npm install --prefix client
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ARG APP_BUILD_SHA=dev
 ENV APP_BUILD_SHA=${APP_BUILD_SHA}
@@ -18,7 +18,7 @@ COPY shared ./shared
 COPY scripts/inject-app-build.mjs ./scripts/inject-app-build.mjs
 RUN node scripts/inject-app-build.mjs && npm run build --prefix client
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
