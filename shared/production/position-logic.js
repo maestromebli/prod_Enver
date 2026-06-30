@@ -61,12 +61,7 @@ export function derivePositionStatus(row) {
   if (row.problem?.trim()) return "Проблема";
   if (row.position_status === "На паузі") return "На паузі";
 
-  const production = [
-    row.cutting_status,
-    row.edging_status,
-    row.drilling_status,
-    row.assembly_status
-  ];
+  const production = PRODUCTION_STAGE_ORDER.map((key) => readStageStatus(row, key));
 
   const hasConstructor = hasConstructive(row);
   const allDone = hasConstructor && production.every((s) => STAGE_STATUS_DONE.has(s) || !s);
@@ -90,7 +85,6 @@ function productionStageStarted(status) {
 
 /** Позиція ще на столі конструктора (конструктив не передано в цех). */
 export function isOnConstructorStage(row) {
-  if (!hasConstructive(row)) return true;
   return !PRODUCTION_STAGE_ORDER.some((key) => productionStageStarted(readStageStatus(row, key)));
 }
 
@@ -135,7 +129,15 @@ export function enrichPositionRow(row, { planDate } = {}) {
         Number(row.overdue_days) || 0
       )
     : Number(row.overdue_days) || 0;
-  const enriched = { ...row, progress, position_status, current_stage, overdue_days };
+  const enriched = {
+    ...row,
+    progress,
+    position_status,
+    current_stage,
+    currentStage: current_stage,
+    positionStatus: position_status,
+    overdue_days
+  };
   return enriched;
 }
 

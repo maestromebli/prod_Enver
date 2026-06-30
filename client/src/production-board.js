@@ -1,4 +1,4 @@
-import { deriveCurrentStage } from "@enver/shared/production/position-logic.js";
+import { enrichPositionRow } from "@enver/shared/production/position-logic.js";
 import { STAGES } from "@enver/shared/production/stages.js";
 import { canEditPositions } from "./auth.js";
 import { activePositions } from "./archive.js";
@@ -19,7 +19,7 @@ function boardPositions() {
 }
 
 function resolveBoardStage(position) {
-  return deriveCurrentStage(position) || position.currentStage || "constructor";
+  return enrichPositionRow(position).current_stage || "constructor";
 }
 
 function groupByStage(positions) {

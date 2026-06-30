@@ -150,11 +150,17 @@ function enrichRow(position, _context = {}) {
   const row = { ...position };
   const progress = num(row, "progress", "progress") || computeProgress(row);
   const position_status = positionStatus(row) || derivePositionStatus({ ...row, progress });
-  const current_stage =
-    field(row, "current_stage", "currentStage") ||
-    deriveCurrentStage({ ...row, progress, position_status });
+  const current_stage = deriveCurrentStage({ ...row, progress, position_status });
   const overdue_days = num(row, "overdue_days", "overdueDays");
-  return { ...row, progress, position_status, current_stage, overdue_days };
+  return {
+    ...row,
+    progress,
+    position_status,
+    positionStatus: position_status,
+    current_stage,
+    currentStage: current_stage,
+    overdue_days
+  };
 }
 
 function makeAction({
@@ -628,7 +634,7 @@ export function getPositionNextAction(position, context = {}) {
   }
 
   const cuttingStatus = stageStatus(row, "cutting");
-  if (cuttingStatus === "Не розпочато" || cuttingStatus === "Передано") {
+  if (cuttingStatus === "Не розпочато" && !productionHasStarted(row)) {
     const cfg = HANDOFF_LABELS.constructor;
     return makeAction({
       type: cfg.type,

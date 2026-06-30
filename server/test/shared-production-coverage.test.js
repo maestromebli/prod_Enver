@@ -475,7 +475,13 @@ describe("shared/production coverage — godmode flows", () => {
 
   it("getPositionBlockers — operator session і procurement", () => {
     const blockers = getPositionBlockers(
-      basePos({ current_stage: "assembly", assembly_responsible: "" }),
+      basePos({
+        assembly_responsible: "",
+        cutting_status: "Готово",
+        edging_status: "Готово",
+        drilling_status: "Готово",
+        assembly_status: "В роботі"
+      }),
       {
         hasActiveOperatorSession: true,
         procurementItems: [{ category: "facade_agt", qty: 1, qty_received: 0, name: "Фасад" }]

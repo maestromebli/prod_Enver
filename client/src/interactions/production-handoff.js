@@ -1,3 +1,4 @@
+import { enrichPositionRow } from "@enver/shared/production/position-logic.js";
 import { canRunNextAction } from "@enver/shared/production/godmode.js";
 import { HANDOFF_ACTION_TYPES } from "@enver/shared/production/godmode-ui-helpers.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
@@ -14,7 +15,7 @@ export function resolveProductionDrop(position, targetStageKey, user) {
     return { ok: false, reason: "Невідома ціль" };
   }
 
-  const current = position.currentStage || "constructor";
+  const current = enrichPositionRow(position).current_stage || "constructor";
   if (current === targetStageKey) {
     return { ok: true, noop: true };
   }

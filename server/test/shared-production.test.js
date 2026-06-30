@@ -114,6 +114,17 @@ describe("shared/production", () => {
     assert.equal(deriveCurrentStage(row), "edging");
   });
 
+  it("deriveCurrentStage — без конструктива, але порізка в роботі", () => {
+    const row = {
+      has_constructive_file: false,
+      cutting_status: "В роботі",
+      edging_status: "Не розпочато",
+      drilling_status: "Не розпочато",
+      assembly_status: "Не розпочато"
+    };
+    assert.equal(deriveCurrentStage(row), "cutting");
+  });
+
   it("deriveCurrentStage — порізка передана, поклейка в черзі", () => {
     const row = {
       has_constructive_file: true,
