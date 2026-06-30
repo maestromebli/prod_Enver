@@ -56,8 +56,8 @@ router.get("/floor", async (_req, res) => {
             position_status, problem, overdue_days,
             ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
             ${PACKAGE_PARTS_COUNT_SUBQUERY}
-     FROM positions
-     WHERE trim(coalesce(position_status, '')) <> 'Завершено'`
+     FROM positions p
+     WHERE trim(coalesce(p.position_status, '')) <> 'Завершено'`
   );
 
   const sessionRows = await all(
