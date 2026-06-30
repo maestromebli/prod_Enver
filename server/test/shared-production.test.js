@@ -4,7 +4,9 @@ import {
   applyStageHandoff,
   computeProgress,
   deriveCurrentStage,
+  derivePositionStatus,
   enrichPositionRow,
+  nextStageKey,
   PRODUCTION_PROGRESS_WEIGHTS
 } from "../../shared/production/position-logic.js";
 import {
@@ -159,6 +161,34 @@ describe("shared/production", () => {
       true
     );
     assert.equal(hasConstructive({ has_constructive_file: false }), false);
+  });
+
+  it("derivePositionStatus — усі етапи готові з конструктивом", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Готово",
+      edging_status: "Готово",
+      drilling_status: "Готово",
+      assembly_status: "Готово",
+      position_status: ""
+    };
+    assert.equal(derivePositionStatus(row), "Готово до встановлення");
+  });
+
+  it("nextStageKey повертає наступний етап ланцюга", () => {
+    assert.equal(nextStageKey("cutting"), "edging");
+    assert.equal(nextStageKey("drilling"), "assembly");
+    assert.equal(nextStageKey("assembly"), null);
+  });
+
+  it("applyStageHandoff з constructor передає на порізку", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Не розпочато",
+      edging_status: "Не розпочато"
+    };
+    const next = applyStageHandoff(row, "constructor", { status: "Передано" });
+    assert.equal(next.cutting_status, "Передано");
   });
 
   it("enrichPositionRow додає progress і current_stage", () => {
