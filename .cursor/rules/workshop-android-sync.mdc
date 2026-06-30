@@ -1,0 +1,50 @@
+---
+description: Панелі цеху (порізка, крайкування, присадка, збірка) — синхронізувати з Android-клієнтом
+globs: client/src/operator*.js,client/src/part-scan.js,client/src/production-floor.js,client/src/position-operator-panel.js,client/operator.html,client/src/styles/operator*.css,client/src/styles/part-viewer.css,shared/production/stages.js,shared/production/position-logic.js,server/src/routes/operator.js,server/src/operator-sessions.js,desktop/android/**/*
+alwaysApply: false
+---
+
+# Панелі цеху → Android-клієнт
+
+Android APK (`desktop/android/`) — **WebView-оболонка** над `/operator.html`. Операторські етапи: **порізка** (`cutting`), **крайкування** (`edging`), **присадка** (`drilling`), **збірка** (`assembly`).
+
+## Обовʼязково при змінах панелей цеху
+
+1. **Перевір Android-шляхи** — чи не зламано поведінку в `isNativeOperatorShell()`:
+   - `client/src/operator-native.js` — маркери `enver-native-shell`, `operator-client-mode`
+   - `client/src/operator-ui.js` — `checkForAppUpdates` / `window.__enverCheckForUpdates` (виклик з `MainActivity.onResume`)
+   - У WebView **немає service worker** — оновлення UI лише через polling `/api/health` і `location.reload()`
+
+2. **Синхронізуй native bridge**, якщо змінюється JS↔Android API:
+   - `window.EnverNative` ↔ `EnverJsBridge.kt` (`pickFolder`, `__enverOnFolderPicked`)
+   - `MainActivity.kt` — user agent `EnverOperator/`, URL `/operator.html`
+
+3. **Після завершення задачі** (якщо зміни торкаються операторського UI/логіки):
+   - `npm run build` — обовʼязково (деплой підтягне нову збірку в WebView)
+   - `npm run validate` — якщо чіпали shared/server логіку етапів
+
+4. **Перезбірка APK** (`npm run build:android-client`) — коли:
+   - змінився `desktop/android/**` (Kotlin, manifest, version)
+   - додано/змінено виклики `EnverNative` або `window.__enver*`
+   - потрібен новий APK для розповсюдження (Налаштування → Клієнти)
+   - Після зміни native: підвищ `versionName` / `versionCode` у `desktop/android/app/build.gradle.kts`
+
+## Коли APK не потрібен
+
+Чисто веб-зміни (розмітка, стилі, API-відповіді) — планшети з уже встановленим APK отримають оновлення після деплою сервера автоматично.
+
+## Ключові файли (не забувати)
+
+| Зона | Файли |
+|------|--------|
+| UI оператора | `operator-panel.js`, `operator-app.js`, `operator-ui.js`, `part-scan.js`, `operator-kiosk.js` |
+| Стилі | `styles/operator.css`, `styles/operator-client.css` |
+| Етапи (shared) | `shared/production/stages.js`, `position-logic.js` |
+| API | `server/src/routes/operator.js`, `operator-sessions.js` |
+| Android | `desktop/android/app/src/main/java/ua/enver/operator/*.kt` |
+
+## Приклад
+
+Змінили кнопки на етапі «Присадка» в `operator-panel.js`:
+- переконайся, що класи/розмітка коректні з `operator-client-mode` і touch-жестами (`gestures.js`)
+- `npm run build` — так; `build:android-client` — лише якщо чіпав `operator-native.js` або Kotlin
