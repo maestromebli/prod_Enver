@@ -139,6 +139,7 @@ export function renderAiAnalysisResult(result) {
         ${furnitureLabel ? `<span>Тип: ${escapeHtml(furnitureLabel)}</span>` : ""}
         ${result.estimatedComplexity ? `<span>Складність: ${escapeHtml(result.estimatedComplexity)}</span>` : ""}
         ${meta.extractionQuality ? `<span>Файл: ${escapeHtml(meta.sourceType || "—")} · ${escapeHtml(meta.extractionQuality)}</span>` : ""}
+        ${meta.visionPageCount ? `<span>Vision: ${meta.visionPageCount} стор.</span>` : ""}
         ${result.model ? `<span>Модель: ${escapeHtml(result.model)}</span>` : ""}
         ${result.tokens ? `<span>Токени: ${result.tokens}</span>` : ""}
         ${result.durationMs ? `<span>${result.durationMs} мс</span>` : ""}

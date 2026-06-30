@@ -28,7 +28,9 @@ let aiSettings = {
   hasApiKey: false,
   hasEnvKey: false,
   openaiApiKeyMasked: "",
-  useLearningMemory: true
+  useLearningMemory: true,
+  usePdfVision: true,
+  visionModel: ""
 };
 let aiSettingsLoadError = "";
 let recentAiAnalyses = [];
@@ -43,6 +45,8 @@ function mergeAiSettings(data) {
     hasApiKey: Boolean(data.hasApiKey),
     hasEnvKey: Boolean(data.hasEnvKey),
     useLearningMemory: data.useLearningMemory !== false,
+    usePdfVision: data.usePdfVision !== false,
+    visionModel: data.visionModel || "",
     openaiApiKeyMasked: data.openaiApiKeyMasked || aiSettings.openaiApiKeyMasked || ""
   };
   if (aiSettings.hasApiKey || aiSettings.hasEnvKey) {
@@ -302,6 +306,11 @@ function aiSectionHtml() {
         <label class="checkbox-label ai-enable-row">
           <input type="checkbox" id="aiUseLearning" ${aiSettings.useLearningMemory !== false ? "checked" : ""} />
           Використовувати досвід ENVER у підказках
+        </label>
+
+        <label class="checkbox-label ai-enable-row">
+          <input type="checkbox" id="aiUsePdfVision" ${aiSettings.usePdfVision !== false ? "checked" : ""} />
+          Vision OCR для сканованих PDF (потрібен poppler у Docker)
         </label>
 
         <div class="form-field">
@@ -858,7 +867,8 @@ function saveAiSettingsFromDom() {
   const body = {
     enabled: document.querySelector("#aiEnabled")?.checked,
     openaiModel: document.querySelector("#aiModel")?.value?.trim(),
-    useLearningMemory: document.querySelector("#aiUseLearning")?.checked !== false
+    useLearningMemory: document.querySelector("#aiUseLearning")?.checked !== false,
+    usePdfVision: document.querySelector("#aiUsePdfVision")?.checked !== false
   };
 
   if (rawKey) {

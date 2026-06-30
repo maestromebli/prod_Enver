@@ -2,6 +2,12 @@ import { readStoredFile } from "../file-storage.js";
 import { decodeProjectText } from "./parsers/project-text.js";
 import { extractEnverAssemblyFromB3d } from "./parsers/assembly-export.js";
 import { formatPackageMetricsForPrompt } from "../../../shared/production/infer-package-tasks.js";
+import { extractTextFromBuffer } from "../ai/file-extraction.js";
+import {
+  applyVisionToExtractionMeta,
+  renderPdfPagesForVision,
+  shouldUsePdfVision
+} from "../ai/pdf-vision.js";
 
 const MAX_PROJECT_CHARS = 28_000;
 const MAX_ENVER3_PANELS = 80;
@@ -50,7 +56,7 @@ function buildExtractionQuality({ partsCount, materialsCount, hardwareCount, sou
 /**
  * Збирає структурований контекст пакета для prompt ШІ і метадані якості.
  */
-export async function buildPackageAiSourceContext(packageDetail) {
+export async function buildPackageAiSourceContext(packageDetail, aiSettings = {}) {
   const parts = packageDetail.parts || [];
   const materials = packageDetail.materials || [];
   const hardware = packageDetail.hardware || [];
@@ -84,6 +90,33 @@ export async function buildPackageAiSourceContext(packageDetail) {
 
   const metricsBlock = formatPackageMetricsForPrompt(parts, hardware);
   if (metricsBlock) blocks.push(metricsBlock);
+
+  let visionImages = [];
+  const pdfFile = files.find((f) => f.kind === "assembly_pdf");
+  if (pdfFile?.storage_path) {
+    try {
+      const buf = await readStoredFile(pdfFile.storage_path);
+      let pdfMeta = await extractTextFromBuffer(buf, "application/pdf", pdfFile.original_name);
+      if (pdfMeta.text?.length > 60) {
+        blocks.push(`\n--- PDF (${pdfFile.original_name}) ---\n${pdfMeta.text.slice(0, 12_000)}`);
+        sourceTypes.add("pdf");
+      }
+      if (shouldUsePdfVision(pdfMeta, aiSettings)) {
+        const rendered = await renderPdfPagesForVision(buf, { maxPages: 3 });
+        visionImages = rendered.images;
+        pdfMeta = applyVisionToExtractionMeta(pdfMeta, rendered);
+        if (visionImages.length) {
+          sourceTypes.add("pdf_vision");
+          blocks.push(`PDF Vision OCR: ${visionImages.length} сторінок додано до запиту ШІ`);
+        }
+        warnings.push(...(pdfMeta.visionWarnings || []));
+      } else if (pdfMeta.extractionQuality === "poor") {
+        warnings.push("PDF складання без тексту — для Vision увімкніть OCR у налаштуваннях ШІ");
+      }
+    } catch {
+      warnings.push("Не вдалося прочитати PDF складання для ШІ");
+    }
+  }
 
   const projectFile = files.find((f) => f.kind === "project");
   if (projectFile?.storage_path) {
@@ -143,6 +176,7 @@ export async function buildPackageAiSourceContext(packageDetail) {
 
   return {
     promptExtra: blocks.join("\n"),
+    visionImages,
     sourceMeta: {
       parsedPackage: true,
       extractionQuality,
@@ -150,6 +184,8 @@ export async function buildPackageAiSourceContext(packageDetail) {
       partsCount,
       materialsCount,
       hardwareCount,
+      visionPageCount: visionImages.length,
+      visionUsed: visionImages.length > 0,
       warnings
     },
     inputSummary: `package:${partsCount}parts;${materialsCount}mat;${[...sourceTypes].join("+")}`,

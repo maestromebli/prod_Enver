@@ -1,6 +1,7 @@
 import { all, one, run } from "../db.js";
 import { getPackageDetail } from "./constructive-package-service.js";
 import { getAiSettings } from "../app-settings.js";
+import { buildChatMessages, resolveVisionModel } from "../ai/vision-messages.js";
 import { callOpenAiChat } from "../ai/openai-client.js";
 import { parseRawAnalysisContent } from "../ai/validate-analysis.js";
 import { getRelevantLearningContext } from "../ai/ai-learning.js";
@@ -251,7 +252,7 @@ export async function analyzeConstructivePackage(
     return empty;
   }
 
-  const sourceContext = await buildPackageAiSourceContext(detail);
+  const sourceContext = await buildPackageAiSourceContext(detail, settings);
   const learningContext = await getRelevantLearningContext({
     itemName: item,
     itemType,
@@ -273,18 +274,23 @@ export async function analyzeConstructivePackage(
   });
 
   const started = Date.now();
+  const useVision = (sourceContext.visionImages || []).length > 0;
+  const visionModel = resolveVisionModel(settings);
+  const visionNote = useVision
+    ? "\n\nУВАГА: До запиту додано зображення PDF складання. Читай специфікацію, розміри і фурнітуру зі сторінок."
+    : "";
+
   const raw = await callOpenAiChat({
     apiKey: settings.openaiApiKey,
-    model: settings.openaiModel,
-    messages: [
-      {
-        role: "system",
-        content:
-          "Ти експерт з меблевого виробництва ENVER. Відповідай українською. Повертай лише JSON без markdown."
-      },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0.2
+    model: useVision ? visionModel : settings.openaiModel,
+    messages: buildChatMessages({
+      system:
+        "Ти експерт з меблевого виробництва ENVER. Відповідай українською. Повертай лише JSON без markdown.",
+      prompt: prompt + visionNote,
+      images: sourceContext.visionImages || []
+    }),
+    temperature: 0.2,
+    timeoutMs: useVision ? 120_000 : undefined
   });
 
   const parsed = parseRawAnalysisContent(raw.content);

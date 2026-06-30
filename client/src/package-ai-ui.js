@@ -240,7 +240,7 @@ export function renderPackageAiResult(aiRecord) {
 
       ${
         sourceMeta
-          ? `<p class="enver-meta">Джерела: ${escapeHtml(sourceMeta.sourceType || "package")} · ${escapeHtml(sourceMeta.extractionQuality || "—")} · ${sourceMeta.partsCount ?? "—"} дет.</p>`
+          ? `<p class="enver-meta">Джерела: ${escapeHtml(sourceMeta.sourceType || "package")} · ${escapeHtml(sourceMeta.extractionQuality || "—")} · ${sourceMeta.partsCount ?? "—"} дет.${sourceMeta.visionPageCount ? ` · Vision ${sourceMeta.visionPageCount} стор.` : ""}</p>`
           : ""
       }
 

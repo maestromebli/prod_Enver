@@ -19,6 +19,8 @@ function aiSettingsResponse(updated, { keyUpdated = false } = {}) {
     hasApiKey: Boolean(updated.dbApiKey),
     hasEnvKey: Boolean(updated.envApiKey),
     useLearningMemory: updated.useLearningMemory !== false,
+    usePdfVision: updated.usePdfVision !== false,
+    visionModel: updated.visionModel || "",
     keyUpdated,
     openaiApiKeyMasked: maskSecret(updated.dbApiKey || updated.envApiKey),
     message: keyUpdated ? "API ключ збережено в базі" : "Налаштування збережено"
@@ -34,6 +36,8 @@ router.get("/ai", async (_req, res) => {
       hasApiKey: Boolean(ai.dbApiKey),
       hasEnvKey: Boolean(ai.envApiKey),
       useLearningMemory: ai.useLearningMemory !== false,
+      usePdfVision: ai.usePdfVision !== false,
+      visionModel: ai.visionModel || "",
       openaiApiKeyMasked: maskSecret(ai.dbApiKey || ai.envApiKey)
     });
   } catch (err) {
@@ -82,7 +86,12 @@ router.put("/ai", async (req, res) => {
       useLearningMemory:
         req.body?.useLearningMemory !== undefined
           ? Boolean(req.body.useLearningMemory)
-          : current.useLearningMemory !== false
+          : current.useLearningMemory !== false,
+      usePdfVision:
+        req.body?.usePdfVision !== undefined
+          ? Boolean(req.body.usePdfVision)
+          : current.usePdfVision !== false,
+      visionModel: req.body?.visionModel?.trim() || current.visionModel || ""
     });
 
     const updated = await getAiSettings();

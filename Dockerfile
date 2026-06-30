@@ -22,7 +22,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
-RUN apk add --no-cache python3 py3-pip su-exec
+RUN apk add --no-cache python3 py3-pip su-exec poppler-utils
 RUN addgroup -S enver && adduser -S enver -G enver
 
 COPY --from=deps /app/server/node_modules ./server/node_modules

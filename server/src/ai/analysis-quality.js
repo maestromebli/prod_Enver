@@ -92,16 +92,26 @@ export function computeAnalysisQuality(analysis, sourceMeta = {}, learningContex
     score -= 0.1;
   }
 
+  const extractionQuality = sourceMeta.extractionQuality || "good";
+
   if (parsedPackage && (sourceMeta.partsCount || 0) > 0) {
     reasons.push(`Розібраний пакет: ${sourceMeta.partsCount} деталей`);
     score += 0.05;
   }
 
-  const extractionQuality = sourceMeta.extractionQuality || "good";
+  if (sourceMeta.visionUsed && (sourceMeta.visionPageCount || 0) > 0) {
+    reasons.push(`Vision OCR: ${sourceMeta.visionPageCount} стор. PDF`);
+    score += 0.08;
+  }
+
   if (extractionQuality === "partial") {
     reasons.push("Файл розпізнано частково");
-    needsHumanReview = true;
-    score -= 0.15;
+    if (!sourceMeta.visionUsed) {
+      needsHumanReview = true;
+      score -= 0.15;
+    } else {
+      score -= 0.05;
+    }
   } else if (extractionQuality === "poor") {
     reasons.push("Файл розпізнано частково");
     needsHumanReview = true;

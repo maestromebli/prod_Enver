@@ -10,6 +10,12 @@ import {
 import { extractTextFromBuffer, MAX_TEXT_CHARS } from "./ai/file-extraction.js";
 import { normalizeAnalysisResult } from "./ai/normalize-analysis.js";
 import { callOpenAiChat } from "./ai/openai-client.js";
+import {
+  applyVisionToExtractionMeta,
+  renderPdfPagesForVision,
+  shouldUsePdfVision
+} from "./ai/pdf-vision.js";
+import { buildChatMessages, resolveVisionModel } from "./ai/vision-messages.js";
 import { parseRawAnalysisContent } from "./ai/validate-analysis.js";
 import { getRelevantLearningContext } from "./ai/ai-learning.js";
 
@@ -30,6 +36,9 @@ function buildExtractionHint(meta) {
   const parts = [];
   if (meta.extractedFiles?.length) {
     parts.push(`Файли в архіві: ${meta.extractedFiles.join(", ")}`);
+  }
+  if (meta.visionPageCount) {
+    parts.push(`Vision OCR: ${meta.visionPageCount} стор. PDF`);
   }
   if (meta.text?.length > 0) {
     const preview = meta.text.replace(/\s+/g, " ").slice(0, 200);
@@ -169,7 +178,15 @@ export async function analyzeConstructiveFile({
   }
 
   const buffer = await readStoredFile(storagePath);
-  const extractedTextMeta = await extractTextFromBuffer(buffer, mime, originalName);
+  let extractedTextMeta = await extractTextFromBuffer(buffer, mime, originalName);
+  let visionImages = [];
+
+  if (shouldUsePdfVision(extractedTextMeta, ai)) {
+    const rendered = await renderPdfPagesForVision(buffer);
+    visionImages = rendered.images;
+    extractedTextMeta = applyVisionToExtractionMeta(extractedTextMeta, rendered);
+  }
+
   const ctx =
     learningContext ||
     (await getRelevantLearningContext({
@@ -189,18 +206,23 @@ export async function analyzeConstructiveFile({
     learningContext: ctx
   });
 
+  const visionModel = resolveVisionModel(ai);
+  const useVision = visionImages.length > 0;
+  const visionNote = useVision
+    ? "\n\nУВАГА: До запиту додано зображення сторінок PDF (скан/креслення). Читай таблиці, розміри, матеріали та фурнітуру з зображень."
+    : "";
+
   const { content, tokens, model, durationMs, raw } = await callOpenAiChat({
     apiKey: ai.openaiApiKey,
-    model: ai.openaiModel,
-    messages: [
-      {
-        role: "system",
-        content:
-          "Ти експерт з меблевого виробництва. Відповідай українською. Повертай лише JSON без markdown."
-      },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0.2
+    model: useVision ? visionModel : ai.openaiModel,
+    messages: buildChatMessages({
+      system:
+        "Ти експерт з меблевого виробництва. Відповідай українською. Повертай лише JSON без markdown.",
+      prompt: prompt + visionNote,
+      images: visionImages
+    }),
+    temperature: 0.2,
+    timeoutMs: useVision ? 120_000 : undefined
   });
 
   const { raw: parsedRaw } = parseRawAnalysisContent(content);
@@ -225,6 +247,8 @@ export async function analyzeConstructiveFile({
         extractionQuality: extractedTextMeta.extractionQuality,
         warnings: extractedTextMeta.warnings,
         extractedFiles: extractedTextMeta.extractedFiles,
+        visionUsed: extractedTextMeta.visionUsed || false,
+        visionPageCount: extractedTextMeta.visionPageCount || 0,
         readPreview: buildExtractionHint(extractedTextMeta)
       },
       learningContext: ctx,
