@@ -56,9 +56,7 @@ async function seedAdminUser(client) {
 }
 
 async function seedMaterialLibrary(client) {
-  const count = await client.query(`SELECT COUNT(*)::int AS n FROM material_library_items`);
-  if (Number(count.rows[0]?.n) > 0) return;
-  const result = await seedMaterialLibraryIfEmpty();
+  const result = await seedMaterialLibraryIfEmpty(client);
   if (result.seeded) {
     console.log(`+ бібліотека матеріалів: ${result.count} позицій`);
   }

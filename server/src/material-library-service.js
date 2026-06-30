@@ -148,15 +148,26 @@ export async function deactivateMaterialLibraryItem(id) {
   return mapRow(row);
 }
 
-export async function seedMaterialLibraryIfEmpty() {
-  const count = await one(`SELECT COUNT(*)::int AS n FROM material_library_items`);
+function materialLibraryDb(client) {
+  if (!client) {
+    return { one, run };
+  }
+  return {
+    one: async (sql, params) => (await client.query(sql, params)).rows[0],
+    run: (sql, params) => client.query(sql, params)
+  };
+}
+
+export async function seedMaterialLibraryIfEmpty(client = null) {
+  const db = materialLibraryDb(client);
+  const count = await db.one(`SELECT COUNT(*)::int AS n FROM material_library_items`);
   if (Number(count?.n) > 0) return { seeded: false, count: count.n };
 
   for (const item of DEFAULT_MATERIAL_LIBRARY_SEED) {
     const parsed = normalizeMaterialLibraryInput(item);
     if (!parsed.ok) continue;
     const r = parsed.row;
-    await run(
+    await db.run(
       `INSERT INTO material_library_items
          (name, article, item_type, category, material, thickness, decor, unit, supplier, estimated_price)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0)`,
@@ -173,6 +184,6 @@ export async function seedMaterialLibraryIfEmpty() {
       ]
     );
   }
-  const after = await one(`SELECT COUNT(*)::int AS n FROM material_library_items`);
+  const after = await db.one(`SELECT COUNT(*)::int AS n FROM material_library_items`);
   return { seeded: true, count: after?.n || 0 };
 }
