@@ -13,7 +13,7 @@ const include = path.join(serverDir, "../shared/production/**/*.js").replace(/\\
 const tests = [
   ...globSync("test/*.test.js", { cwd: serverDir }),
   ...globSync("test/integration/*.test.mjs", { cwd: serverDir })
-];
+].sort();
 
 const args = [
   "--test",
@@ -27,7 +27,8 @@ const result = spawnSync(process.execPath, args, {
   cwd: serverDir,
   encoding: "utf8",
   stdio: ["ignore", "pipe", "pipe"],
-  shell: false
+  shell: false,
+  maxBuffer: 128 * 1024 * 1024
 });
 
 if (result.stdout) process.stdout.write(result.stdout);

@@ -1008,7 +1008,8 @@ export async function parseConstructivePackage(packageId, actor) {
       let preservedPreview3d = null;
       if (existingManifestRow.rows[0]?.manifest_json) {
         try {
-          preservedPreview3d = JSON.parse(existingManifestRow.rows[0].manifest_json)?.preview3d || null;
+          preservedPreview3d =
+            JSON.parse(existingManifestRow.rows[0].manifest_json)?.preview3d || null;
         } catch {
           preservedPreview3d = null;
         }
