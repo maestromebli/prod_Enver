@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { loginManager } from "../helpers/auth.js";
 
 test.describe("ENVER smoke", () => {
-  test("login і головна вкладка Замовлення", async ({ page }) => {
+  test("login і стартова вкладка Огляд", async ({ page }) => {
     await loginManager(page);
-    await expect(page.locator("#pageTitle")).toContainText("Замовлення");
-    await expect(page.locator("#tabs .tab-btn.active")).toContainText("Замовлення");
+    await expect(page.locator("#pageTitle")).toContainText("Огляд");
+    await expect(page.locator("#tabs .tab-btn.active")).toContainText("Огляд");
   });
 
   test("налаштування → сповіщення без перекриття панелі", async ({ page }) => {
