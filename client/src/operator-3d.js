@@ -10,6 +10,11 @@ import {
 } from "./part-viewer-window.js";
 import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { isNativeOperatorShell } from "./operator-native.js";
+import {
+  destroyOperatorPartDetailStrip,
+  setOperatorPartDetailModelContext,
+  showOperatorPartDetail
+} from "./operator-scan-3d.js";
 import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 import { escapeHtml } from "./utils.js";
 
@@ -21,6 +26,7 @@ let toolbarAbort = null;
 export function destroyOperatorOrder3d() {
   toolbarAbort?.abort();
   toolbarAbort = null;
+  destroyOperatorPartDetailStrip();
   viewerInstance?.destroy?.();
   viewerInstance = null;
   order3dOrderId = null;
@@ -137,6 +143,13 @@ function syncPartsPanel(panel, viewer) {
   panel.innerHTML = renderPartsList(viewer);
 }
 
+function syncDrawingToolbarButton(active) {
+  const btn = document
+    .getElementById("operatorOrder3dToolbar")
+    ?.querySelector('[data-3d-action="drawing"]');
+  btn?.classList.toggle("is-active", Boolean(active));
+}
+
 function bindOperator3dToolbar(section, viewer) {
   toolbarAbort?.abort();
   toolbarAbort = new AbortController();
@@ -236,6 +249,7 @@ function mountOperator3dToolbar(section) {
 
 export function highlightOperatorOrder3dPart(part, { cadGeometry = null } = {}) {
   if (viewerInstance && part) {
+    syncDrawingToolbarButton(false);
     if (cadGeometry) viewerInstance.setCadGeometry?.(cadGeometry);
     const target = resolvePartHighlightMesh(part);
     if (viewerInstance.showPartOnAssembly) {
@@ -249,6 +263,21 @@ export function highlightOperatorOrder3dPart(part, { cadGeometry = null } = {}) 
     return true;
   }
   return highlightPartInViewerWindow(part, { cadGeometry });
+}
+
+async function handleAssemblyPartPick(part) {
+  if (!part || !viewerInstance) return;
+  const target = resolvePartHighlightMesh(part);
+  viewerInstance.showPartOnAssembly?.(part, target);
+  let payload = { part };
+  if (part.id) {
+    try {
+      payload = await api.getPart(part.id);
+    } catch {
+      /* optional */
+    }
+  }
+  await showOperatorPartDetail(payload);
 }
 
 export function openOperatorOrder3dWindow() {
@@ -300,6 +329,11 @@ export async function bindOperatorOrder3d() {
     mount.innerHTML = `
       ${renderPreview3dUpgradeBanner(ctx.upgradeHint)}
       <div id="operatorOrder3dViewer" class="op-order-3d-viewer part-viewer-3d" role="img" aria-label="${escapeHtml(ctx.layoutLabel || "3D модель")}"></div>
+      <div id="operatorPartDetailStrip" class="op-part-detail-strip" hidden>
+        <h4 class="op-part-detail-strip-title">Деталь</h4>
+        <div id="operatorPartDetail3dMount" class="op-part-detail-3d part-viewer-3d" role="img" aria-label="3D деталі"></div>
+        <div id="operatorPartDetailInfo" class="op-part-detail-info"></div>
+      </div>
     `;
 
     mountOperator3dToolbar(section);
@@ -309,13 +343,25 @@ export async function bindOperatorOrder3d() {
     const modelUrl = resolveViewerModelUrl(ctx.modelUrl, token);
     void prefetchViewerModel(modelUrl, token);
 
+    setOperatorPartDetailModelContext({
+      modelUrl,
+      format: ctx.format,
+      parts: ctx.parts
+    });
+
     viewerInstance = await mountModelViewer(container, {
       url: modelUrl,
       token,
       format: ctx.format,
       parts: ctx.parts,
       theme: "studio",
-      viewerOptions: { pickable: true }
+      viewerOptions: {
+        pickable: true,
+        onPartSelect: (part) => {
+          if (!part) return;
+          void handleAssemblyPartPick(part);
+        }
+      }
     });
 
     bindOperator3dToolbar(section, viewerInstance);

@@ -86,7 +86,15 @@ function detectModelFormat(url, format) {
 /** Three.js viewer з підсвіткою деталі та вибором кліком. */
 export function createPartViewer(
   container,
-  { onReady, onError, onPartSelect, onPartDoubleClick, pickable = true, theme = "light" } = {}
+  {
+    onReady,
+    onError,
+    onPartSelect,
+    onPartDoubleClick,
+    pickable = true,
+    theme = "light",
+    detailOnly = false
+  } = {}
 ) {
   if (!container) return { destroy() {} };
 
@@ -104,13 +112,15 @@ export function createPartViewer(
     scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
   }
 
-  const camera = new THREE.PerspectiveCamera(
+  const perspectiveCamera = new THREE.PerspectiveCamera(
     45,
     container.clientWidth / Math.max(container.clientHeight, 1),
     0.01,
     1000
   );
-  camera.position.set(2, 2, 3);
+  perspectiveCamera.position.set(2, 2, 3);
+  let camera = perspectiveCamera;
+  let orthographicCamera = null;
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -129,7 +139,7 @@ export function createPartViewer(
   renderer.setSize(container.clientWidth, Math.max(container.clientHeight, 200));
 
   const wrap = document.createElement("div");
-  wrap.className = `part-viewer-wrap${palette.wrapClass ? ` ${palette.wrapClass}` : ""}`;
+  wrap.className = `part-viewer-wrap${palette.wrapClass ? ` ${palette.wrapClass}` : ""}${detailOnly ? " part-viewer-wrap--detail-only" : ""}`;
   wrap.appendChild(renderer.domElement);
 
   const zoomBar = document.createElement("div");
@@ -225,6 +235,7 @@ export function createPartViewer(
   let measurePoints = [];
   let measureGroup = null;
   let wireframeEnabled = false;
+  let drawingModeEnabled = false;
   let axesHelper = null;
   let shadowReceiver = null;
   let highlightMesh = null;
@@ -238,6 +249,8 @@ export function createPartViewer(
   const hiddenMeshes = new Set();
   const transparentMeshes = new Set();
   let assemblyGhostActive = false;
+  let pendingDetailPart = null;
+  let pendingDetailHint = null;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
@@ -595,6 +608,7 @@ export function createPartViewer(
     controls.minDistance = Math.max(0.02, maxDim * 0.12);
     controls.maxDistance = Math.max(8, maxDim * 14);
     controls.update();
+    if (drawingModeEnabled) syncOrthoFrustum(bounds);
     if (scene.fog) {
       scene.fog.near = maxDim * 2.5;
       scene.fog.far = Math.max(40, maxDim * 18);
@@ -623,6 +637,101 @@ export function createPartViewer(
     controls.minDistance = Math.max(0.02, maxDim * 0.12);
     controls.maxDistance = Math.max(8, maxDim * 14);
     controls.update();
+    if (drawingModeEnabled) syncOrthoFrustum(bounds);
+  }
+
+  function getOrthoCamera() {
+    if (!orthographicCamera) {
+      orthographicCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1000);
+    }
+    return orthographicCamera;
+  }
+
+  function syncOrthoFrustum(bounds = null) {
+    if (!camera.isOrthographicCamera) return;
+    const b = bounds || modelBounds();
+    if (!b) return;
+    const w = container.clientWidth;
+    const h = Math.max(container.clientHeight, 200);
+    const aspect = w / h;
+    const halfH = b.maxDim * 0.62;
+    const halfW = halfH * aspect;
+    camera.left = -halfW;
+    camera.right = halfW;
+    camera.top = halfH;
+    camera.bottom = -halfH;
+    camera.near = 0.01;
+    camera.far = Math.max(1000, b.maxDim * 10);
+    camera.updateProjectionMatrix();
+  }
+
+  function switchToOrthoCamera() {
+    const ortho = getOrthoCamera();
+    ortho.position.copy(camera.position);
+    ortho.quaternion.copy(camera.quaternion);
+    camera = ortho;
+    controls.object = camera;
+  }
+
+  function switchToPerspectiveCamera() {
+    perspectiveCamera.position.copy(camera.position);
+    perspectiveCamera.quaternion.copy(camera.quaternion);
+    camera = perspectiveCamera;
+    controls.object = camera;
+    const w = container.clientWidth;
+    const h = Math.max(container.clientHeight, 200);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  const DRAWING_BG = theme === "studio" ? 0x0f1724 : 0xf1f5f9;
+  const DRAWING_EDGE = theme === "studio" ? 0xe2e8f0 : 0x0f172a;
+
+  function drawingSurfaceMaterial(part) {
+    const base = partSurfaceColor(part);
+    const color = new THREE.Color(base);
+    if (theme === "studio") color.lerp(new THREE.Color(0x94a3b8), 0.35);
+    else color.lerp(new THREE.Color(0xffffff), 0.55);
+    return new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+  }
+
+  function applyDrawingSceneStyle(on) {
+    if (on) {
+      scene.background = new THREE.Color(DRAWING_BG);
+      scene.fog = null;
+      renderer.shadowMap.enabled = false;
+      if (gridHelper) gridHelper.visible = false;
+      wrap.classList.add("part-viewer-wrap--drawing");
+    } else {
+      scene.background = new THREE.Color(palette.sceneBg);
+      if (theme === "studio") scene.fog = new THREE.Fog(palette.sceneBg, 8, 48);
+      renderer.shadowMap.enabled = true;
+      if (gridHelper) gridHelper.visible = true;
+      wrap.classList.remove("part-viewer-wrap--drawing");
+    }
+  }
+
+  function applyDrawingMaterials(on) {
+    if (!model) return;
+    model.traverse((child) => {
+      if (!isRenderableMesh(child)) return;
+      if (on) {
+        const part = resolvePartByMesh(child, partCatalog);
+        child.material = drawingSurfaceMaterial(part);
+        setEdgeStyle(child, DRAWING_EDGE, { opacity: 1 });
+        if (child.userData.edgeLines) child.userData.edgeLines.visible = true;
+      } else {
+        child.material = child.userData.originalMaterial || child.material;
+        setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
+      }
+    });
+  }
+
+  function exitDrawingModeForOverlay() {
+    if (!drawingModeEnabled) return;
+    drawingModeEnabled = false;
+    if (camera.isOrthographicCamera) switchToPerspectiveCamera();
+    applyDrawingSceneStyle(false);
   }
 
   function syncStudioGrid(box) {
@@ -674,12 +783,15 @@ export function createPartViewer(
 
   function applyPartDetailView(part, targetHint = null) {
     if (!model || !part) return null;
+    exitDrawingModeForOverlay();
+    assemblyGhostActive = false;
     clearDetailMarkers();
     clearSelection();
 
     const targets = meshesForPart(part);
+    const hint = targetHint || resolvePartHighlightMesh(part) || {};
     const primary =
-      resolveMesh(targetHint || resolvePartHighlightMesh(part) || {}) || targets[0] || null;
+      resolveMesh(hint) || targets[0] || findMeshByPartNo(part.partNo || part.part_no) || null;
     if (!primary) return null;
 
     const targetSet = new Set(targets.length ? targets : [primary]);
@@ -689,7 +801,7 @@ export function createPartViewer(
     updatePickHint();
 
     model.traverse((child) => {
-      if (!child.isMesh) return;
+      if (!isRenderableMesh(child)) return;
       const isTarget = targetSet.has(child);
       if (isTarget) {
         child.material = new THREE.MeshStandardMaterial({
@@ -715,6 +827,18 @@ export function createPartViewer(
     }
     frameMesh(primary);
     return primary;
+  }
+
+  function queueDetailPart(part, targetHint = null) {
+    pendingDetailPart = part || null;
+    pendingDetailHint = targetHint || null;
+    if (model && part) return applyPartDetailView(part, targetHint);
+    return null;
+  }
+
+  function applyPendingDetailView() {
+    if (!pendingDetailPart || !model) return null;
+    return applyPartDetailView(pendingDetailPart, pendingDetailHint);
   }
 
   function applyClippingToMaterials(enabled) {
@@ -817,6 +941,7 @@ export function createPartViewer(
   }
 
   function setWireframe(enabled) {
+    if (drawingModeEnabled && enabled) return;
     wireframeEnabled = Boolean(enabled);
     if (!model) return;
     model.traverse((child) => {
@@ -1013,6 +1138,10 @@ export function createPartViewer(
     selectedMesh = null;
     infoPanel.hidden = true;
     updatePickHint();
+    if (detailOnly && pendingDetailPart) {
+      applyPartDetailView(pendingDetailPart, pendingDetailHint);
+      return;
+    }
     model.traverse((child) => {
       if (!isRenderableMesh(child)) return;
       if (hiddenMeshes.has(child.name)) {
@@ -1033,6 +1162,11 @@ export function createPartViewer(
     selectedMesh = null;
     infoPanel.hidden = true;
     pickHint.hidden = !pickingEnabled;
+    if (detailOnly && pendingDetailPart) {
+      applyPartDetailView(pendingDetailPart, pendingDetailHint);
+      onPartSelect?.(null);
+      return;
+    }
     showAll();
     onPartSelect?.(null);
   }
@@ -1130,8 +1264,11 @@ export function createPartViewer(
   function resize() {
     const w = container.clientWidth;
     const h = Math.max(container.clientHeight, 200);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    if (camera.isOrthographicCamera) syncOrthoFrustum();
+    else {
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
     renderer.setSize(w, h);
   }
 
@@ -1256,6 +1393,14 @@ export function createPartViewer(
 
   function refreshMeshVisibility() {
     if (!model) return;
+    if (drawingModeEnabled) {
+      applyDrawingMaterials(true);
+      model.traverse((child) => {
+        if (!isRenderableMesh(child)) return;
+        child.visible = !hiddenMeshes.has(child.name);
+      });
+      return;
+    }
     if (assemblyGhostActive && highlightMesh) {
       applyHighlight({
         meshName: highlightMesh.name,
@@ -1283,11 +1428,33 @@ export function createPartViewer(
 
   function setDrawingMode(enabled) {
     const on = Boolean(enabled);
-    setWireframe(on);
-    if (on) setCameraPreset("top");
+    if (drawingModeEnabled === on) return;
+    drawingModeEnabled = on;
+
+    if (on) {
+      if (wireframeEnabled) setWireframe(false);
+      showAll();
+      if (!camera.isOrthographicCamera) switchToOrthoCamera();
+      setCameraPreset("top");
+      syncOrthoFrustum();
+      applyDrawingSceneStyle(true);
+      applyDrawingMaterials(true);
+      model?.traverse((child) => {
+        if (!isRenderableMesh(child)) return;
+        if (!hiddenMeshes.has(child.name)) child.visible = true;
+      });
+      return;
+    }
+
+    if (camera.isOrthographicCamera) switchToPerspectiveCamera();
+    applyDrawingSceneStyle(false);
+    applyDrawingMaterials(false);
+    refreshMeshVisibility();
+    fitToView();
   }
 
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
+    exitDrawingModeForOverlay();
     assemblyGhostActive = Boolean(ghost && !isolate);
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
@@ -1390,8 +1557,16 @@ export function createPartViewer(
     camera.updateProjectionMatrix();
     syncStudioGrid(box);
     syncShadowReceiver(box);
-    fitToView(model);
-    updatePickHint();
+    if (detailOnly) {
+      model.traverse((child) => {
+        if (isRenderableMesh(child)) child.visible = false;
+      });
+      const applied = applyPendingDetailView();
+      if (!applied) updatePickHint();
+    } else {
+      fitToView(model);
+      updatePickHint();
+    }
     onReady?.();
     return model;
   }
@@ -1460,7 +1635,7 @@ export function createPartViewer(
       applyHighlight({ meshName, isolate: true, ghost: false });
     },
     showPartDetail(part, targetHint) {
-      return applyPartDetailView(part, targetHint);
+      return queueDetailPart(part, targetHint);
     },
     showPartOnAssembly(part, targetHint) {
       return showPartOnAssembly(part, targetHint);

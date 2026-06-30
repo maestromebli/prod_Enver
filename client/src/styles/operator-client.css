@@ -1116,6 +1116,79 @@ html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
   height: min(32vh, 240px);
 }
 
+/* Нижня смуга: окрема деталь з отворами (Android / operator) */
+.op-part-detail-strip {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--enver-border, #e2e8f0);
+}
+
+.op-part-detail-strip-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--enver-text-muted, #64748b);
+}
+
+.op-part-detail-3d {
+  min-height: 150px;
+  height: min(30vh, 220px);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #121a24;
+}
+
+.op-part-detail-info {
+  margin-top: 8px;
+  font-size: 0.88rem;
+}
+
+.op-part-detail-title {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.op-part-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.op-part-detail-meta dt {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--enver-text-muted, #64748b);
+}
+
+.op-part-detail-meta dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.op-part-detail-holes {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+html.enver-native-shell .op-order-3d--native .op-order-3d-viewer {
+  min-height: 180px;
+  height: min(34vh, 280px);
+}
+
+html.enver-native-shell .op-part-detail-3d {
+  min-height: 160px;
+  height: min(28vh, 200px);
+}
+
 .op-order-3d-loading {
   margin: 0;
   padding: 1rem 0;

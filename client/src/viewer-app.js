@@ -168,9 +168,10 @@ async function mountPartDetailViewer(part, cadGeometry) {
     return;
   }
   mount.hidden = false;
+  const target = resolveHighlightTarget(part);
   if (partDetailViewer) {
     partDetailViewer.setCadGeometry?.(cadGeometry);
-    partDetailViewer.showPartDetail?.(part, resolveHighlightTarget(part));
+    partDetailViewer.showPartDetail?.(part, target);
     return;
   }
   mount.innerHTML = `<p class="enver-meta viewer-part-detail-loading">3D деталі…</p>`;
@@ -181,13 +182,51 @@ async function mountPartDetailViewer(part, cadGeometry) {
       format: currentModelFormat,
       parts: currentModelParts,
       theme: "studio",
-      viewerOptions: { pickable: false }
+      detailOnly: true,
+      initialPart: part,
+      initialPartHint: target,
+      cadGeometry,
+      viewerOptions: { pickable: false, detailOnly: true }
     });
-    partDetailViewer.setCadGeometry?.(cadGeometry);
-    partDetailViewer.showPartDetail?.(part, resolveHighlightTarget(part));
   } catch {
     mount.innerHTML = `<p class="enver-meta">3D деталі недоступна</p>`;
   }
+}
+
+function assemblyViewerOptions() {
+  return {
+    theme: "studio",
+    viewerOptions: {
+      pickable: true,
+      onPartSelect: (part) => {
+        if (part) void handleViewerPartPick(part);
+      }
+    }
+  };
+}
+
+async function handleViewerPartPick(part) {
+  if (!part || !viewer) return;
+  currentPart = part;
+  const target = resolveHighlightTarget(part);
+  viewer.showPartOnAssembly?.(part, target);
+  setToolbarActive("ghost");
+
+  let payload = { part, cadGeometry: currentCadGeometry };
+  if (part.id) {
+    try {
+      const data = await api.getPart(part.id);
+      payload = data;
+      applyCadGeometry(data.cadGeometry);
+    } catch {
+      /* optional */
+    }
+  }
+
+  populateSidebar(payload);
+  await mountPartDetailViewer(part, payload.cadGeometry || currentCadGeometry);
+  const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
+  if (label) setTitle(label);
 }
 
 function renderPartsPanel(viewer) {
@@ -511,7 +550,7 @@ async function mountFromScanData(container, data) {
     token: getStoredToken(),
     format: currentModelFormat,
     parts: currentModelParts,
-    theme: "studio"
+    ...assemblyViewerOptions()
   });
   hideLoading();
   document.getElementById("viewerLoading")?.remove();
@@ -586,12 +625,15 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
           packageViewerUrl: packageUrl
         });
         const parts = pkg.parts || [];
+        currentModelUrl = packageUrl;
+        currentModelFormat = preview3dLoadFormat(previewFile);
+        currentModelParts = parts;
         viewer = await mountModelViewer(container, {
           url: packageUrl,
           token: getStoredToken(),
-          format: preview3dLoadFormat(previewFile),
+          format: currentModelFormat,
           parts,
-          theme: "studio"
+          ...assemblyViewerOptions()
         });
         hideLoading();
         document.getElementById("viewerLoading")?.remove();
@@ -637,12 +679,16 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
     }
   }
 
+  const modelUrl = order3dFileUrl(orderId, asset.id, "web-model");
+  currentModelUrl = modelUrl;
+  currentModelFormat = asset.webModelFormat || "glb";
+  currentModelParts = parts;
   viewer = await mountModelViewer(container, {
-    url: order3dFileUrl(orderId, asset.id, "web-model"),
+    url: modelUrl,
     token: getStoredToken(),
-    format: asset.webModelFormat || "glb",
+    format: currentModelFormat,
     parts,
-    theme: "studio"
+    ...assemblyViewerOptions()
   });
   hideLoading();
   document.getElementById("viewerLoading")?.remove();

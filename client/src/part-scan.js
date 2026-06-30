@@ -22,9 +22,8 @@ import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch
 import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getStoredToken } from "./api.js";
 import {
-  applyScanToAssembly3d,
   bindScanPartDetail3d,
-  destroyScanPartDetailViewer,
+  destroyOperatorPartDetailStrip,
   renderScanPartDetailLayout
 } from "./operator-scan-3d.js";
 
@@ -224,7 +223,7 @@ function syncOperatorScanButtonState(open) {
 }
 
 function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
-  destroyScanPartDetailViewer();
+  destroyOperatorPartDetailStrip();
   if (detailEl) {
     detailEl.hidden = true;
     detailEl.innerHTML = "";
@@ -378,7 +377,6 @@ async function handleScan(
 
       if (isNativeOperatorShell() && data.model?.viewerUrl) {
         void bindScanPartDetail3d(detailEl, data);
-        void applyScanToAssembly3d(data);
       }
 
       detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
