@@ -7,6 +7,7 @@ import {
 import {
   buildFloorGodmodeBuckets,
   renderFloorGodmodeSection,
+  renderInstructionalEmptyState,
   renderSmartEmptyState
 } from "./godmode-ui.js";
 import { state } from "./state.js";
@@ -224,8 +225,25 @@ export function renderProductionFloorTab(data = getProductionFloorCache()) {
   const freshTotal = Object.values(freshByStage).reduce((acc, value) => acc + value, 0);
   const godmodeBuckets = buildFloorGodmodeBuckets(state.positions);
   const godmodeSections = renderFloorGodmodeSection(godmodeBuckets);
+  const stageTotal = (d.stages || []).reduce(
+    (sum, s) => sum + (s.inWork || 0) + (s.handed || 0),
+    0
+  );
+  const floorQuiet = stageTotal === 0 && !d.activeSessions?.length && !d.problemPositions?.length;
+  const quietGuide = floorQuiet
+    ? renderInstructionalEmptyState({
+        icon: "🏭",
+        title: "Цех ще не запущено",
+        steps: [
+          "Створіть замовлення та додайте позиції",
+          "Призначте конструктора і завантажте пакет",
+          "Передайте позицію на порізку — черги зʼявляться тут"
+        ]
+      })
+    : "";
   return `
     <div class="production-floor${syncingClass}">
+      ${quietGuide}
       <div class="card pf-hero">
         <div class="block-title">Цех зараз</div>
         <p class="settings-hint">Зведення по всіх етапах: черга, активні сесії операторів і проблемні позиції. «Панель етапу» — огляд без кнопок оператора.</p>

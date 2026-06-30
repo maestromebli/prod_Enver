@@ -44,10 +44,11 @@ import {
   restoreScrollPosition,
   schedulePersistUiState
 } from "./ui-persistence.js";
-import { setAppLoading } from "./loading-ui.js";
+import { bindOperatorHeaderMenu, syncOperatorHeaderMenu } from "./operator-header-menu.js";
 import { $, escapeHtml } from "./utils.js";
 import { initModalFocusTraps } from "./focus-trap.js";
 import "./styles/operator-entry.css";
+import { setAppLoading } from "./loading-ui.js";
 
 function setLoading(visible, options) {
   setAppLoading(visible, options);
@@ -92,6 +93,7 @@ function renderOperatorClient() {
   void bindOperatorOrder3d();
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
+  syncOperatorHeaderMenu();
   schedulePersistUiState();
 }
 
@@ -246,6 +248,7 @@ async function bootstrap() {
 
 async function startOperatorApp() {
   initOperatorPwaShell();
+  bindOperatorHeaderMenu();
   watchAppBuildUpdates();
   if (await reloadIfAppBuildChanged()) return;
   await bootstrap();

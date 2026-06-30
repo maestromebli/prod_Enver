@@ -5,10 +5,7 @@ import {
   renderConstructivePackageBlock,
   renderConstructivePackageReadOnly
 } from "./constructive-package-ui.js";
-import {
-  bindConstructivePipelinePanel,
-  renderConstructivePipelinePanel
-} from "./constructive-pipeline-panel.js";
+import { bindConstructivePipelinePanel } from "./constructive-pipeline-panel.js";
 import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
 import { refreshStalePackageParseUi } from "./constructive-package-parse-ui.js";
 
@@ -52,20 +49,17 @@ function renderConstructiveStackInner(
   }
 
   const hasPackage = Boolean(detail?.package);
-  const pipeline = hasPackage
-    ? renderConstructivePipelinePanel(detail, downstream?.procurement, {
-        canManageProcurement: canManageProcurement(),
-        cncJobs: downstream?.cncJobs || [],
-        hideProcurement
-      })
-    : "";
 
   return `
-    ${pipeline}
     ${renderConstructivePackageBlock(position, detail, {
       editable: true,
       constructiveFiles: downstream?.constructiveFiles || [],
-      hideProcurement
+      hideProcurement,
+      downstream: {
+        procurement: downstream?.procurement,
+        cncJobs: downstream?.cncJobs || [],
+        canManageProcurement: canManageProcurement()
+      }
     })}
     ${hasPackage ? "" : renderLegacyAiBlock(position)}`;
 }
@@ -238,7 +232,7 @@ export function bindPositionConstructivePanel(
     });
   }
 
-  if (stack.querySelector(".constructive-pipeline-panel")) {
+  if (stack.querySelector("[data-cp-pipeline-handoff]")) {
     bindConstructivePipelinePanel(stack, {
       positionId,
       hideProcurement,

@@ -344,6 +344,43 @@ body.enver-v3 {
   display: none;
 }
 
+.filter-preset-mount {
+  margin: 0 0 12px;
+}
+
+.filter-preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.filter-preset-chip {
+  border: 1px solid var(--v3-surface-2, #ebebed);
+  background: var(--v3-elevated, #fff);
+  color: var(--v3-muted, #6e6e73);
+  border-radius: var(--v3-radius-pill, 999px);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.filter-preset-chip:hover {
+  border-color: var(--v3-accent, #245c3b);
+  color: var(--v3-text, #1d1d1f);
+}
+
+.filter-preset-chip.active {
+  background: var(--v3-accent-soft, rgba(36, 92, 59, 0.12));
+  border-color: color-mix(in srgb, var(--v3-accent, #245c3b) 35%, transparent);
+  color: var(--v3-accent, #245c3b);
+}
+
 .enver-v3 .app.app-shell .app-shell-toolbar input,
 .enver-v3 .app.app-shell .app-shell-toolbar select {
   width: 100%;

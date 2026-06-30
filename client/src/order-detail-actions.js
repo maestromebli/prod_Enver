@@ -19,6 +19,7 @@ import {
 } from "./position-order-tab.js";
 import { bindOrder3DTab, loadOrder3DAsset, teardownOrder3DTab } from "./order-3d/order-3d-bind.js";
 import { focusOrderInlineAddInput, openPositionInOrderDetail } from "./order-detail-state.js";
+import { bindEnverBreadcrumb } from "./position-context-bar.js";
 
 async function inlineAddPosition(order, itemName, related, onRefresh) {
   const name = itemName.trim();
@@ -57,6 +58,13 @@ export function bindOrderDetail(root, handlers = {}) {
   const { onBack, onRefresh, onEditOrder } = handlers;
 
   root.querySelector("[data-orders-back]")?.addEventListener("click", onBack);
+
+  bindEnverBreadcrumb(root, {
+    "order-overview": () => {
+      state.ordersView.detailTab = "overview";
+      onRefresh?.({ contentOnly: true });
+    }
+  });
 
   bindGodmodeNavCta(root, { onRefresh });
 

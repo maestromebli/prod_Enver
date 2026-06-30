@@ -1,23 +1,17 @@
 import { escapeHtml } from "./utils.js";
 import { api, getPartLabelsUrl } from "./api.js";
 import {
-  packageStatusLabel,
   cncJobStatusLabel,
-  formatPartDimensionsMm,
-  packageParseDisplay,
-  PACKAGE_HANDOFF_TO_CUTTING_STATUSES
+  formatPartDimensionsMm
 } from "@enver/shared/production/constructive-package.js";
 import { runPackageParseWithProgress } from "./constructive-package-parse-ui.js";
 import {
   formatCncFileMaterialLabel,
   summarizeCncPackageFiles
 } from "@enver/shared/production/cnc-file-meta.js";
-import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
 import { getConstructivePackageNextAction } from "@enver/shared/production/constructive-godmode.js";
 import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
 import { bindProcurementWorkspace, renderProcurementWorkspace } from "./procurement-panel.js";
-
-export { renderProcurementWorkspace as renderProcurementPanel } from "./procurement-panel.js";
 
 export async function loadProcurementSummary(positionId) {
   return api.getPositionProcurement(positionId);
@@ -85,33 +79,22 @@ export function renderCncQueuePanel(jobs = [], { packageFiles = [] } = {}) {
     </section>`;
 }
 
-export function renderConstructivePipelinePanel(detail, procurement = null, options = {}) {
+export function renderWizardHandoffExtras(detail, procurement = null, options = {}) {
+  const hideProcurement = options.hideProcurement === true;
   const pkg = detail?.package;
-  if (!pkg) {
-    return `<section class="constructive-pipeline-panel constructive-pipeline-panel--empty">
-      <p class="enver-meta">Пакет конструктива ще не завантажено.</p>
-      <p class="enver-meta">Завантажте файли на <strong>столі конструктора</strong> (вкладка «Пакет конструктива»).</p>
-    </section>`;
-  }
-
-  const review = buildConstructiveReviewSummary(detail);
-  const reviewBadge =
-    review.needsReview && detail.parts?.length
-      ? `<span class="cp-review-badge">Потрібна перевірка</span>`
-      : "";
+  if (!pkg) return "";
 
   const pkgAction = getConstructivePackageNextAction({
     packageStatus: pkg.status,
     unmappedPartsCount: detail.unmappedParts?.length || 0
   });
-  const hideProcurement = options.hideProcurement === true;
-  const canHandoffCutting = PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(pkg.status);
   const pipelineGodmodeBtn =
     pkgAction &&
     pkgAction.allowed !== false &&
     ![
       "wait_parse",
       "wait_procurement",
+      "handoff_to_cutting",
       ...(hideProcurement ? ["create_procurement"] : [])
     ].includes(pkgAction.type)
       ? `<button type="button" class="btn btn-sm btn-primary" id="pipelineGodmodeBtn" data-pipeline-action="${escapeHtml(pkgAction.type)}">${escapeHtml(pkgAction.buttonLabel)}</button>`
@@ -133,33 +116,19 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
     )
     .join("");
 
-  const parseDisplay = packageParseDisplay(pkg.status, detail.parts?.length || 0);
-  const parseBadgeClass = parseDisplay.parsing
-    ? "cp-parse-badge--parsing"
-    : parseDisplay.parsed
-      ? "cp-parse-badge--parsed"
-      : "cp-parse-badge--pending";
-
   return `
-    <section class="constructive-pipeline-panel">
-      <div class="cp-parse-badge ${parseBadgeClass}" role="status">
-        <strong>${escapeHtml(parseDisplay.title)}</strong>
-        <span class="enver-meta"> · ${escapeHtml(parseDisplay.subtitle)}</span>
-      </div>
-      <p class="cp-status-lg">${escapeHtml(packageStatusLabel(pkg.status))} · v${pkg.version} ${reviewBadge}</p>
+    <div class="cp-wizard-handoff-extras">
       <div class="cp-actions-inline">
         ${pipelineGodmodeBtn}
-        ${
-          canHandoffCutting
-            ? `<button type="button" class="btn btn-sm btn-primary" id="pipelineHandoffCuttingBtn">На порізку</button>`
-            : ""
-        }
-        <button type="button" class="btn btn-sm btn-primary" id="openConstructiveReviewBtn">Перевірка конструктива</button>
-        <button type="button" class="btn btn-sm" id="openB3dPreviewBtn">Перегляд 3D</button>
         <button type="button" class="btn btn-sm" id="analyzePackageAiBtn">Перезапустити ШІ</button>
       </div>
       <div id="packageAiResult" class="package-ai-result"></div>
       <div id="cncQueuePanelMount">${renderCncQueuePanel(options.cncJobs || [], { packageFiles: detail?.files || [] })}</div>
+      ${
+        hideProcurement
+          ? ""
+          : `<div id="procurementPanelMount">${renderProcurementWorkspace(procurement, { canManage: options.canManageProcurement })}</div>`
+      }
       <div class="cp-parts-section" data-cp-parts-section>
         <div class="cp-parts-section-head">
           <button type="button" class="btn-tree cp-parts-toggle" data-cp-toggle-parts aria-expanded="false" title="Показати деталіровку" aria-label="Показати деталіровку">+</button>
@@ -175,15 +144,10 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
           </table>
         </div>
       </div>
-      ${
-        hideProcurement
-          ? ""
-          : `<div id="procurementPanelMount">${renderProcurementWorkspace(procurement, { canManage: options.canManageProcurement })}</div>`
-      }
-    </section>`;
+    </div>`;
 }
 
-/** Підвʼязує кнопки pipeline-конструктива (перевірка, 3D, ШІ, закупівля). */
+/** Підвʼязує кнопки handoff-конструктива (godmode, 3D, ШІ, закупівля, деталіровка). */
 export function bindConstructivePipelinePanel(root, ctx = {}) {
   const {
     positionId,
@@ -225,19 +189,6 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
     onProcurementUpdated?.();
   };
 
-  root.querySelector("#pipelineHandoffCuttingBtn")?.addEventListener("click", async () => {
-    const { toastError, toastSuccess } = await import("./toast.js");
-    try {
-      await api.runPositionNextAction(positionId, "handoff_to_cutting");
-      toastSuccess("Позицію передано в чергу порізки");
-      afterPipelineAction();
-      onOpenPosition?.(positionId);
-    } catch (err) {
-      const hint = err.nextAction?.label ? ` (${err.nextAction.label})` : "";
-      toastError(`${err.message}${hint}`);
-    }
-  });
-
   root.querySelector("#pipelineGodmodeBtn")?.addEventListener("click", async () => {
     const btn = root.querySelector("#pipelineGodmodeBtn");
     const action = btn?.dataset?.pipelineAction;
@@ -249,7 +200,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
 
     try {
       if (action === "parse_constructive_package" && pkgId) {
-        const panel = root.closest(".constructive-pipeline-panel")?.parentElement || root;
+        const panel = root.closest(".constructive-package-block")?.parentElement || root;
         const liveCtx = {
           detail,
           onDetailPatched: (d) => {
@@ -322,7 +273,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
     const detail = getPackageDetail();
     const pkgId = detail?.package?.id;
     if (!pkgId) return;
-    const box = root.querySelector("#packageAiResult");
+    const box = root.querySelector("[data-cp-package-ai]");
     mountPackageAiBlock(box, { status: "pending" });
     try {
       const res = await api.analyzeConstructivePackageAi(positionId, pkgId);
@@ -339,7 +290,7 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
   });
 
   const initialDetail = getPackageDetail();
-  const aiBox = root.querySelector("#packageAiResult");
+  const aiBox = root.querySelector("[data-cp-package-ai]");
   if (initialDetail?.aiAnalysis) {
     mountPackageAiBlock(aiBox, initialDetail.aiAnalysis, {
       showRerun: true,
@@ -367,8 +318,4 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
       onProcurementUpdated
     });
   }
-}
-
-export function bindProcurementPanel(root, ctx = {}) {
-  bindConstructivePipelinePanel(root, ctx);
 }

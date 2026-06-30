@@ -29,6 +29,8 @@ import {
 import { loadConstructivePackageDetail } from "./constructive-package-ui.js";
 import { loadCncJobsSummary } from "./constructive-pipeline-panel.js";
 import { notifyUiChanged } from "./ui-persistence.js";
+import { renderInstructionalEmptyState } from "./godmode-ui.js";
+import { bindEnverBreadcrumb, renderEnverBreadcrumb } from "./position-context-bar.js";
 import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
 
 const LED_VOLTAGES = ["220", "24", "12"];
@@ -189,9 +191,18 @@ function renderConstructorOrderCard(order) {
 
 function renderConstructorOrdersGrid(orders) {
   const cards = orders.map((order) => renderConstructorOrderCard(order)).join("");
-  return `<div class="cd-orders-grid">
-    ${cards || '<div class="card enver-empty-state"><p class="enver-meta">Немає замовлень, переданих конструкторам.</p></div>'}
-  </div>`;
+  const empty = orders.length
+    ? ""
+    : renderInstructionalEmptyState({
+        icon: "📐",
+        title: "Немає позицій у конструктиві",
+        steps: [
+          "Менеджер створює замовлення і додає позиції",
+          "Начальник виробництва призначає конструктора",
+          "Завантажте пакет (.project, .b3d, Excel) і передайте в цех"
+        ]
+      });
+  return `<div class="cd-orders-grid">${cards}${empty}</div>`;
 }
 
 function renderConstructorOrdersListTable(orders) {
@@ -218,7 +229,15 @@ function renderConstructorOrdersListTable(orders) {
           </tr>`;
         })
         .join("")
-    : `<tr><td colspan="9"><div class="enver-empty-state"><p class="enver-meta">Немає замовлень, переданих конструкторам.</p></div></td></tr>`;
+    : `<tr><td colspan="9">${renderInstructionalEmptyState({
+        icon: "📐",
+        title: "Немає позицій у конструктиві",
+        steps: [
+          "Менеджер створює замовлення і додає позиції",
+          "Начальник виробництва призначає конструктора",
+          "Завантажте пакет і передайте в цех"
+        ]
+      })}</td></tr>`;
 
   return `<div class="orders-list card cd-orders-list">
     <div class="table-wrap">
@@ -514,15 +533,28 @@ function renderWorkspace(detail, constructors) {
         constructiveFiles: state.constructorDesk.packageConstructiveFiles || []
       };
 
+  const wsTabLabel = wsTab === "package" ? "Пакет конструктива" : "Робоча сторона";
+  const breadcrumb = renderEnverBreadcrumb(
+    [
+      { label: "Конструктори", action: "cd-list" },
+      { label: p.orderNumber || "—", action: "cd-order" },
+      { label: p.item || "Позиція" },
+      { label: wsTabLabel }
+    ],
+    { ariaLabel: "Контекст столу конструктора" }
+  );
+
   return `
     <div class="constructor-workspace">
-      <div class="cd-ws-top">
-        <button type="button" class="btn" id="cdBackToOrder">← До позицій замовлення</button>
-        <div class="cd-ws-title">
-          <h2>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</h2>
-          <p class="enver-meta">${escapeHtml(p.object || "")} · ${escapeHtml(p.manager || "")}</p>
+      <div class="cd-ws-top cd-ws-top--breadcrumb">
+        ${breadcrumb}
+        <div class="cd-ws-title-row">
+          <div class="cd-ws-title">
+            <h2>${escapeHtml(p.orderNumber)} · ${escapeHtml(p.item || "—")}</h2>
+            <p class="enver-meta">${escapeHtml(p.object || "")} · ${escapeHtml(p.manager || "")}</p>
+          </div>
+          ${completionBadge(p.completion)}
         </div>
-        ${completionBadge(p.completion)}
       </div>
 
       ${renderWorkspaceTabs(wsTab)}
@@ -725,6 +757,23 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
   workspaceBindAbort?.abort();
   workspaceBindAbort = new AbortController();
   const { signal } = workspaceBindAbort;
+
+  bindEnverBreadcrumb(root, {
+    "cd-list": () => {
+      state.constructorDesk.selectedPositionId = null;
+      state.constructorDesk.selectedOrderId = null;
+      state.constructorDesk.detail = null;
+      notifyUiChanged();
+      onChange();
+    },
+    "cd-order": () => {
+      state.constructorDesk.selectedPositionId = null;
+      state.constructorDesk.detail = null;
+      state.constructorDesk.workspaceTab = "work";
+      notifyUiChanged();
+      onChange();
+    }
+  });
 
   bindDeskAssetUploads(root, onChange);
 

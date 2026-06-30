@@ -1,6 +1,12 @@
 import { api, getStoredToken, setStoredToken } from "./api.js";
 import { state } from "./state.js";
 import { DEFAULT_PERMISSIONS } from "@enver/shared/production/permissions.js";
+import {
+  OVERVIEW_TAB,
+  CONSTRUCTOR_DESK_TAB,
+  PROCUREMENT_TAB,
+  PRODUCTION_FLOOR_TAB
+} from "./constants.js";
 
 const STORAGE_KEY = "enver_user";
 
@@ -146,6 +152,24 @@ export function hasOperatorAccess() {
 
 export function shouldShowProductionFloorByDefault() {
   return isProductionHead() && canViewProductionFloor();
+}
+
+/** Стартова вкладка після входу для офісних ролей (оператор — окремий entry). */
+export function getRoleLanding() {
+  if (hasOperatorAccess() && isOperator() && operatorStages().length > 0) {
+    return { view: "operator", tab: null };
+  }
+  if (shouldShowProductionFloorByDefault()) {
+    return { view: "main", tab: PRODUCTION_FLOOR_TAB };
+  }
+  const role = state.currentUser?.role;
+  if ((role === "constructor" || canWorkConstructorDesk()) && !canEditOrders() && !isAdmin()) {
+    return { view: "main", tab: CONSTRUCTOR_DESK_TAB };
+  }
+  if (canViewProcurement() && !canEditOrders() && !canViewConstructorDesk() && !isAdmin()) {
+    return { view: "main", tab: PROCUREMENT_TAB };
+  }
+  return { view: "main", tab: OVERVIEW_TAB };
 }
 
 export async function refreshCurrentUser() {

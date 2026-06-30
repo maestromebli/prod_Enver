@@ -1,6 +1,7 @@
 import { TABS } from "./constants.js";
 import { PRODUCTION_FLOOR_TAB, CONSTRUCTOR_DESK_TAB } from "./users-constants.js";
 import { setListFilters } from "./filters.js";
+import { applyFilterPreset } from "./filter-presets.js";
 import {
   captureInstallScheduleOverlay,
   restoreInstallScheduleOverlay
@@ -14,8 +15,8 @@ const STORAGE_KEYS = {
   main: "enver_ui_state",
   operator: "enver_operator_ui_state"
 };
-const VERSION = 6;
-const SUPPORTED_VERSIONS = new Set([3, 4, 5, 6]);
+const VERSION = 7;
+const SUPPORTED_VERSIONS = new Set([3, 4, 5, 6, 7]);
 const VALID_POSITIONS_COLUMN_PRESETS = new Set(["manager", "floor", "full"]);
 const VALID_VIEWS = new Set(["main", "settings", "operator"]);
 const VALID_CALENDAR_VIEWS = new Set(["month", "week", "day", "agenda"]);
@@ -101,6 +102,7 @@ export function captureUiState() {
     ordersView: {
       displayMode: state.ordersView.displayMode,
       priorityFilter: state.ordersView.priorityFilter ?? "",
+      filterPreset: state.ordersView.filterPreset ?? "",
       detailTab: state.ordersView.detailTab ?? "overview",
       positionsColumnPreset: state.ordersView.positionsColumnPreset ?? "manager"
     },
@@ -242,6 +244,12 @@ export function applyUiState(snapshot) {
   }
   if (ordersView?.priorityFilter != null) {
     state.ordersView.priorityFilter = ordersView.priorityFilter;
+  }
+  if (ordersView?.filterPreset != null) {
+    state.ordersView.filterPreset = ordersView.filterPreset;
+    if (ordersView.filterPreset) {
+      applyFilterPreset(ordersView.filterPreset);
+    }
   }
   if (ordersView?.detailTab) {
     state.ordersView.detailTab = ordersView.detailTab;

@@ -17,6 +17,7 @@ import {
   isDashboardOnboardingDismissed,
   migrateLegacyOnboardingDismiss
 } from "./dashboard-onboarding.js";
+import { renderMyDaySection } from "./dashboard-role-day.js";
 
 migrateLegacyOnboardingDismiss();
 
@@ -324,6 +325,8 @@ export function renderDashboard() {
             : ""
         }
       </header>
+
+      ${renderMyDaySection()}
 
       ${
         hasAlerts

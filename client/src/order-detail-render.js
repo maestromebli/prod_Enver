@@ -14,6 +14,7 @@ import {
   resolveOrderGodmode,
   resolvePositionGodmode
 } from "./godmode-ui.js";
+import { renderEnverBreadcrumb } from "./position-context-bar.js";
 import { buildGodmodeCtaAttrs } from "@enver/shared/production/godmode-ui-helpers.js";
 import { formatHistoryTime, renderChangesList } from "./history.js";
 import { getStageStatus } from "./workflows.js";
@@ -69,11 +70,32 @@ function renderOrderHero(order, related, activeTab = "overview") {
     }
   }
 
+  const breadcrumb =
+    activeTab === "overview"
+      ? ""
+      : activeTab.startsWith("pos-")
+        ? (() => {
+            const positionId = Number(activeTab.slice(4));
+            const position = work.find((p) => p.id === positionId);
+            if (!position) return "";
+            return `<div class="order-hero-breadcrumb">${renderEnverBreadcrumb(
+              [{ label: "Огляд", action: "order-overview" }, { label: position.item || "Позиція" }],
+              { ariaLabel: "Розділи замовлення" }
+            )}</div>`;
+          })()
+        : activeTab === "history"
+          ? `<div class="order-hero-breadcrumb">${renderEnverBreadcrumb(
+              [{ label: "Огляд", action: "order-overview" }, { label: "Історія" }],
+              { ariaLabel: "Розділи замовлення" }
+            )}</div>`
+          : "";
+
   const { title: objectTitle } = formatObjectHeader(order);
 
   return `
     <header class="order-hero card">
       <button type="button" class="order-hero-back" data-orders-back>← Замовлення</button>
+      ${breadcrumb}
       <div class="order-hero-main">
         <div class="order-hero-text">
           <h2 class="order-hero-title enver-page-title">${escapeHtml(objectTitle)}</h2>

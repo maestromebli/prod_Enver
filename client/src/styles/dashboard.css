@@ -49,6 +49,95 @@ body.view-dashboard #content {
   box-shadow: var(--enver-shadow-sm);
 }
 
+/* Мій день — персоналізований блок по ролі */
+
+.dash-my-day {
+  margin-bottom: var(--enver-space-4, 16px);
+  padding: var(--enver-space-4, 16px);
+}
+
+.dash-my-day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--enver-space-3, 12px);
+  margin-bottom: var(--enver-space-3, 12px);
+}
+
+.dash-my-day-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--enver-primary, #245c3b);
+}
+
+.dash-my-day-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.dash-my-day-hint {
+  margin: 0.35rem 0 0;
+}
+
+.dash-my-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dash-my-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--enver-space-3, 12px);
+  width: 100%;
+  border: 1px solid var(--enver-border, #dfe4d8);
+  border-radius: var(--enver-radius-sm, 8px);
+  padding: 0.65rem 0.85rem;
+  background: var(--enver-surface-soft, #f0f2ec);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--enver-motion-fast, 120ms) ease;
+}
+
+.dash-my-day-row:hover {
+  background: color-mix(
+    in srgb,
+    var(--enver-primary-soft, #e2efe7) 55%,
+    var(--enver-surface-soft, #f0f2ec)
+  );
+}
+
+.dash-my-day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dash-my-day-body strong {
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.dash-my-day-meta {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--enver-text-muted, #666d62);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-my-day-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--enver-text-muted, #666d62);
+}
+
 .dash-hero-main {
   display: flex;
   align-items: flex-start;

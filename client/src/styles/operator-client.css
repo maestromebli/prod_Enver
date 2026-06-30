@@ -1119,3 +1119,73 @@ html.enver-native-shell .enver-operator-ui .op-problem-sheet-actions .btn {
   padding: 0 1rem;
   font-size: 0.95rem;
 }
+
+/* Компактна шапка: primary + overflow menu */
+.operator-header-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.operator-header-primary {
+  flex-shrink: 0;
+  min-height: 40px !important;
+  padding: 0 0.85rem !important;
+  font-weight: 700;
+  background: var(--enver-primary, #245c3b) !important;
+  color: #fff !important;
+  border-color: var(--enver-primary, #245c3b) !important;
+}
+
+.operator-header-overflow {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.operator-header-menu-btn {
+  min-width: 40px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.operator-header-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 0.35rem;
+  border-radius: var(--enver-radius-sm, 8px);
+  border: 1px solid var(--enver-border, #dfe4d8);
+  background: var(--enver-surface, #fff);
+  box-shadow: var(--enver-shadow-md, 0 10px 30px rgba(20, 30, 20, 0.08));
+}
+
+.operator-header-menu-user {
+  display: block;
+  padding: 0.45rem 0.65rem 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--enver-text, #171a16);
+}
+
+.operator-header-menu-build {
+  display: block;
+  margin: 0 0.5rem 0.35rem;
+}
+
+.operator-header-menu-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.operator-header-menu-item:hover {
+  background: var(--enver-surface-soft, #f0f2ec);
+}

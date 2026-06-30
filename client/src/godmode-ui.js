@@ -198,6 +198,25 @@ export function renderSmartEmptyState({ icon = "✨", title, text, actionLabel, 
   </div>`;
 }
 
+/** Empty state з покроковою інструкцією. */
+export function renderInstructionalEmptyState({
+  icon = "✨",
+  title,
+  steps = [],
+  actionLabel,
+  actionId
+}) {
+  const stepsHtml = steps.length
+    ? `<ol class="enver-empty-steps">${steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>`
+    : "";
+  return `<div class="enver-empty-state godmode-empty-state enver-empty-state--instructional">
+    <span class="enver-empty-state-icon" aria-hidden="true">${icon}</span>
+    <h3 class="enver-empty-state-title">${escapeHtml(title)}</h3>
+    ${stepsHtml}
+    ${actionLabel && actionId ? `<button type="button" class="btn btn-primary" id="${escapeHtml(actionId)}">${escapeHtml(actionLabel)}</button>` : ""}
+  </div>`;
+}
+
 /** Блоки для production floor з локального state.positions. */
 export function buildFloorGodmodeBuckets(positions = []) {
   const workflow = workflowPositionsForOrders([], positions);
@@ -566,6 +585,14 @@ export async function executeGodmodeAction({ entityType, entityId, actionType },
       await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
       window.__enverRender?.({ contentOnly: true });
       return { action: "handoff" };
+    }
+
+    if (effectiveAction === "create_tasks_from_ai") {
+      await deps.api?.createTasksFromAi?.(positionId, { mode: "assisted" });
+      deps.toastSuccess?.("Задачі створено з рекомендацій ШІ");
+      await deps.refreshAppData?.({ includeDirectories: false, syncViews: true });
+      window.__enverRender?.({ contentOnly: true });
+      return { action: "create_tasks_from_ai" };
     }
 
     const { openPositionFromContext } = await import("./godmode-navigation.js");

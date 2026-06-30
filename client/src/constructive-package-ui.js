@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { api, constructivePackageFileUrl } from "./api.js";
 import { createFileDropZone } from "./interactions/drag-drop.js";
 import { pickLocalFile } from "./file-picker.js";
-import { bindFileUploadZone, readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
+import { readFileAsBase64, renderFileUploadZone } from "./file-upload-zone.js";
 import {
   CONSTRUCTIVE_ACCEPT_EXT,
   CONSTRUCTIVE_MAX_BYTES,
@@ -30,7 +30,16 @@ import { canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
-import { runSave } from "./save-flow.js";
+import { renderPackage3dStatusBlock, renderGiblabEnver3HookHelp } from "./preview-3d-ui.js";
+import {
+  preview3dLayout,
+  preview3dLayoutLabel
+} from "@enver/shared/production/constructive-package.js";
+import { get3dUpgradeHintText } from "@enver/shared/production/resolve-3d-preview.js";
+import {
+  formatAssemblyMissingMessage,
+  formatEnver3SyncMessage
+} from "@enver/shared/production/preview-3d-meta.js";
 import {
   renderConstructivePipeline,
   renderPackageParseBanner,
@@ -39,9 +48,16 @@ import {
   refreshStalePackageParseUi
 } from "./constructive-package-parse-ui.js";
 import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
+import {
+  renderPackageWizardStepper,
+  resolvePackageWizardStep,
+  wrapWizardPanel,
+  applyPackageWizardUi,
+  bindPackageWizard
+} from "./constructive-package-wizard.js";
+import { renderWizardHandoffExtras } from "./constructive-pipeline-panel.js";
 
 const packageDropZones = new WeakMap();
-const quickUploadZones = new WeakMap();
 const packageBindAbort = new WeakMap();
 const packageUploadQueues = new WeakMap();
 
@@ -138,6 +154,17 @@ export function isPackageUploadFile(file) {
   return detectPackageFileKind(file.name) !== "other";
 }
 
+function appendPreview3dUploadNotes(parts, result) {
+  const enver3 = formatEnver3SyncMessage(result?.preview3d?.enver3Sync);
+  if (enver3) parts.push(enver3);
+  const partial = formatAssemblyMissingMessage({
+    missingCodes: result?.preview3d?.missingCodes,
+    totalPanels: result?.parts?.length,
+    assembledCount: result?.preview3d?.assembledCount
+  });
+  if (partial) parts.push(partial);
+}
+
 function handlePackageUploadResult(
   root,
   result,
@@ -154,8 +181,21 @@ function handlePackageUploadResult(
 
   if (result?.autoParsed) {
     const parts = ["Файли збережено"];
-    if (has3dPreviewFile(result)) parts.push("3D-модель з .b3d");
-    else if (mappingReady) parts.push("мапінг 3D створено");
+    if (has3dPreviewFile(result)) {
+      const layout = result.preview3d?.layout || preview3dLayout(result);
+      parts.push(
+        result.preview3d?.isPartialAssembly
+          ? "3D-збірка (частково)"
+          : layout === "assembly"
+            ? "3D-збірка готова"
+            : `3D: ${preview3dLayoutLabel(layout)}`
+      );
+      appendPreview3dUploadNotes(parts, result);
+      const hint = get3dUpgradeHintText({ layout, packageDetail: result });
+      toastSuccess(hint ? `${parts.join(" — ")}. ${hint}` : `${parts.join(" — ")}.`);
+      return;
+    }
+    if (mappingReady) parts.push("мапінг 3D створено");
     if (!hideProcurement && (result?.autoProcurement || result?.procurement?.id)) {
       parts.push("закупівлю з Excel");
     }
@@ -176,52 +216,20 @@ function handlePackageUploadResult(
     }
   }
 
-  toastSuccess(packageUploadSuccessMessage(result));
+  const msg = packageUploadSuccessMessage(result);
+  const notes = [];
+  appendPreview3dUploadNotes(notes, result);
+  toastSuccess(notes.length ? `${msg} · ${notes.join(" · ")}` : msg);
 }
 
 function packageUploadSuccessMessage(result) {
-  if (has3dPreviewFile(result)) return "Файли збережено — 3D-модель з .b3d готова";
+  if (has3dPreviewFile(result)) {
+    const layout = preview3dLayout(result);
+    return layout === "assembly"
+      ? "Файли збережено — 3D-збірка готова"
+      : "Файли збережено — розкладка деталей (для збірки — ENVER3 або .wrl)";
+  }
   return "Файли завантажено";
-}
-
-function readFileAsBase64FromFile(file) {
-  return readFileAsBase64(file);
-}
-
-export function bindQuickConstructiveUpload(root, position, { onUploaded, editable = false } = {}) {
-  if (!editable || !position?.id || !root) return;
-
-  quickUploadZones.get(root)?.destroy();
-
-  const ctl = bindFileUploadZone(root, {
-    zoneSelector: "[data-quick-constructive]",
-    inputSelector: "[data-quick-constructive-input]",
-    accept: CONSTRUCTIVE_ACCEPT_EXT,
-    maxBytes: CONSTRUCTIVE_MAX_BYTES,
-    onFile: async (file) => {
-      await runSave("Конструктив", {
-        saveFn: async () => {
-          const dataBase64 = await readFileAsBase64FromFile(file);
-          return api.uploadConstructiveFile(position.id, {
-            fileName: file.name,
-            mime: file.type,
-            dataBase64
-          });
-        },
-        successMessage: "Файл завантажено",
-        onSuccess: () => onUploaded?.()
-      }).catch(() => {});
-    }
-  });
-  quickUploadZones.set(root, ctl);
-}
-
-/** @deprecated Використовуйте bindQuickConstructiveUpload */
-export const bindLegacyConstructiveUpload = bindQuickConstructiveUpload;
-
-/** @deprecated Використовуйте shouldShowModelMappingTab з shared */
-export function hasConstructiveModelMapping(detail) {
-  return shouldShowModelMappingTab(detail);
 }
 
 function renderUploadedConstructiveFiles(
@@ -313,11 +321,6 @@ function renderPackageFilesList(positionId, packageId, files = [], { editable = 
   return `<ul class="constructive-files-list" data-package-id="${packageId}" aria-label="Файли пакета">${items}</ul>`;
 }
 
-/** @deprecated Використовуйте renderPackageFilesList */
-function renderPackageFilesDownloadList(positionId, packageId, files = []) {
-  return renderPackageFilesList(positionId, packageId, files);
-}
-
 /** Перегляд пакета в замовленні — без завантаження та дій. */
 export function renderConstructivePackageReadOnly(
   position,
@@ -353,10 +356,10 @@ export function renderConstructivePackageReadOnly(
           : `<p class="enver-meta">Пакет ще не завантажено.</p>
              <button type="button" class="btn btn-sm btn-primary" data-open-constructor-ws="${positionId || ""}">Завантажити на столі конструктора</button>`
       }
-      ${pkg && packageId && b3d.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">3D-модель (.b3d)</h4>${renderPackageFilesDownloadList(positionId, packageId, b3d)}</div>` : ""}
-      ${pkg && packageId && project.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Проект конструктора (.project)</h4>${renderPackageFilesDownloadList(positionId, packageId, project)}</div>` : ""}
-      ${pkg && packageId && specification.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Специфікація</h4>${renderPackageFilesDownloadList(positionId, packageId, specification)}</div>` : ""}
-      ${pkg && packageId && cncMachine.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Файли на верстат</h4>${renderPackageFilesDownloadList(positionId, packageId, cncMachine)}</div>` : ""}
+      ${pkg && packageId && b3d.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">3D-модель (.b3d)</h4>${renderPackageFilesList(positionId, packageId, b3d)}</div>` : ""}
+      ${pkg && packageId && project.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Проект конструктора (.project)</h4>${renderPackageFilesList(positionId, packageId, project)}</div>` : ""}
+      ${pkg && packageId && specification.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Специфікація</h4>${renderPackageFilesList(positionId, packageId, specification)}</div>` : ""}
+      ${pkg && packageId && cncMachine.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Файли на верстат</h4>${renderPackageFilesList(positionId, packageId, cncMachine)}</div>` : ""}
       ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
       ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
       ${
@@ -390,21 +393,14 @@ function renderUnifiedPackageUpload(detail, { hideProcurement = false } = {}) {
         accept: PACKAGE_ALL_ACCEPT.join(",")
       })}
       <p class="enver-meta cp-auto-hint">${autoHint}</p>
+      ${renderGiblabEnver3HookHelp()}
     </div>`;
-}
-
-/** @deprecated Використовуйте renderUnifiedPackageUpload у пакеті конструктива */
-export function renderQuickConstructiveUpload(position) {
-  if (!position?.id) {
-    return `<p class="field-hint">Збережіть позицію, щоб завантажити файл.</p>`;
-  }
-  return renderUnifiedPackageUpload(null);
 }
 
 export function renderConstructivePackageBlock(
   position,
   detail = null,
-  { editable = false, constructiveFiles = [], hideProcurement = false } = {}
+  { editable = false, constructiveFiles = [], hideProcurement = false, downstream = null } = {}
 ) {
   if (!editable) {
     return renderConstructivePackageReadOnly(position, detail, { legacyFiles: constructiveFiles });
@@ -419,27 +415,81 @@ export function renderConstructivePackageBlock(
   const parseBtnLabel = pkg?.status === "uploaded" ? "Розібрати" : "Розібрати знову";
   const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
 
-  return `
-    <section class="constructive-package-block" data-position-id="${position?.id || ""}" data-package-id="${pkg?.id || ""}">
-      <h3 class="enver-section-title">Пакет конструктива</h3>
+  const currentStep = resolvePackageWizardStep(detail);
+  const stepCtx = { current: currentStep, selected: currentStep };
+
+  const uploadPanel = wrapWizardPanel(
+    0,
+    "upload",
+    `
+      ${renderUploadedConstructiveFiles(position?.id, detail, constructiveFiles, { editable: true })}
+      ${renderUnifiedPackageUpload(detail, { hideProcurement })}
+    `,
+    stepCtx
+  );
+
+  const parsePanel = wrapWizardPanel(
+    1,
+    "parse",
+    `
       ${pkg ? renderPackageParseBanner(detail) : ""}
+      ${pkg ? renderPackage3dStatusBlock(detail) : ""}
       ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
-      <div data-cp-package-files>
-        ${pkg ? renderPipeline(status) : ""}
-        ${renderUploadedConstructiveFiles(position?.id, detail, constructiveFiles, { editable: true })}
-        ${renderUnifiedPackageUpload(detail, { hideProcurement })}
-        <div class="constructive-actions constructive-actions--cta cp-actions">
-          ${showManualParseBtn ? `<button type="button" class="btn btn-sm btn-ghost" data-cp-parse-btn">${parseBtnLabel}</button>` : ""}
-          ${
-            hideProcurement
-              ? ""
-              : `<button type="button" class="btn btn-sm" data-cp-procurement-btn ${canStartProcurement ? "" : "disabled"} title="З Excel-специфікації">В закупівлю</button>`
-          }
-          <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length && ["parsed", "needs_review"].includes(status) ? "" : "disabled"}>Підтвердити</button>
-          <button type="button" class="btn btn-sm btn-primary" data-cp-handoff-cutting-btn ${PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status) ? "" : "disabled"}>На порізку</button>
-        </div>
-        ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
-        <div class="package-ai-mount" data-cp-package-ai></div>
+      <div class="constructive-actions constructive-actions--cta cp-actions">
+        ${showManualParseBtn ? `<button type="button" class="btn btn-sm btn-primary" data-cp-parse-btn">${parseBtnLabel}</button>` : ""}
+      </div>
+    `,
+    stepCtx
+  );
+
+  const verifyPanel = wrapWizardPanel(
+    2,
+    "verify",
+    `
+      ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
+      ${renderPackage3dStatusBlock(detail)}
+      <div class="constructive-actions constructive-actions--cta cp-actions">
+        <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length && ["parsed", "needs_review"].includes(status) ? "" : "disabled"}>Підтвердити пакет</button>
+        <button type="button" class="btn btn-sm" id="openConstructiveReviewBtn">Перевірка конструктива</button>
+        <button type="button" class="btn btn-sm" id="openB3dPreviewBtn">Перегляд 3D</button>
+      </div>
+      ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку — перевірте перед передачею</p>` : ""}
+      ${detail?.parts?.length ? `<p class="enver-meta cp-wizard-parts-hint">${detail.parts.length} деталей у специфікації · ${detail.materials?.length || 0} матеріалів</p>` : ""}
+    `,
+    stepCtx
+  );
+
+  const handoffPanel = wrapWizardPanel(
+    3,
+    "handoff",
+    `
+      <div class="constructive-actions constructive-actions--cta cp-actions">
+        ${
+          hideProcurement
+            ? ""
+            : `<button type="button" class="btn btn-sm" data-cp-procurement-btn ${canStartProcurement ? "" : "disabled"} title="З Excel-специфікації">В закупівлю</button>`
+        }
+        <button type="button" class="btn btn-sm btn-primary" data-cp-handoff-cutting-btn ${PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status) ? "" : "disabled"}>На порізку</button>
+      </div>
+      <div class="package-ai-mount" data-cp-package-ai></div>
+      <div data-cp-pipeline-handoff>${renderWizardHandoffExtras(detail, downstream?.procurement, {
+        hideProcurement,
+        cncJobs: downstream?.cncJobs || [],
+        canManageProcurement: downstream?.canManageProcurement
+      })}</div>
+    `,
+    stepCtx
+  );
+
+  return `
+    <section class="constructive-package-block cp-wizard" data-position-id="${position?.id || ""}" data-package-id="${pkg?.id || ""}" data-cp-wizard-step="${currentStep}">
+      <h3 class="enver-section-title">Пакет конструктива</h3>
+      ${renderPackageWizardStepper(detail)}
+      <div class="cp-wizard-panels" data-cp-package-files data-cp-wizard-panels>
+        ${uploadPanel}
+        ${parsePanel}
+        ${verifyPanel}
+        ${handoffPanel}
       </div>
     </section>`;
 }
@@ -521,6 +571,7 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
     hideProcurement: getPackagePanelContext(position.id)?.hideProcurement === true
   });
   patchConstructiveUploadedFiles(root, position, detail, constructiveFiles);
+  applyPackageWizardUi(block, detail);
   const aiMount = block.querySelector("[data-cp-package-ai]");
   if (aiMount) {
     mountPackageAiBlock(aiMount, detail?.aiAnalysis, {
@@ -827,4 +878,8 @@ export function bindConstructivePackageBlock(
     }
   });
   packageDropZones.set(root, dz);
+
+  bindPackageWizard(root, {
+    getDetail: () => getPackagePanelContext(position.id)?.detail || detail
+  });
 }

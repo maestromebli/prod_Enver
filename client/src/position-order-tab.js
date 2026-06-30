@@ -2,12 +2,12 @@ import { api } from "./api.js";
 import { canManageProcurement, canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderPositionManagerPanel } from "./position-manager-panel.js";
+import { renderAutomationHints, resolvePositionGodmode, bindGodmodeNavCta } from "./godmode-ui.js";
 import {
-  renderNextActionBanner,
-  renderAutomationHints,
-  resolvePositionGodmode,
-  bindGodmodeNavCta
-} from "./godmode-ui.js";
+  bindPositionContextBar,
+  POSITION_SUB_TAB_LABELS,
+  renderPositionContextBar
+} from "./position-context-bar.js";
 import {
   loadCncJobsSummary,
   loadProcurementSummary,
@@ -33,15 +33,16 @@ import { formatHistoryTime, renderChangesList } from "./history.js";
 import { state } from "./state.js";
 import { bindPositionWorkspaceBar, renderPositionWorkspaceBar } from "./position-workspace.js";
 
-const SUB_TABS = [
-  { key: "manager", label: "Дані" },
-  { key: "constructive", label: "Пакет конструктива" },
-  { key: "procurement", label: "Закупівля" },
-  { key: "cnc", label: "ЧПК" },
-  { key: "install", label: "Монтаж" },
-  { key: "operator", label: "Оператор" },
-  { key: "history", label: "Історія" }
+const SUB_TAB_KEYS = [
+  "manager",
+  "constructive",
+  "procurement",
+  "cnc",
+  "install",
+  "operator",
+  "history"
 ];
+const SUB_TABS = SUB_TAB_KEYS.map((key) => ({ key, label: POSITION_SUB_TAB_LABELS[key] }));
 
 const tabDataCache = new Map();
 
@@ -120,7 +121,7 @@ export function renderPositionOrderTab(
 
   return `
     <section class="order-position-tab card" role="tabpanel" data-position-tab="${position.id}">
-      ${renderNextActionBanner(gm, { positionId: position.id, showCta: true })}
+      ${renderPositionContextBar(position, { subTab: activeSub, gm })}
       ${renderAutomationHints(gm)}
       ${renderPositionResponsiblesPanel(position, constructors)}
       ${renderSubTabs(position.id, activeSub)}
@@ -218,6 +219,13 @@ export function bindPositionOrderTab(
   });
 
   bindPositionWorkspaceBar(root);
+
+  bindPositionContextBar(root, {
+    onBack: () => {
+      state.ordersView.detailTab = "overview";
+      onRefresh?.({ contentOnly: true });
+    }
+  });
 
   bindGodmodeNavCta(root, { onRefresh });
 

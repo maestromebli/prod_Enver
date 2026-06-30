@@ -7,6 +7,11 @@ import {
   ORDER_DONE_STATUS
 } from "./archive.js";
 import { positionsForOrder } from "./workflows.js";
+import {
+  getActiveFilterPreset,
+  orderMatchesFilterPreset,
+  positionMatchesFilterPreset
+} from "./filter-presets.js";
 
 export function currentFilters() {
   return {
@@ -52,7 +57,13 @@ export function syncListFiltersToDom() {
 }
 
 export function hasActiveFilters(filters = currentFilters()) {
-  return Boolean(filters.search || filters.status || filters.responsible || filters.priority);
+  return Boolean(
+    filters.search ||
+    filters.status ||
+    filters.responsible ||
+    filters.priority ||
+    getActiveFilterPreset()
+  );
 }
 
 function positionMatchesStatus(position, status) {
@@ -128,6 +139,8 @@ export function filteredOrders(source, positions) {
       if (!people.includes(responsible)) return false;
     }
 
+    if (!orderMatchesFilterPreset(order, related)) return false;
+
     return true;
   });
 }
@@ -176,6 +189,8 @@ export function filteredPositions(source) {
 
     const people = [p.manager, p.constructor, p.assemblyResponsible, p.installResponsible];
     const matchResponsible = !responsible || people.includes(responsible);
+
+    if (!positionMatchesFilterPreset(p)) return false;
 
     return matchSearch && matchStatus && matchResponsible;
   });

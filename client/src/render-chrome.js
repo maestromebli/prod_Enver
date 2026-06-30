@@ -18,6 +18,7 @@ import {
 import { getSettingsHeaderMeta } from "./settings.js";
 import { getTourStep, renderTourCoach } from "./tour.js";
 import { syncListFiltersToDom } from "./filters.js";
+import { renderFilterPresetBar } from "./filter-presets.js";
 import {
   countNewOrdersForCurrentRole,
   countNewProductionTasksForCurrentRole
@@ -328,6 +329,27 @@ export function renderToolbarFilters() {
   if (statusField) statusField.hidden = hideSecondary;
   if (responsibleField) responsibleField.hidden = hideSecondary;
   syncListFiltersToDom();
+
+  let presetMount = document.querySelector("#filterPresetBar");
+  if (!presetMount && onOrdersRegistry) {
+    const toolbar = document.querySelector("#mainToolbar");
+    if (toolbar) {
+      toolbar.insertAdjacentHTML(
+        "afterend",
+        '<div id="filterPresetBar" class="filter-preset-mount"></div>'
+      );
+      presetMount = document.querySelector("#filterPresetBar");
+    }
+  }
+  if (presetMount) {
+    if (onOrdersRegistry) {
+      presetMount.innerHTML = renderFilterPresetBar();
+      presetMount.hidden = false;
+    } else {
+      presetMount.innerHTML = "";
+      presetMount.hidden = true;
+    }
+  }
 }
 
 export function renderToolbarActions() {

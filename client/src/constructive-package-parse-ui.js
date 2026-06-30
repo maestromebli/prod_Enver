@@ -2,6 +2,7 @@ import { escapeHtml } from "./utils.js";
 import { api } from "./api.js";
 import { state } from "./state.js";
 import { toastError, toastSuccess } from "./toast.js";
+import { applyPackageWizardUi } from "./constructive-package-wizard.js";
 import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
 import {
   CONSTRUCTIVE_PIPELINE_STEPS,
@@ -245,6 +246,12 @@ export function applyPackageParseUi(block, position, detail, _constructiveFiles)
     if (parsing) btn.textContent = "Розбір…";
     else if (btn.dataset.cpParseDefaultLabel) btn.textContent = btn.dataset.cpParseDefaultLabel;
   });
+
+  const display = pkg ? packageParseDisplay(pkg.status, detail?.parts?.length || 0) : null;
+  applyPackageWizardUi(block, detail);
+  if (display?.parsed && detail?.parts?.length) {
+    applyPackageWizardUi(block, detail, 2);
+  }
 }
 
 /** Оновити UI після завантаження detail — зняти «вічний» parsing. */

@@ -104,9 +104,10 @@
           />
         </span>
         <span class="operator-client-stage" id="operatorStageChip"></span>
+        <div class="operator-header-spacer" aria-hidden="true"></div>
         <button
           type="button"
-          class="btn btn-sm btn-header-action operator-client-scan-btn op-btn-scan"
+          class="btn btn-sm operator-header-primary operator-client-scan-btn op-btn-scan"
           id="operatorClientScanBtn"
           hidden
           title="Сканування деталі"
@@ -127,35 +128,63 @@
               <path d="M21 5v14" /></svg></span
           ><span class="op-scan-label">Сканувати</span>
         </button>
-        <span class="operator-client-build" id="operatorBuildChip" hidden></span>
-        <span class="operator-client-user" id="userChip"></span>
-        <button
-          type="button"
-          class="btn btn-sm btn-header-action"
-          id="operatorClientBackBtn"
-          hidden
-        >
-          ← Назад
-        </button>
-        <button type="button" class="btn btn-sm btn-header-action" id="logoutBtn" hidden>
-          Вийти
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-header-action operator-kiosk-restore"
-          id="kioskRestoreBtn"
-          hidden
-        >
-          Екран
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-header-action operator-kiosk-exit"
-          id="kioskExitBtn"
-          hidden
-        >
-          Вийти
-        </button>
+        <div class="operator-header-overflow">
+          <button
+            type="button"
+            class="btn btn-sm btn-header-action operator-header-menu-btn"
+            id="operatorHeaderMenuBtn"
+            aria-expanded="false"
+            aria-haspopup="menu"
+            aria-controls="operatorHeaderMenu"
+            aria-label="Меню оператора"
+          >
+            ⋯
+          </button>
+          <div class="operator-header-menu" id="operatorHeaderMenu" role="menu" hidden>
+            <span class="operator-header-menu-user" id="userChip" role="presentation"></span>
+            <span
+              class="operator-client-build operator-header-menu-build"
+              id="operatorBuildChip"
+              hidden
+            ></span>
+            <button
+              type="button"
+              class="operator-header-menu-item"
+              id="operatorClientBackBtn"
+              role="menuitem"
+              hidden
+            >
+              ← Назад
+            </button>
+            <button
+              type="button"
+              class="operator-header-menu-item"
+              id="logoutBtn"
+              role="menuitem"
+              hidden
+            >
+              Вийти
+            </button>
+            <button
+              type="button"
+              class="operator-header-menu-item operator-kiosk-restore"
+              id="kioskRestoreBtn"
+              role="menuitem"
+              hidden
+            >
+              Повноекранний режим
+            </button>
+            <button
+              type="button"
+              class="operator-header-menu-item operator-kiosk-exit"
+              id="kioskExitBtn"
+              role="menuitem"
+              hidden
+            >
+              Вийти з киоску
+            </button>
+          </div>
+        </div>
       </header>
       <main id="content" class="operator-client-content" aria-label="Основний вміст"></main>
     </div>

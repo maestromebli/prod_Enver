@@ -8,7 +8,7 @@ import {
   logout,
   operatorStages,
   refreshCurrentUser,
-  shouldShowProductionFloorByDefault,
+  getRoleLanding,
   canViewProcurement
 } from "./auth.js";
 import {
@@ -84,6 +84,7 @@ import { initCommandPalette } from "./command-palette.js";
 import { hintToast, initKeyboardShortcuts } from "./keyboard-shortcuts.js";
 import { initModalFocusTraps } from "./focus-trap.js";
 import { resolveDashboardNav } from "./dashboard-routes.js";
+import { bindFilterPresetBar, applyFilterPreset } from "./filter-presets.js";
 import { setListFilters } from "./filters.js";
 import { $, escapeHtml } from "./utils.js";
 import "./styles/manager-entry.css";
@@ -156,11 +157,10 @@ async function afterAuth({ restoreNavigation = false } = {}) {
       const stages = operatorStages();
       state.view = "operator";
       state.operatorStage = stages[0];
-    } else if (shouldShowProductionFloorByDefault()) {
-      state.view = "main";
-      state.activeTab = PRODUCTION_FLOOR_TAB;
     } else {
-      state.view = "main";
+      const landing = getRoleLanding();
+      state.view = landing.view;
+      if (landing.tab) state.activeTab = landing.tab;
     }
   } else if (state.view === "operator") {
     const stages = operatorStages();
@@ -186,6 +186,7 @@ async function afterAuth({ restoreNavigation = false } = {}) {
 }
 
 function bindContentActions() {
+  bindFilterPresetBar(document);
   document.querySelectorAll("[data-dash-open-order]").forEach((el) => {
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -721,6 +722,7 @@ $("#stageFilter")?.addEventListener("change", (e) => {
 });
 
 $("#resetBtn")?.addEventListener("click", () => {
+  applyFilterPreset("");
   setListFilters({ search: "", status: "", responsible: "" });
   state.productionStageFilter = "";
   state.ordersView.priorityFilter = "";

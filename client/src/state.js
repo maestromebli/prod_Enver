@@ -63,7 +63,9 @@ export const state = {
     /** Фільтр пріоритету на реєстрі замовлень */
     priorityFilter: "",
     /** manager | floor | full — пресет колонок реєстру позицій */
-    positionsColumnPreset: "manager"
+    positionsColumnPreset: "manager",
+    /** mine | overdue | problems | no_constructive */
+    filterPreset: ""
   },
   showArchived: false,
   constructorDesk: {
