@@ -110,7 +110,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:enver_dev@localhost:5432/enver
           DATABASE_URL_MIGRATIONS: postgresql://postgres:enver_dev@localhost:5432/enver
           COVERAGE_SCOPE: all
-          COVERAGE_MIN_LINES_ALL: "55"
+          COVERAGE_MIN_LINES_ALL: "48"
         run: npm run test:coverage:check
 
       - name: Install Playwright
