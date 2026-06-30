@@ -82,22 +82,30 @@ export function derivePositionStatus(row) {
   return row.position_status?.trim() || "У виробництві";
 }
 
+const PRODUCTION_STAGE_ORDER = ["cutting", "edging", "drilling", "assembly"];
+
+function productionStageStarted(status) {
+  return Boolean(status && status !== "Не розпочато");
+}
+
 /** Позиція ще на столі конструктора (конструктив не передано в цех). */
 export function isOnConstructorStage(row) {
   if (!hasConstructive(row)) return true;
-  const cutting = readStageStatus(row, "cutting");
-  return !cutting || cutting === "Не розпочато";
+  return !PRODUCTION_STAGE_ORDER.some((key) => productionStageStarted(readStageStatus(row, key)));
 }
 
 /** Поточний активний етап для UI та operator queue. */
 export function deriveCurrentStage(row) {
   if (isOnConstructorStage(row)) return "constructor";
 
-  const order = ["cutting", "edging", "drilling", "assembly"];
-  for (const key of order) {
+  for (const key of PRODUCTION_STAGE_ORDER) {
     const status = readStageStatus(row, key);
-    if (!status || status === "Не розпочато") return key;
     if (STAGE_ACTIVE_STATUSES.has(status)) return key;
+  }
+
+  for (const key of PRODUCTION_STAGE_ORDER) {
+    const status = readStageStatus(row, key);
+    if (!productionStageStarted(status)) return key;
     if (!STAGE_STATUS_DONE.has(status)) return key;
   }
   return "install";

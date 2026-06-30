@@ -103,6 +103,28 @@ describe("shared/production", () => {
     assert.equal(deriveCurrentStage(row), "constructor");
   });
 
+  it("deriveCurrentStage — активний пізніший етап без порізки (поклейка вже в роботі)", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Не розпочато",
+      edging_status: "В роботі",
+      drilling_status: "Не розпочато",
+      assembly_status: "Не розпочато"
+    };
+    assert.equal(deriveCurrentStage(row), "edging");
+  });
+
+  it("deriveCurrentStage — порізка передана, поклейка в черзі", () => {
+    const row = {
+      has_constructive_file: true,
+      cutting_status: "Передано",
+      edging_status: "Не розпочато",
+      drilling_status: "Не розпочато",
+      assembly_status: "Не розпочато"
+    };
+    assert.equal(deriveCurrentStage(row), "cutting");
+  });
+
   it("deriveCurrentStage після всіх етапів — монтаж", () => {
     const row = {
       has_constructive_file: true,
