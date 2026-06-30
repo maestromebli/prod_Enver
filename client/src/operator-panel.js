@@ -596,7 +596,7 @@ export function renderOperatorView() {
               <div class="op-order-3d-head">
                 <h3 class="op-section-title">3D модель</h3>
                 <button type="button" class="btn btn-sm btn-primary" id="operatorOpen3dBtn" hidden>
-                  Відкрити 3D
+                  На весь екран
                 </button>
               </div>
               <div

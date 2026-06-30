@@ -29,16 +29,14 @@ describe("godmode UI helpers", () => {
     assert.equal(canQuickRunGodmodeAction("upload_constructive"), false);
   });
 
-  it("canAttentionQuickRun — розширені дії з вкладки уваги", () => {
-    assert.equal(canAttentionQuickRun("create_procurement"), true);
-    assert.equal(canAttentionQuickRun("schedule_install"), true);
-    assert.equal(canAttentionQuickRun("parse_constructive_package"), true);
+  it("canAttentionQuickRun — create_tasks_from_ai", () => {
+    assert.equal(canAttentionQuickRun("create_tasks_from_ai"), true);
     assert.equal(canAttentionQuickRun("upload_constructive"), false);
   });
 
-  it("isRunnableGodmodeAction — UI-дії не quick-run", () => {
+  it("isRunnableGodmodeAction — create_tasks_from_ai quick-run", () => {
     assert.equal(isRunnableGodmodeAction("add_position"), true);
-    assert.equal(isRunnableGodmodeAction("create_tasks_from_ai"), false);
+    assert.equal(isRunnableGodmodeAction("create_tasks_from_ai"), true);
   });
 
   it("orderDetailSubTabForGodmodeAction — pipeline дії", () => {

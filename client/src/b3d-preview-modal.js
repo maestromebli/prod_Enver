@@ -8,6 +8,8 @@ import {
   findPackagePreview3dFile,
   preview3dLoadFormat
 } from "@enver/shared/production/constructive-package.js";
+import { get3dUpgradeHintText } from "@enver/shared/production/resolve-3d-preview.js";
+import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 
 let previewViewer = null;
 
@@ -24,7 +26,7 @@ function renderPreviewCaption(detail) {
     }</p>`;
   }
   if (layout === "flat") {
-    return `<p class="b3d-preview-caption b3d-preview-caption--flat enver-meta">Розкладка деталей — GibLab .b3d не містить координат збірки. Запустіть у Базісі скрипт <strong>enver-b3d-assembly-export.js</strong> на експортованому .b3d (додає ENVER3), потім перезавантажте файл у пакет. Або завантажте <strong>.wrl</strong> з Базіс.</p>`;
+    return renderPreview3dUpgradeBanner(get3dUpgradeHintText({ layout, packageDetail: detail }));
   }
   return "";
 }
@@ -62,7 +64,7 @@ export function renderB3dPreviewModal(detail) {
       <div class="modal b3d-preview-modal" role="dialog" aria-label="Перегляд 3D моделі">
         <header class="b3d-preview-head">
           <div>
-            <h2>${escapeHtml(modeLabel)}</h2>
+            <h2>${layout ? renderPreview3dBadge(layout, modeLabel) : escapeHtml(modeLabel)}</h2>
             <p class="enver-meta">${escapeHtml(title)}</p>
           </div>
           <button type="button" class="btn btn-sm" id="closeB3dPreviewBtn">Закрити</button>

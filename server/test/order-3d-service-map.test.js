@@ -71,5 +71,34 @@ describe("mapOrder3DAssetRow", () => {
     );
     assert.equal(mapped.webModelFormat, "wrl");
     assert.equal(mapped.webModelUrl, "/api/orders/5/3d/10/web-model");
+    assert.equal(mapped.previewLayout, "assembly");
+  });
+
+  it("previewLayout і upgradeHint для flat", () => {
+    const mapped = mapOrder3DAssetRow(
+      {
+        ...baseRow,
+        status: "PARTIAL_READY",
+        conversion_source: "project_panels"
+      },
+      admin,
+      { orderId: 5 }
+    );
+    assert.equal(mapped.previewLayout, "flat");
+    assert.equal(mapped.previewLayoutLabel, "Розкладка деталей");
+    assert.ok(mapped.upgradeHint);
+  });
+
+  it("previewLayout assembly для ENVER3", () => {
+    const mapped = mapOrder3DAssetRow(
+      {
+        ...baseRow,
+        conversion_source: "b3d_enver3_assembly"
+      },
+      admin,
+      { orderId: 5 }
+    );
+    assert.equal(mapped.previewLayout, "assembly");
+    assert.equal(mapped.upgradeHint, null);
   });
 });

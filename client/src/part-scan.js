@@ -120,11 +120,11 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         ${p.edgeCode ? `<p>Кромка: ${escapeHtml(p.edgeCode)}</p>` : ""}
         ${showCncActions ? `<p class="part-cnc-status">ЧПК: ${escapeHtml(p.cncStatus || "—")}</p>` : ""}
         ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
-        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">${isNativeOperatorShell() ? "3D відкриється на цьому екрані" : "3D відкривається в окремому вікні"}</p>` : ""}
+        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D на панелі роботи — натисніть кнопку нижче для підсвітки деталі</p>` : ""}
       </div>
       <div class="part-detail-actions">
         ${cncActions}
-        ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg btn-primary" data-open-3d>Відкрити 3D</button>` : ""}
+        ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg btn-primary" data-open-3d>Показати на 3D</button>` : ""}
         ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
         <button type="button" class="btn btn-lg" data-part-scan-close>${escapeHtml(closeLabel)}</button>
       </div>
@@ -141,7 +141,7 @@ export function renderOperatorScanPanel(stageKey) {
           <button type="button" class="btn btn-sm op-part-scan-back" id="operatorPartScanBackBtn">← Назад</button>
           <h3 class="op-part-scan-title">Сканування деталі</h3>
         </div>
-        <p class="op-part-scan-hint">${isNativeOperatorShell() ? "Після сканування 3D відкриється на цьому екрані" : "Після сканування 3D відкриється в окремому вікні"}</p>
+        <p class="op-part-scan-hint">Після сканування деталь підсвітиться на 3D-моделі в панелі роботи</p>
       </div>
       <div class="op-part-scan-bar" id="operatorScanScannerPane">
         <input
@@ -200,7 +200,14 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
     });
   });
 
-  detailEl.querySelector("[data-open-3d]")?.addEventListener("click", () => {
+  detailEl.querySelector("[data-open-3d]")?.addEventListener("click", async () => {
+    const { highlightOperatorOrder3dPart, getOperatorOrder3dViewer } =
+      await import("./operator-3d.js");
+    const section = document.getElementById("operatorOrder3dSection");
+    if (getOperatorOrder3dViewer() && data.part && highlightOperatorOrder3dPart(data.part)) {
+      section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
     openPartScanViewerWindow(data);
   });
 

@@ -83,7 +83,7 @@ describe("ui-persistence", () => {
 
     persistUiState();
     const raw = JSON.parse(sessionStorage.getItem("enver_ui_state"));
-    assert.equal(raw.v, 6);
+    assert.equal(raw.v, 7);
     assert.equal(raw.filters.search, "abc");
     assert.equal(raw.ordersView.detailTab, "pos-3");
     assert.equal(raw.ordersView.positionsColumnPreset, "manager");

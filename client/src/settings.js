@@ -9,6 +9,11 @@ import {
   bindNotificationSettingsActions,
   notificationsSectionHtml
 } from "./settings-notifications.js";
+import {
+  automationSectionHtml,
+  bindAutomationSettingsActions,
+  loadAutomationSettings
+} from "./settings-automation.js";
 import { runSave } from "./save-flow.js";
 import { renderSettingsSaveBanner, runSettingsSave } from "./settings-save-feedback.js";
 import { $, escapeHtml } from "./utils.js";
@@ -77,6 +82,11 @@ export async function loadSettingsData() {
       } catch {
         aiLearningSummary = null;
         aiRules = [];
+      }
+      try {
+        await loadAutomationSettings();
+      } catch {
+        /* automation settings optional until first save */
       }
     }
   } catch (err) {
@@ -410,6 +420,7 @@ function aiSectionHtml() {
 const SETTINGS_STICKY_SAVE = {
   access: { target: "#savePermissionsBtn", label: "Зберегти доступи" },
   ai: { target: "#saveAiSettingsBtn", label: "Зберегти ШІ" },
+  automation: { target: "#saveAutomationSettingsBtn", label: "Зберегти автоматизацію" },
   directories: { target: "#saveAllDirectoriesBtn", label: "Зберегти всі" }
 };
 
@@ -418,6 +429,7 @@ function renderSettingsStickyBar(section, { limited = false } = {}) {
   const cfg = SETTINGS_STICKY_SAVE[section];
   if (!cfg) return "";
   if (section === "ai" && !isAdmin()) return "";
+  if (section === "automation" && !isAdmin()) return "";
   if (section === "directories" && !isAdmin()) return "";
 
   return `
@@ -437,6 +449,7 @@ export function renderSettingsView() {
   let section = state.settingsSection;
   if (limited) section = "notifications";
   if (section === "ai" && !isAdmin()) section = limited ? "notifications" : "users";
+  if (section === "automation" && !isAdmin()) section = limited ? "notifications" : "users";
 
   const nav = limited
     ? [["notifications", "Сповіщення"]]
@@ -446,7 +459,12 @@ export function renderSettingsView() {
         ["directories", "Довідники"],
         ["clients", "Клієнти"],
         ["notifications", "Сповіщення"],
-        ...(isAdmin() ? [["ai", "ШІ"]] : [])
+        ...(isAdmin()
+          ? [
+              ["ai", "ШІ"],
+              ["automation", "Автоматизація"]
+            ]
+          : [])
       ];
 
   const sectionHtml =
@@ -462,7 +480,9 @@ export function renderSettingsView() {
               ? directoriesSectionHtml()
               : section === "ai"
                 ? aiSectionHtml()
-                : notificationsSectionHtml();
+                : section === "automation"
+                  ? automationSectionHtml()
+                  : notificationsSectionHtml();
 
   const stickyBar = renderSettingsStickyBar(section, { limited });
 
@@ -629,6 +649,7 @@ export function bindSettingsActions(onChange) {
   settingsOnChange = onChange;
   bindClientsActions();
   bindNotificationSettingsActions(onChange);
+  bindAutomationSettingsActions(onChange);
   if (settingsActionsBound) return;
   settingsActionsBound = true;
 

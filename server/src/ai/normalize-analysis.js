@@ -60,7 +60,7 @@ function normalizeWarnings(raw) {
   return raw.map((w) => String(w || "").trim()).filter(Boolean);
 }
 
-function normalizeSuggestedTasks(raw, warningsOut) {
+export function normalizeSuggestedTasks(raw, warningsOut) {
   const items = Array.isArray(raw) ? raw : [];
   const seen = new Set();
   const tasks = [];

@@ -81,6 +81,7 @@ describe("b3d-glb-extractor", () => {
     const xml = `<?xml version="1.0"?><project><part code="10" name="A" dl="500" dw="300"/></project>`;
     const assembly = {
       version: 1,
+      exportedAt: "2026-06-30T12:00:00.000Z",
       panels: [
         {
           code: "10",
@@ -99,6 +100,36 @@ describe("b3d-glb-extractor", () => {
     });
     assert.equal(result.layout, "assembly");
     assert.equal(result.source, "b3d_enver3_assembly");
+    assert.equal(result.exportedAt, "2026-06-30T12:00:00.000Z");
+    assert.deepEqual(result.missingCodes, []);
+  });
+
+  it("часткова збірка з mixed GLB при неповному ENVER3", () => {
+    const xml = `<?xml version="1.0"?><project>
+      <part code="10" name="A" dl="500" dw="300"/>
+      <part code="11" name="B" dl="400" dw="200"/>
+    </project>`;
+    const assembly = {
+      panels: [
+        {
+          code: "10",
+          centerMm: [250, 150, 500],
+          sizeMm: [500, 300, 18],
+          axisX: [1, 0, 0],
+          axisY: [0, 1, 0],
+          axisZ: [0, 0, 1]
+        }
+      ]
+    };
+    const bz85 = appendEnverAssemblyToB3d(Buffer.from("BZ85\x00"), assembly);
+    const result = extractPackagePreviewGlb({
+      b3dBuffer: bz85,
+      projectBuffer: Buffer.from(xml, "utf8")
+    });
+    assert.equal(result.layout, "assembly");
+    assert.equal(result.isPartialAssembly, true);
+    assert.deepEqual(result.missingCodes, ["11"]);
+    assert.equal(result.assembledCount, 1);
   });
 
   it("кидає помилку для порожнього .b3d", () => {

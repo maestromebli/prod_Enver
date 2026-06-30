@@ -429,30 +429,63 @@ router.post("/:id/create-tasks", requirePositionWrite, async (req, res) => {
     return;
   }
 
-  const before = { ...existing };
-  for (const key of valid) {
-    const field = STAGE_STATUS_FIELD[key];
-    if (!existing[field] || existing[field] === "Не розпочато") {
-      existing[field] = "Передано";
-    }
+  const { applyStagesToPosition } = await import("../automation/auto-create-tasks.js");
+  const result = await applyStagesToPosition(id, valid, { actor: auditActor(req) });
+  if (!result.applied) {
+    res.status(400).json({ error: "Не вдалося створити задачі", reason: result.reason });
+    return;
   }
 
   const planMap = await planDateByOrderNumber();
-  const planDate = planMap.forRow(existing);
-  await saveRow(id, existing, planDate);
   const afterRow = await loadRow(id);
-  await logPositionUpdate(before, afterRow, auditActor(req));
-
-  const { recordTaskCorrectionLearning } = await import("../ai/ai-task-learning.js");
-  await recordTaskCorrectionLearning({
-    positionId: id,
-    positionRow: afterRow,
-    selectedStages: valid,
-    userId: auditActor(req)?.id,
-    source: "ai_analysis"
-  }).catch((err) => console.error("[ai task learning]", err.message));
-
   res.json(mapEnrichedRow(afterRow, planMap));
+});
+
+router.post("/:id/create-tasks-from-ai", requirePositionWrite, async (req, res) => {
+  const id = Number(req.params.id);
+  const existing = await loadRow(id);
+  if (!existing) {
+    res.status(404).json({ error: "Позицію не знайдено" });
+    return;
+  }
+
+  const { loadLatestAiAnalysisForPosition } = await import("../automation/analysis-loader.js");
+  const { tryAutoCreateTasksFromAnalysis } = await import("../automation/auto-create-tasks.js");
+  const latest = await loadLatestAiAnalysisForPosition(id);
+  if (!latest?.analysis) {
+    res.status(400).json({ error: "Немає ШІ-аналізу для цієї позиції" });
+    return;
+  }
+
+  const mode = req.body?.mode === "strict" ? "strict" : "assisted";
+  const result = await tryAutoCreateTasksFromAnalysis(id, latest.analysis, {
+    source: latest.source,
+    actor: auditActor(req),
+    mode
+  });
+
+  if (!result.applied) {
+    const messages = {
+      disabled: "Автостворення задач вимкнено в налаштуваннях",
+      no_matching_stages: "Немає етапів з достатньою впевненістю для створення",
+      tasks_exist: "Задачі вже створені",
+      child_position: "Дочірня позиція не підтримується",
+      not_found: "Позицію не знайдено"
+    };
+    res.status(400).json({
+      error: messages[result.reason] || "Не вдалося створити задачі з ШІ",
+      reason: result.reason
+    });
+    return;
+  }
+
+  const planMap = await planDateByOrderNumber();
+  const afterRow = await loadRow(id);
+  res.json({
+    ...mapEnrichedRow(afterRow, planMap),
+    createdStages: result.stages,
+    analysisSource: latest.source
+  });
 });
 
 router.patch("/:id/install", requirePositionWrite, async (req, res) => {

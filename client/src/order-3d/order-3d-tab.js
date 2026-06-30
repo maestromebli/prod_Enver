@@ -26,8 +26,8 @@ export function renderOrder3DTab(order, asset) {
       <div class="order-3d-empty">
         ${iconSvg("cube3d", "enver-icon enver-icon--3d order-3d-empty-icon")}
         <h3 class="enver-section-title">3D модель</h3>
-        <p class="order-3d-empty-text">Завантажте файл БАЗІС .b3d</p>
-        <p class="enver-meta">Система збереже оригінал, проаналізує B3D і створить .glb для перегляду в браузері</p>
+        <p class="order-3d-empty-text">Завантажте .b3d, .wrl або .glb</p>
+        <p class="enver-meta">Або завантажте пакет конструктива на столі конструктора — 3D зʼявиться автоматично</p>
       </div>
       ${renderOrder3DUploadZone()}
     </section>`;

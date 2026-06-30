@@ -9,6 +9,14 @@ export function normalizePartCode(code) {
   return s.replace(/^0+/, "") || s;
 }
 
+/** Витягнути числовий код з назви/артикулу для мʼякого зіставлення. */
+export function extractNumericPartCode(value) {
+  const s = String(value || "").trim();
+  if (!s) return "";
+  const m = s.match(/\b(\d{1,6})\b/);
+  return m ? normalizePartCode(m[1]) : "";
+}
+
 function normalizeVec3(v) {
   if (!Array.isArray(v) || v.length < 3) return null;
   const x = Number(v[0]);
@@ -22,6 +30,8 @@ function normalizeVec3(v) {
 
 function parsePanelRow(row) {
   if (!row || row.code == null) return null;
+  const code = normalizePartCode(row.code);
+  if (!code) return null;
   const centerMm = row.centerMm || row.center || row.positionMm;
   if (!Array.isArray(centerMm) || centerMm.length < 3) return null;
   const axisX = normalizeVec3(row.axisX);
@@ -30,9 +40,12 @@ function parsePanelRow(row) {
   if (!axisX || !axisY || !axisZ) return null;
   const sizeMm = row.sizeMm || row.size;
   return {
-    code: normalizePartCode(row.code),
+    code,
+    name: row.name ? String(row.name) : "",
+    artPos: row.artPos != null ? String(row.artPos) : "",
     centerMm: centerMm.map(Number),
     sizeMm: Array.isArray(sizeMm) ? sizeMm.map(Number) : null,
+    thicknessMm: row.thicknessMm != null ? Number(row.thicknessMm) : null,
     axisX,
     axisY,
     axisZ
@@ -51,6 +64,9 @@ export function parseAssemblyExportJson(text) {
   return {
     version: Number(data?.version) || 1,
     source: data?.source || "bazis",
+    exportedAt: data?.exportedAt || null,
+    productName: data?.productName || null,
+    skipped: Array.isArray(data?.skipped) ? data.skipped : [],
     panels
   };
 }

@@ -3,8 +3,14 @@ import "./styles/tokens.css";
 import "./styles/brand-logo.css";
 import "./styles/viewer-window.css";
 import "./styles/part-viewer.css";
-import { api, getStoredToken } from "./api.js";
+import "./styles/preview-3d.css";
+import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
+import {
+  findPackagePreview3dFile,
+  preview3dLoadFormat
+} from "@enver/shared/production/constructive-package.js";
 import { mountModelViewer } from "./part-viewer-mount.js";
+import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import {
@@ -14,7 +20,8 @@ import {
 } from "@enver/shared/production/part-detail-display.js";
 import { closeViewerWindow, resolveViewerModelUrl } from "./part-viewer-window.js";
 import { isNativeOperatorShell, markEnverNativeShell } from "./operator-native.js";
-import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
+import { renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
+import { resolve3dPreviewContext } from "@enver/shared/production/resolve-3d-preview.js";
 
 const HOLE_FACE_LABELS = {
   panel: "лице",
@@ -458,6 +465,50 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
   const asset = assetData?.asset;
   const isReady =
     asset && (asset.status === "READY" || asset.status === "PARTIAL_READY") && asset.webModelUrl;
+
+  if (!isReady && positionId) {
+    try {
+      const pkg = await api.getConstructivePackageLatest(positionId);
+      const previewFile = findPackagePreview3dFile(pkg);
+      if (previewFile && pkg?.package?.id) {
+        const packageUrl = constructivePackageFileUrl(positionId, pkg.package.id, previewFile.id);
+        const ctx = resolve3dPreviewContext({
+          packageDetail: pkg,
+          packageViewerUrl: packageUrl
+        });
+        const parts = pkg.parts || [];
+        viewer = await mountModelViewer(container, {
+          url: packageUrl,
+          token: getStoredToken(),
+          format: preview3dLoadFormat(previewFile),
+          parts,
+          theme: "studio"
+        });
+        hideLoading();
+        document.getElementById("viewerLoading")?.remove();
+        setTitle(ctx.layoutLabel || "3D модель");
+        const bannerHost = document.getElementById("viewerUpgradeBanner");
+        if (bannerHost && ctx.upgradeHint) {
+          bannerHost.innerHTML = renderPreview3dUpgradeBanner(ctx.upgradeHint);
+          bannerHost.hidden = false;
+        }
+        bindToolbar();
+        bindHotkeys();
+        if (highlightPartId) {
+          try {
+            const data = await api.getPart(highlightPartId);
+            await applyPartHighlight({ part: data.part, cadGeometry: data.cadGeometry, ...data });
+          } catch {
+            /* ignore */
+          }
+        }
+        return;
+      }
+    } catch {
+      /* fallback нижче */
+    }
+  }
+
   if (!isReady) {
     if (highlightPartId) {
       await loadPartMode(highlightPartId);
@@ -486,7 +537,17 @@ async function loadOrderMode(orderId, positionId, highlightPartId) {
   });
   hideLoading();
   document.getElementById("viewerLoading")?.remove();
-  setTitle("3D модель замовлення");
+  setTitle(asset.previewLayoutLabel || "3D модель замовлення");
+  const bannerHost = document.getElementById("viewerUpgradeBanner");
+  if (bannerHost) {
+    if (asset.upgradeHint) {
+      bannerHost.innerHTML = renderPreview3dUpgradeBanner(asset.upgradeHint);
+      bannerHost.hidden = false;
+    } else {
+      bannerHost.hidden = true;
+      bannerHost.innerHTML = "";
+    }
+  }
   bindToolbar();
   bindHotkeys();
 

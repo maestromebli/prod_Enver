@@ -18,6 +18,10 @@ import {
   loadAssemblyExportFromJsonBuffer
 } from "../../constructive/b3d-auto-enver3.js";
 import { deleteStoredFile, uploadOrder3DFile } from "./order-3d-storage.js";
+import {
+  get3dUpgradeHintText,
+  order3dAssetLayout
+} from "../../../../shared/production/resolve-3d-preview.js";
 
 function pathBasename(storagePath = "") {
   const normalized = String(storagePath).replace(/\\/g, "/");
@@ -39,6 +43,13 @@ export function mapOrder3DAssetRow(row, user, { orderId } = {}) {
   const webPath = row.web_model_storage_path || "";
   const webExt = webPath ? detectOrder3DFileType(pathBasename(webPath)) : null;
   const webModelFormat = webExt && webExt !== "unknown" ? webExt : row.original_file_type || "glb";
+  const previewLayout = order3dAssetLayout({
+    status: row.status,
+    conversionSource: row.conversion_source,
+    webModelFormat,
+    isPartialGeometry: row.status === "PARTIAL_READY",
+    webModelUrl: row.web_model_storage_path
+  });
   return {
     id: row.id,
     orderId: row.order_id,
@@ -53,6 +64,14 @@ export function mapOrder3DAssetRow(row, user, { orderId } = {}) {
     conversionSource: row.conversion_source || null,
     conversionSourceLabel: conversionSourceLabel(row.conversion_source),
     isPartialGeometry: row.status === "PARTIAL_READY",
+    previewLayout,
+    previewLayoutLabel:
+      previewLayout === "assembly"
+        ? "3D-збірка"
+        : previewLayout === "flat"
+          ? "Розкладка деталей"
+          : null,
+    upgradeHint: get3dUpgradeHintText({ layout: previewLayout }),
     webModelFormat: webModelFormat === "unknown" ? "glb" : webModelFormat,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

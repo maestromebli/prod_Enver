@@ -230,6 +230,16 @@ export async function analyzeConstructiveFile({
     [positionFileId, JSON.stringify(storedPayload), model, tokens]
   );
 
+  const fileRow = await one(`SELECT position_id FROM position_files WHERE id = $1`, [
+    positionFileId
+  ]);
+  if (fileRow?.position_id) {
+    const { tryAutoCreateTasksFromAnalysis } = await import("./automation/auto-create-tasks.js");
+    void tryAutoCreateTasksFromAnalysis(fileRow.position_id, analysis, {
+      source: "constructive_ai"
+    }).catch((err) => console.error("[automation] constructive ai tasks:", err?.message || err));
+  }
+
   return flattenAnalysisResponse({
     id: row.id,
     createdAt: row.created_at,

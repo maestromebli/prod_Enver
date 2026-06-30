@@ -374,15 +374,21 @@ export async function getPackageDetail(packageId) {
     [packageId]
   );
   const aiAnalysis = await getLatestPackageAiAnalysis(packageId);
+  let manifestJson = null;
+  if (manifest?.manifest_json) {
+    try {
+      manifestJson = JSON.parse(manifest.manifest_json || "{}");
+    } catch {
+      manifestJson = {};
+    }
+  }
   return {
     package: pkg,
     files,
     parts,
     materials,
     hardware,
-    manifest: manifest
-      ? { id: manifest.id, manifestJson: JSON.parse(manifest.manifest_json || "{}") }
-      : null,
+    manifest: manifest ? { id: manifest.id, manifestJson: manifestJson || {} } : null,
     procurement: procurement
       ? {
           id: procurement.id,
@@ -391,6 +397,7 @@ export async function getPackageDetail(packageId) {
         }
       : null,
     unmappedParts: parts.filter((p) => !p.modelNodeId && !p.modelMeshName),
+    preview3d: manifestJson?.preview3d || null,
     aiAnalysis
   };
 }
@@ -466,8 +473,48 @@ export async function deletePackageFile(packageId, fileId, actor) {
   return getPackageDetail(packageId);
 }
 
+async function savePreview3dMeta(packageId, glbFileId, preview, enver3Sync = null) {
+  const existing = await one(`SELECT manifest_json FROM model_manifests WHERE package_id = $1`, [
+    packageId
+  ]);
+  let manifest = {};
+  try {
+    manifest = JSON.parse(existing?.manifest_json || "{}");
+  } catch {
+    manifest = {};
+  }
+
+  const missingCodes = preview?.missingCodes || [];
+  const assembledCount =
+    preview?.assembledCount ??
+    (preview?.panelCount != null && missingCodes.length
+      ? Math.max(0, preview.panelCount - missingCodes.length)
+      : null);
+
+  manifest.preview3d = {
+    layout: preview?.layout || "flat",
+    source: preview?.source || null,
+    panelCount: preview?.panelCount ?? null,
+    assembledCount,
+    missingCodes,
+    isPartialAssembly: Boolean(preview?.isPartialAssembly || missingCodes.length),
+    exportedAt: preview?.exportedAt || null,
+    productName: preview?.productName || null,
+    enver3Sync: enver3Sync
+      ? {
+          applied: Boolean(enver3Sync.applied),
+          reason: enver3Sync.reason || null,
+          panelCount: enver3Sync.panelCount ?? null
+        }
+      : manifest.preview3d?.enver3Sync || null,
+    updatedAt: new Date().toISOString()
+  };
+
+  await saveModelManifest(packageId, manifest, glbFileId);
+}
+
 /** GLB для перегляду: витягується з GibLab .b3d після завантаження. */
-async function ensureB3dPreviewGlb(packageId, positionId, fileRows) {
+async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync = null } = {}) {
   const hasUser3dPreview = fileRows.some(
     (f) =>
       f.kind === "wrl_model" ||
@@ -542,6 +589,7 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows) {
     row.panelCount = preview.panelCount || null;
     row.previewSource = preview.source;
     row.previewLayout = preview.layout || "flat";
+    await savePreview3dMeta(packageId, row.id, preview, enver3Sync);
   }
   return row || null;
 }
@@ -550,15 +598,15 @@ async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
   try {
     if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
       const fileRows = await getPackageFiles(packageId);
-      await autoSyncEnver3ToPackageB3d({ fileRows });
-      await ensureB3dPreviewGlb(packageId, positionId, fileRows);
+      const enver3Sync = await autoSyncEnver3ToPackageB3d({ fileRows });
+      await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync });
     } else if (
       savedFiles.some((f) => f.kind === "other" && isEnverAssemblyJsonName(f.originalName))
     ) {
       const fileRows = await getPackageFiles(packageId);
-      const synced = await autoSyncEnver3ToPackageB3d({ fileRows });
-      if (synced.applied) {
-        await ensureB3dPreviewGlb(packageId, positionId, fileRows);
+      const enver3Sync = await autoSyncEnver3ToPackageB3d({ fileRows });
+      if (enver3Sync.applied) {
+        await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync });
       }
     }
   } catch (err) {
@@ -953,6 +1001,19 @@ export async function parseConstructivePackage(packageId, actor) {
         );
       }
 
+      const existingManifestRow = await client.query(
+        `SELECT manifest_json FROM model_manifests WHERE package_id = $1 LIMIT 1`,
+        [packageId]
+      );
+      let preservedPreview3d = null;
+      if (existingManifestRow.rows[0]?.manifest_json) {
+        try {
+          preservedPreview3d = JSON.parse(existingManifestRow.rows[0].manifest_json)?.preview3d || null;
+        } catch {
+          preservedPreview3d = null;
+        }
+      }
+
       const manifestPayload = JSON.stringify({
         nodes: merged.manifestNodes || [],
         autoMapped: autoMapped.length > 0,
@@ -965,12 +1026,10 @@ export async function parseConstructivePackage(packageId, actor) {
               panelCount: previewGlbRow.panelCount || null,
               auto: true
             }
-          : null
+          : null,
+        ...(preservedPreview3d ? { preview3d: preservedPreview3d } : {})
       });
-      const existingManifest = await client.query(
-        `SELECT id FROM model_manifests WHERE package_id = $1 LIMIT 1`,
-        [packageId]
-      );
+      const existingManifest = existingManifestRow;
       if (existingManifest.rows[0]?.id) {
         await client.query(
           `UPDATE model_manifests SET manifest_json = $1, glb_file_id = COALESCE($2, glb_file_id) WHERE package_id = $3`,

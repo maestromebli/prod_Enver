@@ -69,6 +69,12 @@ async function start() {
       } catch (err) {
         console.warn("order-3d queue resume:", err?.message || err);
       }
+      try {
+        const { startAutomationScheduler } = await import("./automation/scheduler.js");
+        startAutomationScheduler();
+      } catch (err) {
+        console.warn("automation scheduler:", err?.message || err);
+      }
     } catch (err) {
       if (!isDev) throw err;
       const hint =

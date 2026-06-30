@@ -288,6 +288,11 @@ export async function createProcurementFromPackage(packageId, actor) {
 
   await markPackageSentToProcurement(packageId, actor);
 
+  const { sendProcurementWebhook } = await import("../automation/overdue-digest.js");
+  void sendProcurementWebhook(reqRow, { materials, hardware }).catch((err) =>
+    console.error("[automation] procurement webhook:", err?.message || err)
+  );
+
   return getProcurementRequest(reqRow.id);
 }
 

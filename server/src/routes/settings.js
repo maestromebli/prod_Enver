@@ -1,5 +1,11 @@
 import { Router } from "express";
 import { getAiSettings, maskSecret, setSetting } from "../app-settings.js";
+import {
+  automationSettingsForClient,
+  getAutomationSettings,
+  normalizeAutomationSettings,
+  saveAutomationSettings
+} from "../automation/settings.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -108,6 +114,67 @@ router.post("/ai/test", async (_req, res) => {
     return;
   }
   res.json({ ok: true, message: "Ключ дійсний, з'єднання з OpenAI успішне" });
+});
+
+router.get("/automation", async (_req, res) => {
+  try {
+    const settings = await getAutomationSettings();
+    res.json(automationSettingsForClient(settings));
+  } catch (err) {
+    console.error("GET /api/settings/automation:", err);
+    res.status(500).json({ error: "Не вдалося прочитати налаштування автоматизації" });
+  }
+});
+
+router.put("/automation", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const saved = await saveAutomationSettings({
+      autoCreateTasksFromAi: body.autoCreateTasksFromAi,
+      autoCreateTasksMinConfidence: body.autoCreateTasksMinConfidence,
+      autoCreateTasksRequireSafeQuality: body.autoCreateTasksRequireSafeQuality,
+      overdueDigestEnabled: body.overdueDigestEnabled,
+      overdueDigestHourKyiv: body.overdueDigestHourKyiv,
+      overdueDigestWebhookUrl: body.overdueDigestWebhookUrl,
+      overdueDigestSendWhenEmpty: body.overdueDigestSendWhenEmpty,
+      procurementWebhookEnabled: body.procurementWebhookEnabled,
+      procurementWebhookUrl: body.procurementWebhookUrl
+    });
+    res.json({
+      ok: true,
+      ...automationSettingsForClient(saved),
+      message: "Налаштування автоматизації збережено"
+    });
+  } catch (err) {
+    console.error("PUT /api/settings/automation:", err);
+    res.status(500).json({ error: "Не вдалося зберегти налаштування автоматизації" });
+  }
+});
+
+router.post("/automation/test-overdue", async (_req, res) => {
+  try {
+    const settings = normalizeAutomationSettings(await getAutomationSettings());
+    if (!settings.overdueDigestWebhookUrl) {
+      res.status(400).json({ error: "Вкажіть URL webhook для дайджесту прострочок" });
+      return;
+    }
+    const { runOverdueDigest } = await import("../automation/overdue-digest.js");
+    const result = await runOverdueDigest({ force: true });
+    if (!result.ok && !result.skipped) {
+      res.status(400).json({ error: result.error || "Webhook не відповів" });
+      return;
+    }
+    res.json({
+      ok: true,
+      message: result.skipped
+        ? `Перевірку виконано (${result.reason || "skipped"})`
+        : `Дайджест надіслано: ${result.count} позицій`,
+      ...result
+    });
+  } catch (err) {
+    console.error("POST /api/settings/automation/test-overdue:", err);
+    res.status(500).json({ error: "Не вдалося надіслати тестовий дайджест" });
+  }
 });
 
 export default router;

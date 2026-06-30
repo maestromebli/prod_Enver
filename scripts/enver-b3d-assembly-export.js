@@ -37,6 +37,17 @@ function panelCode(panel) {
   return m ? m[1] : name;
 }
 
+function productNameFromModel() {
+  try {
+    if (typeof Model !== "undefined" && Model && Model.Name) {
+      return String(Model.Name).trim();
+    }
+  } catch {
+    /* ignore */
+  }
+  return "";
+}
+
 /** Обхід дерева моделі — усі панелі з товщиною. */
 function collectPanels(obj, out) {
   if (!obj) return;
@@ -74,12 +85,23 @@ function exportAssemblyFromModel() {
   }
 
   const exported = [];
+  const skipped = [];
+
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i];
     const gmin = panel.GabMin;
     const gmax = panel.GabMax;
+    const artPos = String(panel.ArtPos || "").trim();
+    const name = String(panel.Name || "").trim();
     const code = panelCode(panel);
-    if (!code) continue;
+
+    if (!code) {
+      skipped.push({
+        name: name || "Панель " + (i + 1),
+        reason: "no_artpos"
+      });
+      continue;
+    }
 
     const center = {
       x: (gmin.x + gmax.x) / 2,
@@ -95,6 +117,9 @@ function exportAssemblyFromModel() {
 
     exported.push({
       code,
+      name,
+      artPos,
+      thicknessMm: Number(panel.Thickness) || null,
       centerMm: vec(center),
       sizeMm: [Math.abs(gsize.x), Math.abs(gsize.y), Math.abs(gsize.z)],
       axisX: normVec(panel.NToGlobal(AxisX)),
@@ -104,14 +129,20 @@ function exportAssemblyFromModel() {
   }
 
   if (!exported.length) {
-    alert("Панелі без коду (ArtPos). Заповніть артикул/позицію деталей у Базіс.");
+    alert(
+      "Панелі без коду (ArtPos). Заповніть артикул/позицію деталей у Базіс." +
+        (skipped.length ? "\nПропущено: " + skipped.length : "")
+    );
     return null;
   }
 
   return {
     version: 1,
     source: "bazis",
-    panels: exported
+    exportedAt: new Date().toISOString(),
+    productName: productNameFromModel(),
+    panels: exported,
+    skipped
   };
 }
 
@@ -158,10 +189,16 @@ function patchB3dFileAtPath(b3dPath, assembly, options) {
   }
 
   if (!silent) {
+    const skippedNote =
+      assembly.skipped && assembly.skipped.length
+        ? "\nПропущено без ArtPos: " + assembly.skipped.length
+        : "";
     alert(
       "ENVER3 додано: " +
         assembly.panels.length +
-        " панелей.\nФайл: " +
+        " панелей." +
+        skippedNote +
+        "\nФайл: " +
         system.getFileName(b3dPath) +
         "\nJSON: " +
         system.getFileName(jsonSidecar) +

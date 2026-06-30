@@ -1,19 +1,27 @@
 import { escapeHtml } from "../utils.js";
 import { ORDER_3D_STATUS_LABELS } from "@enver/shared/production/order-3d.js";
 import { order3dFileUrl } from "./order-3d-api.js";
+import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "../preview-3d-ui.js";
 
 export function renderOrder3DStatusCard(asset, orderId) {
   if (!asset) return "";
 
   const label = ORDER_3D_STATUS_LABELS[asset.status] || asset.status;
   const statusClass = `order-3d-status--${String(asset.status || "").toLowerCase()}`;
+  const layoutBadge =
+    (asset.status === "READY" || asset.status === "PARTIAL_READY") && asset.previewLayout
+      ? renderPreview3dBadge(asset.previewLayout, asset.previewLayoutLabel)
+      : "";
+  const upgradeBanner = asset.upgradeHint ? renderPreview3dUpgradeBanner(asset.upgradeHint) : "";
 
   return `
     <div class="order-3d-status-card card ${statusClass}">
       <div class="order-3d-status-head">
         <span class="enver-badge order-3d-status-badge">${escapeHtml(label)}</span>
+        ${layoutBadge}
         <span class="enver-meta">${escapeHtml(asset.originalFileName || "")}</span>
       </div>
+      ${upgradeBanner}
       ${
         asset.status === "CONVERTING"
           ? `<p class="order-3d-status-text">Аналізуємо .b3d: BZ85 → zlib → словник полів → геометрія → GLB.</p>

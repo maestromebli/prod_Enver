@@ -4,7 +4,11 @@ import {
   extractProjectPanels,
   layoutPreviewPanels
 } from "./project-glb-builder.js";
-import { buildAssemblyGlbFromProject } from "./assembly-glb-builder.js";
+import {
+  buildAssemblyGlbFromProject,
+  buildMixedPreviewGlb,
+  layoutAssemblyPanels
+} from "./assembly-glb-builder.js";
 import { extractEnverAssemblyFromB3d, parseAssemblyExportJson } from "./parsers/assembly-export.js";
 
 const GLB_MAGIC = 0x46546c67;
@@ -175,14 +179,24 @@ export function extractPackagePreviewGlb({
   }
 
   if (assemblyExport && projectPanels.length) {
+    const { missing } = layoutAssemblyPanels(projectPanels, assemblyExport);
+    const useMixed = missing.length > 0;
     try {
-      const built = buildAssemblyGlbFromProject(projectPanels, assemblyExport, { productName });
+      const built = useMixed
+        ? buildMixedPreviewGlb(projectPanels, assemblyExport, { productName })
+        : buildAssemblyGlbFromProject(projectPanels, assemblyExport, { productName });
+      const missingCodes = built.missingCodes || missing;
+      const assembledCount = projectPanels.length - missingCodes.length;
       return {
         buffer: built.buffer,
         source: assemblyJsonBuffer?.length ? "assembly_json" : "b3d_enver3_assembly",
         panelCount: built.panelCount,
-        layout: "assembly",
-        missingCodes: built.missingCodes
+        assembledCount,
+        layout: assembledCount > 0 ? "assembly" : "flat",
+        missingCodes,
+        isPartialAssembly: missingCodes.length > 0,
+        exportedAt: assemblyExport.exportedAt || null,
+        productName: assemblyExport.productName || productName || null
       };
     } catch {
       /* fallback нижче */

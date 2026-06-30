@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildAssemblyGlbFromProject,
+  buildMixedPreviewGlb,
   layoutAssemblyPanels,
   bazisMmToGltf
 } from "../src/constructive/assembly-glb-builder.js";
@@ -116,5 +117,41 @@ describe("assembly-glb-builder", () => {
       ]
     };
     assert.equal(preview3dLayout(detail), "assembly");
+  });
+
+  it("layoutAssemblyPanels — мʼяке зіставлення за назвою", () => {
+    const projectPanels = extractProjectPanels(
+      Buffer.from(
+        `<?xml version="1.0"?><project><part code="10" name="Стійка 10" dl="500" dw="300"/></project>`,
+        "utf8"
+      )
+    );
+    const assembly = {
+      panels: [
+        {
+          code: "99",
+          name: "Деталь 10",
+          centerMm: [250, 150, 500],
+          sizeMm: [500, 300, 18],
+          axisX: [1, 0, 0],
+          axisY: [0, 1, 0],
+          axisZ: [0, 0, 1]
+        }
+      ]
+    };
+    const { panels, missing } = layoutAssemblyPanels(projectPanels, assembly);
+    assert.equal(panels.length, 1);
+    assert.deepEqual(missing, []);
+  });
+
+  it("buildMixedPreviewGlb — часткова збірка", () => {
+    const projectPanels = extractProjectPanels(Buffer.from(sampleXml, "utf8"));
+    const partialAssembly = {
+      panels: [sampleAssembly.panels[0]]
+    };
+    const mixed = buildMixedPreviewGlb(projectPanels, partialAssembly);
+    assert.equal(mixed.missingCodes.length, 1);
+    assert.equal(mixed.assembledCount, 1);
+    assert.equal(readPreviewLayoutFromGlb(mixed.buffer), "assembly");
   });
 });

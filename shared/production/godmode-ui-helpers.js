@@ -74,7 +74,8 @@ export const ATTENTION_QUICK_ACTION_TYPES = new Set([
   ...ORDER_API_ACTION_TYPES,
   "create_procurement",
   "parse_constructive_package",
-  "schedule_install"
+  "schedule_install",
+  "create_tasks_from_ai"
 ]);
 
 export function canAttentionQuickRun(actionType) {
@@ -85,7 +86,8 @@ export function isRunnableGodmodeAction(actionType) {
   return (
     canQuickRunGodmodeAction(actionType) ||
     actionType === "close_order" ||
-    actionType === "add_position"
+    actionType === "add_position" ||
+    actionType === "create_tasks_from_ai"
   );
 }
 

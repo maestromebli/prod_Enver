@@ -1,0 +1,138 @@
+/* Єдині стилі індикаторів 3D (збірка / розкладка / підказки). */
+
+.preview-3d-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.preview-3d-badge--assembly {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.preview-3d-badge--flat {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.preview-3d-badge--pending {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.preview-3d-upgrade-banner {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--enver-radius-md, 8px);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #78350f;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.preview-3d-upgrade-banner__icon {
+  flex-shrink: 0;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cp-3d-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.cp-3d-status .preview-3d-upgrade-banner {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.order-3d-status-head .preview-3d-badge {
+  margin-left: 0.15rem;
+}
+
+.op-order-3d-badge {
+  display: inline-flex;
+  margin-left: 0.35rem;
+}
+
+.op-order-3d-head {
+  flex-wrap: wrap;
+}
+
+#viewerUpgradeBanner {
+  margin: 0 0.75rem 0.5rem;
+}
+
+#viewerUpgradeBanner[hidden] {
+  display: none !important;
+}
+
+.preview-3d-missing-banner {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--enver-radius-md, 8px);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.preview-3d-enver3-note {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.cp-enver3-hook {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed var(--enver-border, #cbd5e1);
+  border-radius: var(--enver-radius-md, 8px);
+  background: var(--enver-surface-muted, #f8fafc);
+}
+
+.cp-enver3-hook-summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.cp-enver3-hook-steps {
+  margin: 0.5rem 0 0.35rem 1.1rem;
+  padding: 0;
+}
+
+.cp-enver3-hook-code {
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.b3d-preview-head h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}

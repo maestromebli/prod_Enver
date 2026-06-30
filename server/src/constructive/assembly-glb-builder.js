@@ -1,5 +1,5 @@
 import { buildPreviewGlbFromPanels, layoutPreviewPanels } from "./project-glb-builder.js";
-import { normalizePartCode } from "./parsers/assembly-export.js";
+import { normalizePartCode, extractNumericPartCode } from "./parsers/assembly-export.js";
 
 const MM = 0.001;
 
@@ -82,15 +82,48 @@ function panelScaleFromAssembly(projectPanel, asmPanel) {
   };
 }
 
+/** Індекс панелей ENVER3 для зіставлення з .project. */
+export function buildAssemblyLookup(assemblyExport) {
+  const byCode = new Map();
+  const byNameNum = new Map();
+  for (const panel of assemblyExport?.panels || []) {
+    const code = normalizePartCode(panel.code);
+    if (code && !byCode.has(code)) byCode.set(code, panel);
+    const fromName = extractNumericPartCode(panel.name);
+    if (fromName && !byNameNum.has(fromName)) byNameNum.set(fromName, panel);
+    const fromArt = extractNumericPartCode(panel.artPos);
+    if (fromArt && !byNameNum.has(fromArt)) byNameNum.set(fromArt, panel);
+  }
+  return { byCode, byNameNum };
+}
+
+/** Мʼяке зіставлення: code → число з partName → число з name ENVER3. */
+export function resolveAssemblyPanel(projectPanel, lookup) {
+  const code = normalizePartCode(projectPanel.code);
+  if (code && lookup.byCode.has(code)) return lookup.byCode.get(code);
+
+  const fromProjectName = extractNumericPartCode(projectPanel.partName || projectPanel.name);
+  if (fromProjectName) {
+    if (lookup.byCode.has(fromProjectName)) return lookup.byCode.get(fromProjectName);
+    if (lookup.byNameNum.has(fromProjectName)) return lookup.byNameNum.get(fromProjectName);
+  }
+
+  return null;
+}
+
 /** Панелі з .project + координати збірки → позиції для GLB. */
-export function layoutAssemblyPanels(projectPanels = [], assemblyExport) {
-  const asmMap = new Map((assemblyExport?.panels || []).map((p) => [normalizePartCode(p.code), p]));
+export function layoutAssemblyPanels(
+  projectPanels = [],
+  assemblyExport,
+  { allowEmpty = false } = {}
+) {
+  const lookup = buildAssemblyLookup(assemblyExport);
 
   const laidOut = [];
   const missing = [];
 
   for (const panel of projectPanels) {
-    const asm = asmMap.get(normalizePartCode(panel.code));
+    const asm = resolveAssemblyPanel(panel, lookup);
     if (!asm) {
       missing.push(panel.code);
       continue;
@@ -109,7 +142,7 @@ export function layoutAssemblyPanels(projectPanels = [], assemblyExport) {
     });
   }
 
-  if (!laidOut.length) {
+  if (!laidOut.length && !allowEmpty) {
     const err = new Error("Жодна панель .project не зіставилась із координатами збірки");
     err.code = "ASSEMBLY_MISMATCH";
     throw err;
@@ -128,14 +161,21 @@ export function buildAssemblyGlbFromProject(projectPanels, assemblyExport, optio
   return { ...glb, panelCount: panels.length, missingCodes: missing };
 }
 
-/** Fallback: панелі без координат — плоска сітка. */
+/** Fallback: зіставлені — у збірці, решта — flat-сітка. */
 export function buildMixedPreviewGlb(projectPanels, assemblyExport, options = {}) {
-  const { panels: assembled, missing } = layoutAssemblyPanels(projectPanels, assemblyExport);
+  const { panels: assembled, missing } = layoutAssemblyPanels(projectPanels, assemblyExport, {
+    allowEmpty: true
+  });
   const flat = layoutPreviewPanels(projectPanels.filter((p) => missing.includes(p.code)));
   const all = [...assembled, ...flat];
   const glb = buildPreviewGlbFromPanels(all, {
     ...options,
     previewLayout: assembled.length ? "assembly" : "flat"
   });
-  return { ...glb, panelCount: all.length, missingCodes: missing };
+  return {
+    ...glb,
+    panelCount: all.length,
+    missingCodes: missing,
+    assembledCount: assembled.length
+  };
 }

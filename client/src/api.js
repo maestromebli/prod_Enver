@@ -145,6 +145,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ stages })
     }),
+  createTasksFromAi: (id, body = {}) =>
+    request(`/api/positions/${id}/create-tasks-from-ai`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
   patchPositionInstall: (id, body) =>
     request(`/api/positions/${id}/install`, {
       method: "PATCH",
@@ -180,6 +185,10 @@ export const api = {
   updateAiSettings: (body) =>
     request("/api/settings/ai", { method: "PUT", body: JSON.stringify(body) }),
   testAiSettings: () => request("/api/settings/ai/test", { method: "POST" }),
+  getAutomationSettings: () => request("/api/settings/automation"),
+  updateAutomationSettings: (body) =>
+    request("/api/settings/automation", { method: "PUT", body: JSON.stringify(body) }),
+  testOverdueDigest: () => request("/api/settings/automation/test-overdue", { method: "POST" }),
 
   analyzeConstructive: (positionId) =>
     request(`/api/ai/analyze-constructive/${positionId}`, { method: "POST" }),

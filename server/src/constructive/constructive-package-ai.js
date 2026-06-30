@@ -7,6 +7,7 @@ import { getRelevantLearningContext } from "../ai/ai-learning.js";
 import { normalizePackageAiAnalysis } from "../../../shared/production/package-ai.js";
 import { parseJsonObject } from "../json-utils.js";
 import { loadStageDurationHints } from "../stage-duration-learning.js";
+import { enrichPackageAnalysisForAuto } from "../automation/analysis-loader.js";
 
 function buildPackageAiPrompt({
   orderNumber,
@@ -277,6 +278,7 @@ export async function analyzeConstructivePackage(
     itemType
   };
   const analysis = normalizePackageAiAnalysis(rawData, context);
+  enrichPackageAnalysisForAuto(analysis, context, learningContext);
   const durationMs = Date.now() - started;
 
   const payload = {
@@ -298,6 +300,16 @@ export async function analyzeConstructivePackage(
       durationMs,
       errorMessage: parsed.ok ? "" : "Частковий розбір відповіді ШІ"
     });
+
+    const pkgRow = await one(`SELECT position_id FROM constructive_packages WHERE id = $1`, [
+      packageId
+    ]);
+    if (pkgRow?.position_id) {
+      const { tryAutoCreateTasksFromAnalysis } = await import("../automation/auto-create-tasks.js");
+      void tryAutoCreateTasksFromAnalysis(pkgRow.position_id, analysis, {
+        source: "package_ai"
+      }).catch((err) => console.error("[automation] package ai tasks:", err?.message || err));
+    }
   }
 
   return {
