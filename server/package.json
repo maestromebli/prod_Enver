@@ -9,8 +9,8 @@
     "migrate": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/migrate.mjs",
     "resync:bazis": "DOTENV_CONFIG_PATH=../.env node -r dotenv/config scripts/resync-bazis-codes.mjs",
     "test": "node --test test/*.test.js test/integration/*.test.mjs",
-    "test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=src/**/*.js --test-coverage-include=../shared/production/**/*.js test/*.test.js test/integration/*.test.mjs",
-    "test:coverage:shared": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=../shared/production/**/*.js test/*.test.js test/integration/*.test.mjs",
+    "test:coverage": "node scripts/run-coverage-all.mjs",
+    "test:coverage:shared": "node scripts/run-coverage-shared.mjs",
     "test:integration": "node --test test/integration/*.test.mjs"
   },
   "dependencies": {

@@ -41,22 +41,16 @@ function passScore(label, npmScript) {
 
 function sharedCoverageScore() {
   const serverDir = path.join(root, "server");
-  const result = run(
-    "node",
-    [
-      "--test",
-      "--test-concurrency=1",
-      "--experimental-test-coverage",
-      "--test-coverage-include=../shared/production/**/*.js",
-      "test/*.test.js",
-      "test/integration/*.test.mjs"
-    ],
-    { cwd: serverDir }
-  );
-  const match = result.out.match(/all files\s+\|\s+([\d.]+)/);
+  const result = spawnSync("node", ["scripts/run-coverage-shared.mjs"], {
+    cwd: serverDir,
+    encoding: "utf8",
+    shell: false
+  });
+  const out = `${result.stdout || ""}${result.stderr || ""}`;
+  const match = out.match(/all files\s+\|\s+([\d.]+)/);
   if (!match) {
-    process.stdout.write(result.out);
-    return { score: 0, detail: "no coverage report", pct: 0 };
+    process.stdout.write(out);
+    return { score: 0, detail: "no coverage report", pct: 0, testsOk: false };
   }
   const pct = Number(match[1]);
   const score = Math.min(100, (pct / sharedCoverageMin) * 100);
@@ -64,7 +58,7 @@ function sharedCoverageScore() {
     score,
     detail: `${pct}% line (мін. ${sharedCoverageMin}%)`,
     pct,
-    testsOk: result.ok
+    testsOk: result.status === 0
   };
 }
 

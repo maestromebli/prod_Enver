@@ -11,15 +11,15 @@ import { fileURLToPath } from "node:url";
 const scope = process.env.COVERAGE_SCOPE || "shared";
 const minShared = Number(process.env.COVERAGE_MIN_LINES || 95);
 const minAll = Number(process.env.COVERAGE_MIN_LINES_ALL || 48);
+const min = scope === "all" ? minAll : minShared;
 const serverDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server");
 
-const script = scope === "all" ? "test:coverage" : "test:coverage:shared";
-const min = scope === "all" ? minAll : minShared;
+const script = scope === "all" ? "run-coverage-all.mjs" : "run-coverage-shared.mjs";
 
-const result = spawnSync("npm", ["run", script], {
+const result = spawnSync("node", [`scripts/${script}`], {
   cwd: serverDir,
   encoding: "utf8",
-  shell: true
+  shell: false
 });
 
 const output = `${result.stdout || ""}${result.stderr || ""}`;
