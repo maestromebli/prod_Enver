@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { orderProgress } from "../src/order-detail-render.js";
+import { orderProgress } from "@enver/shared/production/order-position-model.js";
 
 describe("order-detail-render", () => {
   it("orderProgress — середнє по робочих позиціях", () => {

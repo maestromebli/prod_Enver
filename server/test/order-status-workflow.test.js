@@ -47,11 +47,24 @@ describe("orderStatusStagePreset", () => {
   it("«Передано у виробництво» відкриває порізку", () => {
     const preset = orderStatusStagePreset("Передано у виробництво");
     const row = applyOrderStatusPreset(
-      { cutting_status: "Не розпочато", edging_status: "Не розпочато" },
+      {
+        has_constructive_file: true,
+        cutting_status: "Не розпочато",
+        edging_status: "Не розпочато"
+      },
       preset
     );
     assert.equal(row.cutting_status, "Передано");
     assert.equal(row.edging_status, "Не розпочато");
+  });
+
+  it("без конструктива порізку не відкриває", () => {
+    const preset = orderStatusStagePreset("Передано у виробництво");
+    const row = applyOrderStatusPreset(
+      { cutting_status: "Не розпочато", edging_status: "Не розпочато" },
+      preset
+    );
+    assert.equal(row.cutting_status, "Не розпочато");
   });
 
   it("«У виробництві» також відкриває порізку", () => {

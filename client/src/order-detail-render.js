@@ -1,7 +1,8 @@
 import { PIPELINE_STAGES, STAGE_STATUS_DONE, stageLabel } from "@enver/shared/production/stages.js";
 import {
   getWorkPositions,
-  getPositionTabLabel
+  getPositionTabLabel,
+  orderProgress
 } from "@enver/shared/production/order-position-model.js";
 import { canEditOrders, canEditPositions } from "./auth.js";
 import { state } from "./state.js";
@@ -40,13 +41,7 @@ function buildDetailTabs(order, related, activeTab) {
   return `<nav class="enver-segmented order-detail-tabs" role="tablist" aria-label="Розділи замовлення">${buttons}</nav>`;
 }
 
-/** Середній прогрес робочих позицій замовлення (0–100). */
-export function orderProgress(order, related) {
-  const work = getWorkPositions(order, related);
-  if (!work.length) return 0;
-  const sum = work.reduce((acc, p) => acc + (p.progress ?? 0), 0);
-  return Math.round(sum / work.length);
-}
+export { orderProgress };
 
 function metaLine(parts) {
   const items = parts.filter(Boolean);

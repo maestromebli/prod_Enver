@@ -4,6 +4,12 @@
  */
 import { parseUaDate } from "../dates/ua-date.js";
 import {
+  getWorkPositions,
+  isRootPosition,
+  orderProgress,
+  workflowPositionsForOrders
+} from "./order-position-model.js";
+import {
   computeProgress,
   deriveCurrentStage,
   derivePositionStatus,
@@ -21,17 +27,13 @@ import {
 } from "./stages.js";
 import {
   getConstructivePackageNextAction,
-  getConstructivePackageWarnings
+  getConstructivePackageWarnings,
+  getConstructiveProcurementNextAction
 } from "./constructive-godmode.js";
 import { getProcurementBlockers, getProcurementWarnings } from "./procurement.js";
 import { isPackagePipelineBlocking, canHandoffPackageToCutting } from "./constructive-package.js";
 import { HANDOFF_ACTION_TYPES } from "./godmode-ui-helpers.js";
 import { isManagerDataComplete } from "./position-manager-data.js";
-import {
-  getWorkPositions,
-  isRootPosition,
-  workflowPositionsForOrders
-} from "./order-position-model.js";
 
 const PRODUCTION_KEYS = ["cutting", "edging", "drilling", "assembly"];
 
@@ -591,6 +593,14 @@ export function getPositionNextAction(position, context = {}) {
     return makeAction({ ...packageAction, stageKey: packageAction.stageKey || "constructor" });
   }
 
+  const procurementAction = getConstructiveProcurementNextAction(context);
+  if (procurementAction && !productionHasStarted(row)) {
+    return makeAction({
+      ...procurementAction,
+      stageKey: procurementAction.stageKey || "constructor"
+    });
+  }
+
   const packageReadyForProduction = isPackageReadyForProduction(row, context);
 
   if (!hasAiAnalysis(row, context) && !productionHasStarted(row) && !packageReadyForProduction) {
@@ -869,11 +879,11 @@ export function buildPositionGodmode(position, context = {}) {
 
 /** Повний godmode для замовлення. */
 export function buildOrderGodmode(order, positions = [], context = {}) {
-  const roots = positions.filter((p) => !(p.parentId ?? p.parent_id));
   const plan = field(order, "plan_date", "planDate");
   const ctx = { ...context, planDate: plan };
 
-  const positionGodmodes = roots.map((p) => ({
+  const work = getWorkPositions(order, positions);
+  const positionGodmodes = work.map((p) => ({
     positionId: p.id,
     godmode: buildPositionGodmode(p, ctx)
   }));
@@ -887,13 +897,7 @@ export function buildOrderGodmode(order, positions = [], context = {}) {
     0
   );
 
-  const avgProgress =
-    roots.length > 0
-      ? Math.round(
-          roots.reduce((s, p) => s + (num(p, "progress", "progress") || computeProgress(p)), 0) /
-            roots.length
-        )
-      : 0;
+  const avgProgress = orderProgress(order, positions);
 
   const currentStage =
     positionGodmodes.sort((a, b) => b.godmode.attentionScore - a.godmode.attentionScore)[0]?.godmode

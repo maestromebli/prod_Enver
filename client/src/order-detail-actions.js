@@ -6,7 +6,7 @@ import { api } from "./api.js";
 import { expandPosition, togglePositionExpanded } from "./position-tree.js";
 import { runSave } from "./save-flow.js";
 import { state } from "./state.js";
-import { navigateGodmodeAction } from "./godmode-ui.js";
+import { navigateGodmodeAction, bindGodmodeNavCta } from "./godmode-ui.js";
 import {
   HANDOFF_ACTION_TYPES,
   UI_ACTION_TYPES
@@ -58,8 +58,10 @@ export function bindOrderDetail(root, handlers = {}) {
 
   root.querySelector("[data-orders-back]")?.addEventListener("click", onBack);
 
+  bindGodmodeNavCta(root, { onRefresh });
+
   root.querySelectorAll("[data-order-detail-tab]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       state.ordersView.detailTab = btn.dataset.orderDetailTab;
       const tabKey = btn.dataset.orderDetailTab || "";
       if (btn.dataset.posSubJump && tabKey.startsWith("pos-")) {

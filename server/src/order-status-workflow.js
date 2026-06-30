@@ -2,6 +2,7 @@
 export { ORDER_STATUSES_NEED_POSITION } from "../../shared/production/orders.js";
 
 import { isStageIdle } from "../../shared/production/stages.js";
+import { hasConstructive } from "../../shared/production/position-logic.js";
 
 /** Пресети етапів позиції за статусом замовлення (лише підвищення, без відкату). */
 export function orderStatusStagePreset(status) {
@@ -19,6 +20,9 @@ export function applyOrderStatusPreset(row, preset) {
   if (!preset || !Object.keys(preset).length) return row;
   const copy = { ...row };
   for (const [field, value] of Object.entries(preset)) {
+    if (field === "cutting_status" && value === "Передано" && !hasConstructive(copy)) {
+      continue;
+    }
     if (isStageIdle(copy[field])) copy[field] = value;
   }
   return copy;

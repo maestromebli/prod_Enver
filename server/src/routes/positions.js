@@ -47,10 +47,13 @@ import {
 } from "../constructive-files-service.js";
 import {
   HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY,
+  HAS_PROCUREMENT_REQUEST_SUBQUERY,
+  HAS_PROCUREMENT_SOURCE_SUBQUERY,
   PACKAGE_ID_SUBQUERY,
   PACKAGE_PARTS_COUNT_SUBQUERY,
   PACKAGE_STATUS_SUBQUERY,
   PACKAGE_VERSION_SUBQUERY,
+  PROCUREMENT_REQUEST_STATUS_SUBQUERY,
   UNMAPPED_PARTS_SUBQUERY
 } from "../constructive-package-enrich.js";
 import {
@@ -60,6 +63,7 @@ import {
 import { getProcurementRequest } from "../constructive/procurement-service.js";
 import { getCncJobsForPosition } from "../integrations/cnc-jobs.js";
 import { listPackagesForPosition } from "../constructive/constructive-package-service.js";
+import { syncOrderStatusFromPositions } from "../order-status-from-positions.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -103,6 +107,9 @@ const POSITION_SELECT = `SELECT p.*,
   ${HAS_CONSTRUCTIVE_PACKAGE_SUBQUERY},
   ${UNMAPPED_PARTS_SUBQUERY},
   ${PACKAGE_PARTS_COUNT_SUBQUERY},
+  ${HAS_PROCUREMENT_SOURCE_SUBQUERY},
+  ${HAS_PROCUREMENT_REQUEST_SUBQUERY},
+  ${PROCUREMENT_REQUEST_STATUS_SUBQUERY},
   ${MANAGER_FILE_COUNT_SUBQUERY},
   ${AI_COUNT_SUBQUERY},
   ${ACTIVE_SESSION_SUBQUERY}
@@ -112,10 +119,14 @@ async function loadRow(id) {
   return one(`${POSITION_SELECT} WHERE p.id = $1`, [id]);
 }
 
-async function saveRow(id, data, planDate) {
+async function saveRow(id, data, planDate, { actor = null } = {}) {
   const enriched = enrichPositionRow(data, { planDate });
   await updatePositionFull({ ...enriched, id });
-  return mapPosition(enrichPositionRow(await loadRow(id), { planDate }));
+  const saved = mapPosition(enrichPositionRow(await loadRow(id), { planDate }));
+  if (saved.orderId) {
+    await syncOrderStatusFromPositions(saved.orderId, { actor });
+  }
+  return saved;
 }
 
 async function resolveParentLink(data) {
@@ -323,7 +334,7 @@ router.put("/:id", requirePositionWrite, async (req, res) => {
 
   const planMap = await planDateByOrderNumber();
   const planDate = planMap.forRow(raw);
-  const saved = await saveRow(id, raw, planDate);
+  const saved = await saveRow(id, raw, planDate, { actor: auditActor(req) });
   await closeSessionsAfterStageStatusChanges(existing, raw, id);
   await logPositionUpdate(existing, await loadRow(id), auditActor(req));
   res.json(saved);
@@ -386,7 +397,7 @@ router.patch("/:id/stage/:stageKey", requirePositionWrite, async (req, res) => {
     constructor,
     assemblyResponsible
   });
-  await saveRow(id, handedOff, planDate);
+  await saveRow(id, handedOff, planDate, { actor: auditActor(req) });
   const afterRow = await loadRow(id);
   if (config.type !== "constructor" && status && !OPERATOR_ACTIVE_STATUSES.has(status)) {
     await closeOperatorSessionsForStage(id, stageKey);

@@ -10,6 +10,7 @@ import {
   stageStatusFromRow
 } from "../operator-sessions.js";
 import { updatePositionStages } from "../db/position-persistence.js";
+import { syncOrderStatusFromPositions } from "../order-status-from-positions.js";
 import { OPERATOR_QUEUE_STATUSES, sqlLiteralsIn } from "../../../shared/production/stages.js";
 import {
   AI_COUNT_SUBQUERY,
@@ -63,10 +64,14 @@ async function mapOperatorPosition(row) {
   });
 }
 
-async function savePosition(id, row) {
+async function savePosition(id, row, { actor = null } = {}) {
   const enriched = enrichPositionRow(row);
   await updatePositionStages({ ...enriched, id });
-  return mapOperatorPosition(await getPosition(id));
+  const mapped = await mapOperatorPosition(await getPosition(id));
+  if (mapped?.orderId) {
+    await syncOrderStatusFromPositions(mapped.orderId, { actor });
+  }
+  return mapped;
 }
 
 router.get("/queue/:stageKey", async (req, res) => {
@@ -229,7 +234,7 @@ router.post("/start", requireOperatorSelf, async (req, res) => {
     console.error("[operator start estimate]", err.message);
   }
 
-  await savePosition(positionId, row);
+  await savePosition(positionId, row, { actor: auditActor(req) });
   await logStageChange(
     before,
     await getPosition(positionId),
@@ -291,7 +296,7 @@ router.post("/finish", requireOperatorSelf, async (req, res) => {
     userId
   }).catch((err) => console.error("[stage completion fact]", err.message));
 
-  await savePosition(positionId, handedOff);
+  await savePosition(positionId, handedOff, { actor: auditActor(req) });
   const afterRow = await getPosition(positionId);
   const autoHandoffs = detectAutoHandoffs(before, afterRow, stageKey);
   await logStageChangeWithAutoHandoffs(
@@ -341,7 +346,7 @@ router.post("/pause", requireOperatorSelf, async (req, res) => {
     [session.id]
   );
 
-  await savePosition(positionId, row);
+  await savePosition(positionId, row, { actor: auditActor(req) });
   await logStageChange(
     before,
     await getPosition(positionId),
@@ -386,7 +391,7 @@ router.post("/resume", requireOperatorSelf, async (req, res) => {
     [session.id]
   );
 
-  await savePosition(positionId, row);
+  await savePosition(positionId, row, { actor: auditActor(req) });
   await logStageChange(
     before,
     await getPosition(positionId),
@@ -433,7 +438,7 @@ router.post("/report-problem", requireOperatorSelf, async (req, res) => {
     );
   }
 
-  await savePosition(positionId, row);
+  await savePosition(positionId, row, { actor: auditActor(req) });
   const afterRow = await getPosition(positionId);
   if (stageKey && field) {
     await logStageChange(

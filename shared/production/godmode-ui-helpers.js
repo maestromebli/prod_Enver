@@ -68,6 +68,19 @@ export function canQuickRunGodmodeAction(actionType) {
   return HANDOFF_ACTION_TYPES.has(actionType) || ORDER_API_ACTION_TYPES.has(actionType);
 }
 
+/** Швидке виконання з вкладки «Потребує уваги» (handoff + навігаційні дії). */
+export const ATTENTION_QUICK_ACTION_TYPES = new Set([
+  ...HANDOFF_ACTION_TYPES,
+  ...ORDER_API_ACTION_TYPES,
+  "create_procurement",
+  "parse_constructive_package",
+  "schedule_install"
+]);
+
+export function canAttentionQuickRun(actionType) {
+  return ATTENTION_QUICK_ACTION_TYPES.has(actionType);
+}
+
 export function isRunnableGodmodeAction(actionType) {
   return (
     canQuickRunGodmodeAction(actionType) ||
@@ -107,6 +120,13 @@ export function buildGodmodeCtaAttrs(next, { positionId = null, orderId = null }
     return `data-order-detail-tab="pos-${positionId}"`;
   }
 
+  if (
+    (next.type === "create_procurement" || next.type === "wait_procurement") &&
+    positionId != null
+  ) {
+    return `data-godmode-nav="${next.type}" data-godmode-nav-position="${positionId}"`;
+  }
+
   if (next.type === "add_position" && orderId != null) {
     return `data-order-detail-tab="overview" data-focus-inline-add="1"`;
   }
@@ -117,3 +137,5 @@ export function buildGodmodeCtaAttrs(next, { positionId = null, orderId = null }
 
   return "";
 }
+
+export const PROCUREMENT_NAV_ACTION_TYPES = new Set(["create_procurement", "wait_procurement"]);

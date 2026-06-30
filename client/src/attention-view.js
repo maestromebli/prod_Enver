@@ -2,7 +2,7 @@ import { resolveObjectNameFromOrders } from "@enver/shared/production/object-dis
 import { stageLabel } from "@enver/shared/production/stages.js";
 import { escapeHtml } from "./utils.js";
 import { attentionFromState, countAttentionItems } from "./attention.js";
-import { canQuickRunGodmodeAction } from "./godmode-ui.js";
+import { canAttentionQuickRun } from "./godmode-ui.js";
 import { state } from "./state.js";
 import { activePositions } from "./archive.js";
 import { getProductionFloorCache } from "./production-floor.js";
@@ -90,7 +90,7 @@ function attentionRow(item) {
       ? `data-attention-order="${item.orderId}"`
       : "";
   const quickRun =
-    item.kind === "next" && item.positionId && canQuickRunGodmodeAction(item.code)
+    item.kind === "next" && item.positionId && canAttentionQuickRun(item.code)
       ? `<button type="button" class="attention-row-run" title="Виконати"
           data-attention-run="${item.positionId}" data-attention-action="${escapeHtml(item.code)}">▶</button>`
       : "";
@@ -254,14 +254,14 @@ function renderAttentionStickyBar(items) {
   const top =
     items.find((i) => i.kind === "blocker") ||
     items.find((i) => i.kind === "warning") ||
-    items.find((i) => i.kind === "next" && i.positionId && canQuickRunGodmodeAction(i.code));
+    items.find((i) => i.kind === "next" && i.positionId && canAttentionQuickRun(i.code));
   if (!top) return "";
 
   const isBlocked = top.kind === "blocker";
   const kicker = isBlocked ? "Блокер" : top.kind === "warning" ? "Увага" : "Дія";
 
   let primaryBtn = "";
-  if (top.kind === "next" && top.positionId && canQuickRunGodmodeAction(top.code)) {
+  if (top.kind === "next" && top.positionId && canAttentionQuickRun(top.code)) {
     primaryBtn = `<button type="button" class="enver-sticky-bar-cta" data-attention-run="${top.positionId}" data-attention-action="${escapeHtml(top.code)}">Виконати</button>`;
   } else if (top.positionId) {
     primaryBtn = `<button type="button" class="enver-sticky-bar-cta" data-attention-position="${top.positionId}">Відкрити</button>`;

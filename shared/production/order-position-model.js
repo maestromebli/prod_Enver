@@ -2,6 +2,8 @@
  * Канонічна модель root / sub / work positions для замовлення ENVER.
  */
 
+import { computeProgress } from "./position-logic.js";
+
 function pid(position) {
   return position?.id ?? position?.positionId ?? null;
 }
@@ -63,6 +65,18 @@ export function getWorkPositions(order, positions = []) {
   const subs = related.filter((p) => isSubPosition(p));
   if (subs.length) return subs;
   return related.filter((p) => isRootPosition(p) && !isOrderContainerPosition(p, related));
+}
+
+/** Середній прогрес робочих позицій замовлення (0–100). Єдине джерело для UI і godmode. */
+export function orderProgress(order, positions = []) {
+  const work = getWorkPositions(order, positions);
+  if (!work.length) return 0;
+  const sum = work.reduce((acc, p) => {
+    const stored = Number(p.progress);
+    const value = Number.isFinite(stored) ? stored : computeProgress(p);
+    return acc + value;
+  }, 0);
+  return Math.round(sum / work.length);
 }
 
 export function isSinglePositionOrder(order, positions = []) {

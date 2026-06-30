@@ -30,12 +30,12 @@ const COMMANDS = [
   {
     id: "upload",
     label: "Завантажити конструктив",
-    run: () => handlers.hint?.("Відкрийте позицію → «Стіл конструктора»")
+    run: () => handlers.openConstructiveUpload?.()
   },
   {
     id: "ai",
     label: "Запустити ШІ-аналіз",
-    run: () => handlers.hint?.("У позиції з файлом натисніть «Запустити ШІ-аналіз»")
+    run: () => handlers.openAiAnalysis?.()
   }
 ];
 

@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { canManageProcurement, canViewProcurement } from "./auth.js";
 import { PROCUREMENT_TAB } from "./constants.js";
-import { renderProcurementPanel } from "./constructive-pipeline-panel.js";
+import { renderProcurementWorkspace, bindProcurementWorkspace } from "./procurement-panel.js";
 import {
   bindProcurementCalendar,
   loadProcurementCalendar,
@@ -20,6 +20,11 @@ import {
   loadProcurementReturns,
   renderProcurementReturns
 } from "./procurement-returns-view.js";
+import {
+  bindMaterialLibrary,
+  loadMaterialLibrary,
+  renderMaterialLibrary
+} from "./material-library-view.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { procurementStatusLabel } from "@enver/shared/production/constructive-package.js";
@@ -28,6 +33,7 @@ export const PROCUREMENT_MODES = [
   { key: "calendar", label: "Календар" },
   { key: "registry", label: "Реєстр" },
   { key: "mto", label: "Під замовлення" },
+  { key: "library", label: "Бібліотека" },
   { key: "warehouse", label: "Склад" },
   { key: "returns", label: "Рекламації" }
 ];
@@ -139,6 +145,11 @@ export async function loadProcurementModeData(mode = state.procurement?.mode) {
     await loadProcurementList();
   } else if (m === "mto") {
     await loadProcurementMto();
+    if (!state.procurement?.materialLibrary?.length) {
+      await loadMaterialLibrary().catch(() => {});
+    }
+  } else if (m === "library") {
+    await loadMaterialLibrary();
   } else if (m === "warehouse") {
     await loadWarehousePending();
   } else if (m === "returns") {
@@ -199,7 +210,7 @@ function renderDetail(proc, detail, listRow) {
   return `
     <div class="procurement-detail">
       ${header}
-      <div id="procurementDetailPanelMount">${renderProcurementPanel(detail, { canManage: canManageProcurement() })}</div>
+      <div id="procurementDetailPanelMount">${renderProcurementWorkspace(detail, { canManage: canManageProcurement() })}</div>
     </div>`;
 }
 
@@ -239,6 +250,7 @@ function modeButtons(mode) {
 function renderModeBody(proc) {
   if (proc.mode === "calendar") return renderProcurementCalendar();
   if (proc.mode === "mto") return renderProcurementMto();
+  if (proc.mode === "library") return renderMaterialLibrary();
   if (proc.mode === "warehouse") return renderProcurementWarehouse();
   if (proc.mode === "returns") return renderProcurementReturns();
   return renderRegistry(proc);
@@ -303,6 +315,8 @@ export function bindProcurementTab(root, { onRefresh, onOpenPosition } = {}) {
     bindProcurementCalendar(root, { onRefresh, onOpenPosition });
   } else if (proc.mode === "mto") {
     bindProcurementMto(root, { onRefresh, onOpenPosition });
+  } else if (proc.mode === "library") {
+    bindMaterialLibrary(root, { onRefresh });
   } else if (proc.mode === "warehouse") {
     bindProcurementWarehouse(root, { onRefresh });
   } else if (proc.mode === "returns") {
@@ -313,6 +327,15 @@ export function bindProcurementTab(root, { onRefresh, onOpenPosition } = {}) {
 }
 
 function bindProcurementRegistry(root, { onRefresh, onOpenPosition } = {}) {
+  const selectedListRow = () => {
+    const proc = ensureProcurementState();
+    return (
+      proc.items.find((row) => row.id === proc.selectedId) ||
+      filteredItems(proc.items, proc.filter).find((row) => row.id === proc.selectedId) ||
+      null
+    );
+  };
+
   root.querySelectorAll("[data-procurement-filter]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const filter = btn.dataset.procurementFilter;
@@ -351,19 +374,13 @@ function bindProcurementRegistry(root, { onRefresh, onOpenPosition } = {}) {
     if (positionId) onOpenPosition?.(positionId);
   });
 
-  root.querySelector("#advanceProcurementBtn")?.addEventListener("click", async () => {
-    const proc = ensureProcurementState();
-    const btn = root.querySelector("#advanceProcurementBtn");
-    const nextStatus = btn?.dataset?.nextStatus;
-    const detail = proc.detail;
-    const listRow = proc.items.find((row) => row.id === proc.selectedId);
-    if (!nextStatus || !detail?.id || !listRow?.positionId) return;
-    try {
-      const updated = await api.updatePositionProcurement(listRow.positionId, detail.id, {
-        status: nextStatus
-      });
+  bindProcurementWorkspace(root.querySelector("#procurementDetailPanelMount") || root, {
+    positionId: selectedListRow()?.positionId,
+    getProcurement: () => ensureProcurementState().detail,
+    onProcurementUpdated: (updated) => {
+      const proc = ensureProcurementState();
       proc.detail = updated;
-      const idx = proc.items.findIndex((row) => row.id === detail.id);
+      const idx = proc.items.findIndex((row) => row.id === updated?.id);
       if (idx >= 0) {
         proc.items[idx] = {
           ...proc.items[idx],
@@ -372,9 +389,6 @@ function bindProcurementRegistry(root, { onRefresh, onOpenPosition } = {}) {
         };
       }
       onRefresh?.();
-    } catch (err) {
-      const { toastError } = await import("./toast.js");
-      toastError(err.message);
     }
   });
 }

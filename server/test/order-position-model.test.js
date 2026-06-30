@@ -10,6 +10,7 @@ import {
   isSinglePositionOrder,
   isSubPosition,
   isWorkPosition,
+  orderProgress,
   shouldUseRootAsWorkPosition,
   workflowPositionsForOrders
 } from "../../shared/production/order-position-model.js";
@@ -108,6 +109,19 @@ describe("order-position-model", () => {
       workflow.map((p) => p.id),
       [11, 12]
     );
+  });
+
+  it("orderProgress — середнє по робочих позиціях, без службового root", () => {
+    const related = [
+      { id: 10, orderId: 1, parentId: null, item: "ЖК Ліпінка", itemType: "Інше", progress: 0 },
+      { id: 11, orderId: 1, parentId: 10, item: "Кухня", progress: 40 },
+      { id: 12, orderId: 1, parentId: 10, item: "Шафа", progress: 80 }
+    ];
+    assert.equal(orderProgress(order, related), 60);
+  });
+
+  it("orderProgress без позицій — 0", () => {
+    assert.equal(orderProgress({ id: 1 }, []), 0);
   });
 });
 

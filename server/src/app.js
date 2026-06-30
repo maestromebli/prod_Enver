@@ -18,6 +18,7 @@ import notificationsRouter from "./routes/notifications.js";
 import partsRouter from "./routes/parts.js";
 import constructorDeskRouter from "./routes/constructor-desk.js";
 import procurementRouter from "./routes/procurement.js";
+import materialLibraryRouter from "./routes/material-library.js";
 import { packageFilesRouter } from "./routes/constructive-packages.js";
 import { config } from "./config.js";
 import { apiError } from "./http/api-response.js";
@@ -112,6 +113,7 @@ export function createApiApp({ dbConfigured, dbConnected }) {
   app.use("/api/production", productionRouter);
   app.use("/api/constructor-desk", constructorDeskRouter);
   app.use("/api/procurement", procurementRouter);
+  app.use("/api/material-library", materialLibraryRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/ai", aiRouter);
   app.use("/api/notifications", notificationsRouter);

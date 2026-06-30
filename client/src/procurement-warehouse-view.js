@@ -4,6 +4,7 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { mtoCategoryLabel } from "@enver/shared/production/procurement.js";
 import { procurementStatusLabel } from "@enver/shared/production/constructive-package.js";
+import { findLibraryItemByName, materialLibraryDatalistHtml } from "./material-library-view.js";
 
 export async function loadWarehousePending() {
   const proc = state.procurement;
@@ -156,11 +157,12 @@ export function renderProcurementMto() {
   const addForm = canManageProcurement()
     ? `<form class="proc-mto-form card" id="procMtoForm">
         <h3 class="proc-section-title">Додати матеріал під замовлення</h3>
+        <p class="enver-meta">Оберіть з бібліотеки або введіть вручну — поля заповняться автоматично.</p>
         <div class="proc-mto-form-grid">
           <label>Позиція (id)<input name="positionId" type="number" required placeholder="id позиції" /></label>
-          <label>Назва<input name="name" required placeholder="Фасад AGT…" /></label>
+          <label>Назва<input name="name" id="procMtoName" required placeholder="Фасад AGT…" list="materialLibraryDatalist" autocomplete="off" /></label>
           <label>Категорія
-            <select name="category">
+            <select name="category" id="procMtoCategory">
               <option value="facade_agt">Фасади AGT</option>
               <option value="facade_veneer">Фасади шпон</option>
               <option value="facade_painted">Фасади фарбовані</option>
@@ -172,12 +174,13 @@ export function renderProcurementMto() {
             </select>
           </label>
           <label>Кількість<input name="qty" value="1" /></label>
-          <label>Од.<input name="unit" value="шт" /></label>
+          <label>Од.<input name="unit" id="procMtoUnit" value="шт" /></label>
           <label>Дата поставки<input name="expectedDeliveryDate" type="date" /></label>
           <label>Потрібно в цех<input name="requiredByDate" type="date" /></label>
-          <label>Постачальник<input name="supplier" /></label>
+          <label>Постачальник<input name="supplier" id="procMtoSupplier" /></label>
         </div>
         <button type="submit" class="btn btn-primary btn-sm">Додати</button>
+        ${materialLibraryDatalistHtml(proc.materialLibrary || [])}
       </form>`
     : "";
 
@@ -213,6 +216,24 @@ export function bindProcurementMto(root, { onRefresh, onOpenPosition } = {}) {
       );
       if (item?.positionId) onOpenPosition?.(item.positionId);
     });
+  });
+
+  const applyLibraryToMtoForm = (name) => {
+    const lib = findLibraryItemByName(name, state.procurement?.materialLibrary || []);
+    if (!lib) return;
+    const cat = root.querySelector("#procMtoCategory");
+    const unit = root.querySelector("#procMtoUnit");
+    const supplier = root.querySelector("#procMtoSupplier");
+    if (cat && lib.category) cat.value = lib.category;
+    if (unit && lib.unit) unit.value = lib.unit;
+    if (supplier && lib.supplier) supplier.value = lib.supplier;
+  };
+
+  root.querySelector("#procMtoName")?.addEventListener("change", (e) => {
+    applyLibraryToMtoForm(e.target.value);
+  });
+  root.querySelector("#procMtoName")?.addEventListener("blur", (e) => {
+    applyLibraryToMtoForm(e.target.value);
   });
 
   root.querySelector("#procMtoForm")?.addEventListener("submit", async (e) => {

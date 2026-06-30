@@ -1,7 +1,13 @@
 /**
  * Розширення godmode для pipeline пакета конструктива.
  */
-import { isPackagePipelineBlocking, packageStatusLabel } from "./constructive-package.js";
+import {
+  canCreateProcurementFromContext,
+  isPackagePipelineBlocking,
+  isProcurementRequestActive,
+  packageStatusLabel,
+  procurementStatusLabel
+} from "./constructive-package.js";
 
 const PACKAGE_ACTIONS = {
   uploaded: {
@@ -79,4 +85,45 @@ export function getConstructivePackageWarnings(context = {}) {
     });
   }
   return warnings;
+}
+
+/** Наступна дія закупівлі після погодження пакета (паралельно з виробництвом). */
+export function getConstructiveProcurementNextAction(context = {}) {
+  const status = String(context.packageStatus || "").trim();
+  if (!status || isPackagePipelineBlocking(status) || status === "procurement_done") {
+    return null;
+  }
+
+  const procStatus = String(context.procurementStatus ?? context.procurement?.status ?? "").trim();
+  const hasRequest = Boolean(
+    context.hasProcurementRequest ?? (procStatus && isProcurementRequestActive(procStatus))
+  );
+
+  if (hasRequest && isProcurementRequestActive(procStatus)) {
+    return {
+      type: "wait_procurement",
+      label: `Закупівля: ${procurementStatusLabel(procStatus)}`,
+      description: "Обробіть заявку — погодження, замовлення у постачальника, приймання на склад.",
+      buttonLabel: "Відкрити закупівлю",
+      priority: ["draft", "waiting_approval", "ordered", "partially_received"].includes(procStatus)
+        ? "high"
+        : "normal",
+      allowed: true,
+      stageKey: "constructor"
+    };
+  }
+
+  if (canCreateProcurementFromContext(context)) {
+    return {
+      type: "create_procurement",
+      label: "Передати в закупівлю",
+      description: "Створіть заявку з Excel-специфікації конструктора (матеріали та фурнітура).",
+      buttonLabel: "В закупівлю",
+      priority: "high",
+      allowed: true,
+      stageKey: "constructor"
+    };
+  }
+
+  return null;
 }

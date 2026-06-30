@@ -3,6 +3,7 @@ import pg from "pg";
 import { hashPassword } from "../src/auth-utils.js";
 import { DEFAULT_PERMISSIONS } from "../src/roles.js";
 import { DEFAULT_DIRECTORIES } from "../src/directories-store.js";
+import { seedMaterialLibraryIfEmpty } from "../src/material-library-service.js";
 
 const ADMIN_LOGIN = "admin";
 const ADMIN_DEFAULT_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || "admin";
@@ -11,6 +12,7 @@ export async function runSeed(client) {
   await seedRolePermissions(client);
   await seedDirectories(client);
   await seedAdminUser(client);
+  await seedMaterialLibrary(client);
 }
 
 async function seedRolePermissions(client) {
@@ -51,6 +53,15 @@ async function seedAdminUser(client) {
     ["Адміністратор", ADMIN_LOGIN, hashPassword(ADMIN_DEFAULT_PASSWORD)]
   );
   console.log(`+ створено admin/${ADMIN_DEFAULT_PASSWORD === "admin" ? "admin" : "***"}`);
+}
+
+async function seedMaterialLibrary(client) {
+  const count = await client.query(`SELECT COUNT(*)::int AS n FROM material_library_items`);
+  if (Number(count.rows[0]?.n) > 0) return;
+  const result = await seedMaterialLibraryIfEmpty();
+  if (result.seeded) {
+    console.log(`+ бібліотека матеріалів: ${result.count} позицій`);
+  }
 }
 
 // Прямий запуск (CLI): node server/scripts/seed.mjs

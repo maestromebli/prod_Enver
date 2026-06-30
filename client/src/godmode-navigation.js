@@ -44,6 +44,29 @@ export async function openGodmodePositionTarget(position, actionType) {
     return { kind: "constructor_desk", workspaceTab: "package", autoParse: true };
   }
 
+  if (actionType === "create_procurement") {
+    const { api } = await import("./api.js");
+    const { invalidateProcurementListCache } = await import("./procurement-view.js");
+    const { toastError, toastSuccess } = await import("./toast.js");
+    try {
+      const latest = await api.getConstructivePackageLatest(position.id);
+      const packageId = latest?.package?.id;
+      if (!packageId) {
+        toastError("Спочатку завантажте пакет конструктива");
+      } else {
+        await api.createProcurementFromPackage(position.id, packageId);
+        invalidateProcurementListCache();
+        toastSuccess("Заявку передано в закупівлю");
+      }
+    } catch (err) {
+      toastError(err.message);
+    }
+    const { openPositionInOrderDetail } = await import("./order-detail.js");
+    if (openPositionInOrderDetail(position.id, "procurement")) {
+      return { kind: "order_detail", subTab: "procurement" };
+    }
+  }
+
   if (actionType === "fill_manager_data") {
     const { openManagerDataWorkspace } = await import("./position-workspace.js");
     await openManagerDataWorkspace(position.id);

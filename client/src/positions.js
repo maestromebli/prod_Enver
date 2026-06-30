@@ -8,7 +8,12 @@ import {
   CONSTRUCTORS_DIRECTORY_KEY,
   getDirectoryList
 } from "@enver/shared/production/directories.js";
-import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
+import {
+  renderNextActionBanner,
+  renderAutomationHints,
+  resolvePositionGodmode,
+  bindGodmodeNavCta
+} from "./godmode-ui.js";
 import { $, badge, escapeHtml, fillSelect, progressBar, showFormError } from "./utils.js";
 import {
   bindPositionManagerPanel,
@@ -88,7 +93,7 @@ function renderDrawerContent() {
   const p = draft;
   const godmodeBanner =
     p.id && !p.parentId
-      ? renderNextActionBanner(resolvePositionGodmode(p), { positionId: p.id, showCta: true })
+      ? `${renderNextActionBanner(resolvePositionGodmode(p), { positionId: p.id, showCta: true })}${renderAutomationHints(resolvePositionGodmode(p))}`
       : "";
   const orderOptions = state.orders
     .map(
@@ -424,6 +429,10 @@ function bindDrawerEvents() {
         }
       }).catch(() => {});
     });
+  });
+
+  bindGodmodeNavCta(document.getElementById("positionDrawer"), {
+    onRefresh: () => renderDrawerContent()
   });
 }
 

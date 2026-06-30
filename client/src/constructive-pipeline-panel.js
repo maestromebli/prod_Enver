@@ -2,15 +2,11 @@ import { escapeHtml } from "./utils.js";
 import { api, getPartLabelsUrl } from "./api.js";
 import {
   packageStatusLabel,
-  procurementStatusLabel,
-  procurementAdvanceButtonLabel,
-  nextProcurementStatus,
   cncJobStatusLabel,
   formatPartDimensionsMm,
   packageParseDisplay,
   PACKAGE_HANDOFF_TO_CUTTING_STATUSES
 } from "@enver/shared/production/constructive-package.js";
-import { mtoCategoryLabel } from "@enver/shared/production/procurement.js";
 import { runPackageParseWithProgress } from "./constructive-package-parse-ui.js";
 import {
   formatCncFileMaterialLabel,
@@ -19,6 +15,9 @@ import {
 import { buildConstructiveReviewSummary } from "@enver/shared/production/constructive-review.js";
 import { getConstructivePackageNextAction } from "@enver/shared/production/constructive-godmode.js";
 import { mountPackageAiBlock, pollPackageAiAnalysis } from "./package-ai-ui.js";
+import { bindProcurementWorkspace, renderProcurementWorkspace } from "./procurement-panel.js";
+
+export { renderProcurementWorkspace as renderProcurementPanel } from "./procurement-panel.js";
 
 export async function loadProcurementSummary(positionId) {
   return api.getPositionProcurement(positionId);
@@ -83,48 +82,6 @@ export function renderCncQueuePanel(jobs = [], { packageFiles = [] } = {}) {
           <tbody>${rows}</tbody>
         </table>
       </div>
-    </section>`;
-}
-
-export function renderProcurementPanel(procurement = null, { canManage = false } = {}) {
-  if (!procurement) {
-    return `<section class="procurement-panel">
-      <p class="enver-meta">Закупівлю ще не створено.</p>
-      <p class="enver-meta">Позиції формуються з <strong>Excel-специфікації конструктора</strong> після розбору пакета. Файли ЧПК не використовуються.</p>
-    </section>`;
-  }
-
-  const items = (procurement.items || [])
-    .map(
-      (item) => `
-    <tr>
-      <td>${escapeHtml(item.procurementClass === "mto" ? mtoCategoryLabel(item.category) : item.itemType || "—")}</td>
-      <td>${escapeHtml(item.name || "—")}</td>
-      <td>${escapeHtml(item.qty || "—")} ${escapeHtml(item.unit || "")}</td>
-      <td>${escapeHtml(item.expectedDeliveryDate || "—")}</td>
-      <td>${escapeHtml(procurementStatusLabel(item.status))}</td>
-    </tr>`
-    )
-    .join("");
-
-  const nextStatus = nextProcurementStatus(procurement.status);
-  const advanceLabel = procurementAdvanceButtonLabel(procurement.status);
-
-  return `
-    <section class="procurement-panel">
-      <h3 class="drawer-section-title">Закупівля</h3>
-      <p class="cp-status-lg">${escapeHtml(procurementStatusLabel(procurement.status))}</p>
-      <p class="enver-meta">${procurement.items?.length || 0} позицій · план ${Number(procurement.totalEstimated || 0).toFixed(2)} UAH</p>
-      ${
-        items
-          ? `<table class="cp-parts-table procurement-items-table"><thead><tr><th>Тип</th><th>Назва</th><th>Кількість</th><th>Поставка</th><th>Статус</th></tr></thead><tbody>${items}</tbody></table>`
-          : ""
-      }
-      ${
-        canManage && nextStatus
-          ? `<button type="button" class="btn btn-sm" id="advanceProcurementBtn" data-next-status="${escapeHtml(nextStatus)}">→ ${escapeHtml(advanceLabel)}</button>`
-          : ""
-      }
     </section>`;
 }
 
@@ -221,7 +178,7 @@ export function renderConstructivePipelinePanel(detail, procurement = null, opti
       ${
         hideProcurement
           ? ""
-          : `<div id="procurementPanelMount">${renderProcurementPanel(procurement, { canManage: options.canManageProcurement })}</div>`
+          : `<div id="procurementPanelMount">${renderProcurementWorkspace(procurement, { canManage: options.canManageProcurement })}</div>`
       }
     </section>`;
 }
@@ -404,20 +361,10 @@ export function bindConstructivePipelinePanel(root, ctx = {}) {
   }
 
   if (!hideProcurement) {
-    root.querySelector("#advanceProcurementBtn")?.addEventListener("click", async () => {
-      const btn = root.querySelector("#advanceProcurementBtn");
-      const nextStatus = btn?.dataset?.nextStatus;
-      const procurement = getProcurement();
-      if (!nextStatus || !procurement?.id) return;
-      try {
-        const updated = await api.updatePositionProcurement(positionId, procurement.id, {
-          status: nextStatus
-        });
-        onProcurementUpdated?.(updated);
-      } catch (err) {
-        const { toastError } = await import("./toast.js");
-        toastError(err.message);
-      }
+    bindProcurementWorkspace(root, {
+      positionId,
+      getProcurement,
+      onProcurementUpdated
     });
   }
 }

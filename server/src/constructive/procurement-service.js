@@ -2,6 +2,7 @@ import { all, one, run, withTransaction } from "../db.js";
 import { recordHistory } from "../audit.js";
 import {
   canCreateProcurement,
+  canMarkPackageSentToProcurement,
   hasConstructorProcurementSource,
   isValidProcurementStatusTransition,
   PROCUREMENT_ELIGIBLE_PACKAGE_STATUSES
@@ -140,6 +141,53 @@ async function tryMarkPackageProcurementDone(positionId) {
   );
 }
 
+async function markPackageSentToProcurement(packageId, actor = null) {
+  const pkg = await one(`SELECT id, status, position_id FROM constructive_packages WHERE id = $1`, [
+    packageId
+  ]);
+  if (!pkg) return;
+  if (pkg.status === "sent_to_procurement" || pkg.status === "procurement_done") return;
+  if (!canMarkPackageSentToProcurement(pkg.status)) return;
+  await run(
+    `UPDATE constructive_packages SET status = 'sent_to_procurement', updated_at = now() WHERE id = $1`,
+    [packageId]
+  );
+  const position = await one(`SELECT order_number, item FROM positions WHERE id = $1`, [
+    pkg.position_id
+  ]);
+  await recordHistory({
+    entityType: "position",
+    entityId: pkg.position_id,
+    action: "update",
+    meta: {
+      summary: "Пакет конструктива передано в закупівлю",
+      orderNumber: position?.order_number,
+      item: position?.item
+    },
+    actor
+  });
+}
+
+const REQUEST_ITEM_STATUS_SYNC = {
+  waiting_approval: "waiting_approval",
+  approved: "approved",
+  ordered: "ordered",
+  partially_received: "partially_received",
+  received: "received",
+  rejected: "rejected",
+  cancelled: "cancelled"
+};
+
+async function syncRequestItemsStatus(requestId, requestStatus) {
+  const itemStatus = REQUEST_ITEM_STATUS_SYNC[requestStatus];
+  if (!itemStatus) return;
+  await run(
+    `UPDATE procurement_request_items SET status = $1, updated_at = now()
+     WHERE request_id = $2 AND status NOT IN ('received','cancelled')`,
+    [itemStatus, requestId]
+  );
+}
+
 export async function createProcurementFromPackage(packageId, actor) {
   const pkg = await one(`SELECT * FROM constructive_packages WHERE id = $1`, [packageId]);
   if (!pkg) {
@@ -237,6 +285,8 @@ export async function createProcurementFromPackage(packageId, actor) {
     },
     actor
   });
+
+  await markPackageSentToProcurement(packageId, actor);
 
   return getProcurementRequest(reqRow.id);
 }
@@ -389,6 +439,12 @@ export async function updateProcurementStatus(
     status,
     requestId
   ]);
+
+  await syncRequestItemsStatus(requestId, status);
+
+  if (status === "waiting_approval" && req.package_id) {
+    await markPackageSentToProcurement(req.package_id, actor);
+  }
 
   for (const p of actualPrices) {
     if (!p.itemId) continue;

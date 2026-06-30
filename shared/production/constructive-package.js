@@ -927,3 +927,30 @@ export function canCreateProcurement(detail) {
   if (detail?.procurement?.id) return false;
   return hasConstructorProcurementSource(detail);
 }
+
+/** Статуси пакета, з яких можна передати в закупівлю. */
+export const PACKAGE_SEND_TO_PROCUREMENT_STATUSES = [
+  "parsed",
+  "needs_review",
+  "approved_by_constructor",
+  "approved_by_production"
+];
+
+const TERMINAL_PROCUREMENT_REQUEST_STATUSES = new Set(["received", "rejected", "cancelled"]);
+
+export function isProcurementRequestActive(status) {
+  const s = String(status || "").trim();
+  return Boolean(s && !TERMINAL_PROCUREMENT_REQUEST_STATUSES.has(s));
+}
+
+/** Чи можна створити закупівлю за контекстом godmode (без повного detail). */
+export function canCreateProcurementFromContext(context = {}) {
+  const status = String(context.packageStatus ?? context.package?.status ?? "").trim();
+  if (!PROCUREMENT_ELIGIBLE_PACKAGE_STATUSES.includes(status)) return false;
+  if (context.hasProcurementRequest || context.procurement?.id) return false;
+  return Boolean(context.hasProcurementSource);
+}
+
+export function canMarkPackageSentToProcurement(status) {
+  return PACKAGE_SEND_TO_PROCUREMENT_STATUSES.includes(String(status || "").trim());
+}

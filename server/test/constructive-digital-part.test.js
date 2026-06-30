@@ -13,7 +13,8 @@ import { mergeParseResults } from "../src/constructive/parsers/index.js";
 import { autoMapManifestNodes } from "../src/constructive/constructive-package-service.js";
 import {
   getConstructivePackageNextAction,
-  getConstructivePackageWarnings
+  getConstructivePackageWarnings,
+  getConstructiveProcurementNextAction
 } from "../../shared/production/constructive-godmode.js";
 import {
   canReleasePackageToCnc,
@@ -338,6 +339,24 @@ describe("constructive-package shared continued", () => {
   it("nextAction для procurement_done — pipeline завершено", () => {
     const action = getConstructivePackageNextAction({ packageStatus: "procurement_done" });
     assert.equal(action, null);
+  });
+
+  it("procurement nextAction — створити заявку", () => {
+    const action = getConstructiveProcurementNextAction({
+      packageStatus: "approved_by_production",
+      hasProcurementSource: true,
+      hasProcurementRequest: false
+    });
+    assert.equal(action?.type, "create_procurement");
+  });
+
+  it("procurement nextAction — очікує обробки", () => {
+    const action = getConstructiveProcurementNextAction({
+      packageStatus: "sent_to_procurement",
+      hasProcurementRequest: true,
+      procurementStatus: "ordered"
+    });
+    assert.equal(action?.type, "wait_procurement");
   });
 
   it("warning для unmapped parts", () => {

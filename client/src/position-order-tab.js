@@ -2,14 +2,19 @@ import { api } from "./api.js";
 import { canManageProcurement, canManageConstructorDesk, canWorkConstructorDesk } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderPositionManagerPanel } from "./position-manager-panel.js";
-import { renderNextActionBanner, resolvePositionGodmode } from "./godmode-ui.js";
+import {
+  renderNextActionBanner,
+  renderAutomationHints,
+  resolvePositionGodmode,
+  bindGodmodeNavCta
+} from "./godmode-ui.js";
 import {
   loadCncJobsSummary,
   loadProcurementSummary,
   bindConstructivePipelinePanel,
-  renderCncQueuePanel,
-  renderProcurementPanel
+  renderCncQueuePanel
 } from "./constructive-pipeline-panel.js";
+import { renderProcurementWorkspace, bindProcurementWorkspace } from "./procurement-panel.js";
 import {
   bindPositionConstructivePanel,
   renderPositionConstructivePanel
@@ -99,7 +104,9 @@ export function renderPositionOrderTab(
           })
         : `<p class="enver-meta">Завантаження пакета конструктива…</p>`;
   } else if (activeSub === "procurement") {
-    body = renderProcurementPanel(downstream?.procurement, { canManage: canManageProcurement() });
+    body = renderProcurementWorkspace(downstream?.procurement, {
+      canManage: canManageProcurement()
+    });
   } else if (activeSub === "cnc") {
     body = renderCncQueuePanel(downstream?.cncJobs || [], {
       packageFiles: downstream?.packageFiles || []
@@ -115,6 +122,7 @@ export function renderPositionOrderTab(
   return `
     <section class="order-position-tab card" role="tabpanel" data-position-tab="${position.id}">
       ${renderNextActionBanner(gm, { positionId: position.id, showCta: true })}
+      ${renderAutomationHints(gm)}
       ${renderPositionResponsiblesPanel(position, constructors)}
       ${renderSubTabs(position.id, activeSub)}
       <div class="pos-sub-panel" data-pos-sub-panel="${position.id}">${body}</div>
@@ -212,6 +220,8 @@ export function bindPositionOrderTab(
 
   bindPositionWorkspaceBar(root);
 
+  bindGodmodeNavCta(root, { onRefresh });
+
   root.querySelector("[data-open-constructor-ws]")?.addEventListener("click", async () => {
     const { openConstructorWorkspace } = await import("./constructor-desk.js");
     await openConstructorWorkspace(positionId);
@@ -298,7 +308,7 @@ export function bindPositionOrderTab(
   }
 
   if (activeSub === "procurement" && panel) {
-    bindConstructivePipelinePanel(panel, {
+    bindProcurementWorkspace(panel, {
       positionId,
       getProcurement: () => state.ordersView.positionTabDownstream?.[positionId]?.procurement,
       onProcurementUpdated: (procurement) => {
@@ -307,8 +317,7 @@ export function bindPositionOrderTab(
           [positionId]: { procurement }
         };
         onRefresh?.({ contentOnly: true });
-      },
-      onOpenPosition
+      }
     });
   }
 }

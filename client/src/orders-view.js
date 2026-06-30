@@ -1,5 +1,5 @@
 import { emptyStateIcon, iconSvg } from "./icons.js";
-import { getWorkPositions } from "@enver/shared/production/order-position-model.js";
+import { getWorkPositions, orderProgress } from "@enver/shared/production/order-position-model.js";
 import { stageLabel } from "@enver/shared/production/stages.js";
 import {
   orderAttentionFromGodmode,
@@ -181,8 +181,9 @@ function ordersEmptyHtml(filtersActive = false) {
 function renderOrdersCards(orders, rootPositions, allPositions, filtersActive = false) {
   const cards = orders
     .map((order) => {
+      const related = positionsForOrder(order, allPositions);
+      const progress = orderProgress(order, related);
       const main = mainPositionForOrder(order, rootPositions);
-      const progress = main?.progress ?? 0;
       const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
       const attn = orderAttentionFromGodmode(order, allPositions);
       const gm = attn.godmode;
@@ -235,13 +236,13 @@ function renderOrdersList(orders, rootPositions, allPositions, filtersActive = f
   const rows = orders.length
     ? orders
         .flatMap((order) => {
+          const related = positionsForOrder(order, allPositions);
+          const progress = orderProgress(order, related);
           const main = mainPositionForOrder(order, rootPositions);
-          const progress = main?.progress ?? 0;
           const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
           const priClass = priorityClass(order.priority);
           const attn = orderAttentionFromGodmode(order, allPositions);
           const rowClass = attn.attentionCount > 0 ? "orders-list-row--attention" : "";
-          const related = positionsForOrder(order, allPositions);
           const expanded = state.expandedOrderIds.has(order.id);
 
           const mainRow = `<tr class="orders-list-row row-clickable ${rowClass}" data-order-list-row="${order.id}" tabindex="0">
@@ -299,8 +300,9 @@ export function renderOrdersGrid(orders, positions, { filtersActive = false } = 
 
 export function renderOrderDetailHeader(order, positions, { canEditOrder = false } = {}) {
   const rootPositions = positions.filter((p) => !p.parentId);
+  const related = positionsForOrder(order, positions);
+  const progress = orderProgress(order, related);
   const main = mainPositionForOrder(order, rootPositions);
-  const progress = main?.progress ?? 0;
   const stage = main?.currentStage ? stageLabel(main.currentStage) : "Конструктив";
   const priClass = priorityClass(order.priority);
   const positionCount = getWorkPositions(order, positionsForOrder(order, positions)).length;

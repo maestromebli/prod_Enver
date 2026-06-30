@@ -1,4 +1,6 @@
+import { enrichPositionRow } from "@enver/shared/production/position-logic.js";
 import { buildOrderGodmode, buildPositionGodmode } from "@enver/shared/production/godmode.js";
+import { STAGE_STATUS_FIELD } from "@enver/shared/production/stages.js";
 import {
   getWorkPositions,
   workflowPositionsForOrders
@@ -7,6 +9,7 @@ import {
   HANDOFF_ACTION_TYPES,
   ORDER_API_ACTION_TYPES,
   UI_ACTION_TYPES,
+  PROCUREMENT_NAV_ACTION_TYPES,
   canQuickRunGodmodeAction,
   orderDetailSubTabForGodmodeAction,
   buildGodmodeCtaAttrs
@@ -52,7 +55,10 @@ export function resolvePositionGodmode(position) {
     unmappedPartsCount: position.unmappedPartsCount || 0,
     orderHasSubPositions: position.orderHasSubPositions,
     procurementItems: position.procurement?.items,
-    openReturns: summary?.openReturns || 0
+    openReturns: summary?.openReturns || 0,
+    hasProcurementSource: position.hasProcurementSource,
+    hasProcurementRequest: position.hasProcurementRequest,
+    procurementStatus: position.procurementRequestStatus || position.procurement?.status || null
   });
   return patchAssignConstructorAction(gm);
 }
@@ -114,10 +120,25 @@ export function renderBlockersList(blockers = []) {
 
 export {
   canQuickRunGodmodeAction,
+  canAttentionQuickRun,
   orderDetailSubTabForGodmodeAction,
   panelForGodmodeAction,
-  shouldOpenOrderDetailForGodmodeAction
+  shouldOpenOrderDetailForGodmodeAction,
+  PROCUREMENT_NAV_ACTION_TYPES
 } from "@enver/shared/production/godmode-ui-helpers.js";
+
+export function renderAutomationHints(godmode) {
+  const hints = godmode?.automationHints;
+  if (!hints?.length) return "";
+  return `<ul class="godmode-automation-hints" aria-label="Підказки автоматизації">
+    ${hints
+      .map(
+        (h) =>
+          `<li class="godmode-automation-hint"><span class="godmode-automation-hint-icon" aria-hidden="true">⚡</span>${escapeHtml(h.message || "")}</li>`
+      )
+      .join("")}
+  </ul>`;
+}
 
 export function renderNextActionBanner(
   godmode,
@@ -163,6 +184,7 @@ export function renderOrderGodmodeSummary(order, positions = []) {
       </div>
       ${renderBlockersList(gm.blockers)}
       ${renderWarningsList(gm.warnings, { compact: true })}
+      ${renderAutomationHints(gm)}
       ${renderNextActionBanner(gm, { orderId: order.id, positionId: focusPosition?.id ?? null })}
     </section>`;
 }
@@ -315,13 +337,35 @@ export function navigateGodmodeAction(position, actionType, appState) {
   return true;
 }
 
+function applyOptimisticHandoffPatch(position, actionType) {
+  const snakeTarget = {
+    handoff_to_cutting: "cutting",
+    handoff_to_edging: "edging",
+    handoff_to_drilling: "drilling",
+    handoff_to_assembly: "assembly"
+  };
+  const target = snakeTarget[actionType];
+  const patch = { ...position };
+  if (target) {
+    const snake = STAGE_STATUS_FIELD[target];
+    const camel = `${target}Status`;
+    patch[snake] = "Передано";
+    patch[camel] = "Передано";
+  }
+  return enrichPositionRow(patch);
+}
+
 async function runOptimisticHandoff(positionId, actionType, deps) {
   const positions = deps.getPositions?.() || [];
   const snapshot = positions.find((p) => p.id === positionId);
   const { showOptimisticUpdate } = await import("./interactions/optimistic-ui.js");
 
   return showOptimisticUpdate({
-    apply: () => {},
+    apply: () => {
+      if (!snapshot) return;
+      deps.upsertPosition?.(applyOptimisticHandoffPatch(snapshot, actionType));
+      window.__enverRender?.({ contentOnly: true });
+    },
     rollback: () => {
       if (snapshot) deps.upsertPosition?.(snapshot);
     },
@@ -356,6 +400,19 @@ export async function executePrimaryOrderAction(
       getPositions: () => positions
     });
     return { action: "handoff", position: updated, message: next.label };
+  }
+
+  if (PROCUREMENT_NAV_ACTION_TYPES.has(next.type) && focusPosition?.id) {
+    if (next.type === "create_procurement") {
+      const { openGodmodePositionTarget } = await import("./godmode-navigation.js");
+      await openGodmodePositionTarget(focusPosition, next.type);
+    }
+    return {
+      action: "open_order",
+      tab: `pos-${focusPosition.id}`,
+      subTab: "procurement",
+      positionId: focusPosition.id
+    };
   }
 
   if (UI_ACTION_TYPES.has(next.type) && focusPosition?.id) {
@@ -536,4 +593,35 @@ export function orderAttentionFromGodmode(order, positions) {
     maxOverdue: legacy.maxOverdue,
     hasProblem: legacy.hasProblem
   };
+}
+
+/** Кнопки godmode «В закупівлю» / «Відкрити закупівлю» у банері позиції. */
+export function bindGodmodeNavCta(root, { onRefresh } = {}) {
+  if (!root) return;
+  root.querySelectorAll("[data-godmode-nav]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const actionType = btn.dataset.godmodeNav;
+      const positionId = Number(btn.dataset.godmodeNavPosition);
+      if (!actionType || !positionId) return;
+      const position = (await import("./state.js")).state.positions.find(
+        (p) => p.id === positionId
+      );
+      if (!position) return;
+      const { openGodmodePositionTarget } = await import("./godmode-navigation.js");
+      const { state } = await import("./state.js");
+      if (position.orderId != null) {
+        state.selectedOrderId = position.orderId;
+        state.activeTab = "Замовлення";
+        state.ordersView.detailTab = `pos-${positionId}`;
+        state.ordersView.positionSubTab = {
+          ...(state.ordersView.positionSubTab || {}),
+          [positionId]: "procurement"
+        };
+      }
+      await openGodmodePositionTarget(position, actionType);
+      onRefresh?.({ contentOnly: false });
+    });
+  });
 }

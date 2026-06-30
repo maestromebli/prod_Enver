@@ -395,7 +395,24 @@ export const api = {
     request(`/api/procurement/returns/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify(body)
-    })
+    }),
+
+  listMaterialLibrary: ({ search = "", type = "", active = true, limit = 200 } = {}) => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (type) params.set("type", type);
+    if (!active) params.set("active", "0");
+    if (limit) params.set("limit", String(limit));
+    const q = params.toString();
+    return request(`/api/material-library${q ? `?${q}` : ""}`);
+  },
+  getMaterialLibraryItem: (id) => request(`/api/material-library/${id}`),
+  createMaterialLibraryItem: (body) =>
+    request("/api/material-library", { method: "POST", body: JSON.stringify(body) }),
+  updateMaterialLibraryItem: (id, body) =>
+    request(`/api/material-library/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deactivateMaterialLibraryItem: (id) =>
+    request(`/api/material-library/${id}`, { method: "DELETE" })
 };
 
 export function getPartLabelsUrl(positionId) {
