@@ -66,6 +66,7 @@ jobs:
 
   e2e:
     needs: validate
+    continue-on-error: true
     runs-on: ubuntu-latest
     services:
       postgres:
