@@ -133,13 +133,29 @@ export function resolvePartHighlightMesh(part) {
       nodeId: part.modelNodeId || part.modelMeshName
     };
   }
-  const partNo = String(part.partNo || "").trim();
+
+  const partCode = String(part.partCode || part.part_code || "").trim();
+  if (partCode) {
+    return { meshName: `panel-${partCode}`, nodeId: partCode };
+  }
+
+  const blockCode = String(part.blockCode || part.block_code || "").trim();
+  const partNo = String(part.partNo || part.part_no || "").trim();
+  if (blockCode && partNo) {
+    const composite = `${blockCode}-${partNo}`;
+    return { meshName: composite, nodeId: composite };
+  }
   if (partNo) {
     return { meshName: `panel-${partNo}`, nodeId: partNo };
   }
-  const code = String(part.partCode || "").trim();
-  if (!code) return null;
-  return { meshName: `panel-${code}`, nodeId: `panel-${code}` };
+
+  const codes = part.bazisOperationCodes || part.bazis_operation_codes || [];
+  const firstCode = codes.map(normalizeBazisScanCode).find(Boolean);
+  if (firstCode) {
+    return { meshName: `panel-${firstCode}`, nodeId: firstCode };
+  }
+
+  return null;
 }
 
 /**

@@ -1150,6 +1150,10 @@ export function createPartViewer(
   function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
+    if (ghost && !highlightMesh && (meshName || nodeId)) {
+      showAll();
+      return;
+    }
     selectedMesh = null;
     infoPanel.hidden = true;
     updatePickHint();
@@ -1181,34 +1185,45 @@ export function createPartViewer(
     });
   }
 
+  function resolveMeshForPart(part, targetHint = null) {
+    if (!model || !part) return null;
+    const hint = targetHint || resolvePartHighlightMesh(part) || {};
+    const fromHint = resolveMesh(hint);
+    if (fromHint) return fromHint;
+
+    const targets = meshesForPart(part);
+    if (targets.length) return targets[0];
+
+    return findMeshByPartNo(part.partNo || part.part_no);
+  }
+
   /** Підсвітка деталі на загальному виробі + кріплення та вирізи кромки. */
   function showPartOnAssembly(part, targetHint = null) {
     if (!model || !part) return null;
     clearDetailMarkers();
 
-    const hint = targetHint || resolvePartHighlightMesh(part) || {};
-    applyHighlight({ ...hint, ghost: true, isolate: false });
-
-    let mesh = highlightMesh || findMeshByPartNo(part.partNo || part.part_no);
-    if (mesh && mesh !== highlightMesh) {
-      applyHighlight({ meshName: mesh.name, nodeId: mesh.name, ghost: true, isolate: false });
-      mesh = highlightMesh;
+    const mesh = resolveMeshForPart(part, targetHint);
+    if (!mesh) {
+      showAll();
+      fitToView(model);
+      return null;
     }
 
-    if (mesh) {
-      applyKromkaEdgeHighlight(mesh, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
-      addDrillMarkers(mesh, part, cadGeometry);
-      const panelMm = resolvePanelMm(cadGeometry, part);
-      if (panelMm.dx && panelMm.dy && panelMm.dz) {
-        panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
-        panelDimsHud.hidden = false;
-      } else {
-        panelDimsHud.hidden = true;
-      }
+    applyHighlight({ meshName: mesh.name, nodeId: mesh.name, ghost: true, isolate: false });
+    const primary = highlightMesh || mesh;
+
+    applyKromkaEdgeHighlight(primary, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
+    addDrillMarkers(primary, part, cadGeometry);
+    const panelMm = resolvePanelMm(cadGeometry, part);
+    if (panelMm.dx && panelMm.dy && panelMm.dz) {
+      panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
+      panelDimsHud.hidden = false;
+    } else {
+      panelDimsHud.hidden = true;
     }
 
-    fitToView(model);
-    return mesh;
+    frameMesh(primary);
+    return primary;
   }
 
   function resetCamera() {

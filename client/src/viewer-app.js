@@ -9,7 +9,8 @@ import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import {
   formatEdgeCodeLabel,
-  formatProjectEdgeMask
+  formatProjectEdgeMask,
+  formatPartDetailSummary
 } from "@enver/shared/production/part-detail-display.js";
 import { closeViewerWindow, resolveViewerModelUrl } from "./part-viewer-window.js";
 import { isNativeOperatorShell } from "./operator-native.js";
@@ -92,6 +93,19 @@ function formatEdgeLabel(part, cadGeometry) {
   return formatEdgeCodeLabel(part?.edgeCode || part?.edge_code);
 }
 
+function renderDrillingOpsList(part) {
+  const { drillingOps } = formatPartDetailSummary(part);
+  if (!drillingOps?.length) return "";
+  return `
+    <div class="viewer-hole-list viewer-hole-list--drill-ops">
+      <h3 class="viewer-hole-list-title">Програми сверління (${drillingOps.length})</h3>
+      <ul class="viewer-hole-items viewer-drill-ops">${drillingOps
+        .map((code) => `<li><code>${escapeHtml(code)}</code></li>`)
+        .join("")}</ul>
+    </div>
+  `;
+}
+
 function renderHoleList(cadGeometry, part) {
   const holes = cadGeometry?.holes || [];
   const edgeMask = cadGeometry?.edgeMask;
@@ -110,6 +124,9 @@ function renderHoleList(cadGeometry, part) {
       </div>
     `);
   }
+
+  const drillOpsHtml = renderDrillingOpsList(part);
+  if (drillOpsHtml) sections.push(drillOpsHtml);
 
   if (edgeMask?.some(Boolean)) {
     sections.push(`
@@ -136,6 +153,7 @@ function populateSidebar(data) {
   }
 
   const cad = data.cadGeometry;
+  const summary = formatPartDetailSummary(part);
   const rows = [
     ["Деталь", part.partName],
     ["№", part.partNo ? `№${part.partNo}` : ""],
@@ -143,6 +161,7 @@ function populateSidebar(data) {
     ["Матеріал", part.material || part.materialName],
     ["Кромка", formatEdgeLabel(part, cad)],
     ["CAD", cad?.holeCount ? `${cad.holeCount} отворів · Bazis` : ""],
+    ["Сверління", summary.drillingOps?.length ? `${summary.drillingOps.length} програм` : ""],
     ["Замовлення", data.order?.orderNumber],
     ["Позиція", data.position?.item]
   ].filter(([, value]) => value);
@@ -154,9 +173,19 @@ function populateSidebar(data) {
     )
     .join("");
 
+  const pdfUrl = data.model?.assemblyPdfUrl;
+  const pdfLink = pdfUrl
+    ? `<p class="viewer-pdf-link"><a class="btn btn-sm" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener">Креслення збірки (PDF)</a></p>`
+    : "";
+
   if (holesEl) {
-    holesEl.innerHTML = renderHoleList(cad, part);
-    holesEl.hidden = !cad?.holes?.length && !cad?.edgeMask?.some(Boolean);
+    holesEl.innerHTML = renderHoleList(cad, part) + pdfLink;
+    const hasDrillInfo =
+      Boolean(cad?.holes?.length) ||
+      Boolean(cad?.edgeMask?.some(Boolean)) ||
+      Boolean(summary.drillingOps?.length) ||
+      Boolean(pdfUrl);
+    holesEl.hidden = !hasDrillInfo;
   }
 
   sidebar.hidden = false;
@@ -172,10 +201,12 @@ async function showPartOnAssembly(part) {
   if (!part || !viewer) return null;
   currentPart = part;
   const target = resolveHighlightTarget(part);
-  let mesh = viewer.showPartOnAssembly?.(part, target);
-  if (!mesh) {
-    await new Promise((r) => requestAnimationFrame(r));
+  let mesh = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
     mesh = viewer.showPartOnAssembly?.(part, target);
+    if (mesh) break;
+    await new Promise((r) => requestAnimationFrame(r));
+    if (attempt > 2) await new Promise((r) => setTimeout(r, 40));
   }
   if (!mesh && viewer.showPartDetail) {
     viewer.showPartDetail(part, target);

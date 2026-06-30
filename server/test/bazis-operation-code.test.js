@@ -60,6 +60,20 @@ describe("bazis-operation-code", () => {
     });
   });
 
+  it("resolvePartHighlightMesh — partCode важливіший за partNo (GLB panel-0010X002X1)", () => {
+    assert.deepEqual(resolvePartHighlightMesh({ partNo: "10", partCode: "0010X002X1" }), {
+      meshName: "panel-0010X002X1",
+      nodeId: "0010X002X1"
+    });
+  });
+
+  it("resolvePartHighlightMesh — bazisOperationCodes як fallback", () => {
+    assert.deepEqual(resolvePartHighlightMesh({ bazisOperationCodes: ["0014X006X1"] }), {
+      meshName: "panel-0014X006X1",
+      nodeId: "0014X006X1"
+    });
+  });
+
   it("pickBestPartRowForBazisScan обирає деталь з кодом Bazis серед дублікатів", () => {
     const rows = [
       { id: 1, part_no: "14", part_name: "14", bazis_operation_codes: [] },

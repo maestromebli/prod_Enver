@@ -242,25 +242,26 @@ body.viewer-tablet-mode .viewer-window-body {
 html.viewer-tablet-mode .viewer-window-main,
 body.viewer-tablet-mode .viewer-window-main {
   order: 1;
-  flex: 1 1 80%;
+  flex: 1 1 72%;
   min-height: 0;
-  max-height: 80%;
+  max-height: 72%;
 }
 
 html.viewer-tablet-mode .viewer-sidebar,
 body.viewer-tablet-mode .viewer-sidebar {
   order: 2;
   flex: 0 0 auto;
-  max-height: 20%;
+  max-height: 28%;
   width: 100%;
   border-right: none;
   border-top: 1px solid var(--enver-border, rgba(255, 255, 255, 0.1));
   padding: 8px 12px;
+  overflow-y: auto;
 }
 
 html.viewer-tablet-mode .viewer-hole-items,
 body.viewer-tablet-mode .viewer-hole-items {
-  max-height: 12vh;
+  max-height: 16vh;
 }
 
 html.viewer-tablet-mode .viewer-hotkeys-hint,

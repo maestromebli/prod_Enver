@@ -1,5 +1,7 @@
 /** Статуси та константи пакета конструктива (server + client). */
 
+import { normalizeBazisScanCode } from "./bazis-operation-code.js";
+
 export const PACKAGE_STATUSES = [
   "uploaded",
   "parsing",
@@ -820,12 +822,18 @@ export function partCatalogLookupKeys(part = {}) {
   add(part.modelMeshName);
   add(part.modelNodeId);
 
-  const blockCode = String(part.blockCode || "").trim();
-  const partNo = String(part.partNo || "").trim();
-  const partCode = String(part.partCode || part.code || "").trim();
+  const blockCode = String(part.blockCode || part.block_code || "").trim();
+  const partNo = String(part.partNo || part.part_no || "").trim();
+  const partCode = String(part.partCode || part.part_code || part.code || "").trim();
   if (blockCode && partNo) add(`${blockCode}-${partNo}`);
   if (partNo) add(partNo);
   if (partCode) add(partCode);
+
+  const opCodes = part.bazisOperationCodes || part.bazis_operation_codes || [];
+  for (const raw of opCodes) {
+    const code = normalizeBazisScanCode(raw);
+    if (code) add(code);
+  }
 
   return keys;
 }
