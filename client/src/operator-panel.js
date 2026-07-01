@@ -660,6 +660,16 @@ export function renderOperatorView() {
                 data-order-id="${workOrderId(pos) || ""}"
                 data-position-id="${pos.id}"
               ></div>
+              <div id="operatorPartDetailStrip" class="op-part-detail-strip" hidden>
+                <h4 class="op-part-detail-strip-title">Деталь</h4>
+                <div
+                  id="operatorPartDetail3dMount"
+                  class="op-part-detail-3d part-viewer-3d"
+                  role="img"
+                  aria-label="3D деталі"
+                ></div>
+                <div id="operatorPartDetailInfo" class="op-part-detail-info"></div>
+              </div>
             </section>
           `
               : renderSmartEmptyState({

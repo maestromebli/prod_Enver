@@ -15,6 +15,7 @@ import { escapeHtml } from "./utils.js";
 
 let stripDetailViewer = null;
 let stripModelCtx = null;
+let pendingOperatorScan = null;
 
 export function destroyOperatorPartDetailStrip() {
   stripDetailViewer?.destroy?.();
@@ -27,8 +28,16 @@ export function destroyOperatorPartDetailStrip() {
   if (strip) strip.hidden = true;
 }
 
+export function clearPendingOperatorScan() {
+  pendingOperatorScan = null;
+}
+
 export function setOperatorPartDetailModelContext(ctx) {
   stripModelCtx = ctx;
+}
+
+function rememberPendingOperatorScan(data) {
+  pendingOperatorScan = data?.part ? data : null;
 }
 
 function formatEdgeLabel(part, cadGeometry) {
@@ -118,6 +127,24 @@ function resolveModelContext(data) {
   return stripModelCtx;
 }
 
+function ensureStripDetailView(viewer, part, target, cadGeometry) {
+  if (!viewer || !part) return false;
+  if (cadGeometry) viewer.setCadGeometry?.(cadGeometry);
+  const mesh = viewer.showPartDetail?.(part, target);
+  if (mesh) return true;
+
+  const hint = target || resolvePartHighlightMesh(part);
+  if (!hint?.meshName && !hint?.nodeId) return false;
+
+  viewer.highlightPart?.({
+    meshName: hint.meshName,
+    nodeId: hint.nodeId,
+    isolate: true,
+    ghost: false
+  });
+  return true;
+}
+
 async function mountStripDetailViewer(part, cadGeometry, modelCtx) {
   const mount = document.getElementById("operatorPartDetail3dMount");
   if (!mount || !part || !modelCtx?.modelUrl) return null;
@@ -140,6 +167,7 @@ async function mountStripDetailViewer(part, cadGeometry, modelCtx) {
       cadGeometry,
       viewerOptions: { pickable: false, detailOnly: true }
     });
+    ensureStripDetailView(stripDetailViewer, part, target, cadGeometry);
     return stripDetailViewer;
   } catch {
     mount.innerHTML = `<p class="enver-meta">3D деталі недоступна</p>`;
@@ -180,10 +208,32 @@ export async function applyScanToAssembly3d(data) {
   const viewer = getOperatorOrder3dViewer();
   if (viewer) {
     if (data.cadGeometry) viewer.setCadGeometry?.(data.cadGeometry);
-    viewer.showPartOnAssembly?.(data.part, resolvePartHighlightMesh(data.part));
-    return true;
+    const mesh = viewer.showPartOnAssembly?.(data.part, resolvePartHighlightMesh(data.part));
+    if (mesh) return true;
+    const hint = resolvePartHighlightMesh(data.part);
+    if (hint?.meshName || hint?.nodeId) {
+      viewer.highlightPart?.({
+        meshName: hint.meshName,
+        nodeId: hint.nodeId,
+        ghost: true,
+        isolate: false
+      });
+      return true;
+    }
+    return false;
   }
   return highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry });
+}
+
+/** Повторно застосувати останній скан після завантаження збірки. */
+export async function reapplyPendingOperatorScan3d() {
+  if (!pendingOperatorScan?.part) return false;
+  await applyScanToAssembly3d(pendingOperatorScan);
+  const strip = document.getElementById("operatorPartDetailStrip");
+  if (strip && !strip.hidden) {
+    await showOperatorPartDetail(pendingOperatorScan);
+  }
+  return true;
 }
 
 /** @deprecated використовуйте showOperatorPartDetail */
@@ -193,6 +243,7 @@ export function destroyScanPartDetailViewer() {
 
 /** Після скану: підсвітка зверху + деталь знизу. */
 export async function bindScanPartDetail3d(_detailEl, data) {
+  rememberPendingOperatorScan(data);
   await applyScanToAssembly3d(data);
   await showOperatorPartDetail(data);
 }

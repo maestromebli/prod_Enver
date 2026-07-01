@@ -12,6 +12,7 @@ import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch
 import { isNativeOperatorShell } from "./operator-native.js";
 import {
   destroyOperatorPartDetailStrip,
+  reapplyPendingOperatorScan3d,
   setOperatorPartDetailModelContext,
   showOperatorPartDetail
 } from "./operator-scan-3d.js";
@@ -329,11 +330,6 @@ export async function bindOperatorOrder3d() {
     mount.innerHTML = `
       ${renderPreview3dUpgradeBanner(ctx.upgradeHint)}
       <div id="operatorOrder3dViewer" class="op-order-3d-viewer part-viewer-3d" role="img" aria-label="${escapeHtml(ctx.layoutLabel || "3D модель")}"></div>
-      <div id="operatorPartDetailStrip" class="op-part-detail-strip" hidden>
-        <h4 class="op-part-detail-strip-title">Деталь</h4>
-        <div id="operatorPartDetail3dMount" class="op-part-detail-3d part-viewer-3d" role="img" aria-label="3D деталі"></div>
-        <div id="operatorPartDetailInfo" class="op-part-detail-info"></div>
-      </div>
     `;
 
     mountOperator3dToolbar(section);
@@ -370,6 +366,8 @@ export async function bindOperatorOrder3d() {
       openBtn.hidden = false;
       openBtn.textContent = isNativeOperatorShell() ? "Повний 3D" : "На весь екран";
     }
+
+    void reapplyPendingOperatorScan3d();
   } catch {
     section.hidden = true;
     mount.innerHTML = "";

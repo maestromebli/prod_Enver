@@ -31,10 +31,10 @@ export async function mountModelViewer(
     detailOnly: detailOnly || viewerOptions.detailOnly,
     ...viewerOptions
   });
+  if (parts?.length) viewer.setPartCatalog(parts);
   if (cadGeometry) viewer.setCadGeometry?.(cadGeometry);
   if (initialPart) viewer.showPartDetail?.(initialPart, initialPartHint);
   await viewer.loadModel(url, token, { format });
-  if (parts?.length) viewer.setPartCatalog(parts);
   if (initialPart) {
     if (cadGeometry) viewer.setCadGeometry?.(cadGeometry);
     viewer.showPartDetail?.(initialPart, initialPartHint);

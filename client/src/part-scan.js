@@ -23,6 +23,7 @@ import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getStoredToken } from "./api.js";
 import {
   bindScanPartDetail3d,
+  clearPendingOperatorScan,
   destroyOperatorPartDetailStrip,
   renderScanPartDetailLayout
 } from "./operator-scan-3d.js";
@@ -223,6 +224,7 @@ function syncOperatorScanButtonState(open) {
 }
 
 function closePartScanDetail(detailEl, { onClose, scanInput } = {}) {
+  clearPendingOperatorScan();
   destroyOperatorPartDetailStrip();
   if (detailEl) {
     detailEl.hidden = true;

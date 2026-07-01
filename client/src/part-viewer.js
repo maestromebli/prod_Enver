@@ -1563,7 +1563,6 @@ export function createPartViewer(
 
     const mesh = resolveMeshForPart(part, targetHint);
     if (!mesh) {
-      showAll();
       fitToView(model);
       return null;
     }
@@ -1610,11 +1609,13 @@ export function createPartViewer(
     syncFloorGrid(box);
     syncShadowReceiver(box);
     if (detailOnly) {
-      model.traverse((child) => {
-        if (isRenderableMesh(child)) child.visible = false;
-      });
       const applied = applyPendingDetailView();
-      if (!applied) updatePickHint();
+      if (!applied) {
+        model.traverse((child) => {
+          if (isRenderableMesh(child)) child.visible = false;
+        });
+        updatePickHint();
+      }
     } else {
       fitToView(model);
       updatePickHint();
