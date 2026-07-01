@@ -671,6 +671,18 @@ button.cp-wizard-step:hover {
   display: none !important;
 }
 
+.cp-handoff-action-bar {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--enver-radius-md, 12px);
+  background: var(--enver-surface-soft, #f0f2ec);
+  border: 1px solid var(--enver-border, #dfe4d8);
+}
+
+.cp-handoff-hint {
+  margin: -0.35rem 0 0.85rem;
+}
+
 .cp-wizard-handoff-extras {
   margin-top: 0.75rem;
   padding-top: 0.75rem;

@@ -21,12 +21,14 @@ import {
   detectPackageFileKind,
   partitionModelMappingSources,
   canCreateProcurement,
+  hasConstructorProcurementSource,
+  PROCUREMENT_ELIGIBLE_PACKAGE_STATUSES,
   hasModelMappingResult,
   hasModelMappingSources,
   has3dPreviewFile,
   shouldShowModelMappingTab
 } from "@enver/shared/production/constructive-package.js";
-import { canWorkConstructorDesk } from "./auth.js";
+import { canWorkConstructorDesk, canEditPositions, canManageProcurement } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
@@ -366,6 +368,7 @@ export function renderConstructivePackageReadOnly(
       ${pkg && packageId && cncMachine.length ? `<div class="cp-legacy-files"><h4 class="enver-meta">Файли на верстат</h4>${renderPackageFilesList(positionId, packageId, cncMachine)}</div>` : ""}
       ${detail?.parts?.length ? `<p class="cp-parts-count">${detail.parts.length} деталей · ${detail.materials?.length || 0} матеріалів · ${detail.hardware?.length || 0} фурнітури</p>` : ""}
       ${detail?.unmappedParts?.length ? `<p class="cp-warning">${detail.unmappedParts.length} деталей без 3D-звʼязку</p>` : ""}
+      ${renderPackageHandoffActionBar(detail, position, { mode: "readonly", hideProcurement: !canManageProcurement() })}
       ${
         canWorkConstructorDesk() && positionId
           ? `<p class="cp-readonly-hint"><button type="button" class="btn btn-sm btn-primary" data-open-constructor-ws="${positionId}">Завантажити на столі конструктора</button></p>`
@@ -402,6 +405,66 @@ function renderPackageReadinessChecklist(detail) {
 function packageUploadFormatsLabel() {
   const mb = Math.round(CONSTRUCTIVE_MAX_BYTES / (1024 * 1024));
   return `.project · .b3d · XLS · PDF · ЧПК · GLB — до ${mb} МБ`;
+}
+
+/** Постійні кнопки передачі в закупівлю / на порізку (видно на всіх кроках wizard після розбору). */
+export function renderPackageHandoffActionBar(
+  detail,
+  position,
+  { hideProcurement = false, mode = "editable" } = {}
+) {
+  const pkg = detail?.package;
+  if (!pkg) return "";
+
+  const status = pkg?.status || "uploaded";
+  const parsedOrLater =
+    (detail?.parts?.length || 0) > 0 || !["uploaded", "parsing"].includes(status);
+  if (!parsedOrLater) return "";
+
+  if (mode === "readonly") {
+    if (!canEditPositions() && !canManageProcurement()) return "";
+    if (!canManageProcurement()) hideProcurement = true;
+  }
+
+  const positionId = position?.id;
+  const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
+  const canHandoff = PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status);
+
+  const procAttrs =
+    mode === "readonly"
+      ? `data-godmode-nav="create_procurement" data-godmode-nav-position="${positionId}"`
+      : "data-cp-procurement-btn";
+  const cutAttrs =
+    mode === "readonly"
+      ? `data-run-next-action="${positionId}" data-action-type="handoff_to_cutting"`
+      : "data-cp-handoff-cutting-btn";
+
+  const procurementBtn = hideProcurement
+    ? ""
+    : `<button type="button" class="btn btn-sm" ${procAttrs} ${canStartProcurement ? "" : "disabled"} title="З Excel-специфікації">Передати в закупівлю</button>`;
+  const cuttingBtn = `<button type="button" class="btn btn-sm btn-primary" ${cutAttrs} ${canHandoff ? "" : "disabled"}>На порізку</button>`;
+
+  let hint = "";
+  if (!canHandoff && ["parsed", "needs_review"].includes(status)) {
+    hint =
+      '<p class="enver-meta cp-handoff-hint">Після перевірки натисніть «Підтвердити пакет», щоб передати на порізку.</p>';
+  } else if (
+    !hideProcurement &&
+    !canStartProcurement &&
+    !detail?.procurement?.id &&
+    PROCUREMENT_ELIGIBLE_PACKAGE_STATUSES.includes(status) &&
+    !hasConstructorProcurementSource(detail)
+  ) {
+    hint =
+      '<p class="enver-meta cp-handoff-hint">Для закупівлі потрібна Excel-специфікація з матеріалами після розбору пакета.</p>';
+  }
+
+  return `
+    <div class="cp-handoff-action-bar constructive-actions constructive-actions--cta cp-actions" data-cp-handoff-bar>
+      ${procurementBtn}
+      ${cuttingBtn}
+    </div>
+    ${hint}`;
 }
 
 function renderUnifiedPackageUpload(detail, { hideProcurement = false } = {}) {
@@ -442,7 +505,6 @@ export function renderConstructivePackageBlock(
   const showManualParseBtn =
     pkg && pkg.status !== "parsing" && (detail?.files?.length > 0 || pkg.status !== "uploaded");
   const parseBtnLabel = pkg?.status === "uploaded" ? "Розібрати" : "Розібрати знову";
-  const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
 
   const currentStep = resolvePackageWizardStep(detail);
   const stepCtx = { current: currentStep, selected: currentStep };
@@ -493,14 +555,6 @@ export function renderConstructivePackageBlock(
     3,
     "handoff",
     `
-      <div class="constructive-actions constructive-actions--cta cp-actions">
-        ${
-          hideProcurement
-            ? ""
-            : `<button type="button" class="btn btn-sm" data-cp-procurement-btn ${canStartProcurement ? "" : "disabled"} title="З Excel-специфікації">В закупівлю</button>`
-        }
-        <button type="button" class="btn btn-sm btn-primary" data-cp-handoff-cutting-btn ${PACKAGE_HANDOFF_TO_CUTTING_STATUSES.includes(status) ? "" : "disabled"}>На порізку</button>
-      </div>
       <div class="package-ai-mount" data-cp-package-ai></div>
       <div data-cp-pipeline-handoff>${renderWizardHandoffExtras(detail, downstream?.procurement, {
         hideProcurement,
@@ -515,6 +569,7 @@ export function renderConstructivePackageBlock(
     <section class="constructive-package-block cp-wizard" data-position-id="${position?.id || ""}" data-package-id="${pkg?.id || ""}" data-cp-wizard-step="${currentStep}">
       <h3 class="enver-section-title">Пакет конструктива</h3>
       ${renderPackageWizardStepper(detail)}
+      ${renderPackageHandoffActionBar(detail, position, { hideProcurement })}
       <div class="cp-wizard-panels" data-cp-package-files data-cp-wizard-panels>
         ${uploadPanel}
         ${parsePanel}

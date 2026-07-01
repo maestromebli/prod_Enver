@@ -91,12 +91,7 @@ export function renderWizardHandoffExtras(detail, procurement = null, options = 
   const pipelineGodmodeBtn =
     pkgAction &&
     pkgAction.allowed !== false &&
-    ![
-      "wait_parse",
-      "wait_procurement",
-      "handoff_to_cutting",
-      ...(hideProcurement ? ["create_procurement"] : [])
-    ].includes(pkgAction.type)
+    !["wait_parse", "wait_procurement"].includes(pkgAction.type)
       ? `<button type="button" class="btn btn-sm btn-primary" id="pipelineGodmodeBtn" data-pipeline-action="${escapeHtml(pkgAction.type)}">${escapeHtml(pkgAction.buttonLabel)}</button>`
       : "";
 
