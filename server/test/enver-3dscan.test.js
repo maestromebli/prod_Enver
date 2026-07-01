@@ -44,6 +44,32 @@ describe("ENVER_3dscan", () => {
     assert.equal(read.panels[0].holes.length, 1);
   });
 
+  it(
+    "fuseBazisPackage: частковий sidecar не зменшує список панелей з .project",
+    {
+      skip: !samplesExist
+    },
+    () => {
+      const projectBuffer = fs.readFileSync(SAMPLE_PROJECT);
+      const partialScan = parseEnver3dscanJson({
+        kind: "ENVER_3dscan",
+        version: 2,
+        source: "test",
+        panels: [{ code: "10", name: "Тест", lengthMm: 600, widthMm: 400, thicknessMm: 18 }]
+      });
+      const fused = fuseBazisPackage({
+        projectBuffer,
+        scanJsonBuffer: Buffer.from(JSON.stringify(partialScan))
+      });
+      const fusedProjectOnly = fuseBazisPackage({ projectBuffer });
+      assert.equal(
+        fused.parts.length,
+        fusedProjectOnly.parts.length,
+        "частковий sidecar не повинен зменшувати кількість деталей"
+      );
+    }
+  );
+
   it("fuseBazisPackage з реальними зразками 2026", { skip: !samplesExist }, () => {
     const b3dBuffer = fs.readFileSync(SAMPLE_B3D);
     const projectBuffer = fs.readFileSync(SAMPLE_PROJECT);

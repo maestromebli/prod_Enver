@@ -31,3 +31,17 @@ export function formatEnver3SyncMessage(syncResult) {
   }
   return null;
 }
+
+export function formatEnver3dscanSyncMessage(syncResult) {
+  if (!syncResult) return null;
+  if (syncResult.applied) {
+    return `ENVER_3dscan дописано в .b3d (${syncResult.panelCount || "?"} панелей)`;
+  }
+  if (syncResult.reason === "already_has_enver_3dscan") {
+    return "ENVER_3dscan уже є в .b3d";
+  }
+  if (syncResult.reason === "no_3dscan_json" || syncResult.reason === "empty_3dscan_json") {
+    return null;
+  }
+  return null;
+}

@@ -64,23 +64,23 @@ export async function overwritePackageFileBuffer(fileRow, buffer) {
 /** Дописати ENVER_3dscan у .b3d з sidecar JSON, якщо хвоста ще немає. */
 export async function autoSyncEnver3dscanToPackageB3d({ fileRows = [] } = {}) {
   const b3dRow = fileRows.find((f) => f.kind === "b3d");
-  if (!b3dRow?.storage_path) {
+  const b3dPath = b3dRow?.storage_path || b3dRow?.storagePath;
+  if (!b3dPath) {
     return { applied: false, reason: "no_b3d" };
   }
 
-  let b3dBuffer = await readStoredFile(b3dRow.storage_path);
+  let b3dBuffer = await readStoredFile(b3dPath);
   if (extractEnver3dscanFromB3d(b3dBuffer)) {
     return { applied: false, reason: "already_has_enver_3dscan" };
   }
 
   const scanRow = findEnver3dscanJsonFileRow(fileRows);
-  if (!scanRow?.storage_path) {
+  const scanPath = scanRow?.storage_path || scanRow?.storagePath;
+  if (!scanPath) {
     return { applied: false, reason: "no_3dscan_json" };
   }
 
-  const scanDocument = await loadEnver3dscanFromJsonBuffer(
-    await readStoredFile(scanRow.storage_path)
-  );
+  const scanDocument = await loadEnver3dscanFromJsonBuffer(await readStoredFile(scanPath));
   if (!scanDocument?.panels?.length) {
     return { applied: false, reason: "empty_3dscan_json" };
   }

@@ -44,7 +44,8 @@ import {
 } from "@enver/shared/production/package-readiness.js";
 import {
   formatAssemblyMissingMessage,
-  formatEnver3SyncMessage
+  formatEnver3SyncMessage,
+  formatEnver3dscanSyncMessage
 } from "@enver/shared/production/preview-3d-meta.js";
 import {
   renderConstructivePipeline,
@@ -163,6 +164,8 @@ export function isPackageUploadFile(file) {
 function appendPreview3dUploadNotes(parts, result) {
   const enver3 = formatEnver3SyncMessage(result?.preview3d?.enver3Sync);
   if (enver3) parts.push(enver3);
+  const enver3dscan = formatEnver3dscanSyncMessage(result?.preview3d?.enver3dscanSync);
+  if (enver3dscan) parts.push(enver3dscan);
   const partial = formatAssemblyMissingMessage({
     missingCodes: result?.preview3d?.missingCodes,
     totalPanels: result?.parts?.length,

@@ -1132,6 +1132,19 @@ html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
   color: var(--enver-text-muted, #64748b);
 }
 
+.op-scan-detail-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.op-scan-detail-toolbar .btn.is-active {
+  background: var(--enver-accent, #2563eb);
+  color: #fff;
+  border-color: transparent;
+}
+
 .op-part-detail-3d {
   min-height: 150px;
   height: min(30vh, 220px);

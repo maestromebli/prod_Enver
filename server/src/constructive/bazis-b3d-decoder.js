@@ -220,6 +220,12 @@ export function extractPanelIntPairs(data, { minPanels = 2, maxPanels = 60 } = {
   return panels.length >= minPanels ? panels : [];
 }
 
+function sanitizeGabMin(minX, minY, minZ) {
+  if ([minX, minY, minZ].every((v) => v === 0)) return [0, 0, 0];
+  if ([minX, minY, minZ].every(isPlausibleGabMinCoord)) return [minX, minY, minZ];
+  return [0, 0, 0];
+}
+
 function scanGabMinMaxAtOffset(data, offset, read, stride = 8, { requireIntegerMm = false } = {}) {
   const minX = read(offset);
   const minY = read(offset + stride);
@@ -232,11 +238,14 @@ function scanGabMinMaxAtOffset(data, offset, read, stride = 8, { requireIntegerM
   if (requireIntegerMm && ![minX, minY, minZ, maxX, maxY, maxZ].every(isNearIntegerMm)) {
     return null;
   }
-  if (maxX <= minX || maxY <= minY || maxZ <= minZ) return null;
+  if (![maxX, maxY, maxZ].every(isPlausibleMmCoord)) return null;
 
-  const sx = maxX - minX;
-  const sy = maxY - minY;
-  const sz = maxZ - minZ;
+  const [safeMinX, safeMinY, safeMinZ] = sanitizeGabMin(minX, minY, minZ);
+  if (maxX <= safeMinX || maxY <= safeMinY || maxZ <= safeMinZ) return null;
+
+  const sx = maxX - safeMinX;
+  const sy = maxY - safeMinY;
+  const sz = maxZ - safeMinZ;
   if (sx < 30 || sy < 30 || sz < 5) return null;
   if (sx > 4000 || sy > 4000 || sz > 4000) return null;
 
@@ -246,13 +255,14 @@ function scanGabMinMaxAtOffset(data, offset, read, stride = 8, { requireIntegerM
   if (isSheetSize(sorted[2], sorted[1])) return null;
 
   return {
-    gabMinMm: [minX, minY, minZ],
+    gabMinMm: [safeMinX, safeMinY, safeMinZ],
     gabMaxMm: [maxX, maxY, maxZ],
-    centerMm: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+    centerMm: [(safeMinX + maxX) / 2, (safeMinY + maxY) / 2, (safeMinZ + maxZ) / 2],
     sizeMm: [sx, sy, sz],
     lengthMm: Math.round(Math.max(sx, sy)),
     widthMm: Math.round(Math.min(sx, sy)),
     thicknessMm: Math.round(sorted[0]),
+    minMaxOffset: offset,
     source: "b3d_gab_minmax",
     confidence: 0.75
   };
@@ -449,21 +459,217 @@ export function scanGabMinMaxPanels(data, { maxPanels = 120, allowFloat32 = fals
   return uniq.slice(0, maxPanels);
 }
 
-function poseFromGab(panel) {
-  const [sx, sy, sz] = panel.sizeMm;
+function isPlausibleMmCoord(v) {
+  if (!Number.isFinite(v) || Math.abs(v) > 50000) return false;
+  if (v === 0) return true;
+  if (Math.abs(v) < 1) return false;
+  return true;
+}
+
+function isPlausibleGabMinCoord(v) {
+  if (!Number.isFinite(v) || Math.abs(v) > 50000) return false;
+  if (v === 0) return true;
+  return Math.abs(v) >= 1 && isNearIntegerMm(v, 1);
+}
+
+function normalizeVec3(v) {
+  const len = Math.hypot(v[0], v[1], v[2]);
+  if (!Number.isFinite(len) || len < 1e-9 || len > 1e6) return null;
+  return [v[0] / len, v[1] / len, v[2] / len];
+}
+
+function isOrthonormalAxes(axisX, axisY, axisZ, { maxDot = 0.08 } = {}) {
+  const dot = (a, b) => Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
+  if (dot(axisX, axisY) > maxDot || dot(axisX, axisZ) > maxDot || dot(axisY, axisZ) > maxDot) {
+    return false;
+  }
+  const cross = [
+    axisX[1] * axisY[2] - axisX[2] * axisY[1],
+    axisX[2] * axisY[0] - axisX[0] * axisY[2],
+    axisX[0] * axisY[1] - axisX[1] * axisY[0]
+  ];
+  return dot(cross, axisZ) >= 0.5;
+}
+
+/** Три послідовні vec3 (DirX, DirY, DirZ) у Bazis .b3d — зазвичай float32. */
+export function readOrthonormalAxesF32(data, offset) {
+  if (!data || offset < 0 || offset + 36 > data.length) return null;
+  const axisX = normalizeVec3([
+    data.readFloatLE(offset),
+    data.readFloatLE(offset + 4),
+    data.readFloatLE(offset + 8)
+  ]);
+  const axisY = normalizeVec3([
+    data.readFloatLE(offset + 12),
+    data.readFloatLE(offset + 16),
+    data.readFloatLE(offset + 20)
+  ]);
+  const axisZ = normalizeVec3([
+    data.readFloatLE(offset + 24),
+    data.readFloatLE(offset + 28),
+    data.readFloatLE(offset + 32)
+  ]);
+  if (!axisX || !axisY || !axisZ) return null;
+  if (!isOrthonormalAxes(axisX, axisY, axisZ)) return null;
+  return { axisX, axisY, axisZ };
+}
+
+/** float64 vec3 — рідше, але перевіряємо для повноти. */
+export function readOrthonormalAxesF64(data, offset) {
+  if (!data || offset < 0 || offset + 72 > data.length) return null;
+  const axisX = normalizeVec3([
+    data.readDoubleLE(offset),
+    data.readDoubleLE(offset + 8),
+    data.readDoubleLE(offset + 16)
+  ]);
+  const axisY = normalizeVec3([
+    data.readDoubleLE(offset + 24),
+    data.readDoubleLE(offset + 32),
+    data.readDoubleLE(offset + 40)
+  ]);
+  const axisZ = normalizeVec3([
+    data.readDoubleLE(offset + 48),
+    data.readDoubleLE(offset + 56),
+    data.readDoubleLE(offset + 64)
+  ]);
+  if (!axisX || !axisY || !axisZ) return null;
+  if (!isOrthonormalAxes(axisX, axisY, axisZ)) return null;
+  return { axisX, axisY, axisZ };
+}
+
+const DIR_LINK_PREFERRED_DELTAS = [139, 144, 148, 152, 304, 308, -574, -560, -548];
+
+function scoreDirLinkDelta(delta) {
+  let score = 500 - Math.min(Math.abs(delta), 450);
+  for (const preferred of DIR_LINK_PREFERRED_DELTAS) {
+    score += Math.max(0, 200 - Math.abs(delta - preferred));
+  }
+  if (delta > 48) score += 40;
+  return score;
+}
+
+/**
+ * Шукає DirX/DirY/DirZ поруч із блоком MinX…MaxZ у бінарному потоці Bazis.
+ * Осі можуть бути до або після габаритів (типові зміщення ~+139 або ~+304 байт).
+ */
+export function findOrthonormalAxesNearMinMax(data, minMaxOffset, { usedDirOffsets = null } = {}) {
+  if (!data?.length || minMaxOffset == null || minMaxOffset < 0) return null;
+
+  let best = null;
+  const searchFrom = Math.max(0, minMaxOffset - 640);
+  const searchTo = Math.min(data.length - 36, minMaxOffset + 840);
+
+  for (let off = searchFrom; off <= searchTo; off += 1) {
+    if (off >= minMaxOffset && off <= minMaxOffset + 48) continue;
+    if (usedDirOffsets?.has(off)) continue;
+
+    const f32 = readOrthonormalAxesF32(data, off);
+    if (!f32) continue;
+
+    const delta = off - minMaxOffset;
+    const score = scoreDirLinkDelta(delta);
+    if (!best || score > best.score) {
+      best = { ...f32, score, dirOffset: off, dirDelta: delta, dirSource: "b3d_dir_f32" };
+    }
+
+    const f64 = readOrthonormalAxesF64(data, off);
+    if (!f64) continue;
+    const f64Score = scoreDirLinkDelta(delta) - 20;
+    if (!best || f64Score > best.score) {
+      best = {
+        ...f64,
+        score: f64Score,
+        dirOffset: off,
+        dirDelta: delta,
+        dirSource: "b3d_dir_f64"
+      };
+    }
+  }
+
+  if (!best) return null;
+  return {
+    axisX: best.axisX,
+    axisY: best.axisY,
+    axisZ: best.axisZ,
+    dirOffset: best.dirOffset,
+    dirSource: best.dirSource
+  };
+}
+
+/** Зіставляє панелі з GabMinMax і найближчі ортонормовані осі в тому ж записі об'єкта. */
+export function linkPanelsWithNearbyDirs(panels, data) {
+  if (!data?.length) return panels;
+  const usedDirOffsets = new Set();
+
+  return panels.map((panel) => {
+    if (!panel.centerMm || panel.minMaxOffset == null) return panel;
+    const dirs = findOrthonormalAxesNearMinMax(data, panel.minMaxOffset, { usedDirOffsets });
+    if (!dirs) return panel;
+    if (dirs.dirOffset != null) usedDirOffsets.add(dirs.dirOffset);
+    return {
+      ...panel,
+      axisX: dirs.axisX,
+      axisY: dirs.axisY,
+      axisZ: dirs.axisZ,
+      dirSource: dirs.dirSource
+    };
+  });
+}
+
+function thicknessAxisFromSize(sizeMm) {
+  const [sx, sy, sz] = sizeMm;
   const sorted = [
     { v: sx, axis: "x" },
     { v: sy, axis: "y" },
     { v: sz, axis: "z" }
   ].sort((a, b) => a.v - b.v);
+  return sorted[0].axis;
+}
+
+function fallbackAxesFromSize(sizeMm) {
+  return {
+    axisX: [1, 0, 0],
+    axisY: [0, 1, 0],
+    axisZ: [0, 0, 1],
+    thicknessAxis: thicknessAxisFromSize(sizeMm)
+  };
+}
+
+function poseFromGab(panel, data = null) {
+  const [sx, sy, sz] = panel.sizeMm;
+  if (panel.axisX && panel.axisY && panel.axisZ) {
+    return {
+      centerMm: panel.centerMm,
+      sizeMm: [sx, sy, sz],
+      axisX: panel.axisX,
+      axisY: panel.axisY,
+      axisZ: panel.axisZ,
+      thicknessAxis: thicknessAxisFromSize([sx, sy, sz]),
+      dirSource: panel.dirSource
+    };
+  }
+
+  const fromDirs =
+    data && panel.minMaxOffset != null
+      ? findOrthonormalAxesNearMinMax(data, panel.minMaxOffset)
+      : null;
+
+  if (fromDirs) {
+    return {
+      centerMm: panel.centerMm,
+      sizeMm: [sx, sy, sz],
+      axisX: fromDirs.axisX,
+      axisY: fromDirs.axisY,
+      axisZ: fromDirs.axisZ,
+      thicknessAxis: thicknessAxisFromSize([sx, sy, sz]),
+      dirSource: fromDirs.dirSource
+    };
+  }
 
   return {
     centerMm: panel.centerMm,
     sizeMm: [sx, sy, sz],
-    axisX: [1, 0, 0],
-    axisY: [0, 1, 0],
-    axisZ: [0, 0, 1],
-    thicknessAxis: sorted[0].axis
+    ...fallbackAxesFromSize([sx, sy, sz])
   };
 }
 
@@ -531,11 +737,16 @@ export function analyzeBazisB3dBuffer(buffer) {
 
   if (hasMinMax || hasPos) {
     for (const payload of payloads) {
-      const gab = scanGabMinMaxPanels(payload, {
-        allowFloat32: hasPos && !hasMinMax
-      });
+      const gab = linkPanelsWithNearbyDirs(
+        scanGabMinMaxPanels(payload, {
+          allowFloat32: hasPos && !hasMinMax
+        }),
+        payload
+      );
       gabCount += gab.length;
-      collected.push(...gab);
+      for (const p of gab) {
+        collected.push({ ...p, _posePayload: payload });
+      }
     }
   }
 
@@ -586,13 +797,17 @@ export function analyzeBazisB3dBuffer(buffer) {
 
   panels = panels.map((p, idx) => {
     const code = p.code || normalizePartCode([...artPosCodes][idx] || String(idx + 1));
-    const withPose = p.centerMm ? { ...poseFromGab(p), ...p } : p;
+    const posePayload = p._posePayload || null;
+    const { _posePayload, ...panelBase } = p;
+    const withPose = panelBase.centerMm
+      ? { ...poseFromGab(panelBase, posePayload), ...panelBase }
+      : panelBase;
     return {
       ...withPose,
       code,
       partNo: String(code),
-      name: p.name || `Деталь ${code}`,
-      meshName: p.meshName || `panel-${code}`
+      name: panelBase.name || `Деталь ${code}`,
+      meshName: panelBase.meshName || `panel-${code}`
     };
   });
 
@@ -613,6 +828,7 @@ export function analyzeBazisB3dBuffer(buffer) {
       dictionaryFields: fieldDictionary?.entries?.length || 0,
       decodedPanelCount: panels.length,
       posedPanelCount: panels.filter((p) => p.centerMm && p.axisX).length,
+      posedWithDirsCount: panels.filter((p) => p.dirSource).length,
       gabPanelCount: gabCount
     }
   };
@@ -640,6 +856,7 @@ export function buildEnver3dscanFromB3dDecode(b3dBuffer, { productName = "" } = 
     axisX: p.axisX || null,
     axisY: p.axisY || null,
     axisZ: p.axisZ || null,
+    dirSource: p.dirSource || null,
     gabMinMm: p.gabMinMm || null,
     gabMaxMm: p.gabMaxMm || null,
     meshName: p.meshName,

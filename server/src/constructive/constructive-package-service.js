@@ -29,7 +29,11 @@ import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { getLatestPackageAiAnalysis, kickoffPackageAiAnalysis } from "./constructive-package-ai.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
-import { autoSyncEnver3dscanToPackageB3d, findEnver3dscanJsonFileRow } from "./b3d-auto-3dscan.js";
+import {
+  autoSyncEnver3dscanToPackageB3d,
+  findEnver3dscanJsonFileRow,
+  isEnver3dscanSidecarName
+} from "./b3d-auto-3dscan.js";
 import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 import {
   syncBazisOperationCodesForPackage,
@@ -51,6 +55,14 @@ import { recordHistory } from "../audit.js";
 import { tryAutoCreateProcurementFromPackage } from "./procurement-service.js";
 
 const AUTO_PREVIEW_GLB_NAME = "3d-preview.glb";
+
+function pkgFileOriginalName(file) {
+  return file?.original_name || file?.originalName || "";
+}
+
+function pkgFileStoragePath(file) {
+  return file?.storage_path || file?.storagePath || "";
+}
 
 /** Скидає завислий parsing → uploaded (після таймауту або падіння процесу). */
 export async function recoverStaleParsingIfNeeded(packageId) {
@@ -96,6 +108,7 @@ export function mapPackageFileRow(row) {
     kind: row.kind,
     kindLabel: PACKAGE_FILE_KIND_LABELS[row.kind] || row.kind,
     originalName: row.original_name,
+    storagePath: row.storage_path,
     mime: row.mime,
     sizeBytes: Number(row.size_bytes) || 0,
     materialType: row.material_type ?? "",
@@ -324,9 +337,10 @@ export async function getPackageHardware(packageId) {
 async function enrichPackageFilesPreviewLayout(fileRows = []) {
   return Promise.all(
     fileRows.map(async (row) => {
-      if (row.original_name !== AUTO_PREVIEW_GLB_NAME || !row.storage_path) return row;
+      if (pkgFileOriginalName(row) !== AUTO_PREVIEW_GLB_NAME || !pkgFileStoragePath(row))
+        return row;
       try {
-        const buf = await readStoredFile(row.storage_path);
+        const buf = await readStoredFile(pkgFileStoragePath(row));
         const layout = readPreviewLayoutFromGlb(buf);
         if (!layout) return row;
         return { ...row, preview_layout: layout, previewLayout: layout };
@@ -343,10 +357,14 @@ export async function getPackageDetail(packageId) {
   if (!pkg) return null;
   let files = await getPackageFiles(packageId);
 
-  const legacyPreview = files.find((f) => f.original_name === AUTO_PREVIEW_GLB_NAME);
-  if (legacyPreview?.storage_path && files.some((f) => f.kind === "b3d" || f.kind === "project")) {
+  const legacyPreview = files.find((f) => pkgFileOriginalName(f) === AUTO_PREVIEW_GLB_NAME);
+  if (
+    legacyPreview &&
+    pkgFileStoragePath(legacyPreview) &&
+    files.some((f) => f.kind === "b3d" || f.kind === "project")
+  ) {
     try {
-      const buf = await readStoredFile(legacyPreview.storage_path);
+      const buf = await readStoredFile(pkgFileStoragePath(legacyPreview));
       if (isLegacySharedMeshPreviewGlb(buf)) {
         try {
           await ensureB3dPreviewGlb(packageId, pkg.position_id, files);
@@ -475,7 +493,12 @@ export async function deletePackageFile(packageId, fileId, actor) {
   return getPackageDetail(packageId);
 }
 
-async function savePreview3dMeta(packageId, glbFileId, preview, enver3Sync = null) {
+async function savePreview3dMeta(
+  packageId,
+  glbFileId,
+  preview,
+  { enver3Sync = null, enver3dscanSync = null } = {}
+) {
   const existing = await one(`SELECT manifest_json FROM model_manifests WHERE package_id = $1`, [
     packageId
   ]);
@@ -510,6 +533,13 @@ async function savePreview3dMeta(packageId, glbFileId, preview, enver3Sync = nul
           panelCount: enver3Sync.panelCount ?? null
         }
       : manifest.preview3d?.enver3Sync || null,
+    enver3dscanSync: enver3dscanSync
+      ? {
+          applied: Boolean(enver3dscanSync.applied),
+          reason: enver3dscanSync.reason || null,
+          panelCount: enver3dscanSync.panelCount ?? null
+        }
+      : manifest.preview3d?.enver3dscanSync || null,
     updatedAt: new Date().toISOString()
   };
 
@@ -517,12 +547,17 @@ async function savePreview3dMeta(packageId, glbFileId, preview, enver3Sync = nul
 }
 
 /** GLB для перегляду: витягується з GibLab .b3d після завантаження. */
-async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync = null } = {}) {
+async function ensureB3dPreviewGlb(
+  packageId,
+  positionId,
+  fileRows,
+  { enver3Sync = null, enver3dscanSync = null } = {}
+) {
   const hasUser3dPreview = fileRows.some(
     (f) =>
       f.kind === "wrl_model" ||
       ((f.kind === "glb_model" || f.kind === "gltf_model") &&
-        f.original_name !== AUTO_PREVIEW_GLB_NAME)
+        pkgFileOriginalName(f) !== AUTO_PREVIEW_GLB_NAME)
   );
   if (hasUser3dPreview) {
     return (
@@ -536,7 +571,7 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
   const projectFile = fileRows.find((f) => f.kind === "project");
   if (!b3dFile && !projectFile) return null;
 
-  for (const old of fileRows.filter((f) => f.original_name === AUTO_PREVIEW_GLB_NAME)) {
+  for (const old of fileRows.filter((f) => pkgFileOriginalName(f) === AUTO_PREVIEW_GLB_NAME)) {
     if (old?.id) {
       await run(`DELETE FROM constructive_package_files WHERE id = $1`, [old.id]);
     }
@@ -545,21 +580,22 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
   const assemblyFile = fileRows.find(
     (f) =>
       f.kind === "other" &&
-      (f.original_name === "enver-assembly.json" ||
-        f.original_name?.toLowerCase().endsWith(".enver-assembly.json"))
+      (pkgFileOriginalName(f) === "enver-assembly.json" ||
+        pkgFileOriginalName(f).toLowerCase().endsWith(".enver-assembly.json"))
   );
   const scanFile = findEnver3dscanJsonFileRow(fileRows);
   let [b3dBuf, projectBuf, assemblyBuf, scanBuf] = await Promise.all([
-    b3dFile ? readStoredFile(b3dFile.storage_path) : Promise.resolve(null),
-    projectFile ? readStoredFile(projectFile.storage_path) : Promise.resolve(null),
-    assemblyFile ? readStoredFile(assemblyFile.storage_path) : Promise.resolve(null),
-    scanFile ? readStoredFile(scanFile.storage_path) : Promise.resolve(null)
+    b3dFile ? readStoredFile(pkgFileStoragePath(b3dFile)) : Promise.resolve(null),
+    projectFile ? readStoredFile(pkgFileStoragePath(projectFile)) : Promise.resolve(null),
+    assemblyFile ? readStoredFile(pkgFileStoragePath(assemblyFile)) : Promise.resolve(null),
+    scanFile ? readStoredFile(pkgFileStoragePath(scanFile)) : Promise.resolve(null)
   ]);
 
-  await autoSyncEnver3ToPackageB3d({ fileRows });
-  await autoSyncEnver3dscanToPackageB3d({ fileRows });
+  const enver3Result = enver3Sync || (await autoSyncEnver3ToPackageB3d({ fileRows }));
+  const enver3dscanResult =
+    enver3dscanSync || (await autoSyncEnver3dscanToPackageB3d({ fileRows }));
   if (b3dFile) {
-    b3dBuf = await readStoredFile(b3dFile.storage_path);
+    b3dBuf = await readStoredFile(pkgFileStoragePath(b3dFile));
   }
 
   let preview;
@@ -570,8 +606,8 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
       assemblyJsonBuffer: assemblyBuf,
       scanJsonBuffer: scanBuf,
       productName:
-        b3dFile?.original_name?.replace(/\.b3d$/i, "") ||
-        projectFile?.original_name?.replace(/\.project$/i, "") ||
+        pkgFileOriginalName(b3dFile).replace(/\.b3d$/i, "") ||
+        pkgFileOriginalName(projectFile).replace(/\.project$/i, "") ||
         ""
     });
   } catch {
@@ -596,7 +632,10 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
     row.panelCount = preview.panelCount || null;
     row.previewSource = preview.source;
     row.previewLayout = preview.layout || "flat";
-    await savePreview3dMeta(packageId, row.id, preview, enver3Sync);
+    await savePreview3dMeta(packageId, row.id, preview, {
+      enver3Sync: enver3Result,
+      enver3dscanSync: enver3dscanResult
+    });
   }
   return row || null;
 }
@@ -606,7 +645,8 @@ async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
     if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
       const fileRows = await getPackageFiles(packageId);
       const enver3Sync = await autoSyncEnver3ToPackageB3d({ fileRows });
-      await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync });
+      const enver3dscanSync = await autoSyncEnver3dscanToPackageB3d({ fileRows });
+      await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync, enver3dscanSync });
     } else if (
       savedFiles.some((f) => f.kind === "other" && isEnverAssemblyJsonName(f.originalName))
     ) {
@@ -615,6 +655,12 @@ async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
       if (enver3Sync.applied) {
         await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync });
       }
+    } else if (
+      savedFiles.some((f) => f.kind === "other" && isEnver3dscanSidecarName(f.originalName))
+    ) {
+      const fileRows = await getPackageFiles(packageId);
+      const enver3dscanSync = await autoSyncEnver3dscanToPackageB3d({ fileRows });
+      await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3dscanSync });
     }
   } catch (err) {
     console.warn("[constructive] post-upload b3d preview:", err?.message || err);
@@ -866,7 +912,21 @@ export async function parseConstructivePackage(packageId, actor) {
           scanJsonBuffer: scanBuf
         });
         if (fused.parts?.length) {
-          merged.parts = fused.parts;
+          if (!merged.parts?.length || fused.parts.length >= merged.parts.length) {
+            merged.parts = fused.parts;
+          } else {
+            const fusedByNo = new Map(fused.parts.map((p) => [String(p.partNo), p]));
+            const seen = new Set();
+            merged.parts = merged.parts.map((p) => {
+              const fusedPart = fusedByNo.get(String(p.partNo));
+              seen.add(String(p.partNo));
+              return fusedPart ? { ...p, ...fusedPart, qty: p.qty || fusedPart.qty } : p;
+            });
+            for (const fusedPart of fused.parts) {
+              const key = String(fusedPart.partNo);
+              if (!seen.has(key)) merged.parts.push(fusedPart);
+            }
+          }
         }
         if (fused.manifestNodes?.length) {
           merged.manifestNodes = [...(merged.manifestNodes || []), ...fused.manifestNodes];

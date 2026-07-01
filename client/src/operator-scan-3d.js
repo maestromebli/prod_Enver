@@ -1,7 +1,7 @@
 /** 3D при скануванні / кліку на Android: збірка зверху, окрема деталь знизу. */
 
 import { api, getStoredToken } from "./api.js";
-import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
+import { mountPartDetailStripViewer, resolvePartDetailModelContext } from "./part-viewer-mount.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import {
   formatEdgeCodeLabel,
@@ -15,15 +15,20 @@ import { escapeHtml } from "./utils.js";
 
 let stripDetailViewer = null;
 let stripModelCtx = null;
+let stripToolbarAbort = null;
 let pendingOperatorScan = null;
 
 export function destroyOperatorPartDetailStrip() {
+  stripToolbarAbort?.abort();
+  stripToolbarAbort = null;
   stripDetailViewer?.destroy?.();
   stripDetailViewer = null;
   const strip = document.getElementById("operatorPartDetailStrip");
   const mount = document.getElementById("operatorPartDetail3dMount");
+  const toolbar = document.getElementById("operatorPartDetail3dToolbar");
   const info = document.getElementById("operatorPartDetailInfo");
   if (mount) mount.innerHTML = "";
+  if (toolbar) toolbar.remove();
   if (info) info.innerHTML = "";
   if (strip) strip.hidden = true;
 }
@@ -117,62 +122,126 @@ export function renderScanPartDetailLayout(_data) {
 }
 
 function resolveModelContext(data) {
+  const token = getStoredToken();
+  const assemblyCtx = data?.model?.viewerUrl
+    ? {
+        modelUrl: resolveViewerModelUrl(data.model.viewerUrl, token),
+        format: data.model.viewerFormat || "glb",
+        parts: data.model.parts || []
+      }
+    : stripModelCtx;
+
+  const detailCtx = resolvePartDetailModelContext(data?.part, {
+    modelPayload: data?.model,
+    token,
+    assemblyCtx
+  });
+  if (detailCtx) return detailCtx;
+
+  return assemblyCtx;
+}
+
+function mountScanDetailToolbar(mount, viewer) {
+  stripToolbarAbort?.abort();
+  stripToolbarAbort = new AbortController();
+  const { signal } = stripToolbarAbort;
+
+  let toolbar = document.getElementById("operatorPartDetail3dToolbar");
+  if (!toolbar) {
+    toolbar = document.createElement("div");
+    toolbar.id = "operatorPartDetail3dToolbar";
+    toolbar.className = "op-scan-detail-toolbar";
+    toolbar.innerHTML = `
+      <button type="button" class="btn btn-sm" data-3d-camera="iso" title="Ізометрія">3D</button>
+      <button type="button" class="btn btn-sm" data-3d-camera="top" title="Зверху">↑</button>
+      <button type="button" class="btn btn-sm" data-3d-camera="front" title="Спереду">▣</button>
+      <button type="button" class="btn btn-sm" data-3d-action="drawing" title="Креслення">⬚</button>
+      <button type="button" class="btn btn-sm" data-3d-action="measure" title="Вимір">📏</button>
+      <button type="button" class="btn btn-sm" data-3d-action="section" title="Розріз">✂</button>
+      <button type="button" class="btn btn-sm" data-3d-action="wireframe" title="Каркас">◇</button>
+      <button type="button" class="btn btn-sm" data-3d-action="fit" title="Вмістити">◎</button>
+    `;
+    mount.before(toolbar);
+  }
+
+  toolbar.addEventListener(
+    "click",
+    (e) => {
+      const camBtn = e.target.closest("[data-3d-camera]");
+      if (camBtn) {
+        viewer.setCameraPreset?.(camBtn.dataset["3dCamera"]);
+        return;
+      }
+      const actionBtn = e.target.closest("[data-3d-action]");
+      if (!actionBtn || !viewer) return;
+      const action = actionBtn.dataset["3dAction"];
+      if (action === "fit") viewer.fitToView?.();
+      if (action === "drawing") {
+        const on = !actionBtn.classList.contains("is-active");
+        actionBtn.classList.toggle("is-active", on);
+        viewer.setDrawingMode?.(on);
+      }
+      if (action === "measure") {
+        const on = !actionBtn.classList.contains("is-active");
+        actionBtn.classList.toggle("is-active", on);
+        viewer.setMeasureEnabled?.(on);
+        if (on) {
+          toolbar.querySelector('[data-3d-action="section"]')?.classList.remove("is-active");
+          viewer.setSectionEnabled?.(false);
+        }
+      }
+      if (action === "section") {
+        const on = !actionBtn.classList.contains("is-active");
+        actionBtn.classList.toggle("is-active", on);
+        viewer.setSectionEnabled?.(on);
+        if (on) {
+          toolbar.querySelector('[data-3d-action="measure"]')?.classList.remove("is-active");
+          viewer.setMeasureEnabled?.(false);
+        }
+      }
+      if (action === "wireframe") {
+        const on = !actionBtn.classList.contains("is-active");
+        actionBtn.classList.toggle("is-active", on);
+        viewer.setWireframe?.(on);
+      }
+    },
+    { signal }
+  );
+}
+
+function assemblyFallbackFromCtx(modelCtx, data) {
+  const token = getStoredToken();
   if (data?.model?.viewerUrl) {
     return {
-      modelUrl: resolveViewerModelUrl(data.model.viewerUrl, getStoredToken()),
+      modelUrl: resolveViewerModelUrl(data.model.viewerUrl, token),
       format: data.model.viewerFormat || "glb",
       parts: data.model.parts || []
     };
   }
-  return stripModelCtx;
+  if (stripModelCtx?.modelUrl) return stripModelCtx;
+  if (modelCtx?.isPartModel === false) return modelCtx;
+  return null;
 }
 
-function ensureStripDetailView(viewer, part, target, cadGeometry) {
-  if (!viewer || !part) return false;
-  if (cadGeometry) viewer.setCadGeometry?.(cadGeometry);
-  const mesh = viewer.showPartDetail?.(part, target);
-  if (mesh) return true;
-
-  const hint = target || resolvePartHighlightMesh(part);
-  if (!hint?.meshName && !hint?.nodeId) return false;
-
-  viewer.highlightPart?.({
-    meshName: hint.meshName,
-    nodeId: hint.nodeId,
-    isolate: true,
-    ghost: false
-  });
-  return true;
-}
-
-async function mountStripDetailViewer(part, cadGeometry, modelCtx) {
+async function mountStripDetailViewer(part, cadGeometry, modelCtx, data) {
   const mount = document.getElementById("operatorPartDetail3dMount");
   if (!mount || !part || !modelCtx?.modelUrl) return null;
 
-  const target = resolvePartHighlightMesh(part);
-  stripDetailViewer?.destroy?.();
-  stripDetailViewer = null;
-  mount.innerHTML = `<p class="enver-meta op-part-detail-3d-loading">3D деталі…</p>`;
+  stripDetailViewer = await mountPartDetailStripViewer(mount, {
+    part,
+    cadGeometry,
+    modelCtx,
+    assemblyFallback: assemblyFallbackFromCtx(modelCtx, data),
+    token: getStoredToken(),
+    pickable: true,
+    existingViewer: stripDetailViewer,
+    loadingClass: "op-part-detail-3d-loading"
+  });
 
-  try {
-    stripDetailViewer = await mountModelViewer(mount, {
-      url: modelCtx.modelUrl,
-      token: getStoredToken(),
-      format: modelCtx.format,
-      parts: modelCtx.parts,
-      theme: DEFAULT_PART_VIEWER_THEME,
-      detailOnly: true,
-      initialPart: part,
-      initialPartHint: target,
-      cadGeometry,
-      viewerOptions: { pickable: false, detailOnly: true }
-    });
-    ensureStripDetailView(stripDetailViewer, part, target, cadGeometry);
-    return stripDetailViewer;
-  } catch {
-    mount.innerHTML = `<p class="enver-meta">3D деталі недоступна</p>`;
-    return null;
+  if (stripDetailViewer) {
+    mountScanDetailToolbar(mount, stripDetailViewer);
   }
+  return stripDetailViewer;
 }
 
 /** Показати окрему деталь знизу (скан або клік на збірці). */
@@ -193,11 +262,11 @@ export async function showOperatorPartDetail(data) {
   }
 
   const modelCtx = resolveModelContext(payload);
-  if (!modelCtx?.modelUrl) return false;
+  if (!modelCtx?.modelUrl && !payload.model?.partModelUrl) return false;
 
   strip.hidden = false;
   info.innerHTML = renderPartInfoHtml(payload);
-  await mountStripDetailViewer(payload.part, payload.cadGeometry, modelCtx);
+  await mountStripDetailViewer(payload.part, payload.cadGeometry, modelCtx, payload);
   strip.scrollIntoView({ behavior: "smooth", block: "nearest" });
   return true;
 }

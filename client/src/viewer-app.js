@@ -9,7 +9,12 @@ import {
   findPackagePreview3dFile,
   preview3dLoadFormat
 } from "@enver/shared/production/constructive-package.js";
-import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
+import {
+  mountModelViewer,
+  DEFAULT_PART_VIEWER_THEME,
+  mountPartDetailStripViewer,
+  resolvePartDetailModelContext
+} from "./part-viewer-mount.js";
 import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
@@ -161,36 +166,56 @@ function destroyPartDetailViewer() {
   }
 }
 
-async function mountPartDetailViewer(part, cadGeometry) {
+function assemblyModelCtx() {
+  if (!currentModelUrl) return null;
+  return {
+    modelUrl: currentModelUrl,
+    format: currentModelFormat,
+    parts: currentModelParts
+  };
+}
+
+function partDetailPayload(part, data = {}) {
+  if (data?.model) return data;
+  if (!part?.id) return {};
+  return {
+    model: {
+      partModelUrl: `/api/parts/${part.id}/part-model`,
+      parts: currentModelParts
+    }
+  };
+}
+
+async function mountPartDetailViewer(part, cadGeometry, data = {}) {
   const mount = document.getElementById("viewerPartDetailMount");
-  if (!mount || !part || !currentModelUrl) {
+  if (!mount || !part) {
     destroyPartDetailViewer();
     return;
   }
-  mount.hidden = false;
-  const target = resolveHighlightTarget(part);
-  if (partDetailViewer) {
-    partDetailViewer.setCadGeometry?.(cadGeometry);
-    partDetailViewer.showPartDetail?.(part, target);
+
+  const token = getStoredToken();
+  const assemblyCtx = assemblyModelCtx();
+  const modelCtx = resolvePartDetailModelContext(part, {
+    modelPayload: partDetailPayload(part, data).model,
+    token,
+    assemblyCtx
+  });
+  if (!modelCtx) {
+    destroyPartDetailViewer();
     return;
   }
-  mount.innerHTML = `<p class="enver-meta viewer-part-detail-loading">3D деталі…</p>`;
-  try {
-    partDetailViewer = await mountModelViewer(mount, {
-      url: currentModelUrl,
-      token: getStoredToken(),
-      format: currentModelFormat,
-      parts: currentModelParts,
-      theme: DEFAULT_PART_VIEWER_THEME,
-      detailOnly: true,
-      initialPart: part,
-      initialPartHint: target,
-      cadGeometry,
-      viewerOptions: { pickable: false, detailOnly: true }
-    });
-  } catch {
-    mount.innerHTML = `<p class="enver-meta">3D деталі недоступна</p>`;
-  }
+
+  mount.hidden = false;
+  partDetailViewer = await mountPartDetailStripViewer(mount, {
+    part,
+    cadGeometry,
+    modelCtx,
+    assemblyFallback: assemblyCtx,
+    token,
+    pickable: false,
+    existingViewer: partDetailViewer,
+    loadingClass: "viewer-part-detail-loading"
+  });
 }
 
 function assemblyViewerOptions() {
@@ -224,7 +249,7 @@ async function handleViewerPartPick(part) {
   }
 
   populateSidebar(payload);
-  await mountPartDetailViewer(part, payload.cadGeometry || currentCadGeometry);
+  await mountPartDetailViewer(part, payload.cadGeometry || currentCadGeometry, payload);
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
 }
@@ -324,7 +349,7 @@ function populateSidebar(data) {
   }
 
   sidebar.hidden = false;
-  void mountPartDetailViewer(part, cad);
+  void mountPartDetailViewer(part, cad, data);
 }
 
 function setToolbarActive(action) {
@@ -369,7 +394,7 @@ async function showPartDetailView(part) {
   } else {
     await highlightPartGhost(part);
   }
-  void mountPartDetailViewer(part, currentCadGeometry);
+  void mountPartDetailViewer(part, currentCadGeometry, partDetailPayload(part));
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
 }

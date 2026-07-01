@@ -8,7 +8,8 @@ import {
 import { get3dUpgradeHintText } from "@enver/shared/production/resolve-3d-preview.js";
 import {
   formatAssemblyMissingMessage,
-  formatEnver3SyncMessage
+  formatEnver3SyncMessage,
+  formatEnver3dscanSyncMessage
 } from "@enver/shared/production/preview-3d-meta.js";
 
 export function renderPreview3dBadge(layout, label = "") {
@@ -38,9 +39,14 @@ export function renderAssemblyMissingBanner(preview3d, totalPanels = 0) {
 }
 
 export function renderEnver3SyncNote(preview3d) {
-  const msg = formatEnver3SyncMessage(preview3d?.enver3Sync);
-  if (!msg) return "";
-  return `<p class="enver-meta preview-3d-enver3-note">${escapeHtml(msg)}</p>`;
+  const msgs = [
+    formatEnver3SyncMessage(preview3d?.enver3Sync),
+    formatEnver3dscanSyncMessage(preview3d?.enver3dscanSync)
+  ].filter(Boolean);
+  if (!msgs.length) return "";
+  return msgs
+    .map((msg) => `<p class="enver-meta preview-3d-enver3-note">${escapeHtml(msg)}</p>`)
+    .join("");
 }
 
 /** Блок статусу 3D для пакета конструктива. */

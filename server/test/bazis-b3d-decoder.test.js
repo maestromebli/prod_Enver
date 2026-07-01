@@ -6,7 +6,9 @@ import {
   analyzeBazisB3dBuffer,
   buildEnver3dscanFromB3dDecode,
   extractPanelPairsFromBinary,
+  linkPanelsWithNearbyDirs,
   parseFieldDictionary,
+  readOrthonormalAxesF32,
   scanGabMinMaxPanels
 } from "../src/constructive/bazis-b3d-decoder.js";
 import { fuseBazisPackage } from "../src/constructive/enver-3dscan-fusion.js";
@@ -77,6 +79,53 @@ describe("bazis-b3d-decoder", () => {
     assert.ok(panels[0].centerMm);
   });
 
+  it("readOrthonormalAxesF32 нормалізує довільну довжину Bazis-напрямку", () => {
+    const payload = Buffer.alloc(48);
+    payload.writeFloatLE(0, 0);
+    payload.writeFloatLE(0, 4);
+    payload.writeFloatLE(529, 8);
+    payload.writeFloatLE(400, 12);
+    payload.writeFloatLE(0, 16);
+    payload.writeFloatLE(0, 20);
+    payload.writeFloatLE(0, 24);
+    payload.writeFloatLE(300, 28);
+    payload.writeFloatLE(0, 32);
+
+    const axes = readOrthonormalAxesF32(payload, 0);
+    assert.ok(axes);
+    assert.ok(Math.abs(axes.axisX[2] - 1) < 0.01);
+    assert.ok(Math.abs(axes.axisY[0] - 1) < 0.01);
+    assert.ok(Math.abs(axes.axisZ[1] - 1) < 0.01);
+  });
+
+  it("linkPanelsWithNearbyDirs зіставляє осі з габаритами", () => {
+    const payload = Buffer.alloc(900);
+    const gabOff = 200;
+    payload.writeDoubleLE(0, gabOff);
+    payload.writeDoubleLE(0, gabOff + 8);
+    payload.writeDoubleLE(0, gabOff + 16);
+    payload.writeDoubleLE(500, gabOff + 24);
+    payload.writeDoubleLE(300, gabOff + 32);
+    payload.writeDoubleLE(18, gabOff + 40);
+
+    const dirOff = gabOff + 139;
+    payload.writeFloatLE(0, dirOff);
+    payload.writeFloatLE(0, dirOff + 4);
+    payload.writeFloatLE(200, dirOff + 8);
+    payload.writeFloatLE(180, dirOff + 12);
+    payload.writeFloatLE(0, dirOff + 16);
+    payload.writeFloatLE(0, dirOff + 20);
+    payload.writeFloatLE(0, dirOff + 24);
+    payload.writeFloatLE(150, dirOff + 28);
+    payload.writeFloatLE(0, dirOff + 32);
+
+    const gab = scanGabMinMaxPanels(payload);
+    assert.equal(gab.length, 1);
+    const linked = linkPanelsWithNearbyDirs(gab, payload);
+    assert.equal(linked[0].dirSource, "b3d_dir_f32");
+    assert.ok(Math.abs(linked[0].axisX[2] - 1) < 0.05);
+  });
+
   it("реальний Стелажи .b3d — декодує панелі без .project", () => {
     const p = samplePath("2026/Е-100 ВІтя Стелажи/Е-100 Вітя Стелажи  (5).b3d");
     if (!fs.existsSync(p)) return;
@@ -89,6 +138,7 @@ describe("bazis-b3d-decoder", () => {
     assert.ok(analysis.stats.posedPanelCount >= 1);
     assert.ok(analysis.stats.gabPanelCount >= 2);
     assert.ok(scan.panels.length <= 12, "без шумних binary_pair панелей має бути компактний набір");
+    assert.ok(analysis.stats.posedWithDirsCount >= 1, "очікуємо DirX/DirY/DirZ з .b3d");
 
     const fused = fuseBazisPackage({ b3dBuffer: buf });
     assert.ok(fused.parts.length >= 1);

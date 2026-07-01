@@ -95,7 +95,14 @@ describe("order-3d", () => {
       projectBuffer,
       productName: "garderoba"
     });
-    assert.ok(["enver_3dscan_flat", "project_panels"].includes(built.source));
+    assert.ok(
+      [
+        "enver_3dscan_flat",
+        "project_panels",
+        "b3d_enver_3dscan_assembly",
+        "b3d_enver3_assembly"
+      ].includes(built.source)
+    );
     assert.ok(built.buffer.length > 5000);
     assert.equal(built.panelCount, 88);
   });

@@ -9,6 +9,7 @@ import {
   normalizePartCode,
   parseEnver3dscanJson
 } from "../../../shared/production/enver-3dscan.js";
+import { resolveScanPanelDimensions } from "../../../shared/production/enver-3dscan-part-layout.js";
 import {
   buildPartCadGeometry,
   indexProjectOperations
@@ -34,18 +35,23 @@ function mergeScanPanels(primary, secondary) {
   if (!secondary?.panels?.length) return primary;
   if (!primary?.panels?.length) return secondary;
 
-  const posed = secondary.panels.filter((p) => p.centerMm && p.axisX);
-  const byDim = new Map();
-  for (const p of posed) {
+  const posedByCode = new Map();
+  const posedByDim = new Map();
+  const usedCodes = new Set();
+
+  for (const p of secondary.panels) {
+    if (!p.centerMm || !p.axisX) continue;
+    const code = normalizePartCode(p.code || p.partNo);
+    if (code && !posedByCode.has(code)) posedByCode.set(code, p);
     const l = Math.round(p.lengthMm || p.sizeMm?.[0] || 0);
     const w = Math.round(p.widthMm || p.sizeMm?.[1] || 0);
     const t = Math.round(p.thicknessMm || p.sizeMm?.[2] || 18);
     for (const key of [`${l}x${w}x${t}`, `${w}x${l}x${t}`]) {
-      if (!byDim.has(key)) byDim.set(key, p);
+      if (!posedByDim.has(key)) posedByDim.set(key, p);
     }
   }
 
-  function findPose(lengthMm, widthMm, thicknessMm) {
+  function findPoseByDim(lengthMm, widthMm, thicknessMm, excludeCodes = new Set()) {
     const l = Math.round(lengthMm || 0);
     const w = Math.round(widthMm || 0);
     const t = Math.round(thicknessMm || 18);
@@ -55,8 +61,14 @@ function mergeScanPanels(primary, secondary) {
         [w, l]
       ]) {
         const exact = `${dl}x${dw}x${t}`;
-        if (byDim.has(exact)) return byDim.get(exact);
-        for (const [key, panel] of byDim) {
+        const panel = posedByDim.get(exact);
+        if (panel) {
+          const code = normalizePartCode(panel.code || panel.partNo);
+          if (!code || !excludeCodes.has(code)) return panel;
+        }
+        for (const [key, panel] of posedByDim) {
+          const code = normalizePartCode(panel.code || panel.partNo);
+          if (code && excludeCodes.has(code)) continue;
           const [kl, kw, kt] = key.split("x").map(Number);
           if (Math.abs(kl - dl) <= tol && Math.abs(kw - dw) <= tol && Math.abs(kt - t) <= tol) {
             return panel;
@@ -69,7 +81,17 @@ function mergeScanPanels(primary, secondary) {
 
   const panels = primary.panels.map((p) => {
     if (p.centerMm && p.axisX) return p;
-    const pose = findPose(p.lengthMm, p.widthMm, p.thicknessMm);
+    const code = normalizePartCode(p.code || p.partNo);
+    let pose = code ? posedByCode.get(code) : null;
+    if (pose) {
+      usedCodes.add(code);
+    } else {
+      pose = findPoseByDim(p.lengthMm, p.widthMm, p.thicknessMm, usedCodes);
+      if (pose) {
+        const poseCode = normalizePartCode(pose.code || pose.partNo);
+        if (poseCode) usedCodes.add(poseCode);
+      }
+    }
     if (!pose) return p;
     return {
       ...p,
@@ -223,15 +245,22 @@ export function fuseBazisPackage({
     : null;
 
   if (fromProject?.panels?.length) {
-    if (!scan?.panels?.length) {
-      scan = fromProject;
-      warnings.push("ENVER_3dscan побудовано з .project — координати збірки можуть бути відсутні");
+    let baseScan = fromProject;
+    if (scan?.panels?.length) {
+      baseScan = mergeScanPanels(fromProject, scan);
+      if (scan.exportedAt) baseScan.exportedAt = scan.exportedAt;
+      if (scan.productName) baseScan.productName = scan.productName;
+      if (scan.source && scan.source !== "project_derived") baseScan.source = scan.source;
     }
     if (b3dDecode?.scan?.panels?.length) {
-      scan = mergeScanPanels(scan, b3dDecode.scan);
+      baseScan = mergeScanPanels(baseScan, b3dDecode.scan);
       if (b3dDecode.analysis?.stats?.posedPanelCount > 0) {
         warnings.push("Координати збірки доповнено з декодованого .b3d (де знайдено)");
       }
+    }
+    scan = baseScan;
+    if (!scan.panels.some((p) => p.centerMm && p.axisX)) {
+      warnings.push("ENVER_3dscan побудовано з .project — координати збірки можуть бути відсутні");
     }
   } else if (!scan?.panels?.length && b3dDecode?.scan?.panels?.length) {
     scan = b3dDecode.scan;
@@ -261,6 +290,11 @@ export function fuseBazisPackage({
 
   for (const panel of scan.panels) {
     const code = normalizePartCode(panel.code);
+    const dims = resolveScanPanelDimensions(panel);
+    panel.lengthMm = panel.lengthMm || dims.lengthMm;
+    panel.widthMm = panel.widthMm || dims.widthMm;
+    panel.thicknessMm = panel.thicknessMm || dims.thicknessMm;
+    if (!panel.meshName) panel.meshName = `panel-${code}`;
     const partNo = panel.partNo || code;
     const blockCode = panel.blockCode || "";
     const existing = partMetaByCode.get(code);

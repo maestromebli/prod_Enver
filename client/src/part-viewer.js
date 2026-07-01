@@ -140,7 +140,7 @@ export function createPartViewer(
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
-    powerPreference: "high-performance"
+    powerPreference: detailOnly ? "low-power" : "high-performance"
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = palette.cinematic ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
@@ -274,6 +274,7 @@ export function createPartViewer(
   let assemblyGhostActive = false;
   let pendingDetailPart = null;
   let pendingDetailHint = null;
+  let proceduralDetailGroup = null;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
@@ -828,18 +829,87 @@ export function createPartViewer(
     });
   }
 
+  function clearProceduralDetail() {
+    if (!proceduralDetailGroup) return;
+    scene.remove(proceduralDetailGroup);
+    proceduralDetailGroup.traverse((o) => {
+      o.geometry?.dispose?.();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) m?.dispose?.();
+      }
+    });
+    proceduralDetailGroup = null;
+  }
+
+  function buildProceduralDetailMesh(part, cad = cadGeometry) {
+    const panelMm = resolvePanelMm(cad, part);
+    const dx = Math.max((panelMm.dx || Number(part?.length) || 100) / 1000, 0.001);
+    const dy = Math.max((panelMm.dz || Number(part?.thickness) || 18) / 1000, 0.001);
+    const dz = Math.max((panelMm.dy || Number(part?.width) || 100) / 1000, 0.001);
+    const geom = new THREE.BoxGeometry(dx, dy, dz);
+    const mesh = new THREE.Mesh(geom, panelSurfaceMaterial(part));
+    mesh.name =
+      part?.modelMeshName ||
+      part?.model_mesh_name ||
+      `panel-${part?.partNo || part?.part_no || "0"}`;
+    mesh.position.y = dy / 2;
+    setEdgeStyle(mesh, EDGE_COLOR);
+    applyKromkaEdgeHighlight(mesh, part?.edgeCode || part?.edge_code, cad?.edgeMask);
+    const group = new THREE.Group();
+    group.name = "procedural-part-detail";
+    group.add(mesh);
+    return { group, mesh };
+  }
+
   function applyPartDetailView(part, targetHint = null) {
-    if (!model || !part) return null;
+    if (!part) return null;
     exitDrawingModeForOverlay();
     assemblyGhostActive = false;
     clearDetailMarkers();
     clearSelection();
+    clearProceduralDetail();
+
+    if (!model) {
+      const built = buildProceduralDetailMesh(part, cadGeometry);
+      proceduralDetailGroup = built.group;
+      scene.add(proceduralDetailGroup);
+      highlightMesh = built.mesh;
+      addDrillMarkers(built.mesh, part, cadGeometry);
+      const panelMm = resolvePanelMm(cadGeometry, part);
+      if (panelMm.dx && panelMm.dy && panelMm.dz) {
+        panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
+        panelDimsHud.hidden = false;
+      } else {
+        panelDimsHud.hidden = true;
+      }
+      frameMesh(built.mesh);
+      return built.mesh;
+    }
 
     const targets = meshesForPart(part);
     const hint = targetHint || resolvePartHighlightMesh(part) || {};
     const primary =
       resolveMesh(hint) || targets[0] || findMeshByPartNo(part.partNo || part.part_no) || null;
-    if (!primary) return null;
+    if (!primary) {
+      const built = buildProceduralDetailMesh(part, cadGeometry);
+      proceduralDetailGroup = built.group;
+      scene.add(proceduralDetailGroup);
+      model.traverse((child) => {
+        if (isRenderableMesh(child)) child.visible = false;
+      });
+      highlightMesh = built.mesh;
+      addDrillMarkers(built.mesh, part, cadGeometry);
+      const panelMm = resolvePanelMm(cadGeometry, part);
+      if (panelMm.dx && panelMm.dy && panelMm.dz) {
+        panelDimsHud.textContent = `${panelMm.dx} × ${panelMm.dy} × ${panelMm.dz} мм`;
+        panelDimsHud.hidden = false;
+      } else {
+        panelDimsHud.hidden = true;
+      }
+      frameMesh(built.mesh);
+      return built.mesh;
+    }
 
     const targetSet = new Set(targets.length ? targets : [primary]);
     highlightMesh = primary;
@@ -900,8 +970,9 @@ export function createPartViewer(
   }
 
   function syncSectionPlane() {
-    if (!model) return;
-    const box = new THREE.Box3().setFromObject(model);
+    const root = detailPickRoot();
+    if (!root) return;
+    const box = new THREE.Box3().setFromObject(root);
     const min = box.min[sectionAxis];
     const max = box.max[sectionAxis];
     const value = THREE.MathUtils.lerp(min, max, sectionRatio);
@@ -964,7 +1035,8 @@ export function createPartViewer(
   function finalizeMeasure() {
     if (measurePoints.length < 2) return;
     const panelMm = resolvePanelMm(cadGeometry, {});
-    const box = new THREE.Box3().setFromObject(model);
+    const root = detailPickRoot();
+    const box = root ? new THREE.Box3().setFromObject(root) : new THREE.Box3();
     const dist = measureDistanceMm(measurePoints[0], measurePoints[1], box, panelMm);
     measureHud.textContent = `Відстань: ${formatMeasureMm(dist)}`;
     const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
@@ -986,8 +1058,9 @@ export function createPartViewer(
   function setWireframe(enabled) {
     if (drawingModeEnabled && enabled) return;
     wireframeEnabled = Boolean(enabled);
-    if (!model) return;
-    model.traverse((child) => {
+    const root = detailPickRoot();
+    if (!root) return;
+    root.traverse((child) => {
       if (!child.isMesh) return;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       for (const mat of mats) {
@@ -1174,7 +1247,8 @@ export function createPartViewer(
   }
 
   function showAll() {
-    if (!model) return;
+    if (!model && !proceduralDetailGroup) return;
+    clearProceduralDetail();
     clearDetailMarkers();
     highlightMesh = null;
     assemblyGhostActive = false;
@@ -1229,13 +1303,18 @@ export function createPartViewer(
     onPartSelect?.(part || null, mesh);
   }
 
+  function detailPickRoot() {
+    return proceduralDetailGroup || model;
+  }
+
   function pickMeshAt(clientX, clientY) {
-    if (!model || !pickingEnabled) return;
+    const root = detailPickRoot();
+    if (!root || !pickingEnabled) return;
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObject(model, true);
+    const hits = raycaster.intersectObject(root, true);
     const hit = hits.find(
       (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
     );
@@ -1255,12 +1334,13 @@ export function createPartViewer(
       pointerDown = null;
       if (dx * dx + dy * dy > 36) return;
 
-      if (measureEnabled && model) {
+      if (measureEnabled && detailPickRoot()) {
         const rect = renderer.domElement.getBoundingClientRect();
         pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObject(model, true);
+        const root = detailPickRoot();
+        const hits = raycaster.intersectObject(root, true);
         const hit = hits.find(
           (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
         );
@@ -1277,7 +1357,9 @@ export function createPartViewer(
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObject(model, true);
+      const root = detailPickRoot();
+      if (!root) return;
+      const hits = raycaster.intersectObject(root, true);
       const hit = hits.find(
         (h) => h.object?.isMesh && !String(h.object.name || "").endsWith("-edges")
       );
@@ -1737,6 +1819,7 @@ export function createPartViewer(
     destroy() {
       if (animId) cancelAnimationFrame(animId);
       clearDetailMarkers();
+      clearProceduralDetail();
       clearMeasure();
       if (gridHelper) {
         scene.remove(gridHelper);

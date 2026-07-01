@@ -11,6 +11,8 @@ import {
 } from "./assembly-glb-builder.js";
 import { extractEnverAssemblyFromB3d, parseAssemblyExportJson } from "./parsers/assembly-export.js";
 import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
+import { normalizePartCode } from "../../../shared/production/enver-3dscan.js";
+import { resolveScanPanelDimensions } from "../../../shared/production/enver-3dscan-part-layout.js";
 
 const GLB_MAGIC = 0x46546c67;
 const ZLIB_SIGNATURES = [
@@ -149,6 +151,47 @@ const ASSEMBLY_GLB_SOURCES = new Set([
   "decompressed_embedded_glb"
 ]);
 
+const SCAN_ASSEMBLY_SOURCES = new Set(["bazis", "enver_3dscan", "bazis_b3d_decode"]);
+
+function panelsFromScanDocument(scan) {
+  return (scan?.panels || []).map((p) => {
+    const dims = resolveScanPanelDimensions(p);
+    return {
+      code: normalizePartCode(p.code || p.partNo) || String(p.partNo || p.code || ""),
+      partName: p.name || `Деталь ${p.code || p.partNo || ""}`,
+      lengthMm: dims.lengthMm,
+      widthMm: dims.widthMm,
+      thicknessMm: dims.thicknessMm,
+      colorFactor: p.colorFactor ?? null
+    };
+  });
+}
+
+/** Усі панелі для GLB: .project + додаткові з ENVER_3dscan. */
+function mergeProjectAndScanPanels(projectPanels, scan) {
+  const byCode = new Map();
+  for (const p of projectPanels) {
+    const code = normalizePartCode(p.code);
+    if (code) byCode.set(code, p);
+  }
+  for (const sp of scan?.panels || []) {
+    const code = normalizePartCode(sp.code || sp.partNo);
+    if (!code || byCode.has(code)) continue;
+    const dims = resolveScanPanelDimensions(sp);
+    if (dims.lengthMm > 0 && dims.widthMm > 0) {
+      byCode.set(code, {
+        code,
+        partName: sp.name || `Деталь ${code}`,
+        lengthMm: dims.lengthMm,
+        widthMm: dims.widthMm,
+        thicknessMm: dims.thicknessMm,
+        colorFactor: sp.colorFactor ?? null
+      });
+    }
+  }
+  return [...byCode.values()];
+}
+
 function _tryPanelsFromProjectBuffer(projectBuffer, { productName: _productName = "" } = {}) {
   const panels = layoutPreviewPanels(extractProjectPanels(projectBuffer));
   if (!panels.length) return null;
@@ -191,36 +234,43 @@ export function extractPackagePreviewGlb({
     assemblyExport = extractEnverAssemblyFromB3d(b3dBuffer);
   }
 
-  if (assemblyExport && projectPanels.length) {
-    const { missing } = layoutAssemblyPanels(projectPanels, assemblyExport);
-    const useMixed = missing.length > 0;
-    try {
-      const built = useMixed
-        ? buildMixedPreviewGlb(projectPanels, assemblyExport, { productName })
-        : buildAssemblyGlbFromProject(projectPanels, assemblyExport, { productName });
-      const missingCodes = built.missingCodes || missing;
-      const assembledCount = projectPanels.length - missingCodes.length;
-      const scanSource = fused.scan?.source;
-      const glbSource =
-        scanSource === "bazis" || scanSource === "enver_3dscan"
-          ? "b3d_enver_3dscan_assembly"
-          : assemblyJsonBuffer?.length
-            ? "assembly_json"
-            : "b3d_enver3_assembly";
-      return {
-        buffer: built.buffer,
-        source: glbSource,
-        panelCount: built.panelCount,
-        assembledCount,
-        layout: assembledCount > 0 ? "assembly" : "flat",
-        missingCodes,
-        isPartialAssembly: missingCodes.length > 0,
-        exportedAt: assemblyExport.exportedAt || fused.scan?.exportedAt || null,
-        productName: assemblyExport.productName || productName || null,
-        enver3dscan: fused.stats || null
-      };
-    } catch {
-      /* fallback нижче */
+  if (assemblyExport) {
+    const assemblyPanels = projectPanels.length
+      ? mergeProjectAndScanPanels(projectPanels, fused.scan)
+      : panelsFromScanDocument(fused.scan);
+    if (assemblyPanels.length) {
+      const { missing } = layoutAssemblyPanels(assemblyPanels, assemblyExport);
+      const useMixed = missing.length > 0;
+      try {
+        const built = useMixed
+          ? buildMixedPreviewGlb(assemblyPanels, assemblyExport, { productName })
+          : buildAssemblyGlbFromProject(assemblyPanels, assemblyExport, { productName });
+        const missingCodes = built.missingCodes || missing;
+        const assembledCount = assemblyPanels.length - missingCodes.length;
+        const scanSource = fused.scan?.source;
+        const glbSource =
+          scanSource === "enver3_compat"
+            ? "b3d_enver3_assembly"
+            : SCAN_ASSEMBLY_SOURCES.has(scanSource)
+              ? "b3d_enver_3dscan_assembly"
+              : assemblyJsonBuffer?.length
+                ? "assembly_json"
+                : "b3d_enver3_assembly";
+        return {
+          buffer: built.buffer,
+          source: glbSource,
+          panelCount: built.panelCount,
+          assembledCount,
+          layout: assembledCount > 0 ? "assembly" : "flat",
+          missingCodes,
+          isPartialAssembly: missingCodes.length > 0,
+          exportedAt: assemblyExport.exportedAt || fused.scan?.exportedAt || null,
+          productName: assemblyExport.productName || productName || null,
+          enver3dscan: fused.stats || null
+        };
+      } catch {
+        /* fallback нижче */
+      }
     }
   }
 

@@ -79,23 +79,23 @@ export async function overwritePackageFileBuffer(fileRow, buffer) {
  */
 export async function autoSyncEnver3ToPackageB3d({ fileRows = [] } = {}) {
   const b3dRow = fileRows.find((f) => f.kind === "b3d");
-  if (!b3dRow?.storage_path) {
+  const b3dPath = b3dRow?.storage_path || b3dRow?.storagePath;
+  if (!b3dPath) {
     return { applied: false, reason: "no_b3d" };
   }
 
-  let b3dBuffer = await readStoredFile(b3dRow.storage_path);
+  let b3dBuffer = await readStoredFile(b3dPath);
   if (extractEnverAssemblyFromB3d(b3dBuffer)) {
     return { applied: false, reason: "already_has_enver3" };
   }
 
   const assemblyRow = findAssemblyJsonFileRow(fileRows);
-  if (!assemblyRow?.storage_path) {
+  const assemblyPath = assemblyRow?.storage_path || assemblyRow?.storagePath;
+  if (!assemblyPath) {
     return { applied: false, reason: "no_assembly_json" };
   }
 
-  const assemblyExport = await loadAssemblyExportFromJsonBuffer(
-    await readStoredFile(assemblyRow.storage_path)
-  );
+  const assemblyExport = await loadAssemblyExportFromJsonBuffer(await readStoredFile(assemblyPath));
   if (!assemblyExport?.panels?.length) {
     return { applied: false, reason: "empty_assembly_json" };
   }

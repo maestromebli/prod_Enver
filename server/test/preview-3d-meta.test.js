@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatAssemblyMissingMessage,
-  formatEnver3SyncMessage
+  formatEnver3SyncMessage,
+  formatEnver3dscanSyncMessage
 } from "../../shared/production/preview-3d-meta.js";
 
 describe("preview-3d-meta", () => {
@@ -24,5 +25,11 @@ describe("preview-3d-meta", () => {
     const msg = formatEnver3SyncMessage({ applied: true, panelCount: 14 });
     assert.match(msg, /ENVER3 дописано/);
     assert.match(msg, /14/);
+  });
+
+  it("formatEnver3dscanSyncMessage для applied", () => {
+    const msg = formatEnver3dscanSyncMessage({ applied: true, panelCount: 8 });
+    assert.match(msg, /ENVER_3dscan дописано/);
+    assert.match(msg, /8/);
   });
 });

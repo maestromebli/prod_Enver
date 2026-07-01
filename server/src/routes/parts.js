@@ -8,6 +8,7 @@ import {
   recordScanEvent
 } from "../constructive/constructive-package-service.js";
 import { getPartCadGeometry } from "../constructive/bazis-part-cad-geometry.js";
+import { buildPartDetailGlbForPart } from "../constructive/enver-3dscan-part-glb.js";
 import { getCncJobsForPosition, updateCncJobStatus } from "../integrations/cnc-jobs.js";
 import { renderQrSvg, renderBarcodeSvg } from "../constructive/barcode.js";
 import {
@@ -103,6 +104,7 @@ async function buildScanResponse(part) {
       viewerUrl,
       viewerFormat: viewerFormat || (previewFile ? preview3dLoadFormat(previewFile) : null),
       viewerSource,
+      partModelUrl: part.id ? `/api/parts/${part.id}/part-model` : null,
       glbFileId: previewFile?.id || null,
       order3dAssetId: orderWeb?.assetId || null,
       manifest: detail?.manifest?.manifestJson || null,
@@ -199,6 +201,37 @@ router.post("/scan", requireOperatorPanelView, handlePartScan);
 
 router.get("/scan/:barcodeValue", requireOperatorPanelView, async (req, res) => {
   await handlePartScan(req, res);
+});
+
+router.get("/:id/part-model", requireOperatorPanelView, async (req, res) => {
+  const row = await one(`SELECT * FROM constructive_parts WHERE id = $1`, [req.params.id]);
+  if (!row) {
+    res.status(404).json({ error: "Деталь не знайдено" });
+    return;
+  }
+  const part = {
+    id: row.id,
+    packageId: row.package_id,
+    partNo: row.part_no,
+    partCode: row.part_code,
+    partName: row.part_name,
+    length: row.length,
+    width: row.width,
+    thickness: row.thickness,
+    modelMeshName: row.model_mesh_name,
+    modelNodeId: row.model_node_id
+  };
+  try {
+    const built = await buildPartDetailGlbForPart(part.packageId, part);
+    res.setHeader("Content-Type", "model/gltf-binary");
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("X-Enver-Part-Model-Source", built.source || "enver_3dscan");
+    res.send(built.buffer);
+  } catch (err) {
+    res.status(422).json({
+      error: err?.message || "Не вдалося зібрати 3D-модель деталі"
+    });
+  }
 });
 
 router.get("/:id", requireOperatorPanelView, async (req, res) => {
