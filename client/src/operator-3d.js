@@ -21,6 +21,35 @@ import {
 import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 import { escapeHtml } from "./utils.js";
 import { renderEnver3dToolbarHtml, bindEnver3dToolbar } from "./3d/enver-3d-toolbar.js";
+import { state } from "./state.js";
+
+export function syncOperatorShow3dBtn() {
+  const showBtn = document.getElementById("operatorShow3dBtn");
+  if (!showBtn) return;
+  const posSelected = Boolean(state.operatorSelectedPositionId);
+  showBtn.hidden = !posSelected || state.operatorAssembly3dOpen;
+}
+
+/** Після ререндеру DOM — прибрати viewer, не монтувати 3D автоматично. */
+export function resetOperatorOrder3dPanel() {
+  destroyOperatorOrder3d();
+  syncOperatorShow3dBtn();
+}
+
+/** Закрити 3D збірку (зміна завдання, скидання). */
+export function closeOperatorAssembly3d() {
+  state.operatorAssembly3dOpen = false;
+  resetOperatorOrder3dPanel();
+}
+
+/** Відновити 3D після ререндеру, якщо оператор уже відкрив її (скан / кнопка). */
+export async function restoreOperatorOrder3dIfNeeded() {
+  if (!state.operatorAssembly3dOpen || !state.operatorSelectedPositionId) {
+    syncOperatorShow3dBtn();
+    return;
+  }
+  await openOperatorOrder3d({ silent: true });
+}
 
 let viewerInstance = null;
 let order3dOrderId = null;
@@ -324,7 +353,8 @@ async function handleAssemblyPartPick(part) {
   await showOperatorPartDetail(payload);
 }
 
-export function openOperatorOrder3dWindow() {
+export async function openOperatorOrder3dWindow() {
+  await openOperatorOrder3d();
   const section = document.getElementById("operatorOrder3dSection");
   const container = document.getElementById("operatorOrder3dViewer");
   section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -345,39 +375,48 @@ export function openOperatorOrder3dWindow() {
   return openOrderViewerWindow(order3dOrderId, order3dPositionId);
 }
 
-export async function bindOperatorOrder3d() {
+export async function openOperatorOrder3d({ silent = false } = {}) {
   const gen = ++bindGeneration;
 
   const mount = document.getElementById("operatorOrder3dMount");
   const section = document.getElementById("operatorOrder3dSection");
   const openBtn = document.getElementById("operatorOpen3dBtn");
-  if (!mount || !section) return;
+  if (!mount || !section) return false;
 
   const orderId = Number(mount.dataset.orderId) || 0;
   const positionId = Number(mount.dataset.positionId) || 0;
   if (!orderId) {
-    if (gen === bindGeneration) destroyOperatorOrder3d();
-    return;
+    if (gen === bindGeneration) {
+      state.operatorAssembly3dOpen = false;
+      destroyOperatorOrder3d();
+      syncOperatorShow3dBtn();
+    }
+    if (!silent) toastError("3D модель недоступна для цього завдання");
+    return false;
   }
 
   destroyOperatorOrder3d();
-  if (gen !== bindGeneration) return;
+  if (gen !== bindGeneration) return false;
 
   void prefetchOperatorOrder3d(orderId, positionId);
 
   section.hidden = false;
   mount.innerHTML = `<p class="op-order-3d-loading enver-meta">Завантаження 3D…</p>`;
   if (openBtn) openBtn.hidden = true;
+  syncOperatorShow3dBtn();
 
   try {
     const { primary, fallback } = await loadOperator3dContexts(orderId, positionId);
-    if (gen !== bindGeneration) return;
+    if (gen !== bindGeneration) return false;
 
     let ctx = primary;
     if (!ctx?.modelUrl) {
+      state.operatorAssembly3dOpen = false;
       section.hidden = true;
       mount.innerHTML = "";
-      return;
+      syncOperatorShow3dBtn();
+      if (!silent) toastError("3D модель недоступна для цього завдання");
+      return false;
     }
 
     order3dOrderId = orderId;
@@ -395,7 +434,7 @@ export async function bindOperatorOrder3d() {
     const container = document.getElementById("operatorOrder3dViewer");
     const token = getStoredToken();
     await warmPartViewerChunk();
-    if (gen !== bindGeneration) return;
+    if (gen !== bindGeneration) return false;
 
     const mountViewer = async (viewerCtx) => {
       const modelUrl = resolveViewerModelUrl(viewerCtx.modelUrl, token);
@@ -439,7 +478,7 @@ export async function bindOperatorOrder3d() {
     if (gen !== bindGeneration) {
       viewerInstance?.destroy?.();
       viewerInstance = null;
-      return;
+      return false;
     }
 
     if (!viewerInstance) throw new Error("3D viewer не ініціалізовано");
@@ -451,11 +490,18 @@ export async function bindOperatorOrder3d() {
       openBtn.textContent = isNativeOperatorShell() ? "Повний 3D" : "На весь екран";
     }
 
+    state.operatorAssembly3dOpen = true;
+    syncOperatorShow3dBtn();
     void reapplyPendingOperatorScan3d();
+    return true;
   } catch {
-    if (gen !== bindGeneration) return;
+    if (gen !== bindGeneration) return false;
+    state.operatorAssembly3dOpen = false;
     section.hidden = true;
     mount.innerHTML = "";
     viewerInstance = null;
+    syncOperatorShow3dBtn();
+    if (!silent) toastError("Не вдалося завантажити 3D модель");
+    return false;
   }
 }

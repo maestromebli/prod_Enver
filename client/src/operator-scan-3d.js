@@ -285,6 +285,8 @@ export async function reapplyPendingOperatorScan3d() {
 
 /** Після скану: підсвітка зверху + деталь знизу. */
 export async function bindScanPartDetail3d(_detailEl, data) {
+  const { openOperatorOrder3d } = await import("./operator-3d.js");
+  await openOperatorOrder3d({ silent: true });
   rememberPendingOperatorScan(data);
   const assemblyResult = await applyScanToAssembly3d(data);
   await showOperatorPartDetail(data);

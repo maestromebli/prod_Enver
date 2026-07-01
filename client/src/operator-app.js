@@ -23,7 +23,7 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
-import { bindOperatorOrder3d } from "./operator-3d.js";
+import { resetOperatorOrder3dPanel, restoreOperatorOrder3dIfNeeded } from "./operator-3d.js";
 import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import {
   registerOperatorServiceWorker,
@@ -90,7 +90,8 @@ function renderOperatorClient() {
   bindOperatorQueueSwipe();
   bindOperatorScanPanel(state.operatorStage);
   syncOperatorClientScanButtons(state.operatorStage);
-  void bindOperatorOrder3d();
+  resetOperatorOrder3dPanel();
+  void restoreOperatorOrder3dIfNeeded();
   syncOperatorBuildChip("operatorBuildChipInline");
   syncOperatorBuildChip("operatorBuildChip");
   syncOperatorHeaderMenu();
