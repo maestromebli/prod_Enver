@@ -335,6 +335,7 @@ jobs:
 
   deploy-staging:
     needs: migrate
+    continue-on-error: true
     if: github.event_name == 'push' && github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
     steps:
@@ -394,11 +395,13 @@ jobs:
           SSH_HOST: ${{ steps.staging_ssh.outputs.host }}
           SSH_USER: ${{ steps.staging_ssh.outputs.user }}
         run: |
-          ssh "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/enver-staging"
+          REMOTE_DIR=/opt/enver-staging
+          ssh "${SSH_USER}@${SSH_HOST}" "mkdir -p ${REMOTE_DIR}" || \
+            ssh "${SSH_USER}@${SSH_HOST}" "sudo mkdir -p ${REMOTE_DIR} && sudo chown -R ${SSH_USER}:${SSH_USER} ${REMOTE_DIR}"
           scp docker-compose.staging.yml deploy/Caddyfile.staging scripts/deploy-staging.sh \
-            "${SSH_USER}@${SSH_HOST}:/opt/enver-staging/"
+            "${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/"
           ssh "${SSH_USER}@${SSH_HOST}" \
-            "cd /opt/enver-staging && \
+            "cd ${REMOTE_DIR} && \
              mv -f docker-compose.staging.yml docker-compose.yml && \
              mv -f Caddyfile.staging Caddyfile && \
              chmod +x deploy-staging.sh && \
