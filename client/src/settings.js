@@ -144,11 +144,6 @@ export function openSettings(section = "users") {
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
-/** @deprecated Використовуйте navigateToNotificationSettings */
-export function openNotificationSettings() {
-  navigateToNotificationSettings();
-}
-
 export function closeSettings() {
   state.view = state.settingsReturnView || "main";
   state.settingsReturnView = null;
@@ -923,6 +918,3 @@ function saveAiSettingsFromDom() {
     }
   });
 }
-
-/** @deprecated Обробник submit на document у bindSettingsActions */
-export function bindAiSettingsForm() {}

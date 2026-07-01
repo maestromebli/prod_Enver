@@ -50,16 +50,6 @@ export function syncOperatorClientScanButtons(stageKey) {
   }
 }
 
-/** @deprecated використовуйте syncOperatorClientScanButtons */
-export function syncOperatorClientScanButton(stageKey) {
-  syncOperatorClientScanButtons(stageKey);
-}
-
-/** @deprecated кнопки сканування лише в шапці та всередині панелі сканування */
-export function renderOperatorScanActionButton(_stageKey) {
-  return "";
-}
-
 let scannerListener = null;
 let recentScans = [];
 let scanControlsAbort = null;
@@ -643,11 +633,6 @@ export function handleOperatorScanBack() {
   if (isOperatorScanPanelOpen()) {
     closeOperatorScanPanel();
   }
-}
-
-/** @deprecated використовуйте toggleOperatorScanPanel */
-export function focusOperatorScanInput() {
-  toggleOperatorScanPanel();
 }
 
 export function bindPartScanView() {

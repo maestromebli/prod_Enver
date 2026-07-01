@@ -44,9 +44,3 @@ export async function postAutomationWebhookDirect(url, payload, { event } = {}) 
     clearTimeout(timeout);
   }
 }
-
-/** @deprecated Використовуйте enqueueAutomationWebhook через dispatch.js */
-export async function postAutomationWebhook(url, payload, options = {}) {
-  const { enqueueAutomationWebhook } = await import("./outbox.js");
-  return enqueueAutomationWebhook(url, payload, options);
-}

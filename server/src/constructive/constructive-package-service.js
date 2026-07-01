@@ -802,24 +802,6 @@ export async function uploadConstructivePackageFiles({
   return detail;
 }
 
-/** @deprecated Використовуйте uploadConstructivePackageFiles */
-export async function createConstructivePackage({
-  positionId,
-  positionRow,
-  files,
-  uploadedBy,
-  actor
-}) {
-  const result = await uploadConstructivePackageFiles({
-    positionId,
-    positionRow,
-    files,
-    uploadedBy,
-    actor
-  });
-  return { package: result.package, files: result.files };
-}
-
 /** Розбір пакета → parts/materials/hardware. */
 export async function parseConstructivePackage(packageId, actor) {
   await recoverStaleParsingIfNeeded(packageId);

@@ -71,11 +71,6 @@ export function toastSuccess(message) {
   toast(message, "success");
 }
 
-/** @deprecated alias для undo-stack */
-export function createUndoToast(entry) {
-  return import("./interactions/undo-stack.js").then(({ pushUndo }) => pushUndo(entry));
-}
-
 export function confirmDialog(message) {
   return window.confirm(message);
 }

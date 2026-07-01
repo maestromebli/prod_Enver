@@ -39,8 +39,3 @@ export async function lockButtonDuringAction(btn, action) {
     btn.setAttribute("aria-busy", "false");
   }
 }
-
-/** @deprecated використовуй pushUndo — залишено для сумісності з master prompt */
-export function createUndoToast(entry) {
-  return import("./undo-stack.js").then(({ pushUndo }) => pushUndo(entry));
-}

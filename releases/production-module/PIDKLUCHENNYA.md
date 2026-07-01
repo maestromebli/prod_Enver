@@ -8,7 +8,7 @@
 |------|-------------|
 | **API** | `/api/production`, `/api/operator`, `/api/ai`, `/api/positions` (конструктив, задачі) |
 | **Цех** | вкладка «Цех зараз» — черги, сесії операторів, проблемні позиції |
-| **Оператор** | PWA `operator.html` — 5 етапів: порізка, кромкування, присадка, збірка, пакування |
+| **Оператор** | PWA `operator.html` — 4 етапи: порізка, крайкування, присадка, збірка |
 | **ШІ** | аналіз завантажених конструкторських файлів, feedback для покращення підказок |
 | **Клієнти** | Android (PWA через `/android-install.html`) |
 
@@ -68,7 +68,7 @@ docker compose pull && docker compose up -d   # на сервері
 | Роль | Права |
 |------|--------|
 | `production` | `canUseOperatorPanel`, `canViewProductionFloor` |
-| `operator` | `canUseOperatorPanel` + етапи (cutting, edging, drilling, assembly, packaging) |
+| `operator` | `canUseOperatorPanel` + етапи (cutting, edging, drilling, assembly) |
 | `admin` | усі права (за замовчуванням) |
 
 Створіть користувачів-операторів з відповідними етапами.

@@ -389,13 +389,6 @@ export async function kickoffPackageAiAnalysis(packageId, { orderNumber, item, i
   return pendingRow.id;
 }
 
-/**
- * @deprecated Використовуйте kickoffPackageAiAnalysis
- */
-export function schedulePackageAiAnalysis(packageId, meta = {}) {
-  void kickoffPackageAiAnalysis(packageId, meta);
-}
-
 async function runPackageAiAnalysisJob(
   packageId,
   { orderNumber, item, itemType, pendingRowId: existingRowId } = {}

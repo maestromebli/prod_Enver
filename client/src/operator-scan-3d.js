@@ -283,11 +283,6 @@ export async function reapplyPendingOperatorScan3d() {
   return true;
 }
 
-/** @deprecated використовуйте showOperatorPartDetail */
-export function destroyScanPartDetailViewer() {
-  destroyOperatorPartDetailStrip();
-}
-
 /** Після скану: підсвітка зверху + деталь знизу. */
 export async function bindScanPartDetail3d(_detailEl, data) {
   rememberPendingOperatorScan(data);

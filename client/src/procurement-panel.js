@@ -140,11 +140,6 @@ export function renderProcurementWorkspace(procurement = null, options = {}) {
     </section>`;
 }
 
-/** @deprecated Використовуйте renderProcurementWorkspace */
-export function renderProcurementPanel(procurement, options) {
-  return renderProcurementWorkspace(procurement, options);
-}
-
 async function promptEditItem(item) {
   const supplier = window.prompt("Постачальник", item.supplier || "");
   if (supplier === null) return null;
