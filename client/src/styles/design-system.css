@@ -1,26 +1,4 @@
-/* ENVER — візуальна система (легка: лише CSS, без анімацій/бібліотек) */
-
-:root {
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --accent: #2563eb;
-  --accent-soft: #eff6ff;
-  --header-accent: #0f2a44;
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.28);
-  --transition-fast: 0.15s ease;
-}
-
-[data-theme="dark"] {
-  --accent-soft: rgba(37, 99, 235, 0.12);
-  --header-accent: #60a5fa;
-}
+/* ENVER — компоненти shell (tabs, KPI, filter-bar). Токени — enver-design-system.css + tokens.css */
 
 /* ——— База ——— */
 body {

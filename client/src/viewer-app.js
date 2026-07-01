@@ -1,9 +1,4 @@
-import "./styles/design-system.css";
-import "./styles/tokens.css";
-import "./styles/brand-logo.css";
-import "./styles/viewer-window.css";
-import "./styles/part-viewer.css";
-import "./styles/preview-3d.css";
+import "./styles/viewer-entry.css";
 import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
 import {
   findPackagePreview3dFile,

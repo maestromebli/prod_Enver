@@ -139,6 +139,9 @@
   --space-6: var(--enver-space-6);
   --space-8: var(--enver-space-8);
   --header-accent: var(--enver-primary);
+  --surface-elevated: var(--enver-surface-raised);
+  --text-muted: var(--enver-text-muted);
+  color-scheme: light;
 }
 
 [data-theme="dark"] {
@@ -179,6 +182,7 @@
   --body-glow: rgba(74, 158, 106, 0.08);
   --body-gradient-top: #141a16;
   --bar-track: #2e3830;
+  color-scheme: dark;
 }
 
 /* ——— v3 shell bridge ——— */

@@ -1,7 +1,6 @@
 /* Єдиний порядок стилів операторського UI — dev і prod ідентичні */
 @import "./tokens.css";
 @import "./enver-design-system.css";
-@import "./tokens-bridge.css";
 @import "./interactions.css";
 @import "./main.css";
 @import "./theme-dark.css";

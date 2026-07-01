@@ -6,7 +6,7 @@ import {
   renderConstructivePackageReadOnly
 } from "./constructive-package-ui.js";
 import { bindConstructivePipelinePanel } from "./constructive-pipeline-panel.js";
-import { bindLegacyAiBlock, renderLegacyAiBlock } from "./position-legacy-ai.js";
+import { bindLegacyAiBlock, renderLegacyAiBlock } from "./ai-analysis-ui.js";
 import { refreshStalePackageParseUi } from "./constructive-package-parse-ui.js";
 
 let constructivePackageEventAbort = null;
