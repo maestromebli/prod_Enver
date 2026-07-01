@@ -64,19 +64,28 @@ export function renderPackage3dStatusBlock(detail) {
 }
 
 export function renderGiblabEnver3HookHelp() {
-  const hook = `try {
+  const hook3dscan = `try {
+  ENVER_AUTO_B3D_PATH = savedB3dPath;
+  Execute(system.getFileName("enver-3dscan-export.js"));
+} catch (e) {}`;
+
+  const hookLegacy = `try {
   ENVER_AUTO_B3D_PATH = savedB3dPath;
   Execute(system.getFileName("enver-b3d-assembly-export.js"));
 } catch (e) {}`;
 
   return `
     <details class="cp-enver3-hook">
-      <summary class="cp-enver3-hook-summary">Авто-ENVER3 після експорту GibLab</summary>
+      <summary class="cp-enver3-hook-summary">ENVER_3dscan після експорту .b3d з Базіс</summary>
       <ol class="cp-enver3-hook-steps enver-meta">
-        <li>Скопіюйте <code>scripts/enver-b3d-assembly-export.js</code> у папку скриптів Базіс.</li>
-        <li>У кінець <code>GibLabExport_Vx.x.js</code> додайте (після збереження .b3d):</li>
+        <li>Скопіюйте <code>scripts/enver-3dscan-export.js</code> у папку скриптів Базіс (рекомендовано).</li>
+        <li>У кінець <code>GibLabExport_Vx.x.js</code> додайте після збереження .b3d:</li>
       </ol>
-      <pre class="cp-enver3-hook-code" tabindex="0">${escapeHtml(hook)}</pre>
-      <p class="enver-meta">Після цього кожен експорт .b3d одразу отримує координати збірки — завантажуйте файл у Enver без додаткових кроків.</p>
+      <pre class="cp-enver3-hook-code" tabindex="0">${escapeHtml(hook3dscan)}</pre>
+      <p class="enver-meta">ENVER_3dscan зберігає збірку, отвори, кромку та коди операцій у хвіст .b3d (EN3DSC) + sidecar JSON. Завантажте <strong>.b3d + .project</strong> у пакет конструктива.</p>
+      <details class="cp-enver3-hook-legacy">
+        <summary class="enver-meta">Лише координати збірки (ENVER3, застарілий)</summary>
+        <pre class="cp-enver3-hook-code" tabindex="0">${escapeHtml(hookLegacy)}</pre>
+      </details>
     </details>`;
 }

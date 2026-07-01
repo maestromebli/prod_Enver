@@ -23,3 +23,6 @@ playwright-report/
 # B3D converter — локальні артефакти RE
 tools/b3d-converter/out/
 tools/b3d-converter/.pytest_cache/
+enver-3dscan-report.json
+*.b3d-decode.json
+.enver-3dscan-*/

@@ -10,6 +10,7 @@ import {
   layoutAssemblyPanels
 } from "./assembly-glb-builder.js";
 import { extractEnverAssemblyFromB3d, parseAssemblyExportJson } from "./parsers/assembly-export.js";
+import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 
 const GLB_MAGIC = 0x46546c67;
 const ZLIB_SIGNATURES = [
@@ -162,12 +163,24 @@ export function extractPackagePreviewGlb({
   b3dBuffer = null,
   projectBuffer = null,
   assemblyJsonBuffer = null,
+  scanJsonBuffer = null,
   productName = ""
 } = {}) {
   const projectPanels = projectBuffer?.length ? extractProjectPanels(projectBuffer) : [];
 
-  let assemblyExport = null;
-  if (assemblyJsonBuffer?.length) {
+  const fused = fuseBazisPackage({
+    b3dBuffer,
+    projectBuffer,
+    scanJsonBuffer: scanJsonBuffer?.length
+      ? scanJsonBuffer
+      : assemblyJsonBuffer?.length
+        ? assemblyJsonBuffer
+        : null,
+    productName
+  });
+
+  let assemblyExport = fused.assemblyExport || null;
+  if (!assemblyExport && assemblyJsonBuffer?.length) {
     try {
       assemblyExport = parseAssemblyExportJson(assemblyJsonBuffer.toString("utf8"));
     } catch {
@@ -187,16 +200,24 @@ export function extractPackagePreviewGlb({
         : buildAssemblyGlbFromProject(projectPanels, assemblyExport, { productName });
       const missingCodes = built.missingCodes || missing;
       const assembledCount = projectPanels.length - missingCodes.length;
+      const scanSource = fused.scan?.source;
+      const glbSource =
+        scanSource === "bazis" || scanSource === "enver_3dscan"
+          ? "b3d_enver_3dscan_assembly"
+          : assemblyJsonBuffer?.length
+            ? "assembly_json"
+            : "b3d_enver3_assembly";
       return {
         buffer: built.buffer,
-        source: assemblyJsonBuffer?.length ? "assembly_json" : "b3d_enver3_assembly",
+        source: glbSource,
         panelCount: built.panelCount,
         assembledCount,
         layout: assembledCount > 0 ? "assembly" : "flat",
         missingCodes,
         isPartialAssembly: missingCodes.length > 0,
-        exportedAt: assemblyExport.exportedAt || null,
-        productName: assemblyExport.productName || productName || null
+        exportedAt: assemblyExport.exportedAt || fused.scan?.exportedAt || null,
+        productName: assemblyExport.productName || productName || null,
+        enver3dscan: fused.stats || null
       };
     } catch {
       /* fallback нижче */
@@ -215,21 +236,32 @@ export function extractPackagePreviewGlb({
     }
   }
 
-  if (projectPanels.length) {
-    const fromProject = buildPreviewGlbFromPanels(layoutPreviewPanels(projectPanels), {
+  if (projectPanels.length || fused.parts?.length) {
+    const layoutPanels =
+      projectPanels.length > 0
+        ? projectPanels
+        : fused.parts.map((p) => ({
+            code: p.partNo,
+            partName: p.partName,
+            lengthMm: Number(p.length) || 100,
+            widthMm: Number(p.width) || 100,
+            thicknessMm: Number(p.thickness) || 18
+          }));
+    const fromProject = buildPreviewGlbFromPanels(layoutPreviewPanels(layoutPanels), {
       productName,
       previewLayout: "flat"
     });
     return {
       buffer: fromProject.buffer,
-      source: "project_panels",
+      source: fused.scan ? "enver_3dscan_flat" : "project_panels",
       panelCount: fromProject.panelCount,
-      layout: "flat"
+      layout: "flat",
+      enver3dscan: fused.stats || null
     };
   }
 
   const err = new Error(
-    "Не вдалося зібрати 3D-превʼю — додайте .project (Базіс) і .b3d з ENVER3 (скрипт enver-b3d-assembly-export.js)"
+    "Не вдалося зібрати 3D-превʼю — додайте .project (Базіс) і .b3d, або запустіть scripts/enver-3dscan-export.js"
   );
   err.code = "NO_PREVIEW";
   throw err;

@@ -29,6 +29,8 @@ import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { getLatestPackageAiAnalysis, kickoffPackageAiAnalysis } from "./constructive-package-ai.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
 import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
+import { autoSyncEnver3dscanToPackageB3d, findEnver3dscanJsonFileRow } from "./b3d-auto-3dscan.js";
+import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 import {
   syncBazisOperationCodesForPackage,
   resolvePartRowByBazisProjectScan,
@@ -546,13 +548,16 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
       (f.original_name === "enver-assembly.json" ||
         f.original_name?.toLowerCase().endsWith(".enver-assembly.json"))
   );
-  let [b3dBuf, projectBuf, assemblyBuf] = await Promise.all([
+  const scanFile = findEnver3dscanJsonFileRow(fileRows);
+  let [b3dBuf, projectBuf, assemblyBuf, scanBuf] = await Promise.all([
     b3dFile ? readStoredFile(b3dFile.storage_path) : Promise.resolve(null),
     projectFile ? readStoredFile(projectFile.storage_path) : Promise.resolve(null),
-    assemblyFile ? readStoredFile(assemblyFile.storage_path) : Promise.resolve(null)
+    assemblyFile ? readStoredFile(assemblyFile.storage_path) : Promise.resolve(null),
+    scanFile ? readStoredFile(scanFile.storage_path) : Promise.resolve(null)
   ]);
 
   await autoSyncEnver3ToPackageB3d({ fileRows });
+  await autoSyncEnver3dscanToPackageB3d({ fileRows });
   if (b3dFile) {
     b3dBuf = await readStoredFile(b3dFile.storage_path);
   }
@@ -563,6 +568,7 @@ async function ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync
       b3dBuffer: b3dBuf,
       projectBuffer: projectBuf,
       assemblyJsonBuffer: assemblyBuf,
+      scanJsonBuffer: scanBuf,
       productName:
         b3dFile?.original_name?.replace(/\.b3d$/i, "") ||
         projectFile?.original_name?.replace(/\.project$/i, "") ||
@@ -833,11 +839,43 @@ export async function parseConstructivePackage(packageId, actor) {
 
     try {
       await autoSyncEnver3ToPackageB3d({ fileRows });
+      await autoSyncEnver3dscanToPackageB3d({ fileRows });
       fileRows = await all(`SELECT * FROM constructive_package_files WHERE package_id = $1`, [
         packageId
       ]);
     } catch (syncErr) {
-      console.warn("[constructive] enver3 sync під час розбору:", syncErr?.message || syncErr);
+      console.warn(
+        "[constructive] enver3/3dscan sync під час розбору:",
+        syncErr?.message || syncErr
+      );
+    }
+
+    const b3dRow = fileRows.find((f) => f.kind === "b3d");
+    const projectRow = fileRows.find((f) => f.kind === "project");
+    const scanRow = findEnver3dscanJsonFileRow(fileRows);
+    if (b3dRow || projectRow) {
+      try {
+        const [b3dBuf, projectBuf, scanBuf] = await Promise.all([
+          b3dRow ? readStoredFile(b3dRow.storage_path) : null,
+          projectRow ? readStoredFile(projectRow.storage_path) : null,
+          scanRow ? readStoredFile(scanRow.storage_path) : null
+        ]);
+        const fused = fuseBazisPackage({
+          b3dBuffer: b3dBuf,
+          projectBuffer: projectBuf,
+          scanJsonBuffer: scanBuf
+        });
+        if (fused.parts?.length) {
+          merged.parts = fused.parts;
+        }
+        if (fused.manifestNodes?.length) {
+          merged.manifestNodes = [...(merged.manifestNodes || []), ...fused.manifestNodes];
+        }
+        merged.warnings = [...new Set([...(merged.warnings || []), ...(fused.warnings || [])])];
+        merged.enver3dscan = fused.stats || null;
+      } catch (fuseErr) {
+        console.warn("[constructive] ENVER_3dscan fusion:", fuseErr?.message || fuseErr);
+      }
     }
 
     let previewGlbRow = null;

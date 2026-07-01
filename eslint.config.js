@@ -46,7 +46,7 @@ export default [
     }
   },
   {
-    files: ["scripts/enver-b3d-assembly-export.js"],
+    files: ["scripts/enver-b3d-assembly-export.js", "scripts/enver-3dscan-export.js"],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "script",

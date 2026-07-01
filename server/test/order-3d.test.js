@@ -95,7 +95,7 @@ describe("order-3d", () => {
       projectBuffer,
       productName: "garderoba"
     });
-    assert.equal(built.source, "project_panels");
+    assert.ok(["enver_3dscan_flat", "project_panels"].includes(built.source));
     assert.ok(built.buffer.length > 5000);
     assert.equal(built.panelCount, 88);
   });
