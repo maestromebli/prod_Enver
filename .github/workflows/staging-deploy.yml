@@ -44,11 +44,13 @@ jobs:
           chmod 600 ~/.ssh/staging_key
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
           REPO_LOWER=$(echo "$IMAGE_REPO" | tr '[:upper:]' '[:lower:]')
-          ssh -i ~/.ssh/staging_key "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/enver-staging"
+          REMOTE_DIR='~/enver-staging'
+          ssh -i ~/.ssh/staging_key "${SSH_USER}@${SSH_HOST}" "mkdir -p ${REMOTE_DIR}"
           scp -i ~/.ssh/staging_key docker-compose.staging.yml deploy/Caddyfile.staging scripts/deploy-staging.sh \
-            "${SSH_USER}@${SSH_HOST}:/opt/enver-staging/"
+            "${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/"
           ssh -i ~/.ssh/staging_key "${SSH_USER}@${SSH_HOST}" \
-            "cd /opt/enver-staging && \
+            "export ENVER_STAGING_DIR=\$HOME/enver-staging && \
+             cd ${REMOTE_DIR} && \
              mv -f docker-compose.staging.yml docker-compose.yml && \
              mv -f Caddyfile.staging Caddyfile && \
              chmod +x deploy-staging.sh && \

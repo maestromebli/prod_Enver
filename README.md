@@ -49,18 +49,18 @@ npm run dev               # сервер + Vite на :3000
 
 Один workflow `.github/workflows/ci-cd.yml`:
 
-| Тригер                   | Кроки                                                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Pull request → main/test | `validate`, `build-android`, `build` (Docker без push)                                                                             |
-| Push до **main**         | `validate`, `build-android`, `build` (GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (production)                              |
-| Push до **test**         | `validate`, `build-android`, `build` (GHCR `test` + `${{ sha }}`), `migrate` (staging DB), `deploy-staging` (`/opt/enver-staging`) |
+| Тригер                   | Кроки                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Pull request → main/test | `validate`, `build-android`, `build` (Docker без push)                                                                          |
+| Push до **main**         | `validate`, `build-android`, `build` (GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (production)                           |
+| Push до **test**         | `validate`, `build-android`, `build` (GHCR `test` + `${{ sha }}`), `migrate` (staging DB), `deploy-staging` (`~/enver-staging`) |
 
 Потрібні GitHub Secrets:
 
 - `DATABASE_URL_MIGRATIONS` — direct connection (port 5432) для застосування міграцій production
 - `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою production
 - `STAGING_DATABASE_URL_MIGRATIONS` — опційно, міграції для staging (гілка `test`)
-- `STAGING_SSH_HOST`, `STAGING_SSH_USER`, `STAGING_SSH_PRIVATE_KEY` — опційно, окремий SSH для staging; інакше використовуються production `SSH_*` на `/opt/enver-staging`
+- `STAGING_SSH_HOST`, `STAGING_SSH_USER`, `STAGING_SSH_PRIVATE_KEY` — опційно, окремий SSH для staging; інакше використовуються production `SSH_*` на `~/enver-staging`
 
 ## Env
 

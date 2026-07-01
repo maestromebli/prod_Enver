@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-# Деплой на staging-сервер (/opt/enver-staging). Викликається з workflow staging-deploy.yml.
+# Деплой на staging-сервер. Каталог: $ENVER_STAGING_DIR або ~/enver-staging (fallback /opt/enver-staging).
 set -euo pipefail
 
 export IMAGE_REPO="${1:?IMAGE_REPO}"
 export IMAGE_TAG="${2:-staging}"
 
-cd /opt/enver-staging
+STAGING_DIR="${ENVER_STAGING_DIR:-}"
+if [ -z "$STAGING_DIR" ]; then
+  if [ -d /opt/enver-staging ] && [ -w /opt/enver-staging ]; then
+    STAGING_DIR=/opt/enver-staging
+  else
+    STAGING_DIR="${HOME}/enver-staging"
+  fi
+fi
+mkdir -p "$STAGING_DIR"
+cd "$STAGING_DIR"
 chmod +x deploy-staging.sh 2>/dev/null || true
 
 if [ -f docker-compose.staging.yml ]; then

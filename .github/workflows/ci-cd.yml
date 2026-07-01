@@ -395,13 +395,13 @@ jobs:
           SSH_HOST: ${{ steps.staging_ssh.outputs.host }}
           SSH_USER: ${{ steps.staging_ssh.outputs.user }}
         run: |
-          REMOTE_DIR=/opt/enver-staging
-          ssh "${SSH_USER}@${SSH_HOST}" "mkdir -p ${REMOTE_DIR}" || \
-            ssh "${SSH_USER}@${SSH_HOST}" "sudo mkdir -p ${REMOTE_DIR} && sudo chown -R ${SSH_USER}:${SSH_USER} ${REMOTE_DIR}"
+          REMOTE_DIR='~/enver-staging'
+          ssh "${SSH_USER}@${SSH_HOST}" "mkdir -p ${REMOTE_DIR}"
           scp docker-compose.staging.yml deploy/Caddyfile.staging scripts/deploy-staging.sh \
             "${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/"
           ssh "${SSH_USER}@${SSH_HOST}" \
-            "cd ${REMOTE_DIR} && \
+            "export ENVER_STAGING_DIR=\$HOME/enver-staging && \
+             cd ${REMOTE_DIR} && \
              mv -f docker-compose.staging.yml docker-compose.yml && \
              mv -f Caddyfile.staging Caddyfile && \
              chmod +x deploy-staging.sh && \
