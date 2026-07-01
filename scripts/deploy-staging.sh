@@ -17,6 +17,16 @@ mkdir -p "$STAGING_DIR"
 cd "$STAGING_DIR"
 chmod +x deploy-staging.sh 2>/dev/null || true
 
+if [ ! -f .env ]; then
+  if [ -f /opt/enver/.env ]; then
+    cp /opt/enver/.env .env
+    echo "→ .env скопійовано з /opt/enver/.env"
+  else
+    echo "✗ немає .env у ${STAGING_DIR} — створіть файл (DATABASE_URL, SESSION_SECRET, DOMAIN)"
+    exit 1
+  fi
+fi
+
 if [ -f docker-compose.staging.yml ]; then
   COMPOSE_FILE="docker-compose.staging.yml"
 elif [ -f docker-compose.yml ]; then
