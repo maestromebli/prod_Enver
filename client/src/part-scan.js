@@ -168,7 +168,6 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         ${cncActions}
         ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg btn-primary" data-open-3d>Показати на 3D</button>` : ""}
         ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
-        <button type="button" class="btn btn-lg" data-part-scan-close>${escapeHtml(closeLabel)}</button>
       </div>
     </div>`;
 }

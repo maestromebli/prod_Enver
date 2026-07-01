@@ -156,6 +156,12 @@ function renderHoleList(cadGeometry, part) {
   return sections.join("");
 }
 
+function setDualLayoutEnabled(enabled) {
+  document
+    .getElementById("viewerBody")
+    ?.classList.toggle("viewer-window-body--dual", Boolean(enabled));
+}
+
 function destroyPartDetailViewer() {
   partDetailViewer?.destroy?.();
   partDetailViewer = null;
@@ -164,6 +170,7 @@ function destroyPartDetailViewer() {
     mount.innerHTML = "";
     mount.hidden = true;
   }
+  setDualLayoutEnabled(false);
 }
 
 function assemblyModelCtx() {
@@ -233,23 +240,19 @@ function assemblyViewerOptions() {
 async function handleViewerPartPick(part) {
   if (!part || !viewer) return;
   currentPart = part;
-  const target = resolveHighlightTarget(part);
-  viewer.showPartOnAssembly?.(part, target);
-  setToolbarActive("ghost");
 
   let payload = { part, cadGeometry: currentCadGeometry };
   if (part.id) {
     try {
-      const data = await api.getPart(part.id);
-      payload = data;
-      applyCadGeometry(data.cadGeometry);
+      payload = await api.getPart(part.id);
+      applyCadGeometry(payload.cadGeometry);
     } catch {
       /* optional */
     }
   }
 
+  await showPartOnAssembly(part);
   populateSidebar(payload);
-  await mountPartDetailViewer(part, payload.cadGeometry || currentCadGeometry, payload);
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
 }
@@ -306,6 +309,7 @@ function populateSidebar(data) {
   const part = data?.part;
   if (!part) {
     sidebar.hidden = true;
+    setDualLayoutEnabled(false);
     return;
   }
 
@@ -349,6 +353,7 @@ function populateSidebar(data) {
   }
 
   sidebar.hidden = false;
+  setDualLayoutEnabled(true);
   void mountPartDetailViewer(part, cad, data);
 }
 
@@ -369,12 +374,7 @@ async function showPartOnAssembly(part) {
     await new Promise((r) => requestAnimationFrame(r));
     if (attempt > 2) await new Promise((r) => setTimeout(r, 40));
   }
-  if (!mesh && viewer.showPartDetail) {
-    viewer.showPartDetail(part, target);
-    setToolbarActive("detail");
-  } else {
-    setToolbarActive("ghost");
-  }
+  setToolbarActive(mesh ? "ghost" : "all");
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
   return mesh;
@@ -387,14 +387,9 @@ async function highlightPartGhost(part) {
 async function showPartDetailView(part) {
   if (!part || !viewer) return;
   currentPart = part;
-  const target = resolveHighlightTarget(part);
-  if (target?.meshName && viewer.showPartDetail) {
-    viewer.showPartDetail(part, target);
-    setToolbarActive("detail");
-  } else {
-    await highlightPartGhost(part);
-  }
-  void mountPartDetailViewer(part, currentCadGeometry, partDetailPayload(part));
+  await showPartOnAssembly(part);
+  await mountPartDetailViewer(part, currentCadGeometry, partDetailPayload(part));
+  setToolbarActive("detail");
   const label = [part.partNo ? `№${part.partNo}` : "", part.partName].filter(Boolean).join(" · ");
   if (label) setTitle(label);
 }

@@ -647,13 +647,14 @@ export function renderOperatorView() {
             ${renderStageEstimateBlock()}
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
-            <section class="op-order-3d" id="operatorOrder3dSection" hidden>
+            <section class="op-order-3d op-order-3d--split" id="operatorOrder3dSection" hidden>
               <div class="op-order-3d-head">
                 <h3 class="op-section-title">3D модель</h3>
                 <button type="button" class="btn btn-sm btn-primary" id="operatorOpen3dBtn" hidden>
                   На весь екран
                 </button>
               </div>
+              <p class="enver-meta op-order-3d-split-hint">Зверху — збірка · знизу — обрана деталь (клік або скан)</p>
               <div
                 id="operatorOrder3dMount"
                 class="op-order-3d-mount"
@@ -661,7 +662,7 @@ export function renderOperatorView() {
                 data-position-id="${pos.id}"
               ></div>
               <div id="operatorPartDetailStrip" class="op-part-detail-strip" hidden>
-                <h4 class="op-part-detail-strip-title">Деталь</h4>
+                <h4 class="op-part-detail-strip-title">Обрана деталь</h4>
                 <div
                   id="operatorPartDetail3dMount"
                   class="op-part-detail-3d part-viewer-3d"

@@ -109,11 +109,11 @@ export async function mountPartDetailStripViewer(
       format: ctx.format || "glb",
       parts: ctx.parts || [],
       theme,
-      detailOnly: !ctx.isPartModel,
+      detailOnly: true,
       initialPart: part,
       initialPartHint: target,
       cadGeometry,
-      viewerOptions: { pickable, detailOnly: !ctx.isPartModel }
+      viewerOptions: { pickable, detailOnly: true }
     });
     viewer.__enverMountKey = ctx.mountKey || ctx.modelUrl;
     applyPartDetailViewToViewer(viewer, part, target, cadGeometry, {

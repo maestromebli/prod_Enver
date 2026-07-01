@@ -114,9 +114,6 @@ function renderPartInfoHtml(data) {
 export function renderScanPartDetailLayout(_data) {
   return `
     <div class="part-detail-card part-detail-card--scan-meta">
-      <div class="part-detail-toolbar">
-        <button type="button" class="btn btn-sm part-scan-back" data-part-scan-close>← Назад</button>
-      </div>
       <p class="enver-meta op-scan-detail-hint">Деталь на 3D-панелі нижче · збірка зверху</p>
     </div>`;
 }

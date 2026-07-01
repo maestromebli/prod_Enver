@@ -278,6 +278,7 @@ async function handleAssemblyPartPick(part) {
       /* optional */
     }
   }
+  if (payload.cadGeometry) viewerInstance.setCadGeometry?.(payload.cadGeometry);
   await showOperatorPartDetail(payload);
 }
 

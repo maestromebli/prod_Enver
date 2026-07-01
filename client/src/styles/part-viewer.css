@@ -34,7 +34,8 @@
 
 .op-part-scan.is-detail-open .op-part-scan-hint,
 .op-part-scan.is-detail-open .op-part-scan-bar,
-.op-part-scan.is-detail-open .op-part-scan-actions {
+.op-part-scan.is-detail-open .op-part-scan-actions,
+.op-part-scan.is-detail-open .op-part-scan-back {
   display: none;
 }
 

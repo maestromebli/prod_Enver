@@ -101,12 +101,16 @@
         Закрити
       </button>
     </header>
-    <div class="viewer-window-body">
+    <div class="viewer-window-body" id="viewerBody">
+      <div id="viewerUpgradeBanner" hidden></div>
+      <main class="viewer-window-main" id="viewerMount" aria-label="3D збірка">
+        <p class="viewer-window-loading enver-meta" id="viewerLoading">Завантаження…</p>
+      </main>
       <aside class="viewer-sidebar" id="viewerSidebar" hidden>
-        <div class="viewer-sidebar-assembly-hint enver-meta">
-          Зверху — 3D виробу · нижче — деталь з отворами та кромкою
-        </div>
-        <h2 class="viewer-sidebar-title">Деталь</h2>
+        <p class="viewer-sidebar-assembly-hint enver-meta">
+          Зверху — 3D виробу · нижче — обрана деталь
+        </p>
+        <h2 class="viewer-sidebar-title">Обрана деталь</h2>
         <div
           id="viewerPartDetailMount"
           class="viewer-part-detail-mount part-viewer-3d"
@@ -122,10 +126,6 @@
           <kbd>X</kbd> розріз
         </p>
       </aside>
-      <div id="viewerUpgradeBanner" hidden></div>
-      <main class="viewer-window-main" id="viewerMount" aria-label="3D перегляд">
-        <p class="viewer-window-loading enver-meta" id="viewerLoading">Завантаження…</p>
-      </main>
     </div>
     <p class="viewer-window-error form-error visible" id="viewerError" hidden></p>
     <script type="module" src="/src/viewer-app.js"></script>

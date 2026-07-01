@@ -964,6 +964,28 @@ body.enver-operator-ui.view-operator {
   background: var(--enver-surface, #fff);
 }
 
+.op-order-3d--split {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.op-order-3d-split-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+}
+
+.op-order-3d-mount::before {
+  content: "Збірка";
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--enver-text-muted, #64748b);
+}
+
 .op-order-3d-head {
   display: flex;
   align-items: center;
@@ -1121,6 +1143,7 @@ html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--enver-border, #e2e8f0);
+  flex: 0 0 auto;
 }
 
 .op-part-detail-strip-title {
@@ -1147,7 +1170,7 @@ html.enver-native-shell .op-part-scan-result .op-scan-part-3d {
 
 .op-part-detail-3d {
   min-height: 150px;
-  height: min(30vh, 220px);
+  height: min(32vh, 240px);
   border-radius: 8px;
   overflow: hidden;
   background: #c6cacf;
