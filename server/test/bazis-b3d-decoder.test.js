@@ -9,7 +9,8 @@ import {
   linkPanelsWithNearbyDirs,
   parseFieldDictionary,
   readOrthonormalAxesF32,
-  scanGabMinMaxPanels
+  scanGabMinMaxPanels,
+  assignCodesFromXmlPanels
 } from "../src/constructive/bazis-b3d-decoder.js";
 import { fuseBazisPackage } from "../src/constructive/enver-3dscan-fusion.js";
 
@@ -158,6 +159,13 @@ describe("bazis-b3d-decoder", () => {
     });
     assert.ok(fused.parts.length > 10);
     assert.ok(fused.stats.b3dFields?.includes("Pos1"));
+  });
+
+  it("assignCodesFromXmlPanels зіставляє code за розмірами", () => {
+    const decoded = [{ lengthMm: 800, widthMm: 400, thicknessMm: 18, centerMm: [400, 200, 100] }];
+    const xml = [{ code: "42", name: "Полка", lengthMm: 800, widthMm: 400, thicknessMm: 18 }];
+    const linked = assignCodesFromXmlPanels(decoded, xml);
+    assert.equal(linked[0].code, "42");
   });
 
   it("analyzeBazisB3dBuffer на порожньому буфері", () => {

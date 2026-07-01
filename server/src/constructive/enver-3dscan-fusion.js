@@ -19,7 +19,10 @@ import { decodeProjectText } from "./parsers/project-text.js";
 import { manifestNodesFromProjectXml } from "./parsers/manifest-text.js";
 import { extractProjectPanels } from "./project-glb-builder.js";
 import { parseAssemblyExportJson } from "./parsers/assembly-export.js";
-import { extractEnverAssemblyFromB3d } from "./parsers/assembly-export.js";
+import {
+  extractEnverAssemblyFromB3d,
+  buildAssemblyExportFromScanPanels
+} from "./parsers/assembly-export.js";
 import { buildEnver3dscanFromB3dDecode } from "./bazis-b3d-decoder.js";
 
 function mergeWarnings(...lists) {
@@ -382,6 +385,14 @@ export function fuseBazisPackage({
       stats.assemblyPanelCount = posedPanels.length;
     } catch {
       warnings.push("Панелі ENVER_3dscan без повних координат збірки — 3D буде плоскою розкладкою");
+    }
+  }
+
+  if (!assemblyExport) {
+    assemblyExport = buildAssemblyExportFromScanPanels(scan, { productName });
+    if (assemblyExport?.panels?.length) {
+      stats.assemblyPanelCount = assemblyExport.panels.length;
+      warnings.push("Координати збірки з .b3d — осі DirX доповнено автоматично, де не знайдено");
     }
   }
 

@@ -6,6 +6,7 @@ import {
   extractEnverAssemblyFromB3d,
   parseAssemblyExportJson
 } from "./parsers/assembly-export.js";
+import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 import { run } from "../db.js";
 
 const ASSEMBLY_JSON_NAMES = new Set([
@@ -70,6 +71,57 @@ export async function overwritePackageFileBuffer(fileRow, buffer) {
     [fileRow.id, buffer.length, checksum]
   );
   return { storagePath, size: buffer.length, checksum };
+}
+
+/**
+ * Автодопис ENVER3 у .b3d з декодованих координат (.b3d + .project) — без скрипта Базіс.
+ */
+export async function autoSyncEnver3FromPackageDecode({ fileRows = [], productName = "" } = {}) {
+  const b3dRow = fileRows.find((f) => f.kind === "b3d");
+  const b3dPath = b3dRow?.storage_path || b3dRow?.storagePath;
+  if (!b3dPath) {
+    return { applied: false, reason: "no_b3d" };
+  }
+
+  let b3dBuffer = await readStoredFile(b3dPath);
+  if (extractEnverAssemblyFromB3d(b3dBuffer)) {
+    return { applied: false, reason: "already_has_enver3" };
+  }
+
+  const projectRow = fileRows.find((f) => f.kind === "project");
+  const projectPath = projectRow?.storage_path || projectRow?.storagePath;
+  const projectBuffer = projectPath ? await readStoredFile(projectPath) : null;
+
+  const fused = fuseBazisPackage({
+    b3dBuffer,
+    projectBuffer,
+    productName:
+      productName ||
+      b3dRow?.original_name?.replace(/\.b3d$/i, "") ||
+      projectRow?.original_name?.replace(/\.project$/i, "") ||
+      ""
+  });
+
+  if (!fused.assemblyExport?.panels?.length) {
+    return {
+      applied: false,
+      reason: "no_derived_assembly",
+      posedPanels: fused.stats?.b3dPosedPanels || 0
+    };
+  }
+
+  const patched = await buildPatchedB3dWithEnver3(b3dBuffer, fused.assemblyExport);
+  if (!patched || patched.alreadyPresent) {
+    return { applied: false, reason: "already_has_enver3", panelCount: patched?.panelCount };
+  }
+
+  await overwritePackageFileBuffer(b3dRow, patched.buffer);
+  return {
+    applied: true,
+    panelCount: patched.panelCount,
+    reason: "enver3_derived_from_b3d_decode",
+    assemblyPanelCount: fused.assemblyExport.panels.length
+  };
 }
 
 /**

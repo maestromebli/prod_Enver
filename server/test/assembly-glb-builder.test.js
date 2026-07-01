@@ -9,7 +9,8 @@ import {
 import {
   appendEnverAssemblyToB3d,
   extractEnverAssemblyFromB3d,
-  parseAssemblyExportJson
+  parseAssemblyExportJson,
+  buildAssemblyExportFromScanPanels
 } from "../src/constructive/parsers/assembly-export.js";
 import { extractPackagePreviewGlb } from "../src/constructive/b3d-glb-extractor.js";
 import {
@@ -153,5 +154,49 @@ describe("assembly-glb-builder", () => {
     assert.equal(mixed.missingCodes.length, 1);
     assert.equal(mixed.assembledCount, 1);
     assert.equal(readPreviewLayoutFromGlb(mixed.buffer), "assembly");
+  });
+
+  it("layoutAssemblyPanels — зіставлення за розмірами", () => {
+    const projectPanels = extractProjectPanels(
+      Buffer.from(
+        `<?xml version="1.0"?><project><part code="55" name="Полка" dl="800" dw="400"/></project>`,
+        "utf8"
+      )
+    );
+    const assembly = {
+      panels: [
+        {
+          code: "999",
+          centerMm: [400, 200, 450],
+          sizeMm: [800, 400, 18],
+          axisX: [1, 0, 0],
+          axisY: [0, 1, 0],
+          axisZ: [0, 0, 1]
+        }
+      ]
+    };
+    const { panels, missing } = layoutAssemblyPanels(projectPanels, assembly);
+    assert.equal(panels.length, 1);
+    assert.deepEqual(missing, []);
+  });
+
+  it("buildAssemblyExportFromScanPanels — center без DirX", () => {
+    const exported = buildAssemblyExportFromScanPanels(
+      {
+        source: "bazis_b3d_decode",
+        panels: [
+          {
+            code: "12",
+            centerMm: [100, 200, 300],
+            lengthMm: 500,
+            widthMm: 300,
+            thicknessMm: 18
+          }
+        ]
+      },
+      { productName: "Тест" }
+    );
+    assert.equal(exported.panels.length, 1);
+    assert.deepEqual(exported.panels[0].axisX, [1, 0, 0]);
   });
 });

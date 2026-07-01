@@ -626,7 +626,8 @@ function thicknessAxisFromSize(sizeMm) {
   return sorted[0].axis;
 }
 
-function fallbackAxesFromSize(sizeMm) {
+/** Осі за замовчуванням, якщо DirX/DirY/DirZ не знайдено в .b3d. */
+export function fallbackAxesFromSize(sizeMm) {
   return {
     axisX: [1, 0, 0],
     axisY: [0, 1, 0],
@@ -684,6 +685,60 @@ function rankPanels(panels) {
   return [...panels].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 }
 
+function panelDimMatchKey(lengthMm, widthMm, thicknessMm) {
+  const l = Math.round(Number(lengthMm) || 0);
+  const w = Math.round(Number(widthMm) || 0);
+  const t = Math.round(Number(thicknessMm) || 18);
+  if (!l || !w) return "";
+  return `${Math.max(l, w)}x${Math.min(l, w)}x${t}`;
+}
+
+/** Зіставляє декодовані панелі з XML у .b3d за розмірами — підставляє code з .project/.b3d XML. */
+export function assignCodesFromXmlPanels(decodedPanels = [], xmlPanels = []) {
+  if (!xmlPanels.length) return decodedPanels;
+  const usedCodes = new Set(decodedPanels.map((p) => normalizePartCode(p.code)).filter(Boolean));
+  const xmlByDim = new Map();
+  for (const xp of xmlPanels) {
+    const key = panelDimMatchKey(xp.lengthMm, xp.widthMm, xp.thicknessMm);
+    if (key && !xmlByDim.has(key)) xmlByDim.set(key, xp);
+  }
+
+  return decodedPanels.map((panel) => {
+    const existing = normalizePartCode(panel.code);
+    if (existing) return { ...panel, code: existing };
+
+    const key = panelDimMatchKey(panel.lengthMm, panel.widthMm, panel.thicknessMm);
+    const match = key ? xmlByDim.get(key) : null;
+    if (match) {
+      const code = normalizePartCode(match.code);
+      if (code && !usedCodes.has(code)) {
+        usedCodes.add(code);
+        return {
+          ...panel,
+          code,
+          name: match.name || panel.name,
+          codeSource: "b3d_xml_dim"
+        };
+      }
+    }
+    return panel;
+  });
+}
+
+function collectXmlPanelsFromPayloads(payloads) {
+  const all = [];
+  const seen = new Set();
+  for (const payload of payloads) {
+    for (const p of extractXmlPanelsFromBuffer(payload)) {
+      const code = normalizePartCode(p.code);
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      all.push(p);
+    }
+  }
+  return all;
+}
+
 function dedupePanels(panels) {
   const out = [];
   for (const p of panels) {
@@ -730,6 +785,7 @@ export function analyzeBazisB3dBuffer(buffer) {
 
   const collected = [];
   let gabCount = 0;
+  const xmlPanels = collectXmlPanelsFromPayloads(payloads);
 
   for (const payload of payloads) {
     collected.push(...extractXmlPanelsFromBuffer(payload));
@@ -739,13 +795,25 @@ export function analyzeBazisB3dBuffer(buffer) {
     for (const payload of payloads) {
       const gab = linkPanelsWithNearbyDirs(
         scanGabMinMaxPanels(payload, {
-          allowFloat32: hasPos && !hasMinMax
+          allowFloat32: hasPos || !hasMinMax
         }),
         payload
       );
       gabCount += gab.length;
       for (const p of gab) {
         collected.push({ ...p, _posePayload: payload });
+      }
+    }
+    if (!gabCount && hasPos) {
+      for (const payload of payloads) {
+        const gab = linkPanelsWithNearbyDirs(
+          scanGabMinMaxPanels(payload, { allowFloat32: true, maxPanels: 160 }),
+          payload
+        );
+        gabCount += gab.length;
+        for (const p of gab) {
+          collected.push({ ...p, _posePayload: payload });
+        }
       }
     }
   }
@@ -784,6 +852,7 @@ export function analyzeBazisB3dBuffer(buffer) {
   }
 
   let panels = dedupePanels(rankPanels(collected));
+  panels = assignCodesFromXmlPanels(panels, xmlPanels);
 
   if (!panels.length) {
     warnings.push(

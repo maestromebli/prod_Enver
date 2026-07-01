@@ -28,6 +28,88 @@ function normalizeVec3(v) {
   return [x / len, y / len, z / len];
 }
 
+/** Осі за замовчуванням для панелі без DirX/DirY/DirZ (товщина — найменший розмір). */
+export function fallbackAxesFromPanelSize(sizeMm = []) {
+  const [sx = 100, sy = 100, sz = 18] = sizeMm.map(Number);
+  const sorted = [
+    { v: sx, axis: "x" },
+    { v: sy, axis: "y" },
+    { v: sz, axis: "z" }
+  ].sort((a, b) => a.v - b.v);
+  return {
+    axisX: [1, 0, 0],
+    axisY: [0, 1, 0],
+    axisZ: [0, 0, 1],
+    thicknessAxis: sorted[0].axis
+  };
+}
+
+function panelSizeMm(panel) {
+  if (Array.isArray(panel.sizeMm) && panel.sizeMm.length >= 3) {
+    return panel.sizeMm.map(Number);
+  }
+  const l = Number(panel.lengthMm) || 0;
+  const w = Number(panel.widthMm) || 0;
+  const t = Number(panel.thicknessMm) || 18;
+  if (l > 0 && w > 0) return [l, w, t];
+  return null;
+}
+
+/**
+ * Збірка ENVER3 з панелей scan (декод .b3d / ENVER_3dscan) — без ручного скрипта Базіс.
+ * Дописує fallback-осі, якщо є centerMm, але немає DirX/DirY/DirZ.
+ */
+export function buildAssemblyExportFromScanPanels(scan, { productName = "" } = {}) {
+  if (!scan?.panels?.length) return null;
+
+  const rows = [];
+  for (const panel of scan.panels) {
+    const centerMm = panel.centerMm || panel.center || panel.positionMm;
+    if (!Array.isArray(centerMm) || centerMm.length < 3) continue;
+    if (!centerMm.every((v) => Number.isFinite(Number(v)))) continue;
+
+    const code = normalizePartCode(panel.code || panel.partNo);
+    if (!code) continue;
+
+    const sizeMm = panelSizeMm(panel);
+    let axisX = normalizeVec3(panel.axisX);
+    let axisY = normalizeVec3(panel.axisY);
+    let axisZ = normalizeVec3(panel.axisZ);
+    if (!axisX || !axisY || !axisZ) {
+      const fb = fallbackAxesFromPanelSize(sizeMm || [100, 100, 18]);
+      axisX = fb.axisX;
+      axisY = fb.axisY;
+      axisZ = fb.axisZ;
+    }
+
+    rows.push({
+      code,
+      name: panel.name ? String(panel.name) : "",
+      artPos: panel.artPos != null ? String(panel.artPos) : "",
+      centerMm: centerMm.map(Number),
+      sizeMm,
+      thicknessMm: sizeMm ? sizeMm[2] : null,
+      axisX,
+      axisY,
+      axisZ
+    });
+  }
+
+  if (!rows.length) return null;
+
+  try {
+    return parseAssemblyExportJson({
+      version: 1,
+      source: scan.source || "derived_b3d_decode",
+      exportedAt: scan.exportedAt || new Date().toISOString(),
+      productName: productName || scan.productName || "",
+      panels: rows
+    });
+  } catch {
+    return null;
+  }
+}
+
 function parsePanelRow(row) {
   if (!row || row.code == null) return null;
   const code = normalizePartCode(row.code);

@@ -82,10 +82,27 @@ function panelScaleFromAssembly(projectPanel, asmPanel) {
   };
 }
 
+function panelDimKey(lengthMm, widthMm, thicknessMm) {
+  const l = Math.round(Number(lengthMm) || 0);
+  const w = Math.round(Number(widthMm) || 0);
+  const t = Math.round(Number(thicknessMm) || 18);
+  if (!l || !w) return "";
+  return `${Math.max(l, w)}x${Math.min(l, w)}x${t}`;
+}
+
+function assemblyPanelDimKey(panel) {
+  if (Array.isArray(panel.sizeMm) && panel.sizeMm.length >= 3) {
+    const [a, b, c] = panel.sizeMm.map(Number);
+    return panelDimKey(a, b, c) || panelDimKey(a, c, b);
+  }
+  return panelDimKey(panel.lengthMm, panel.widthMm, panel.thicknessMm);
+}
+
 /** Індекс панелей ENVER3 для зіставлення з .project. */
 export function buildAssemblyLookup(assemblyExport) {
   const byCode = new Map();
   const byNameNum = new Map();
+  const byDim = new Map();
   for (const panel of assemblyExport?.panels || []) {
     const code = normalizePartCode(panel.code);
     if (code && !byCode.has(code)) byCode.set(code, panel);
@@ -93,8 +110,10 @@ export function buildAssemblyLookup(assemblyExport) {
     if (fromName && !byNameNum.has(fromName)) byNameNum.set(fromName, panel);
     const fromArt = extractNumericPartCode(panel.artPos);
     if (fromArt && !byNameNum.has(fromArt)) byNameNum.set(fromArt, panel);
+    const dimKey = assemblyPanelDimKey(panel);
+    if (dimKey && !byDim.has(dimKey)) byDim.set(dimKey, panel);
   }
-  return { byCode, byNameNum };
+  return { byCode, byNameNum, byDim };
 }
 
 /** Мʼяке зіставлення: code → число з partName → число з name ENVER3. */
@@ -107,6 +126,9 @@ export function resolveAssemblyPanel(projectPanel, lookup) {
     if (lookup.byCode.has(fromProjectName)) return lookup.byCode.get(fromProjectName);
     if (lookup.byNameNum.has(fromProjectName)) return lookup.byNameNum.get(fromProjectName);
   }
+
+  const dimKey = panelDimKey(projectPanel.lengthMm, projectPanel.widthMm, projectPanel.thicknessMm);
+  if (dimKey && lookup.byDim?.has(dimKey)) return lookup.byDim.get(dimKey);
 
   return null;
 }

@@ -27,7 +27,11 @@ import { summarizeMappingDiagnostics } from "../../../shared/production/part-mod
 import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { getLatestPackageAiAnalysis, kickoffPackageAiAnalysis } from "./constructive-package-ai.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
-import { autoSyncEnver3ToPackageB3d, isEnverAssemblyJsonName } from "./b3d-auto-enver3.js";
+import {
+  autoSyncEnver3ToPackageB3d,
+  autoSyncEnver3FromPackageDecode,
+  isEnverAssemblyJsonName
+} from "./b3d-auto-enver3.js";
 import {
   autoSyncEnver3dscanToPackageB3d,
   findEnver3dscanJsonFileRow,
@@ -590,7 +594,18 @@ async function ensureB3dPreviewGlb(
     scanFile ? readStoredFile(pkgFileStoragePath(scanFile)) : Promise.resolve(null)
   ]);
 
-  const enver3Result = enver3Sync || (await autoSyncEnver3ToPackageB3d({ fileRows }));
+  const enver3FromJson = enver3Sync || (await autoSyncEnver3ToPackageB3d({ fileRows }));
+  const enver3FromDecode =
+    enver3FromJson.applied === true
+      ? enver3FromJson
+      : await autoSyncEnver3FromPackageDecode({
+          fileRows,
+          productName:
+            pkgFileOriginalName(b3dFile).replace(/\.b3d$/i, "") ||
+            pkgFileOriginalName(projectFile).replace(/\.project$/i, "") ||
+            ""
+        });
+  const enver3Result = enver3FromDecode.applied === true ? enver3FromDecode : enver3FromJson;
   const enver3dscanResult =
     enver3dscanSync || (await autoSyncEnver3dscanToPackageB3d({ fileRows }));
   if (b3dFile) {
@@ -643,7 +658,11 @@ async function runPostUploadB3dPipeline(packageId, positionId, savedFiles) {
   try {
     if (savedFiles.some((f) => f.kind === "b3d" || f.kind === "project")) {
       const fileRows = await getPackageFiles(packageId);
-      const enver3Sync = await autoSyncEnver3ToPackageB3d({ fileRows });
+      const enver3FromJson = await autoSyncEnver3ToPackageB3d({ fileRows });
+      const enver3Sync =
+        enver3FromJson.applied === true
+          ? enver3FromJson
+          : await autoSyncEnver3FromPackageDecode({ fileRows });
       const enver3dscanSync = await autoSyncEnver3dscanToPackageB3d({ fileRows });
       await ensureB3dPreviewGlb(packageId, positionId, fileRows, { enver3Sync, enver3dscanSync });
     } else if (
