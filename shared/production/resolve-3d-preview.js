@@ -62,20 +62,16 @@ export function get3dUpgradeHintText({ layout = null, packageDetail = null } = {
 }
 
 /**
- * Єдине джерело правди для 3D-превʼю.
- * За замовчуванням order-3d має пріоритет над пакетом конструктива.
- * У панелі оператора (`preferConstructivePackage`) — як при скані: спочатку превʼю пакета.
+ * Єдине джерело правди: order-3d має пріоритет над пакетом конструктива.
  * @param {object} [params]
  * @param {object|null} [params.orderAsset]
  * @param {object|null} [params.packageDetail]
  * @param {string|null} [params.packageViewerUrl] - готовий URL для package-файлу (клієнт)
- * @param {boolean} [params.preferConstructivePackage] - превʼю пакета перед order-3d
  */
 export function resolve3dPreviewContext({
   orderAsset = null,
   packageDetail = null,
-  packageViewerUrl = null,
-  preferConstructivePackage = false
+  packageViewerUrl = null
 } = {}) {
   const orderReady =
     orderAsset &&
@@ -90,26 +86,16 @@ export function resolve3dPreviewContext({
   let modelUrl = null;
   let layout = null;
 
-  const applyPackageSource = () => {
-    source = "constructive_package";
-    modelUrl = packageViewerUrl || null;
-    format = preview3dLoadFormat(packageFile);
-    layout = preview3dLayout(packageDetail);
-  };
-
-  const applyOrderSource = () => {
+  if (orderReady) {
     source = "order_3d";
     modelUrl = orderAsset.webModelUrl;
     format = orderAsset.webModelFormat || "glb";
     layout = order3dAssetLayout(orderAsset);
-  };
-
-  if (preferConstructivePackage && packageReady) {
-    applyPackageSource();
-  } else if (orderReady) {
-    applyOrderSource();
   } else if (packageReady) {
-    applyPackageSource();
+    source = "constructive_package";
+    modelUrl = packageViewerUrl || null;
+    format = preview3dLoadFormat(packageFile);
+    layout = preview3dLayout(packageDetail);
   }
 
   if (!layout && packageReady) layout = preview3dLayout(packageDetail);

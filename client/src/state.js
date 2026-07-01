@@ -40,8 +40,6 @@ export const state = {
   operatorShowArchive: false,
   /** Підказки з /api/operator/queue (auto-select, auto-start) */
   operatorAutomation: null,
-  /** 3D збірка в панелі роботи — лише після скану або кнопки «3D модель». */
-  operatorAssembly3dOpen: false,
   /** queue | scan — режим панелі оператора */
   operatorViewMode: "queue",
   /** Зведення цеху з /api/production/floor */

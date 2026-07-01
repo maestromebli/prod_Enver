@@ -1237,11 +1237,6 @@ html.enver-native-shell .op-part-detail-3d {
   height: min(28vh, 200px);
 }
 
-.op-show-3d-btn {
-  margin: 0 0 12px;
-  align-self: flex-start;
-}
-
 .op-order-3d-loading {
   margin: 0;
   padding: 1rem 0;

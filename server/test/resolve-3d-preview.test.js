@@ -73,26 +73,6 @@ describe("resolve-3d-preview", () => {
     assert.equal(ctx.upgradeHint, null);
   });
 
-  it("resolve3dPreviewContext: preferConstructivePackage — пакет перед order-3d", () => {
-    const ctx = resolve3dPreviewContext({
-      preferConstructivePackage: true,
-      orderAsset: {
-        status: "READY",
-        webModelUrl: "/api/orders/1/3d/2/web-model",
-        conversionSource: "b3d_enver3_assembly",
-        webModelFormat: "glb"
-      },
-      packageDetail: {
-        files: [{ kind: "glb_model", originalName: "3d-preview.glb", previewLayout: "flat" }],
-        parts: [{ id: 1 }]
-      },
-      packageViewerUrl: "/api/positions/1/files/9"
-    });
-    assert.equal(ctx.source, "constructive_package");
-    assert.equal(ctx.modelUrl, "/api/positions/1/files/9");
-    assert.equal(ctx.layout, "flat");
-  });
-
   it("resolve3dPreviewContext: fallback на пакет", () => {
     const ctx = resolve3dPreviewContext({
       orderAsset: null,

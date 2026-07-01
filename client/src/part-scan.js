@@ -263,12 +263,8 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
   });
 
   detailEl.querySelector("[data-open-3d]")?.addEventListener("click", async () => {
-    const {
-      highlightOperatorOrder3dPart,
-      getOperatorOrder3dViewer,
-      openOperatorOrder3dWindow,
-      openOperatorOrder3d
-    } = await import("./operator-3d.js");
+    const { highlightOperatorOrder3dPart, getOperatorOrder3dViewer, openOperatorOrder3dWindow } =
+      await import("./operator-3d.js");
     const { bindScanPartDetail3d } = await import("./operator-scan-3d.js");
     const section = document.getElementById("operatorOrder3dSection");
 
@@ -277,8 +273,6 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
       section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
-
-    await openOperatorOrder3d();
 
     if (
       getOperatorOrder3dViewer() &&
@@ -290,7 +284,7 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
     }
 
     if (isOperatorClientPage()) {
-      await openOperatorOrder3dWindow();
+      openOperatorOrder3dWindow();
       return;
     }
 

@@ -1,7 +1,6 @@
 import { api, constructivePackageFileUrl, getStoredToken } from "./api.js";
 import { mountModelViewer, DEFAULT_PART_VIEWER_THEME } from "./part-viewer-mount.js";
 import { resolve3dPreviewContext } from "@enver/shared/production/resolve-3d-preview.js";
-import { findPackagePreview3dFile } from "@enver/shared/production/constructive-package.js";
 import { resolvePartHighlightMesh } from "@enver/shared/production/bazis-operation-code.js";
 import { order3dFileUrl } from "./order-3d/order-3d-api.js";
 import {
@@ -21,41 +20,11 @@ import {
 import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 import { escapeHtml } from "./utils.js";
 import { renderEnver3dToolbarHtml, bindEnver3dToolbar } from "./3d/enver-3d-toolbar.js";
-import { state } from "./state.js";
-
-export function syncOperatorShow3dBtn() {
-  const showBtn = document.getElementById("operatorShow3dBtn");
-  if (!showBtn) return;
-  const posSelected = Boolean(state.operatorSelectedPositionId);
-  showBtn.hidden = !posSelected || state.operatorAssembly3dOpen;
-}
-
-/** Після ререндеру DOM — прибрати viewer, не монтувати 3D автоматично. */
-export function resetOperatorOrder3dPanel() {
-  destroyOperatorOrder3d();
-  syncOperatorShow3dBtn();
-}
-
-/** Закрити 3D збірку (зміна завдання, скидання). */
-export function closeOperatorAssembly3d() {
-  state.operatorAssembly3dOpen = false;
-  resetOperatorOrder3dPanel();
-}
-
-/** Відновити 3D після ререндеру, якщо оператор уже відкрив її (скан / кнопка). */
-export async function restoreOperatorOrder3dIfNeeded() {
-  if (!state.operatorAssembly3dOpen || !state.operatorSelectedPositionId) {
-    syncOperatorShow3dBtn();
-    return;
-  }
-  await openOperatorOrder3d({ silent: true });
-}
 
 let viewerInstance = null;
 let order3dOrderId = null;
 let order3dPositionId = null;
 let toolbarAbort = null;
-let bindGeneration = 0;
 
 export function destroyOperatorOrder3d() {
   toolbarAbort?.abort();
@@ -79,7 +48,7 @@ export function getOperatorOrder3dViewer() {
   return viewerInstance;
 }
 
-async function loadOperator3dSourceData(orderId, positionId) {
+async function loadOperator3dContext(orderId, positionId) {
   let orderAsset = null;
   let packageDetail = null;
 
@@ -99,7 +68,9 @@ async function loadOperator3dSourceData(orderId, positionId) {
   }
 
   let packageViewerUrl = null;
-  const previewFile = packageDetail?.package?.id ? findPackagePreview3dFile(packageDetail) : null;
+  const previewFile = packageDetail?.package?.id
+    ? resolve3dPreviewContext({ orderAsset, packageDetail }).packageFile
+    : null;
   if (previewFile && packageDetail?.package?.id && positionId) {
     packageViewerUrl = constructivePackageFileUrl(
       positionId,
@@ -108,54 +79,15 @@ async function loadOperator3dSourceData(orderId, positionId) {
     );
   }
 
-  return { orderAsset, packageDetail, packageViewerUrl };
-}
+  const ctx = resolve3dPreviewContext({ orderAsset, packageDetail, packageViewerUrl });
+  if (!ctx.available) return null;
 
-function finalizeOperator3dContext(ctx, orderId, orderAsset, packageDetail) {
-  if (!ctx?.available) return null;
   if (ctx.source === "order_3d" && orderAsset) {
     ctx.modelUrl = order3dFileUrl(orderId, orderAsset.id, "web-model");
   }
+
   ctx.parts = packageDetail?.parts || [];
   return ctx;
-}
-
-function buildOperator3dContexts({ orderAsset, packageDetail, packageViewerUrl, orderId }) {
-  const primary = finalizeOperator3dContext(
-    resolve3dPreviewContext({
-      orderAsset,
-      packageDetail,
-      packageViewerUrl,
-      preferConstructivePackage: true
-    }),
-    orderId,
-    orderAsset,
-    packageDetail
-  );
-  const alternate = finalizeOperator3dContext(
-    resolve3dPreviewContext({
-      orderAsset,
-      packageDetail,
-      packageViewerUrl,
-      preferConstructivePackage: false
-    }),
-    orderId,
-    orderAsset,
-    packageDetail
-  );
-  const fallback =
-    alternate?.modelUrl && alternate.modelUrl !== primary?.modelUrl ? alternate : null;
-  return { primary, fallback };
-}
-
-async function loadOperator3dContext(orderId, positionId) {
-  const source = await loadOperator3dSourceData(orderId, positionId);
-  return buildOperator3dContexts({ ...source, orderId }).primary;
-}
-
-async function loadOperator3dContexts(orderId, positionId) {
-  const source = await loadOperator3dSourceData(orderId, positionId);
-  return buildOperator3dContexts({ ...source, orderId });
 }
 
 /** Prefetch 3D моделі при виборі завдання — швидше відкриття після скану. */
@@ -353,8 +285,7 @@ async function handleAssemblyPartPick(part) {
   await showOperatorPartDetail(payload);
 }
 
-export async function openOperatorOrder3dWindow() {
-  await openOperatorOrder3d();
+export function openOperatorOrder3dWindow() {
   const section = document.getElementById("operatorOrder3dSection");
   const container = document.getElementById("operatorOrder3dViewer");
   section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -375,48 +306,33 @@ export async function openOperatorOrder3dWindow() {
   return openOrderViewerWindow(order3dOrderId, order3dPositionId);
 }
 
-export async function openOperatorOrder3d({ silent = false } = {}) {
-  const gen = ++bindGeneration;
+export async function bindOperatorOrder3d() {
+  destroyOperatorOrder3d();
 
   const mount = document.getElementById("operatorOrder3dMount");
   const section = document.getElementById("operatorOrder3dSection");
   const openBtn = document.getElementById("operatorOpen3dBtn");
-  if (!mount || !section) return false;
+  if (!mount || !section) return;
 
   const orderId = Number(mount.dataset.orderId) || 0;
   const positionId = Number(mount.dataset.positionId) || 0;
   if (!orderId) {
-    if (gen === bindGeneration) {
-      state.operatorAssembly3dOpen = false;
-      destroyOperatorOrder3d();
-      syncOperatorShow3dBtn();
-    }
-    if (!silent) toastError("3D модель недоступна для цього завдання");
-    return false;
+    section.hidden = true;
+    return;
   }
-
-  destroyOperatorOrder3d();
-  if (gen !== bindGeneration) return false;
 
   void prefetchOperatorOrder3d(orderId, positionId);
 
   section.hidden = false;
   mount.innerHTML = `<p class="op-order-3d-loading enver-meta">Завантаження 3D…</p>`;
   if (openBtn) openBtn.hidden = true;
-  syncOperatorShow3dBtn();
 
   try {
-    const { primary, fallback } = await loadOperator3dContexts(orderId, positionId);
-    if (gen !== bindGeneration) return false;
-
-    let ctx = primary;
+    const ctx = await loadOperator3dContext(orderId, positionId);
     if (!ctx?.modelUrl) {
-      state.operatorAssembly3dOpen = false;
       section.hidden = true;
       mount.innerHTML = "";
-      syncOperatorShow3dBtn();
-      if (!silent) toastError("3D модель недоступна для цього завдання");
-      return false;
+      return;
     }
 
     order3dOrderId = orderId;
@@ -433,55 +349,29 @@ export async function openOperatorOrder3d({ silent = false } = {}) {
 
     const container = document.getElementById("operatorOrder3dViewer");
     const token = getStoredToken();
-    await warmPartViewerChunk();
-    if (gen !== bindGeneration) return false;
-
-    const mountViewer = async (viewerCtx) => {
-      const modelUrl = resolveViewerModelUrl(viewerCtx.modelUrl, token);
-      void prefetchViewerModel(modelUrl, token);
-      return mountModelViewer(container, {
-        url: modelUrl,
-        token,
-        format: viewerCtx.format,
-        parts: viewerCtx.parts,
-        theme: DEFAULT_PART_VIEWER_THEME,
-        viewerOptions: {
-          pickable: true,
-          onPartSelect: (part) => {
-            if (!part) return;
-            void handleAssemblyPartPick(part);
-          }
-        }
-      });
-    };
+    const modelUrl = resolveViewerModelUrl(ctx.modelUrl, token);
+    void prefetchViewerModel(modelUrl, token);
 
     setOperatorPartDetailModelContext({
-      modelUrl: resolveViewerModelUrl(ctx.modelUrl, token),
+      modelUrl,
       format: ctx.format,
       parts: ctx.parts
     });
 
-    try {
-      viewerInstance = await mountViewer(ctx);
-    } catch (err) {
-      if (!fallback?.modelUrl) throw err;
-      ctx = fallback;
-      updateOperator3dBadge(section, ctx);
-      viewerInstance = await mountViewer(ctx);
-      setOperatorPartDetailModelContext({
-        modelUrl: resolveViewerModelUrl(ctx.modelUrl, token),
-        format: ctx.format,
-        parts: ctx.parts
-      });
-    }
-
-    if (gen !== bindGeneration) {
-      viewerInstance?.destroy?.();
-      viewerInstance = null;
-      return false;
-    }
-
-    if (!viewerInstance) throw new Error("3D viewer не ініціалізовано");
+    viewerInstance = await mountModelViewer(container, {
+      url: modelUrl,
+      token,
+      format: ctx.format,
+      parts: ctx.parts,
+      theme: DEFAULT_PART_VIEWER_THEME,
+      viewerOptions: {
+        pickable: true,
+        onPartSelect: (part) => {
+          if (!part) return;
+          void handleAssemblyPartPick(part);
+        }
+      }
+    });
 
     bindOperator3dToolbar(section, viewerInstance);
 
@@ -490,18 +380,10 @@ export async function openOperatorOrder3d({ silent = false } = {}) {
       openBtn.textContent = isNativeOperatorShell() ? "Повний 3D" : "На весь екран";
     }
 
-    state.operatorAssembly3dOpen = true;
-    syncOperatorShow3dBtn();
     void reapplyPendingOperatorScan3d();
-    return true;
   } catch {
-    if (gen !== bindGeneration) return false;
-    state.operatorAssembly3dOpen = false;
     section.hidden = true;
     mount.innerHTML = "";
     viewerInstance = null;
-    syncOperatorShow3dBtn();
-    if (!silent) toastError("Не вдалося завантажити 3D модель");
-    return false;
   }
 }

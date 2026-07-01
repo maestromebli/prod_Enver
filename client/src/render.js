@@ -10,7 +10,7 @@ import {
 import { historyTab } from "./history.js";
 import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js";
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
-import { resetOperatorOrder3dPanel, restoreOperatorOrder3dIfNeeded } from "./operator-3d.js";
+import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
 import { syncOperatorBuildChip, redirectPureOperatorToClientPage } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
@@ -220,11 +220,11 @@ export function renderApp(options = {}) {
       return;
     }
     document.querySelector("#content").innerHTML = renderOperatorView();
+    destroyOperatorOrder3d();
     bindOperatorQueueSwipe();
     bindOperatorScanPanel(state.operatorStage);
     syncOperatorClientScanButtons(state.operatorStage);
-    resetOperatorOrder3dPanel();
-    void restoreOperatorOrder3dIfNeeded();
+    void bindOperatorOrder3d();
     syncOperatorBuildChip("operatorBuildChipInline");
     if (!options.preserveScroll) {
       window.scrollTo(0, 0);

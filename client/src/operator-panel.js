@@ -647,9 +647,6 @@ export function renderOperatorView() {
             ${renderStageEstimateBlock()}
             ${renderJobMeta()}
             ${renderOperatorNextAction(pos, field)}
-            <button type="button" class="btn btn-sm op-show-3d-btn" id="operatorShow3dBtn" hidden>
-              3D модель
-            </button>
             <section class="op-order-3d op-order-3d--split" id="operatorOrder3dSection" hidden>
               <div class="op-order-3d-head">
                 <h3 class="op-section-title">3D модель</h3>
@@ -765,7 +762,6 @@ export function bindOperatorQueueSwipe() {
     const ctl = createSwipeActions(wrap, {
       onSwipeRight: async () => {
         state.operatorSelectedPositionId = id;
-        state.operatorAssembly3dOpen = false;
         await loadOperatorJobDetail(id);
         if (canStart()) {
           document.querySelector("#operatorStartBtn")?.click();
@@ -776,7 +772,6 @@ export function bindOperatorQueueSwipe() {
       },
       onSwipeLeft: () => {
         state.operatorSelectedPositionId = id;
-        state.operatorAssembly3dOpen = false;
         void loadOperatorJobDetail(id).then(() => {
           openProblemSheet();
           operatorOnChange();
@@ -801,14 +796,9 @@ export function bindOperatorActions(onChange) {
       handleOperatorScanBack();
       return;
     }
-    if (e.target.closest("#operatorShow3dBtn")) {
-      const { openOperatorOrder3d } = await import("./operator-3d.js");
-      await openOperatorOrder3d();
-      return;
-    }
     if (e.target.closest("#operatorOpen3dBtn")) {
       const { openOperatorOrder3dWindow } = await import("./operator-3d.js");
-      await openOperatorOrder3dWindow();
+      openOperatorOrder3dWindow();
       return;
     }
     if (!e.target.closest(".operator-shell")) return;
@@ -848,7 +838,6 @@ export function bindOperatorActions(onChange) {
       if (wantArchive === state.operatorShowArchive) return;
       state.operatorShowArchive = wantArchive;
       state.operatorSelectedPositionId = null;
-      state.operatorAssembly3dOpen = false;
       try {
         await loadOperatorData();
       } catch (err) {
@@ -866,10 +855,7 @@ export function bindOperatorActions(onChange) {
       if (!nextStage) return;
       const seq = ++operatorStageSwitchSeq;
       state.operatorStage = nextStage;
-      if (!hasBlockingSession()) {
-        state.operatorSelectedPositionId = null;
-        state.operatorAssembly3dOpen = false;
-      }
+      if (!hasBlockingSession()) state.operatorSelectedPositionId = null;
       try {
         await loadOperatorData();
       } catch (err) {
@@ -889,7 +875,6 @@ export function bindOperatorActions(onChange) {
       )
         return;
       state.operatorSelectedPositionId = Number(posBtn.dataset.selectPosition);
-      state.operatorAssembly3dOpen = false;
       await loadOperatorJobDetail(state.operatorSelectedPositionId);
       await maybeAutoStartOperatorJob({
         onMutation: async (result) => afterOperatorMutation(result, operatorOnChange)
@@ -954,7 +939,6 @@ export function bindOperatorActions(onChange) {
         successMessage: `Задачу завершено. ${finishSuccessMessage(stageKey)}`,
         onSuccess: async (result) => {
           state.operatorSelectedPositionId = null;
-          state.operatorAssembly3dOpen = false;
           await new Promise((r) => setTimeout(r, card ? 220 : 0));
           await afterOperatorMutation(result, operatorOnChange, { autoAdvance: true });
         }
