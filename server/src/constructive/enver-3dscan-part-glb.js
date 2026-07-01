@@ -1,4 +1,4 @@
-import { buildPreviewGlbFromPanels } from "./project-glb-builder.js";
+import { buildPreviewGlbFromPanels, buildGlbFromMeshGeometry } from "./project-glb-builder.js";
 import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 import { findEnver3dscanJsonFileRow } from "./b3d-auto-3dscan.js";
 import { getPackageFiles } from "./constructive-package-service.js";
@@ -7,6 +7,7 @@ import {
   findScanPanelForPart,
   layoutScanPanelForDetail
 } from "../../../shared/production/enver-3dscan-part-layout.js";
+import { extrudeContourMesh } from "../../../shared/production/enver-3dscan-contour-mesh.js";
 
 function pkgStoragePath(file) {
   return file?.storage_path || file?.storagePath || "";
@@ -51,13 +52,36 @@ export async function fusePackageScan(packageId) {
 /** GLB однієї деталі з панелі ENVER_3dscan (або розмірів part). */
 export function buildPartDetailGlbFromScanPanel(panel, { part = null, productName = "" } = {}) {
   const laidOut = layoutScanPanelForDetail(panel, part);
+  const meshName = panel.meshName || `panel-${laidOut.code}`;
+  const label = productName || laidOut.partName || meshName;
+
+  if (panel.contourMm?.length >= 3) {
+    const extruded = extrudeContourMesh(panel.contourMm, laidOut.thicknessMm);
+    if (extruded) {
+      const built = buildGlbFromMeshGeometry({
+        name: meshName,
+        positions: extruded.positions,
+        indices: extruded.indices,
+        colorFactor: panel.colorFactor ?? laidOut.colorFactor,
+        translation: [0, extruded.height / 2, 0],
+        generator: "enver-part-detail-contour"
+      });
+      return {
+        buffer: built.buffer,
+        meshName,
+        panelCount: 1,
+        code: laidOut.code
+      };
+    }
+  }
+
   const built = buildPreviewGlbFromPanels([laidOut], {
-    productName: productName || laidOut.partName || `panel-${laidOut.code}`,
+    productName: label,
     previewLayout: "part_detail"
   });
   return {
     buffer: built.buffer,
-    meshName: panel.meshName || `panel-${laidOut.code}`,
+    meshName,
     panelCount: 1,
     code: laidOut.code
   };

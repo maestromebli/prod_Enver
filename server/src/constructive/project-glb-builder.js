@@ -147,6 +147,126 @@ function align4(n) {
   return (n + 3) & ~3;
 }
 
+function vec3Bounds(positions) {
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let a = 0; a < 3; a++) {
+      const v = positions[i + a];
+      min[a] = Math.min(min[a], v);
+      max[a] = Math.max(max[a], v);
+    }
+  }
+  return { min, max };
+}
+
+/** GLB з довільної геометрії (контур деталі, одна mesh). */
+export function buildGlbFromMeshGeometry({
+  name = "panel",
+  positions,
+  indices,
+  colorFactor = null,
+  translation = [0, 0, 0],
+  generator = "enver-part-detail-contour"
+} = {}) {
+  if (!positions?.length || !indices?.length) {
+    const err = new Error("Порожня геометрія для GLB");
+    err.code = "EMPTY_MESH";
+    throw err;
+  }
+
+  const posBytes = positions.byteLength;
+  const idxBytes = indices.byteLength;
+  const bin = Buffer.alloc(align4(posBytes + idxBytes));
+  Buffer.from(positions.buffer, positions.byteOffset, posBytes).copy(bin, 0);
+  Buffer.from(indices.buffer, indices.byteOffset, idxBytes).copy(bin, posBytes);
+
+  const bounds = vec3Bounds(positions);
+  const vertCount = positions.length / 3;
+
+  const gltf = {
+    asset: { version: "2.0", generator },
+    scene: 0,
+    scenes: [{ name, nodes: [0] }],
+    nodes: [
+      {
+        name,
+        mesh: 0,
+        translation: [translation[0], translation[1], translation[2]]
+      }
+    ],
+    meshes: [
+      {
+        name,
+        primitives: [{ attributes: { POSITION: 0 }, indices: 1, material: 0, mode: 4 }]
+      }
+    ],
+    materials: [
+      {
+        name,
+        pbrMetallicRoughness: {
+          baseColorFactor: colorFactor || panelBaseColorFactor(name, 0),
+          metallicFactor: 0.05,
+          roughnessFactor: 0.82
+        }
+      }
+    ],
+    accessors: [
+      {
+        bufferView: 0,
+        componentType: 5126,
+        count: vertCount,
+        type: "VEC3",
+        min: bounds.min,
+        max: bounds.max
+      },
+      {
+        bufferView: 1,
+        componentType: 5123,
+        count: indices.length,
+        type: "SCALAR"
+      }
+    ],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: posBytes, target: 34962 },
+      { buffer: 0, byteOffset: posBytes, byteLength: idxBytes, target: 34963 }
+    ],
+    buffers: [{ byteLength: bin.length }]
+  };
+
+  const json = Buffer.from(JSON.stringify(gltf));
+  const jsonPad = align4(json.length);
+  const jsonChunk = Buffer.alloc(jsonPad);
+  json.copy(jsonChunk);
+
+  const binPad = align4(bin.length);
+  const binChunk = Buffer.alloc(binPad);
+  bin.copy(binChunk);
+
+  const total = 12 + 8 + jsonPad + 8 + binPad;
+  const out = Buffer.alloc(total);
+  let o = 0;
+  out.writeUInt32LE(0x46546c67, o);
+  o += 4;
+  out.writeUInt32LE(2, o);
+  o += 4;
+  out.writeUInt32LE(total, o);
+  o += 4;
+  out.writeUInt32LE(jsonPad, o);
+  o += 4;
+  out.writeUInt32LE(0x4e4f534a, o);
+  o += 4;
+  jsonChunk.copy(out, o);
+  o += jsonPad;
+  out.writeUInt32LE(binPad, o);
+  o += 4;
+  out.writeUInt32LE(0x004e4942, o);
+  o += 4;
+  binChunk.copy(out, o);
+
+  return { buffer: out, panelCount: 1 };
+}
+
 function gltfNodeFromPanel(panel, meshIndex) {
   const node = {
     name: panel.code,
@@ -204,7 +324,9 @@ export function buildPreviewGlbFromPanels(
       generator:
         previewLayout === "assembly"
           ? "enver-project-preview-assembly"
-          : "enver-project-preview-flat"
+          : previewLayout === "part_detail"
+            ? "enver-part-detail-box"
+            : "enver-project-preview-flat"
     },
     scene: 0,
     scenes: [{ name: productName || "preview", nodes: nodes.map((_, i) => i) }],

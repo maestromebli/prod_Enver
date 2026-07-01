@@ -50,7 +50,8 @@ export function applyPartDetailViewToViewer(
 
   if (usePartModel) {
     viewer.showPartDetail?.(part, target);
-    viewer.fitToView?.();
+    if (viewer.fitPartDetailView) viewer.fitPartDetailView();
+    else viewer.setCameraPreset?.("top");
     return true;
   }
 

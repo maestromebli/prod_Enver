@@ -786,16 +786,31 @@ export function createPartViewer(
   }
 
   function frameMesh(mesh) {
-    mesh.updateWorldMatrix(true, true);
-    const box = new THREE.Box3().setFromObject(mesh);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 0.05);
-    camera.position.copy(center).add(new THREE.Vector3(maxDim * 1.1, maxDim * 0.9, maxDim * 1.3));
+    fitPartDetailView(mesh);
+  }
+
+  /** Камера вздовж найтоншої осі — плоска деталь як у Bazis (лицьом, не ребром). */
+  function fitPartDetailView(object = highlightMesh || model) {
+    const bounds = modelBounds(object);
+    if (!bounds) return;
+    const { center, size } = bounds;
+    const axes = [
+      { key: "x", len: size.x, dir: new THREE.Vector3(1, 0, 0) },
+      { key: "y", len: size.y, dir: new THREE.Vector3(0, 1, 0) },
+      { key: "z", len: size.z, dir: new THREE.Vector3(0, 0, 1) }
+    ].sort((a, b) => a.len - b.len);
+
+    const thin = axes[0];
+    const faceSpan = Math.max(axes[1].len, axes[2].len, 0.05);
+    const mid = axes[1];
+
+    camera.position.copy(center).add(thin.dir.clone().multiplyScalar(faceSpan * 1.2));
+    camera.position.add(mid.dir.clone().multiplyScalar(faceSpan * 0.08));
     controls.target.copy(center);
-    controls.minDistance = Math.max(0.02, maxDim * 0.15);
-    controls.maxDistance = Math.max(5, maxDim * 8);
+    controls.minDistance = Math.max(0.02, faceSpan * 0.12);
+    controls.maxDistance = Math.max(8, faceSpan * 14);
     controls.update();
+    if (drawingModeEnabled) syncOrthoFrustum(bounds);
   }
 
   function meshesForPart(part) {
@@ -1694,10 +1709,11 @@ export function createPartViewer(
       const applied = applyPendingDetailView();
       if (!applied) {
         model.traverse((child) => {
-          if (isRenderableMesh(child)) child.visible = false;
+          if (isRenderableMesh(child)) child.visible = true;
         });
         updatePickHint();
       }
+      fitPartDetailView(model);
     } else {
       fitToView(model);
       updatePickHint();
@@ -1810,6 +1826,9 @@ export function createPartViewer(
     },
     resetCamera,
     fitToView,
+    fitPartDetailView(object) {
+      fitPartDetailView(object);
+    },
     zoomIn() {
       zoomBy(0.82);
     },
