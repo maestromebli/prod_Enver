@@ -91,6 +91,14 @@ async function lookupBarcode(code) {
 }
 
 function renderMappingStatusNotice(data) {
+  if (data.meshHighlightWarning) {
+    const expected = data.model?.resolvedMeshName || data.model?.resolvedNodeId || null;
+    const hint = expected ? ` Очікуваний mesh: «${expected}».` : "";
+    return `<p class="part-scan-warning">${escapeHtml(data.meshHighlightWarning)}${
+      hint ? `<br><span class="enver-meta">${escapeHtml(hint.trim())}</span>` : ""
+    }</p>`;
+  }
+
   const status = data.model?.mappingStatus;
   if (status === "exact") {
     return `<p class="part-scan-mapping part-scan-mapping--exact enver-meta">3D звʼязано</p>`;
@@ -113,9 +121,6 @@ function renderMappingStatusNotice(data) {
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
   const p = data.part;
   const mappingNotice = renderMappingStatusNotice(data);
-  const meshWarning = data.meshHighlightWarning
-    ? `<p class="part-scan-warning">${escapeHtml(data.meshHighlightWarning)}</p>`
-    : "";
   const pdfUrl = data.model?.assemblyPdfUrl
     ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
     : null;
@@ -145,7 +150,6 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
         ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
         ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg" data-open-3d>Повний 3D</button>` : ""}
         ${mappingNotice}
-        ${meshWarning}
         ${
           data.scanProgress
             ? `<p class="part-scan-progress enver-meta">Скановано ${data.scanProgress.scannedDistinct || 0} / ${data.scanProgress.totalParts || 0} деталей</p>`
@@ -177,8 +181,7 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
             : ""
         }
         ${mappingNotice}
-        ${meshWarning}
-        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D на панелі роботи — натисніть кнопку нижче для підсвітки деталі</p>` : ""}
+        ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D на панелі роботи — натисніть кнопку нижче для підсвітку деталі</p>` : ""}
       </div>
       <div class="part-detail-actions">
         ${cncActions}
@@ -405,6 +408,17 @@ async function handleScan(
       const scan3d = await bindScanPartDetail3d(null, data);
       if (scan3d?.meshHighlightWarning) {
         data.meshHighlightWarning = scan3d.meshHighlightWarning;
+      }
+      if (scan3d?.assemblyResult && data.model) {
+        data.model = {
+          ...data.model,
+          viewerVerified: Boolean(scan3d.assemblyResult.ok),
+          mappingStatus: scan3d.assemblyResult.ok
+            ? scan3d.assemblyResult.mappingStatus || data.model.mappingStatus
+            : scan3d.assemblyResult.mappingStatus === "exact"
+              ? "fallback"
+              : scan3d.assemblyResult.mappingStatus || data.model.mappingStatus
+        };
       }
     }
 

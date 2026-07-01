@@ -230,7 +230,7 @@ export async function showOperatorPartDetail(data) {
 }
 
 const MESH_NOT_FOUND_WARNING =
-  "3D-модель відкрита, але ця деталь не знайдена в збірці. Перевірте mapping `.project` + `.b3d`.";
+  "3D-модель відкрита, але ця деталь не знайдена в збірці. Перевірте mapping `.project` + `.b3d` або натисніть «Перевірити 3D-звʼязку» у пакеті конструктива.";
 
 /** Підсвітити деталь на загальній 3D-моделі в панелі роботи. */
 export async function applyScanToAssembly3d(data) {

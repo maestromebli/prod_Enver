@@ -1524,6 +1524,39 @@ export function createPartViewer(
     return found;
   }
 
+  /** Останній fallback: часткове збігання імені mesh з ключами деталі. */
+  function findMeshByPartKeys(part) {
+    if (!model || !part) return null;
+    const needles = [...partCatalogLookupKeys(part)];
+    if (!needles.length) return null;
+
+    let best = null;
+    let bestScore = 0;
+    model.traverse((child) => {
+      if (!isRenderableMesh(child)) return;
+      const name = String(child.name || "").trim();
+      const nameLower = name.toLowerCase();
+      const nameKeys = meshNameLookupKeys(name);
+
+      for (const needle of needles) {
+        const n = String(needle || "").trim();
+        if (!n) continue;
+        const nLower = n.toLowerCase();
+        let score = 0;
+        if (nameKeys.has(n) || nameKeys.has(nLower)) score = 100 + n.length;
+        else if (nameLower === nLower) score = 90 + n.length;
+        else if (nameLower.includes(nLower) || nLower.includes(nameLower)) score = 40 + n.length;
+
+        if (score > bestScore) {
+          bestScore = score;
+          best = child;
+        }
+      }
+    });
+
+    return bestScore >= 40 ? best : null;
+  }
+
   function isRenderableMesh(child) {
     return child.isMesh && !String(child.name || "").endsWith("-edges");
   }
@@ -1712,9 +1745,13 @@ export function createPartViewer(
     if (fromHint) return fromHint;
 
     const targets = meshesForPart(part);
-    if (targets.length) return targets[0];
+    if (targets.length === 1) return targets[0];
+    if (targets.length > 1) return targets[0];
 
-    return findMeshByPartNo(part.partNo || part.part_no);
+    const fromPartNo = findMeshByPartNo(part.partNo || part.part_no);
+    if (fromPartNo) return fromPartNo;
+
+    return findMeshByPartKeys(part);
   }
 
   /** Підсвітка деталі на загальному виробі + кріплення та вирізи кромки. */
@@ -1752,12 +1789,13 @@ export function createPartViewer(
       fitToView(model);
       const expected = hint.meshName || hint.nodeId || null;
       const mapping = resolvePartMappingStatus(part);
+      const staleExact = mapping.mappingStatus === "exact" && expected;
       return buildHighlightResult({
         ok: false,
         meshName: expected,
         nodeId: hint.nodeId || null,
         part,
-        mappingStatus: mapping.mappingStatus,
+        mappingStatus: staleExact ? "fallback" : mapping.mappingStatus,
         reason: expected ? "mesh_not_found" : "no_mapping_hint"
       });
     }
