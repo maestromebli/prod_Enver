@@ -9,7 +9,8 @@ import {
   resolveViewerModelUrl
 } from "./part-viewer-window.js";
 import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
-import { isNativeOperatorShell } from "./operator-native.js";
+import { isNativeOperatorShell, isOperatorClientPage } from "./operator-native.js";
+import { toastError } from "./toast.js";
 import {
   destroyOperatorPartDetailStrip,
   reapplyPendingOperatorScan3d,
@@ -256,10 +257,16 @@ export function highlightOperatorOrder3dPart(part, { cadGeometry = null } = {}) 
       reason: target?.meshName ? "mesh_not_found" : "no_mapping_hint"
     };
   }
-  const opened = highlightPartInViewerWindow(part, { cadGeometry });
-  return opened
-    ? { ok: true, meshName: null, reason: "popup" }
-    : { ok: false, meshName: null, reason: "popup_blocked" };
+  if (!viewerInstance) {
+    if (isOperatorClientPage()) {
+      return { ok: false, meshName: null, reason: "viewer_not_ready" };
+    }
+    const opened = highlightPartInViewerWindow(part, { cadGeometry });
+    return opened
+      ? { ok: true, meshName: null, reason: "popup" }
+      : { ok: false, meshName: null, reason: "popup_blocked" };
+  }
+  return { ok: false, meshName: null, reason: "viewer_not_ready" };
 }
 
 async function handleAssemblyPartPick(part) {
@@ -279,13 +286,22 @@ async function handleAssemblyPartPick(part) {
 }
 
 export function openOperatorOrder3dWindow() {
+  const section = document.getElementById("operatorOrder3dSection");
   const container = document.getElementById("operatorOrder3dViewer");
+  section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
   if (container?.requestFullscreen) {
     void container.requestFullscreen().catch(() => {
+      if (isOperatorClientPage()) {
+        toastError("Повноекранний режим недоступний — масштабуйте жестами на панелі 3D");
+        return;
+      }
       if (order3dOrderId) openOrderViewerWindow(order3dOrderId, order3dPositionId);
     });
     return container;
   }
+
+  if (isOperatorClientPage()) return section;
   if (!order3dOrderId) return null;
   return openOrderViewerWindow(order3dOrderId, order3dPositionId);
 }

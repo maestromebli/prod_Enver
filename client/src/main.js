@@ -831,6 +831,7 @@ async function bootstrap() {
 
     const persisted = loadPersistedUiState();
     const restoreNavigation = applyUiState(persisted);
+    if (redirectPureOperatorToClientPage()) return;
 
     if (restoreNavigation) {
       showLoginModal(false);

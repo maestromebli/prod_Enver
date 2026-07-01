@@ -1,7 +1,7 @@
 /** Відкриття 3D у окремому вікні (панель оператора, скан). */
 
 import { apiUrl } from "./api.js";
-import { isNativeOperatorShell } from "./operator-native.js";
+import { isNativeOperatorShell, isOperatorClientPage } from "./operator-native.js";
 
 const VIEWER_WINDOW_NAME = "enver-3d-viewer";
 const VIEWER_RETURN_KEY = "enver_viewer_return";
@@ -115,14 +115,14 @@ function stashViewerScanPayload(scanPayload, partId) {
 }
 
 export function openViewerWindow(params = {}, { preparedPopup = null, scanPayload = null } = {}) {
-  const href = buildViewerUrl(params);
-
-  if (isNativeOperatorShell()) {
-    markViewerReturnPath();
-    stashViewerScanPayload(scanPayload, params.partId);
-    window.location.assign(href);
+  // На operator.html / PWA / APK — лише inline 3D, не переходимо на viewer.html.
+  if (isOperatorClientPage()) {
     return null;
   }
+
+  const href = buildViewerUrl(params);
+  markViewerReturnPath();
+  stashViewerScanPayload(scanPayload, params.partId);
 
   let popup = preparedPopup && !preparedPopup.closed ? preparedPopup : null;
 
@@ -149,7 +149,6 @@ export function openViewerWindow(params = {}, { preparedPopup = null, scanPayloa
       viewerPopup = opened;
       return opened;
     }
-    window.location.assign(href);
     return null;
   }
 

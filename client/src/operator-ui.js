@@ -2,6 +2,7 @@
 
 import { isOperator } from "./auth.js";
 import { isNativeOperatorShell } from "./operator-native.js";
+import { state } from "./state.js";
 
 const BUILD_STORAGE_KEY = "enver_app_build";
 const INSTALLED_POLL_MS = 30_000;
@@ -63,10 +64,14 @@ export function setOperatorUiActive(active) {
   body.classList.toggle("enver-operator-ui", keepOperatorShell);
 }
 
-/** Операторів з index.html перенаправляє на /operator.html — той самий UI, що PWA/APK. */
+/** Операторський UI з index.html перенаправляє на /operator.html — той самий UI, що PWA/APK. */
 export function redirectPureOperatorToClientPage() {
   if (document.body?.classList.contains("operator-client-mode")) return false;
-  if (!isOperator()) return false;
+  if (/\/operator\.html$/i.test(window.location.pathname)) return false;
+
+  const wantsOperatorUi = isOperator() || state.view === "operator";
+  if (!wantsOperatorUi) return false;
+
   const url = new URL("/operator.html", window.location.origin);
   const incoming = new URLSearchParams(window.location.search);
   for (const key of ["stage", "position"]) {

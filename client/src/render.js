@@ -12,7 +12,7 @@ import { renderOperatorView, bindOperatorQueueSwipe } from "./operator-panel.js"
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
 import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
 import { isOperatorStylesLoaded } from "./operator-styles.js";
-import { syncOperatorBuildChip } from "./operator-ui.js";
+import { syncOperatorBuildChip, redirectPureOperatorToClientPage } from "./operator-ui.js";
 import { renderPositionTableBody, renderPositionCards } from "./render-positions.js";
 import {
   bindOrderDetail,
@@ -212,6 +212,7 @@ export function renderApp(options = {}) {
     return;
   }
   if (state.view === "operator") {
+    if (redirectPureOperatorToClientPage()) return;
     if (!isOperatorStylesLoaded()) {
       void import("./operator-styles.js")
         .then(({ ensureOperatorStyles }) => ensureOperatorStyles())

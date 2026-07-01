@@ -13,6 +13,7 @@ import {
   normalizeBazisScanCode
 } from "@enver/shared/production/bazis-operation-code.js";
 import { openPartScanViewerWindow } from "./part-viewer-window.js";
+import { isOperatorClientPage } from "./operator-native.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { resolveViewerModelUrl } from "./part-viewer-window.js";
@@ -270,9 +271,17 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
   });
 
   detailEl.querySelector("[data-open-3d]")?.addEventListener("click", async () => {
-    const { highlightOperatorOrder3dPart, getOperatorOrder3dViewer } =
+    const { highlightOperatorOrder3dPart, getOperatorOrder3dViewer, openOperatorOrder3dWindow } =
       await import("./operator-3d.js");
+    const { bindScanPartDetail3d } = await import("./operator-scan-3d.js");
     const section = document.getElementById("operatorOrder3dSection");
+
+    if (data.model?.viewerUrl) {
+      await bindScanPartDetail3d(null, data);
+      section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+
     if (
       getOperatorOrder3dViewer() &&
       data.part &&
@@ -281,6 +290,12 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
       section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
+
+    if (isOperatorClientPage()) {
+      openOperatorOrder3dWindow();
+      return;
+    }
+
     openPartScanViewerWindow(data);
   });
 
