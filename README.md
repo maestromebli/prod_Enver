@@ -49,11 +49,11 @@ npm run dev               # сервер + Vite на :3000
 
 Один workflow `.github/workflows/ci-cd.yml`:
 
-| Тригер              | Кроки                                                                                                                               |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Pull request → main/test | `validate`, `build-android`, `build` (Docker без push)                                                |
-| Push до **main**    | `validate`, `build-android`, `build` (GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (production)                               |
-| Push до **test**    | `validate`, `build-android`, `build` (GHCR `test` + `${{ sha }}`), `migrate` (staging DB), `deploy-staging` (`/opt/enver-staging`) |
+| Тригер                   | Кроки                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Pull request → main/test | `validate`, `build-android`, `build` (Docker без push)                                                                             |
+| Push до **main**         | `validate`, `build-android`, `build` (GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (production)                              |
+| Push до **test**         | `validate`, `build-android`, `build` (GHCR `test` + `${{ sha }}`), `migrate` (staging DB), `deploy-staging` (`/opt/enver-staging`) |
 
 Потрібні GitHub Secrets:
 
