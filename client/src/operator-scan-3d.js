@@ -13,10 +13,7 @@ import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getOperatorOrder3dViewer, highlightOperatorOrder3dPart } from "./operator-3d.js";
 import { escapeHtml } from "./utils.js";
 import { renderMappingStatusBadge } from "./3d/enver-3d-space.js";
-import {
-  renderEnver3dToolbarHtml,
-  bindEnver3dToolbar
-} from "./3d/enver-3d-toolbar.js";
+import { renderEnver3dToolbarHtml, bindEnver3dToolbar } from "./3d/enver-3d-toolbar.js";
 
 let stripDetailViewer = null;
 let stripModelCtx = null;

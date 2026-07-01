@@ -27,10 +27,7 @@ import {
 import { takePrefetchedModelBuffer } from "./part-viewer-prefetch.js";
 import { escapeHtml } from "./utils.js";
 import { createCameraAnimator, EXTENDED_CAMERA_PRESETS } from "./3d/enver-3d-camera.js";
-import {
-  buildHighlightResult,
-  detectAmbiguousMeshes
-} from "./3d/enver-3d-selection.js";
+import { buildHighlightResult, detectAmbiguousMeshes } from "./3d/enver-3d-selection.js";
 import { tintMaterialForStatus, pulseEmissiveIntensity } from "./3d/enver-3d-materials.js";
 import { resolvePartMappingStatus } from "@enver/shared/production/part-model-mapping.js";
 
@@ -678,7 +675,8 @@ export function createPartViewer(
       center.clone().add(new THREE.Vector3(0, maxDim * 0.15, maxDim * 1.6)),
     left: (center, maxDim) =>
       center.clone().add(new THREE.Vector3(-maxDim * 1.6, maxDim * 0.15, 0)),
-    right: (center, maxDim) => center.clone().add(new THREE.Vector3(maxDim * 1.6, maxDim * 0.15, 0)),
+    right: (center, maxDim) =>
+      center.clone().add(new THREE.Vector3(maxDim * 1.6, maxDim * 0.15, 0)),
     back: EXTENDED_CAMERA_PRESETS.back
   };
 

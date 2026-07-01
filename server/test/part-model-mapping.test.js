@@ -72,6 +72,23 @@ describe("summarizeMappingDiagnostics", () => {
     assert.equal(summary.missingCount, 1);
     assert.ok(summary.unmappedParts.length >= 2);
   });
+
+  it("враховує ambiguousParts", () => {
+    const parts = [
+      { id: 1, partNo: "21", partName: "Бік 1", material: "ДСП" },
+      { id: 2, partNo: "21", partName: "Бік 2", material: "ДСП" }
+    ];
+    const summary = summarizeMappingDiagnostics(
+      parts,
+      [{ meshName: "B1-21" }],
+      [
+        { partId: 1, meshName: "B1-21" },
+        { partId: 2, meshName: "B1-21" }
+      ]
+    );
+    assert.equal(summary.ambiguousCount, 2);
+    assert.ok(summary.unmappedParts.every((p) => p.mappingStatus === "ambiguous"));
+  });
 });
 
 describe("autoMapManifestNodes (extended)", () => {

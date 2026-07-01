@@ -18,10 +18,7 @@ import {
 } from "./operator-scan-3d.js";
 import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 import { escapeHtml } from "./utils.js";
-import {
-  renderEnver3dToolbarHtml,
-  bindEnver3dToolbar
-} from "./3d/enver-3d-toolbar.js";
+import { renderEnver3dToolbarHtml, bindEnver3dToolbar } from "./3d/enver-3d-toolbar.js";
 
 let viewerInstance = null;
 let order3dOrderId = null;

@@ -124,9 +124,7 @@ export function resolvePartMappingStatus(part) {
  */
 export function summarizeMappingDiagnostics(parts = [], manifestNodes = [], ambiguousParts = []) {
   const nodeCount = manifestNodes.length;
-  const ambiguousByPartId = new Map(
-    (ambiguousParts || []).map((a) => [Number(a.partId), a])
-  );
+  const ambiguousByPartId = new Map((ambiguousParts || []).map((a) => [Number(a.partId), a]));
   let exact = 0;
   let fallback = 0;
   let missing = 0;

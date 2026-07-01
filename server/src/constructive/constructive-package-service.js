@@ -2012,11 +2012,7 @@ export async function computeModelMappingDiagnostics(packageId) {
 
   const nodes = detail.manifest?.manifestJson?.nodes || detail.manifest?.nodes || [];
   const preview = autoMapManifestNodes(detail.parts || [], nodes);
-  const summary = summarizeMappingDiagnostics(
-    detail.parts || [],
-    nodes,
-    preview.ambiguous || []
-  );
+  const summary = summarizeMappingDiagnostics(detail.parts || [], nodes, preview.ambiguous || []);
 
   const statusApi =
     summary.readinessStatus === "Готово"
@@ -2025,16 +2021,19 @@ export async function computeModelMappingDiagnostics(packageId) {
         ? "needs_review"
         : "not_ready";
 
-  const items = (summary.unmappedParts || []).map((row, idx) => {
-    const part = (detail.parts || []).find(
-      (p) => str(p.partNo || p.part_no) === row.partNo && str(p.partName) === row.partName
-    );
+  const items = (summary.unmappedParts || []).map((row) => {
+    const part = (detail.parts || []).find((p) => {
+      const partNo = String(p.partNo ?? p.part_no ?? "").trim();
+      const partName = String(p.partName ?? p.part_name ?? "").trim();
+      return partNo === row.partNo && partName === row.partName;
+    });
     return {
       partId: part?.id || null,
       partNo: row.partNo,
       partName: row.partName,
       mappingStatus: row.mappingStatus || "missing",
-      mappingConfidence: row.mappingStatus === "ambiguous" ? 30 : row.mappingStatus === "fallback" ? 55 : 0,
+      mappingConfidence:
+        row.mappingStatus === "ambiguous" ? 30 : row.mappingStatus === "fallback" ? 55 : 0,
       reason:
         row.mappingStatus === "ambiguous"
           ? "ambiguous_mesh"

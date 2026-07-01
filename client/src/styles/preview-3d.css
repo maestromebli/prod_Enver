@@ -197,3 +197,83 @@
   text-align: left;
   vertical-align: top;
 }
+
+/* ENVER 3D-простір — toolbar, бейджі, scan pulse */
+.enver-3d-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.enver-3d-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  font-weight: 600;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease;
+}
+
+.enver-3d-btn:active {
+  transform: scale(0.96);
+}
+
+.enver-3d-btn.is-active {
+  background: color-mix(in srgb, var(--op-accent, #245c3b) 18%, var(--surface, #fff));
+  border-color: color-mix(in srgb, var(--op-accent, #245c3b) 45%, transparent);
+}
+
+.enver-3d-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.enver-3d-badge--exact {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.enver-3d-badge--fallback {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.enver-3d-badge--ambiguous {
+  background: #fef3c7;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.enver-3d-badge--missing {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.part-viewer-wrap--scan-pulse {
+  animation: enver-scan-pulse 1.2s ease-out 1;
+}
+
+@keyframes enver-scan-pulse {
+  0% {
+    box-shadow: inset 0 0 0 0 color-mix(in srgb, #fbbf24 0%, transparent);
+  }
+  35% {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, #fbbf24 55%, transparent);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+.op-part-detail-mapping {
+  margin: 0.35rem 0 0.5rem;
+}
