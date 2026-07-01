@@ -30,7 +30,13 @@ export default [
   {
     files: ["client/**/*.js"],
     languageOptions: {
-      globals: { ...globals.browser, ...globals.serviceworker }
+      globals: { ...globals.browser, ...globals.serviceworker, __ENVER_APP_BUILD__: "readonly" }
+    }
+  },
+  {
+    files: ["client/vite.config.js"],
+    languageOptions: {
+      globals: { ...globals.node }
     }
   },
   {

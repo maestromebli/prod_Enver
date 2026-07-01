@@ -8,6 +8,10 @@ const INSTALLED_POLL_MS = 30_000;
 const BROWSER_POLL_MS = 5 * 60_000;
 const SW_UPDATE_POLL_MS = 60_000;
 
+/** Збірка, вшита в JS під час Vite build (Docker CI). */
+const PAGE_BUILD =
+  typeof __ENVER_APP_BUILD__ !== "undefined" ? String(__ENVER_APP_BUILD__ || "").trim() : "";
+
 let buildWatchStarted = false;
 let reloadingForBuild = false;
 
@@ -105,7 +109,10 @@ export async function reloadIfAppBuildChanged() {
   if (!build) return false;
 
   const stored = localStorage.getItem(BUILD_STORAGE_KEY);
-  if (stored && stored !== build) {
+  const pageStale = Boolean(PAGE_BUILD && PAGE_BUILD !== "dev" && PAGE_BUILD !== build);
+  const serverChanged = Boolean(stored && stored !== build);
+
+  if (pageStale || serverChanged) {
     reloadingForBuild = true;
     localStorage.setItem(BUILD_STORAGE_KEY, build);
     if ("serviceWorker" in navigator) {
@@ -116,12 +123,19 @@ export async function reloadIfAppBuildChanged() {
         /* ignore */
       }
     }
-    location.reload();
+    const url = new URL(location.href);
+    url.searchParams.set("_b", build.slice(0, 12));
+    location.replace(`${url.pathname}${url.search}${url.hash}`);
     return true;
   }
 
   localStorage.setItem(BUILD_STORAGE_KEY, build);
   return false;
+}
+
+/** Версія JS, що зараз виконується в браузері/WebView. */
+export function getLoadedAppBuildLabel() {
+  return PAGE_BUILD || null;
 }
 
 /** Для Android WebView: виклик з onResume через window.__enverCheckForUpdates. */

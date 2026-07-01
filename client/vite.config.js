@@ -8,6 +8,9 @@ const repoRoot = path.resolve(__dirname, "..");
 /** Лише якщо запускають окремо: npm run dev --prefix client → проксі на :3000 */
 export default defineConfig({
   publicDir: "public",
+  define: {
+    __ENVER_APP_BUILD__: JSON.stringify(process.env.APP_BUILD_SHA || "dev")
+  },
   resolve: {
     alias: {
       "@enver/shared": path.join(repoRoot, "shared")

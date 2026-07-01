@@ -252,6 +252,11 @@ async function startOperatorApp() {
   bindOperatorHeaderMenu();
   watchAppBuildUpdates();
   void warmPartViewerChunk();
+  const bootUrl = new URL(location.href);
+  if (bootUrl.searchParams.has("_b")) {
+    bootUrl.searchParams.delete("_b");
+    window.history.replaceState({}, "", `${bootUrl.pathname}${bootUrl.search}${bootUrl.hash}`);
+  }
   if (await reloadIfAppBuildChanged()) return;
   await bootstrap();
   registerOperatorServiceWorker();
