@@ -946,6 +946,8 @@ body.view-operator .app {
   color: #fff;
   background: linear-gradient(145deg, #2563eb, #1d4ed8);
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  min-height: 64px;
+  font-size: 1.0625rem;
 }
 
 .op-action-btn--start:not(:disabled):hover {

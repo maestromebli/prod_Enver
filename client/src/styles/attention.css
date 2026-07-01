@@ -311,14 +311,24 @@
 
 .op-advance-cta {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 8px;
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 12px 18px;
+  min-height: 52px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.12);
   color: inherit;
-  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.enver-operator-ui .op-advance-cta {
+  min-height: 56px;
+  padding: 14px 20px;
+  font-size: 1.0625rem;
 }
 
 .op-advance-cta:hover {

@@ -128,7 +128,6 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
   const useInline3d = Boolean(data.model?.viewerUrl);
   const cncActions = showCncActions
     ? `
-        <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="finish">Готово</button>
         <button type="button" class="btn btn-lg btn-danger" data-cnc-action="problem">Проблема</button>`
     : "";
