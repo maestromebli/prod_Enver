@@ -31,6 +31,10 @@ import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
 import { renderPackage3dStatusBlock } from "./preview-3d-ui.js";
 import {
+  patchModelMappingDiagnosticsBlock,
+  renderModelMappingDiagnosticsBlock
+} from "./constructive-mapping-diagnostics-ui.js";
+import {
   preview3dLayout,
   preview3dLayoutLabel
 } from "@enver/shared/production/constructive-package.js";
@@ -713,6 +717,9 @@ export function renderConstructivePackageBlock(
       ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
       ${detail ? renderPackageReadinessChecklist(detail) : ""}
       ${renderPackage3dStatusBlock(detail)}
+      <div class="cp-mapping-diagnostics-mount" data-cp-mapping-diagnostics-mount>
+        ${detail?.package?.id && detail?.parts?.length ? renderModelMappingDiagnosticsBlock(null) : ""}
+      </div>
       <div class="constructive-actions constructive-actions--cta cp-actions">
         <button type="button" class="btn btn-sm" data-cp-approve-btn ${detail?.parts?.length && ["parsed", "needs_review"].includes(status) ? "" : "disabled"}>Підтвердити пакет</button>
         <button type="button" class="btn btn-sm" id="openConstructiveReviewBtn">Перевірка конструктива</button>
@@ -768,6 +775,18 @@ function storePackagePanelContext(positionId, ctx) {
 
 function getPackagePanelContext(positionId) {
   return packagePanelContextsByPosition.get(Number(positionId)) || null;
+}
+
+async function refreshMappingDiagnosticsMount(block, position, detail) {
+  const mount = block?.querySelector("[data-cp-mapping-diagnostics-mount]");
+  const packageId = detail?.package?.id;
+  if (!mount || !position?.id || !packageId || !detail?.parts?.length) return;
+  try {
+    const diagnostics = await api.getModelMappingDiagnostics(position.id, packageId);
+    patchModelMappingDiagnosticsBlock(mount, diagnostics);
+  } catch {
+    patchModelMappingDiagnosticsBlock(mount, null);
+  }
 }
 
 function patchConstructiveActionButtons(block, detail, { hideProcurement = false } = {}) {
@@ -993,6 +1012,7 @@ function bindConstructivePackageActions(root, position, liveCtx, { signal, notif
           } else {
             toastSuccess("Пакет розібрано");
           }
+          if (block && after) void refreshMappingDiagnosticsMount(block, position, after);
         } catch (err) {
           toastError(err.message);
           if (block && position) {
@@ -1024,6 +1044,30 @@ function bindConstructivePackageActions(root, position, liveCtx, { signal, notif
           notify();
         } catch (err) {
           toastError(err.message);
+        }
+        return;
+      }
+
+      if (e.target.closest("[data-cp-mapping-recheck]")) {
+        const block = e.target.closest(".constructive-package-block");
+        try {
+          const latest = await api.getConstructivePackageLatest(position.id);
+          const packageId = latest?.package?.id;
+          if (!packageId) {
+            toastError("Спочатку розберіть пакет");
+            return;
+          }
+          const diagnostics = await api.recalculateModelMapping(position.id, packageId);
+          if (block) {
+            await refreshMappingDiagnosticsMount(block, position, latest);
+            patchModelMappingDiagnosticsBlock(
+              block.querySelector("[data-cp-mapping-diagnostics-mount]"),
+              diagnostics
+            );
+          }
+          toastSuccess("3D-звʼязку перераховано");
+        } catch (err) {
+          toastError(err.message || "Не вдалося перерахувати звʼязку");
         }
         return;
       }
@@ -1148,4 +1192,9 @@ export function bindConstructivePackageBlock(
   bindPackageWizard(root, {
     getDetail: () => getPackagePanelContext(position.id)?.detail || detail
   });
+
+  const block = root.querySelector(".constructive-package-block");
+  if (block && detail?.package?.id && detail?.parts?.length) {
+    void refreshMappingDiagnosticsMount(block, position, detail);
+  }
 }

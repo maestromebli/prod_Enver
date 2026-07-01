@@ -15,6 +15,7 @@ import {
   partNoFromBazisOperationCode,
   normalizeBazisScanCode
 } from "../../../shared/production/bazis-operation-code.js";
+import { resolvePartMappingStatus } from "../../../shared/production/part-model-mapping.js";
 import {
   CNC_PROBLEM_REASONS,
   findPackagePreview3dFile,
@@ -68,6 +69,7 @@ async function buildScanResponse(part) {
   const pdfFile = detail?.files?.find((f) => f.kind === "assembly_pdf");
   const orderWeb = order?.id ? await findOrderWebModel(order.id) : null;
   const cadGeometry = await getPartCadGeometry(part.packageId, part);
+  const mapping = resolvePartMappingStatus(part);
 
   const host = config.domain ? `https://${config.domain}` : "";
   let viewerUrl = null;
@@ -109,13 +111,22 @@ async function buildScanResponse(part) {
       order3dAssetId: orderWeb?.assetId || null,
       manifest: detail?.manifest?.manifestJson || null,
       parts: detail?.parts || [],
-      mapped: Boolean(part.modelNodeId || part.modelMeshName || part.partCode || part.partNo),
+      mapped: mapping.mappingStatus !== "missing",
+      mappingStatus: mapping.mappingStatus,
+      mappingConfidence: mapping.mappingConfidence,
+      mappingHint: mapping.mappingHint,
+      resolvedMeshName: mapping.resolvedMeshName,
+      resolvedNodeId: mapping.resolvedNodeId,
       assemblyPdfUrl: pdfFile
         ? `${host}/api/positions/${part.positionId}/constructive-packages/${part.packageId}/files/${pdfFile.id}`
         : null
     },
     nextAction: part.cncStatus === "in_progress" ? "finish_cnc" : "start_cnc"
   };
+}
+
+export function readScanStation(req) {
+  return String(req.body?.station || req.query?.station || req.headers?.["x-enver-station"] || "");
 }
 
 function readScanBarcode(req) {
@@ -178,9 +189,7 @@ async function handlePartScan(req, res) {
     return;
   }
 
-  const station = String(
-    req.body?.station || req.query.station || req.headers["x-enver-station"] || ""
-  );
+  const station = readScanStation(req);
   await recordScanEvent({
     partId: part.id,
     barcodeValue,

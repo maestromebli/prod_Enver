@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { state } from "./state.js";
 import { createScannerInputListener } from "./scanner-input.js";
+import { openCameraBarcodeScanner } from "./camera-barcode-scanner.js";
 import { escapeHtml, $ } from "./utils.js";
 import { toastError, toastSuccess } from "./toast.js";
 import {
@@ -11,18 +12,12 @@ import {
   resolvePartHighlightMesh,
   normalizeBazisScanCode
 } from "@enver/shared/production/bazis-operation-code.js";
-import {
-  highlightPartInViewerWindow,
-  openPartScanViewerWindow,
-  prepareViewerPopup,
-  closePreparedViewerPopup
-} from "./part-viewer-window.js";
+import { openPartScanViewerWindow } from "./part-viewer-window.js";
 import { isNativeOperatorShell } from "./operator-native.js";
 import { prefetchViewerModel, warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getStoredToken } from "./api.js";
 import {
-  bindScanPartDetail3d,
   clearPendingOperatorScan,
   destroyOperatorPartDetailStrip,
   renderScanPartDetailLayout
@@ -97,17 +92,44 @@ async function lookupBarcode(code) {
     ? state.operatorQueue.find((p) => p.id === positionId) || state.operatorJobDetail?.position
     : null;
   const orderId = pos?.orderId || state.operatorJobDetail?.position?.orderId || null;
-  return api.scanPart(cleaned, { positionId, orderId });
+  return api.scanPart(cleaned, {
+    positionId,
+    orderId,
+    station: state.operatorStage
+  });
+}
+
+function renderMappingStatusNotice(data) {
+  const status = data.model?.mappingStatus;
+  if (status === "exact") {
+    return `<p class="part-scan-mapping part-scan-mapping--exact enver-meta">3D звʼязано</p>`;
+  }
+  if (status === "fallback") {
+    return `<p class="part-scan-warning">${escapeHtml(data.model?.mappingHint || "Деталь знайдена за резервною логікою. Перевірте підсвітку.")}</p>`;
+  }
+  if (status === "ambiguous") {
+    return `<p class="part-scan-warning">Знайдено кілька можливих mesh для цієї деталі. Потрібна перевірка конструктора.</p>`;
+  }
+  if (status === "missing" && data.model?.viewerUrl) {
+    return `<p class="part-scan-warning">Деталь знайдена, але не звʼязана з 3D-моделлю.<br>Показано окрему 3D-картку деталі за розмірами.<br>Потрібно перевірити mapping пакета.</p>`;
+  }
+  if (status === "missing") {
+    return `<p class="part-scan-warning">${escapeHtml(data.model?.mappingHint || "Ця деталь ще не звʼязана з 3D-моделлю.")}</p>`;
+  }
+  return "";
 }
 
 function renderPartDetail(data, { showCncActions = false, closeLabel = "← Назад" } = {}) {
   const p = data.part;
-  const unmapped = Boolean(data.model?.viewerUrl) && !resolveHighlightTarget(p);
+  const mappingNotice = renderMappingStatusNotice(data);
+  const meshWarning = data.meshHighlightWarning
+    ? `<p class="part-scan-warning">${escapeHtml(data.meshHighlightWarning)}</p>`
+    : "";
   const pdfUrl = data.model?.assemblyPdfUrl
     ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
     : null;
   const pdfTarget = isNativeOperatorShell() ? "_self" : "_blank";
-  const useInline3d = isNativeOperatorShell() && Boolean(data.model?.viewerUrl);
+  const useInline3d = Boolean(data.model?.viewerUrl);
   const cncActions = showCncActions
     ? `
         <button type="button" class="btn btn-lg btn-primary" data-cnc-action="start">Почати</button>
@@ -130,7 +152,9 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
             : ""
         }
         ${pdfUrl ? `<a class="btn btn-lg" href="${escapeHtml(pdfUrl)}" target="${pdfTarget}" rel="noopener">Креслення</a>` : ""}
-        ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
+        ${data.model?.viewerUrl ? `<button type="button" class="btn btn-lg" data-open-3d>Повний 3D</button>` : ""}
+        ${mappingNotice}
+        ${meshWarning}
         ${
           data.scanProgress
             ? `<p class="part-scan-progress enver-meta">Скановано ${data.scanProgress.scannedDistinct || 0} / ${data.scanProgress.totalParts || 0} деталей</p>`
@@ -161,7 +185,8 @@ function renderPartDetail(data, { showCncActions = false, closeLabel = "← На
             ? `<button type="button" class="btn btn-lg btn-primary" data-operator-finish-stage>Завершити етап</button>`
             : ""
         }
-        ${unmapped ? `<p class="part-scan-warning">Ця деталь ще не звʼязана з 3D-моделлю.</p>` : ""}
+        ${mappingNotice}
+        ${meshWarning}
         ${data.model?.viewerUrl ? `<p class="part-scan-3d-hint enver-meta">3D на панелі роботи — натисніть кнопку нижче для підсвітки деталі</p>` : ""}
       </div>
       <div class="part-detail-actions">
@@ -197,6 +222,7 @@ export function renderOperatorScanPanel(stageKey) {
       </div>
       <div class="op-part-scan-actions">
         <button type="button" class="btn scan-btn" id="operatorScanManualBtn">Ввести вручну</button>
+        <button type="button" class="btn scan-btn" id="operatorScanCameraBtn">Сканувати камерою</button>
       </div>
       <div id="operatorPartScanDetail" class="op-part-scan-result" hidden></div>
     </section>`;
@@ -250,7 +276,7 @@ function bindPartDetail(detailEl, data, { showCncActions = false, onClose, scanI
     if (
       getOperatorOrder3dViewer() &&
       data.part &&
-      highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry })
+      highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry })?.ok
     ) {
       section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
@@ -351,18 +377,31 @@ async function handleScan(
     detailEl,
     scanInput,
     showCncActions = false,
-    closeLabel: _closeLabel = "Згорнути",
-    preparedPopup = null
+    closeLabel: _closeLabel = "← Назад"
   } = {}
 ) {
   if (statusEl) statusEl.textContent = "Пошук…";
-  let popup = preparedPopup;
   try {
     const data = await lookupBarcode(code);
     recentScans = [code, ...recentScans.filter((c) => c !== code)].slice(0, 5);
     playScanFeedback();
     toastSuccess("Деталь знайдено");
     if (statusEl) statusEl.textContent = `Знайдено: ${data.part.partName || code}`;
+
+    if (data.model?.viewerUrl) {
+      const token = getStoredToken();
+      const modelUrl = resolveViewerModelUrl(data.model.viewerUrl, token);
+      if (modelUrl) void prefetchViewerModel(modelUrl, token);
+      void warmPartViewerChunk();
+    }
+
+    if (data.model?.viewerUrl) {
+      const { bindScanPartDetail3d } = await import("./operator-scan-3d.js");
+      const scan3d = await bindScanPartDetail3d(null, data);
+      if (scan3d?.meshHighlightWarning) {
+        data.meshHighlightWarning = scan3d.meshHighlightWarning;
+      }
+    }
 
     if (detailEl) {
       detailEl.hidden = false;
@@ -375,42 +414,23 @@ async function handleScan(
           if (statusEl) statusEl.textContent = "Наведіть штрихридер на етикетку";
         }
       });
-
-      if (isNativeOperatorShell() && data.model?.viewerUrl) {
-        void bindScanPartDetail3d(detailEl, data);
-      }
-
       detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
-    if (data.model?.viewerUrl) {
-      const token = getStoredToken();
-      const modelUrl = resolveViewerModelUrl(data.model.viewerUrl, token);
-      if (modelUrl) void prefetchViewerModel(modelUrl, token);
-      void warmPartViewerChunk();
-
-      if (isNativeOperatorShell()) {
-        if (popup) closePreparedViewerPopup(popup);
-        popup = null;
-      } else {
-        const opened = openPartScanViewerWindow(data, { preparedPopup: popup });
-        popup = null;
-        if (!opened) {
-          toastError("Натисніть «Відкрити 3D» або дозвольте нові вкладки");
-        }
-      }
-    } else {
-      if (popup) closePreparedViewerPopup(popup);
-      popup = null;
-      highlightPartInViewerWindow(data.part, { cadGeometry: data.cadGeometry });
+    const section3d = document.getElementById("operatorOrder3dSection");
+    if (data.model?.viewerUrl && section3d && !section3d.hidden) {
+      section3d.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     scanInput?.focus();
   } catch (err) {
-    if (popup) closePreparedViewerPopup(popup);
     if (statusEl) statusEl.textContent = err.message || "Помилка";
     if (err.message?.includes("fetch") || err.message?.includes("мереж")) {
       toastError("Немає зʼєднання, спробуйте ще раз");
+    } else if (err.status === 404) {
+      toastError(
+        err.message || "Деталь не знайдено. Перевірте позицію, пакет конструктива та етикетку."
+      );
     } else {
       toastError(err.message || "Деталь не знайдено");
     }
@@ -423,6 +443,7 @@ function bindScanControls({
   statusEl,
   detailEl,
   manualBtn,
+  cameraBtn,
   showCncActions = false,
   closeLabel = "← Назад"
 }) {
@@ -436,6 +457,7 @@ function bindScanControls({
     statusEl,
     detailEl,
     manualBtn,
+    cameraBtn,
     showCncActions,
     closeLabel
   };
@@ -448,14 +470,12 @@ function bindScanControls({
   if (!scanInput) return;
 
   const onScan = (code) => {
-    const preparedPopup = prepareViewerPopup();
     void handleScan(code, {
       statusEl,
       detailEl,
       scanInput,
       showCncActions,
-      closeLabel,
-      preparedPopup
+      closeLabel
     });
   };
 
@@ -475,7 +495,6 @@ function bindScanControls({
     (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        const preparedPopup = prepareViewerPopup();
         const v = cleanScanCode(e.target.value);
         e.target.value = "";
         if (v) {
@@ -484,11 +503,8 @@ function bindScanControls({
             detailEl,
             scanInput,
             showCncActions,
-            closeLabel,
-            preparedPopup
+            closeLabel
           });
-        } else {
-          closePreparedViewerPopup(preparedPopup);
         }
       }
     },
@@ -500,6 +516,17 @@ function bindScanControls({
     () => {
       const v = window.prompt("Введіть код вручну:");
       if (v) onScan(v.trim());
+    },
+    { signal }
+  );
+
+  cameraBtn?.addEventListener(
+    "click",
+    () => {
+      void openCameraBarcodeScanner({
+        onScan: (code) => onScan(code),
+        onError: (msg) => toastError(msg)
+      });
     },
     { signal }
   );
@@ -522,6 +549,7 @@ export function bindOperatorScanPanel(stageKey) {
     statusEl: $("#operatorScanStatus"),
     detailEl: $("#operatorPartScanDetail"),
     manualBtn: $("#operatorScanManualBtn"),
+    cameraBtn: $("#operatorScanCameraBtn"),
     showCncActions: stageKey === "cutting",
     closeLabel: "← Назад"
   });
@@ -613,6 +641,7 @@ export function bindPartScanView() {
     statusEl: $("#scanStatus"),
     detailEl: $("#partScanDetail"),
     manualBtn: $("#scanManualBtn"),
+    cameraBtn: null,
     showCncActions: true,
     closeLabel: "← Назад"
   });

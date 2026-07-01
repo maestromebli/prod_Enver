@@ -12,6 +12,11 @@ import { formatPartDimensionsMm } from "@enver/shared/production/constructive-pa
 import { resolveViewerModelUrl } from "./part-viewer-window.js";
 import { getOperatorOrder3dViewer, highlightOperatorOrder3dPart } from "./operator-3d.js";
 import { escapeHtml } from "./utils.js";
+import { renderMappingStatusBadge } from "./3d/enver-3d-space.js";
+import {
+  renderEnver3dToolbarHtml,
+  bindEnver3dToolbar
+} from "./3d/enver-3d-toolbar.js";
 
 let stripDetailViewer = null;
 let stripModelCtx = null;
@@ -87,8 +92,13 @@ function renderPartInfoHtml(data) {
     ? resolveViewerModelUrl(data.model.assemblyPdfUrl, getStoredToken())
     : null;
 
+  const mappingBadge = data.model?.mappingStatus
+    ? renderMappingStatusBadge(data.model.mappingStatus, data.model.mappingHint)
+    : "";
+
   return `
     <p class="op-part-detail-title"><strong>${escapeHtml(p.partName || "Деталь")}</strong> · №${escapeHtml(p.partNo)}</p>
+    ${mappingBadge ? `<p class="op-part-detail-mapping">${mappingBadge}</p>` : ""}
     <dl class="op-part-detail-meta">
       <div><dt>Обʼєкт</dt><dd>${escapeHtml(data.position?.item || data.order?.orderNumber || "—")}</dd></div>
       <div><dt>Блок</dt><dd>${escapeHtml(p.blockCode || "—")}</dd></div>
@@ -147,63 +157,17 @@ function mountScanDetailToolbar(mount, viewer) {
   if (!toolbar) {
     toolbar = document.createElement("div");
     toolbar.id = "operatorPartDetail3dToolbar";
-    toolbar.className = "op-scan-detail-toolbar";
-    toolbar.innerHTML = `
-      <button type="button" class="btn btn-sm" data-3d-camera="iso" title="Ізометрія">3D</button>
-      <button type="button" class="btn btn-sm" data-3d-camera="top" title="Зверху">↑</button>
-      <button type="button" class="btn btn-sm" data-3d-camera="front" title="Спереду">▣</button>
-      <button type="button" class="btn btn-sm" data-3d-action="drawing" title="Креслення">⬚</button>
-      <button type="button" class="btn btn-sm" data-3d-action="measure" title="Вимір">📏</button>
-      <button type="button" class="btn btn-sm" data-3d-action="section" title="Розріз">✂</button>
-      <button type="button" class="btn btn-sm" data-3d-action="wireframe" title="Каркас">◇</button>
-      <button type="button" class="btn btn-sm" data-3d-action="fit" title="Вмістити">◎</button>
-    `;
+    toolbar.className = "op-scan-detail-toolbar enver-3d-toolbar";
+    toolbar.innerHTML = renderEnver3dToolbarHtml({
+      compact: true,
+      showFullscreen: false,
+      showParts: false,
+      showAdvanced: true
+    });
     mount.before(toolbar);
   }
 
-  toolbar.addEventListener(
-    "click",
-    (e) => {
-      const camBtn = e.target.closest("[data-3d-camera]");
-      if (camBtn) {
-        viewer.setCameraPreset?.(camBtn.dataset["3dCamera"]);
-        return;
-      }
-      const actionBtn = e.target.closest("[data-3d-action]");
-      if (!actionBtn || !viewer) return;
-      const action = actionBtn.dataset["3dAction"];
-      if (action === "fit") viewer.fitToView?.();
-      if (action === "drawing") {
-        const on = !actionBtn.classList.contains("is-active");
-        actionBtn.classList.toggle("is-active", on);
-        viewer.setDrawingMode?.(on);
-      }
-      if (action === "measure") {
-        const on = !actionBtn.classList.contains("is-active");
-        actionBtn.classList.toggle("is-active", on);
-        viewer.setMeasureEnabled?.(on);
-        if (on) {
-          toolbar.querySelector('[data-3d-action="section"]')?.classList.remove("is-active");
-          viewer.setSectionEnabled?.(false);
-        }
-      }
-      if (action === "section") {
-        const on = !actionBtn.classList.contains("is-active");
-        actionBtn.classList.toggle("is-active", on);
-        viewer.setSectionEnabled?.(on);
-        if (on) {
-          toolbar.querySelector('[data-3d-action="measure"]')?.classList.remove("is-active");
-          viewer.setMeasureEnabled?.(false);
-        }
-      }
-      if (action === "wireframe") {
-        const on = !actionBtn.classList.contains("is-active");
-        actionBtn.classList.toggle("is-active", on);
-        viewer.setWireframe?.(on);
-      }
-    },
-    { signal }
-  );
+  bindEnver3dToolbar(toolbar, viewer, { signal });
 }
 
 function assemblyFallbackFromCtx(modelCtx, data) {
@@ -268,27 +232,47 @@ export async function showOperatorPartDetail(data) {
   return true;
 }
 
+const MESH_NOT_FOUND_WARNING =
+  "3D-модель відкрита, але ця деталь не знайдена в збірці. Перевірте mapping `.project` + `.b3d`.";
+
 /** Підсвітити деталь на загальній 3D-моделі в панелі роботи. */
 export async function applyScanToAssembly3d(data) {
-  if (!data?.part) return false;
+  if (!data?.part) {
+    return { ok: false, meshName: null, reason: "no_part", mappingStatus: "missing" };
+  }
   const viewer = getOperatorOrder3dViewer();
   if (viewer) {
     if (data.cadGeometry) viewer.setCadGeometry?.(data.cadGeometry);
-    const mesh = viewer.showPartOnAssembly?.(data.part, resolvePartHighlightMesh(data.part));
-    if (mesh) return true;
     const hint = resolvePartHighlightMesh(data.part);
-    if (hint?.meshName || hint?.nodeId) {
-      viewer.highlightPart?.({
-        meshName: hint.meshName,
-        nodeId: hint.nodeId,
-        ghost: true,
-        isolate: false
-      });
-      return true;
+    if (viewer.showPartOnAssemblyResult) {
+      const result = viewer.showPartOnAssemblyResult(data.part, hint);
+      return {
+        ok: result.ok,
+        meshName: result.meshName,
+        mappingStatus: result.mappingStatus,
+        reason: result.reason || ""
+      };
     }
-    return false;
+    const mesh = viewer.showPartOnAssembly?.(data.part, hint);
+    if (mesh) {
+      return {
+        ok: true,
+        meshName: mesh.name || hint?.meshName,
+        mappingStatus: data.model?.mappingStatus || "exact",
+        reason: "mesh_found"
+      };
+    }
+    return {
+      ok: false,
+      meshName: hint?.meshName || null,
+      mappingStatus: data.model?.mappingStatus || "missing",
+      reason: "mesh_not_found"
+    };
   }
-  return highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry });
+  const highlighted = highlightOperatorOrder3dPart(data.part, { cadGeometry: data.cadGeometry });
+  return highlighted?.ok
+    ? highlighted
+    : { ok: false, meshName: null, reason: "viewer_not_ready", mappingStatus: "missing" };
 }
 
 /** Повторно застосувати останній скан після завантаження збірки. */
@@ -310,6 +294,18 @@ export function destroyScanPartDetailViewer() {
 /** Після скану: підсвітка зверху + деталь знизу. */
 export async function bindScanPartDetail3d(_detailEl, data) {
   rememberPendingOperatorScan(data);
-  await applyScanToAssembly3d(data);
+  const assemblyResult = await applyScanToAssembly3d(data);
   await showOperatorPartDetail(data);
+
+  let meshHighlightWarning = "";
+  if (data?.model?.viewerUrl && !assemblyResult.ok) {
+    if (assemblyResult.mappingStatus === "ambiguous") {
+      meshHighlightWarning =
+        "Знайдено кілька можливих mesh для цієї деталі. Потрібна перевірка конструктора.";
+    } else {
+      meshHighlightWarning = MESH_NOT_FOUND_WARNING;
+    }
+  }
+
+  return { assemblyResult, meshHighlightWarning };
 }

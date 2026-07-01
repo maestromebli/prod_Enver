@@ -23,6 +23,7 @@ import {
   buildPartCode,
   computeChecksum
 } from "./part-code.js";
+import { summarizeMappingDiagnostics } from "../../../shared/production/part-model-mapping.js";
 import { mergeParseResults, parsePackageFiles } from "./parsers/index.js";
 import { getLatestPackageAiAnalysis, kickoffPackageAiAnalysis } from "./constructive-package-ai.js";
 import { extractPackagePreviewGlb } from "./b3d-glb-extractor.js";
@@ -1057,10 +1058,22 @@ export async function parseConstructivePackage(packageId, actor) {
       };
       const allowModelMapping = mappingSources.project > 0 && mappingSources.b3d > 0;
 
-      const autoMapped = allowModelMapping
+      const autoMapResult = allowModelMapping
         ? autoMapManifestNodes(insertedParts, merged.manifestNodes || [])
-        : [];
-      for (const m of autoMapped) {
+        : {
+            mappings: [],
+            ambiguous: [],
+            summary: {
+              autoMapped: false,
+              autoMappedCount: 0,
+              exactMappedCount: 0,
+              fallbackMappedCount: 0,
+              unmappedCount: insertedParts.length,
+              ambiguousCount: 0,
+              mappingQuality: 0
+            }
+          };
+      for (const m of autoMapResult.mappings) {
         await client.query(
           `UPDATE constructive_parts SET model_node_id = $1, model_mesh_name = $2, updated_at = now() WHERE id = $3`,
           [m.modelNodeId || "", m.modelMeshName || "", m.partId]
@@ -1083,8 +1096,14 @@ export async function parseConstructivePackage(packageId, actor) {
 
       const manifestPayload = JSON.stringify({
         nodes: merged.manifestNodes || [],
-        autoMapped: autoMapped.length > 0,
-        autoMappedCount: autoMapped.length,
+        autoMapped: autoMapResult.summary.autoMapped,
+        autoMappedCount: autoMapResult.summary.autoMappedCount,
+        exactMappedCount: autoMapResult.summary.exactMappedCount,
+        fallbackMappedCount: autoMapResult.summary.fallbackMappedCount,
+        unmappedCount: autoMapResult.summary.unmappedCount,
+        ambiguousCount: autoMapResult.summary.ambiguousCount,
+        mappingQuality: autoMapResult.summary.mappingQuality,
+        ambiguousParts: autoMapResult.ambiguous,
         mappingSources,
         allowModelMapping,
         previewGlb: previewGlbRow
@@ -1102,7 +1121,7 @@ export async function parseConstructivePackage(packageId, actor) {
           `UPDATE model_manifests SET manifest_json = $1, glb_file_id = COALESCE($2, glb_file_id) WHERE package_id = $3`,
           [manifestPayload, modelSourceFile?.id || null, packageId]
         );
-      } else if (modelSourceFile || autoMapped.length > 0 || allowModelMapping) {
+      } else if (modelSourceFile || autoMapResult.mappings.length > 0 || allowModelMapping) {
         await client.query(
           `INSERT INTO model_manifests (package_id, source_file_id, glb_file_id, manifest_json)
          VALUES ($1, $2, $2, $3)`,
@@ -1768,45 +1787,328 @@ export async function saveModelManifest(packageId, manifestJson, glbFileId = nul
   }
 }
 
-/** Автоматичне зіставлення mesh за іменем/номером (джерело — ЧПК, GLB не потрібен). */
-export function autoMapManifestNodes(parts, nodes = []) {
-  const mapped = [];
-  for (const part of parts) {
-    const partNo = String(part.partNo || "").trim();
-    const blockCode = String(part.blockCode || "").trim();
-    const compositeKey = blockCode && partNo ? `${blockCode}-${partNo}` : partNo ? partNo : "";
+function autoMapNorm(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
 
-    const match =
-      (compositeKey &&
-        nodes.find(
-          (n) =>
-            String(n.meshName || "").toLowerCase() === compositeKey.toLowerCase() ||
-            String(n.nodeId || "").toLowerCase() === compositeKey.toLowerCase()
-        )) ||
-      (blockCode &&
-        partNo &&
-        nodes.find(
-          (n) =>
-            String(n.blockCode || "").toLowerCase() === blockCode.toLowerCase() &&
-            String(n.partNo || "") === partNo
-        )) ||
-      (partNo &&
-        nodes.find(
-          (n) =>
-            n.meshName &&
-            (String(n.meshName).toLowerCase() === `panel-${partNo}`.toLowerCase() ||
-              String(n.meshName).toLowerCase() === partNo.toLowerCase() ||
-              String(n.meshName).toLowerCase() === compositeKey.toLowerCase())
-        )) ||
-      nodes.find((n) => n.partNo && partNo && String(n.partNo) === partNo);
-    if (match) {
-      const meshName = match.meshName || (partNo ? `panel-${partNo}` : "") || match.nodeId || "";
-      mapped.push({
-        partId: part.id,
-        modelNodeId: match.nodeId || meshName,
-        modelMeshName: meshName
-      });
+function autoMapStripLeadingZeros(value) {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  const n = Number(s);
+  return Number.isFinite(n) ? String(n) : s.replace(/^0+/, "") || s;
+}
+
+function nodeKey(node) {
+  return autoMapNorm(node?.meshName || node?.nodeId || "");
+}
+
+function dimsClose(a, b, tolerance = 2) {
+  const ax = Number(a?.dx ?? a?.length ?? a?.x);
+  const ay = Number(a?.dy ?? a?.width ?? a?.y);
+  const az = Number(a?.dz ?? a?.thickness ?? a?.z);
+  const bx = Number(b?.dx ?? b?.length ?? b?.x);
+  const by = Number(b?.dy ?? b?.width ?? b?.y);
+  const bz = Number(b?.dz ?? b?.thickness ?? b?.z);
+  if (![ax, ay, az, bx, by, bz].every(Number.isFinite)) return false;
+  return (
+    Math.abs(ax - bx) <= tolerance &&
+    Math.abs(ay - by) <= tolerance &&
+    Math.abs(az - bz) <= tolerance
+  );
+}
+
+/** Кандидати зіставлення для однієї деталі (пріоритет нижчий = кращий). */
+function collectAutoMapCandidates(part, nodes = []) {
+  const partNo = String(part.partNo || "").trim();
+  const partNoBare = autoMapStripLeadingZeros(partNo);
+  const blockCode = String(part.blockCode || "").trim();
+  const partCode = String(part.partCode || "").trim();
+  const composite = blockCode && partNo ? `${blockCode}-${partNo}` : "";
+  const partName = String(part.partName || "").trim();
+  const bazisCodes = (part.bazisOperationCodes || part.bazis_operation_codes || [])
+    .map((c) => String(c || "").trim())
+    .filter(Boolean);
+  const partDims = {
+    dx: part.length,
+    dy: part.width,
+    dz: part.thickness
+  };
+
+  /** @type {Array<{ node: object, priority: number, kind: 'exact' | 'fallback', rule: string }>} */
+  const out = [];
+  const push = (node, priority, kind, rule) => {
+    if (!node) return;
+    out.push({ node, priority, kind, rule });
+  };
+
+  for (const node of nodes) {
+    const mesh = String(node.meshName || "").trim();
+    const nodeId = String(node.nodeId || "").trim();
+    const meshL = autoMapNorm(mesh);
+    const nodeIdL = autoMapNorm(nodeId);
+
+    if (part.modelNodeId && nodeId && autoMapNorm(part.modelNodeId) === nodeIdL) {
+      push(node, 1, "exact", "modelNodeId");
+    }
+    if (part.modelMeshName && mesh && autoMapNorm(part.modelMeshName) === meshL) {
+      push(node, 2, "exact", "modelMeshName");
+    }
+    if (
+      partCode &&
+      (meshL === autoMapNorm(`panel-${partCode}`) || nodeIdL === autoMapNorm(partCode))
+    ) {
+      push(node, 3, "fallback", "partCode");
+    }
+    if (composite && (meshL === autoMapNorm(composite) || nodeIdL === autoMapNorm(composite))) {
+      push(node, 4, "fallback", "blockCode-partNo");
+    }
+    if (partNo && meshL === autoMapNorm(`panel-${partNo}`)) {
+      push(node, 5, "fallback", "panel-partNo");
+    }
+    if (
+      partNoBare &&
+      (autoMapNorm(node.partNo) === autoMapNorm(partNoBare) ||
+        autoMapNorm(node.partNo) === autoMapNorm(partNo))
+    ) {
+      push(node, 6, "fallback", "partNo");
+    }
+    for (const code of bazisCodes) {
+      const bare = autoMapNorm(code);
+      if (meshL === autoMapNorm(`panel-${code}`) || nodeIdL === bare) {
+        push(node, 7, "fallback", "bazisCode");
+      }
+    }
+    if (partNoBare && partName) {
+      const re = new RegExp(`№\\s*0*${partNoBare}([^0-9]|$)`, "i");
+      if (re.test(partName) && (mesh.includes(partNoBare) || nodeId.includes(partNoBare))) {
+        push(node, 8, "fallback", "partName");
+      }
+    }
+    if (dimsClose(partDims, node.bboxMm || node.dimensions || node)) {
+      push(node, 9, "fallback", "bbox");
     }
   }
-  return mapped;
+
+  out.sort((a, b) => a.priority - b.priority || nodeKey(a.node).localeCompare(nodeKey(b.node)));
+  return out;
+}
+
+/**
+ * Автоматичне зіставлення mesh за manifest nodes.
+ * @returns {{ mappings: Array<{ partId: number, modelNodeId: string, modelMeshName: string, kind: string, rule: string }>, summary: object, ambiguous: Array<object> }}
+ */
+export function autoMapManifestNodes(parts, nodes = []) {
+  /** @type {Map<number, Array<object>>} */
+  const candidatesByPart = new Map();
+  /** @type {Map<string, Set<number>>} */
+  const partIdsByNode = new Map();
+
+  for (const part of parts) {
+    const candidates = collectAutoMapCandidates(part, nodes);
+    candidatesByPart.set(part.id, candidates);
+    for (const c of candidates) {
+      const key = nodeKey(c.node);
+      if (!key) continue;
+      if (!partIdsByNode.has(key)) partIdsByNode.set(key, new Set());
+      partIdsByNode.get(key).add(part.id);
+    }
+  }
+
+  /** @type {Array<object>} */
+  const ambiguous = [];
+  /** @type {Array<object>} */
+  const mappings = [];
+  const usedNodes = new Set();
+
+  for (const part of parts) {
+    const candidates = candidatesByPart.get(part.id) || [];
+    if (!candidates.length) continue;
+
+    const bestPriority = candidates[0].priority;
+    const best = candidates.filter((c) => c.priority === bestPriority);
+    const nodeKeys = [...new Set(best.map((c) => nodeKey(c.node)).filter(Boolean))];
+
+    const sharedNode = nodeKeys.length === 1 && (partIdsByNode.get(nodeKeys[0])?.size || 0) > 1;
+    const multiNode = nodeKeys.length > 1;
+
+    if (sharedNode || multiNode) {
+      ambiguous.push({
+        partId: part.id,
+        partNo: part.partNo,
+        partName: part.partName,
+        reason: sharedNode
+          ? "Один mesh підходить кільком деталям"
+          : "Деталь підходить кільком mesh",
+        candidateKeys: nodeKeys
+      });
+      continue;
+    }
+
+    const chosen = best[0];
+    const key = nodeKey(chosen.node);
+    if (usedNodes.has(key)) {
+      ambiguous.push({
+        partId: part.id,
+        partNo: part.partNo,
+        partName: part.partName,
+        reason: "Mesh уже зайнятий іншою деталлю",
+        candidateKeys: [key]
+      });
+      continue;
+    }
+
+    usedNodes.add(key);
+    const meshName =
+      chosen.node.meshName ||
+      (part.partNo ? `panel-${part.partNo}` : "") ||
+      chosen.node.nodeId ||
+      "";
+    mappings.push({
+      partId: part.id,
+      modelNodeId: chosen.node.nodeId || meshName,
+      modelMeshName: meshName,
+      kind: chosen.kind,
+      rule: chosen.rule
+    });
+  }
+
+  const exactCount = mappings.filter((m) => m.kind === "exact").length;
+  const fallbackCount = mappings.filter((m) => m.kind === "fallback").length;
+  const mappedPartIds = new Set(mappings.map((m) => m.partId));
+  const ambiguousPartIds = new Set(ambiguous.map((a) => a.partId));
+  const unmappedCount = parts.filter(
+    (p) => !mappedPartIds.has(p.id) && !ambiguousPartIds.has(p.id)
+  ).length;
+  const total = parts.length || 0;
+  const mappingQuality = total
+    ? Math.round(((exactCount + fallbackCount * 0.85 - ambiguous.length * 0.5) / total) * 100) / 100
+    : 0;
+
+  return {
+    mappings,
+    ambiguous,
+    summary: {
+      autoMapped: mappings.length > 0,
+      autoMappedCount: exactCount + fallbackCount,
+      exactMappedCount: exactCount,
+      fallbackMappedCount: fallbackCount,
+      unmappedCount: Math.max(0, unmappedCount),
+      ambiguousCount: ambiguous.length,
+      mappingQuality: Math.max(0, Math.min(1, mappingQuality))
+    }
+  };
+}
+
+/** Діагностика 3D-звʼязки пакета (поточний стан + manifest nodes). */
+export async function computeModelMappingDiagnostics(packageId) {
+  const detail = await getPackageDetail(packageId);
+  if (!detail) {
+    const err = new Error("Пакет не знайдено");
+    err.status = 404;
+    throw err;
+  }
+
+  const nodes = detail.manifest?.manifestJson?.nodes || detail.manifest?.nodes || [];
+  const preview = autoMapManifestNodes(detail.parts || [], nodes);
+  const summary = summarizeMappingDiagnostics(
+    detail.parts || [],
+    nodes,
+    preview.ambiguous || []
+  );
+
+  const statusApi =
+    summary.readinessStatus === "Готово"
+      ? "ready"
+      : summary.readinessStatus === "Потрібна перевірка"
+        ? "needs_review"
+        : "not_ready";
+
+  const items = (summary.unmappedParts || []).map((row, idx) => {
+    const part = (detail.parts || []).find(
+      (p) => str(p.partNo || p.part_no) === row.partNo && str(p.partName) === row.partName
+    );
+    return {
+      partId: part?.id || null,
+      partNo: row.partNo,
+      partName: row.partName,
+      mappingStatus: row.mappingStatus || "missing",
+      mappingConfidence: row.mappingStatus === "ambiguous" ? 30 : row.mappingStatus === "fallback" ? 55 : 0,
+      reason:
+        row.mappingStatus === "ambiguous"
+          ? "ambiguous_mesh"
+          : row.mappingStatus === "missing"
+            ? "mesh_not_found"
+            : "fallback_match",
+      candidateKeys: row.fallbackKey ? [row.fallbackKey] : []
+    };
+  });
+
+  return {
+    packageId,
+    positionId: detail.package?.positionId || detail.package?.position_id,
+    ...summary,
+    ambiguousCount: preview.summary.ambiguousCount,
+    ambiguousParts: preview.ambiguous,
+    manifestSummary: preview.summary,
+    totalMeshes: summary.meshNodeCount,
+    exact: summary.exactCount,
+    fallback: summary.fallbackCount,
+    missing: summary.missingCount,
+    ambiguous: summary.ambiguousCount,
+    quality: summary.mappingQuality,
+    status: statusApi,
+    items
+  };
+}
+
+/** Перерахунок auto-map і збереження в БД + manifest. */
+export async function recalculateModelMapping(packageId) {
+  const detail = await getPackageDetail(packageId);
+  if (!detail) {
+    const err = new Error("Пакет не знайдено");
+    err.status = 404;
+    throw err;
+  }
+
+  const nodes = detail.manifest?.manifestJson?.nodes || detail.manifest?.nodes || [];
+  const parts = (detail.parts || []).map((p) => ({
+    id: p.id,
+    blockCode: p.blockCode,
+    partNo: p.partNo,
+    partCode: p.partCode,
+    partName: p.partName,
+    length: p.length,
+    width: p.width,
+    thickness: p.thickness,
+    bazisOperationCodes: p.bazisOperationCodes,
+    modelNodeId: p.modelNodeId,
+    modelMeshName: p.modelMeshName
+  }));
+
+  const { mappings, summary, ambiguous } = autoMapManifestNodes(parts, nodes);
+  for (const m of mappings) {
+    await updatePartModelMapping(m.partId, {
+      modelNodeId: m.modelNodeId,
+      modelMeshName: m.modelMeshName
+    });
+  }
+
+  const manifestJson = {
+    ...(detail.manifest?.manifestJson || {}),
+    nodes,
+    autoMapped: summary.autoMapped,
+    autoMappedCount: summary.autoMappedCount,
+    exactMappedCount: summary.exactMappedCount,
+    fallbackMappedCount: summary.fallbackMappedCount,
+    unmappedCount: summary.unmappedCount,
+    ambiguousCount: summary.ambiguousCount,
+    mappingQuality: summary.mappingQuality,
+    ambiguousParts: ambiguous,
+    mappingRecalculatedAt: new Date().toISOString()
+  };
+  await saveModelManifest(packageId, manifestJson, detail.manifest?.glbFileId || null);
+
+  return computeModelMappingDiagnostics(packageId);
 }

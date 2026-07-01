@@ -1445,3 +1445,67 @@ button.cp-wizard-step:hover {
 .part-viewer-wrap--detail-only .part-viewer-measure-hud {
   display: none !important;
 }
+
+.enver-camera-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+}
+
+.enver-camera-scanner[hidden] {
+  display: none !important;
+}
+
+.enver-camera-scanner__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 72%);
+}
+
+.enver-camera-scanner__panel {
+  position: relative;
+  z-index: 1;
+  width: min(96vw, 520px);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.enver-camera-scanner__video {
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 12px;
+  background: #000;
+  object-fit: cover;
+}
+
+.enver-camera-scanner__frame {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  width: min(72vw, 360px);
+  height: min(36vh, 180px);
+  transform: translateX(-50%);
+  border: 2px solid rgb(255 255 255 / 85%);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
+.enver-camera-scanner__hint {
+  color: #fff;
+  text-align: center;
+  margin: 0;
+}
+
+.enver-camera-scanner__error {
+  color: #fecaca;
+  text-align: center;
+  margin: 0;
+}
+
+.part-scan-mapping--exact {
+  color: var(--op-accent, #245c3b);
+}

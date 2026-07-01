@@ -360,6 +360,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body)
     }),
+  getModelMappingDiagnostics: (positionId, packageId) =>
+    request(
+      `/api/positions/${positionId}/constructive-packages/${packageId}/model-mapping/diagnostics`
+    ),
+  recalculateModelMapping: (positionId, packageId) =>
+    request(
+      `/api/positions/${positionId}/constructive-packages/${packageId}/model-mapping/diagnostics`,
+      {
+        method: "POST",
+        body: JSON.stringify({ apply: true })
+      }
+    ),
   getPositionCncJobs: (positionId) => request(`/api/positions/${positionId}/cnc-jobs`),
   listProcurementRequests: ({ status = "all" } = {}) => {
     const q = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";

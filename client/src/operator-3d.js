@@ -18,6 +18,10 @@ import {
 } from "./operator-scan-3d.js";
 import { renderPreview3dBadge, renderPreview3dUpgradeBanner } from "./preview-3d-ui.js";
 import { escapeHtml } from "./utils.js";
+import {
+  renderEnver3dToolbarHtml,
+  bindEnver3dToolbar
+} from "./3d/enver-3d-toolbar.js";
 
 let viewerInstance = null;
 let order3dOrderId = null;
@@ -162,36 +166,21 @@ function bindOperator3dToolbar(section, viewer) {
   const partsPanel = toolbar.querySelector("#operatorOrder3dParts");
   syncPartsPanel(partsPanel, viewer);
 
+  bindEnver3dToolbar(toolbar.querySelector(".enver-3d-toolbar-row") || toolbar, viewer, {
+    signal,
+    partsPanel,
+    onFullscreen: () => openOperatorOrder3dWindow()
+  });
+
   toolbar.addEventListener(
     "click",
     (e) => {
-      const camBtn = e.target.closest("[data-3d-camera]");
-      if (camBtn) {
-        viewer.setCameraPreset?.(camBtn.dataset["3dCamera"]);
-        return;
-      }
-      const actionBtn = e.target.closest("[data-3d-action]");
-      if (!actionBtn) return;
-      const action = actionBtn.dataset["3dAction"];
-      if (action === "fit") viewer.fitToView?.();
-      if (action === "drawing") {
-        const on = !actionBtn.classList.contains("is-active");
-        actionBtn.classList.toggle("is-active", on);
-        viewer.setDrawingMode?.(on);
-      }
-      if (action === "all") {
-        viewer.showAll?.();
-        viewer.resetMeshVisibility?.();
+      if (e.target.closest('[data-3d-action="all"]')) syncPartsPanel(partsPanel, viewer);
+      if (e.target.closest('[data-3d-action="parts-toggle"]') && partsPanel && !partsPanel.hidden) {
         syncPartsPanel(partsPanel, viewer);
       }
-      if (action === "parts-toggle") {
-        const panel = partsPanel;
-        if (!panel) return;
-        const open = panel.hidden;
-        panel.hidden = !open;
-        panel.classList.toggle("is-open", open);
-        if (open) syncPartsPanel(panel, viewer);
-      }
+      const drawingBtn = e.target.closest('[data-3d-action="drawing"]');
+      if (drawingBtn) syncDrawingToolbarButton(drawingBtn.classList.contains("is-active"));
     },
     { signal }
   );
@@ -221,25 +210,15 @@ function bindOperator3dToolbar(section, viewer) {
 }
 
 function mountOperator3dToolbar(section) {
-  if (!isNativeOperatorShell()) return;
-  section.classList.add("op-order-3d--native");
+  section.classList.toggle("op-order-3d--native", isNativeOperatorShell());
 
   let toolbar = section.querySelector("#operatorOrder3dToolbar");
   if (!toolbar) {
     toolbar = document.createElement("div");
     toolbar.id = "operatorOrder3dToolbar";
-    toolbar.className = "op-order-3d-toolbar";
+    toolbar.className = "op-order-3d-toolbar enver-3d-toolbar";
     toolbar.innerHTML = `
-      <div class="op-order-3d-toolbar-row">
-        <button type="button" class="btn btn-sm" data-3d-camera="iso" title="Ізометрія">3D</button>
-        <button type="button" class="btn btn-sm" data-3d-camera="top" title="Зверху">↑</button>
-        <button type="button" class="btn btn-sm" data-3d-camera="bottom" title="Знизу">↓</button>
-        <button type="button" class="btn btn-sm" data-3d-camera="front" title="Спереду">▣</button>
-        <button type="button" class="btn btn-sm" data-3d-action="drawing" title="Креслення">⬚</button>
-        <button type="button" class="btn btn-sm" data-3d-action="fit" title="Вмістити">◎</button>
-        <button type="button" class="btn btn-sm" data-3d-action="all" title="Показати все">⊞</button>
-        <button type="button" class="btn btn-sm" data-3d-action="parts-toggle" title="Деталі">☰</button>
-      </div>
+      ${renderEnver3dToolbarHtml({ compact: false, showFullscreen: true, showParts: true, showAdvanced: true })}
       <div id="operatorOrder3dParts" class="op-order-3d-parts" hidden></div>
     `;
     const viewerWrap = section.querySelector("#operatorOrder3dViewer");
@@ -253,17 +232,37 @@ export function highlightOperatorOrder3dPart(part, { cadGeometry = null } = {}) 
     syncDrawingToolbarButton(false);
     if (cadGeometry) viewerInstance.setCadGeometry?.(cadGeometry);
     const target = resolvePartHighlightMesh(part);
-    if (viewerInstance.showPartOnAssembly) {
-      viewerInstance.showPartOnAssembly(part, target);
-    } else {
-      viewerInstance.highlightPart({
-        meshName: target?.meshName || part.modelMeshName,
-        nodeId: target?.nodeId || part.modelNodeId
-      });
+    if (viewerInstance.showPartOnAssemblyResult) {
+      const result = viewerInstance.showPartOnAssemblyResult(part, target);
+      return {
+        ok: result.ok,
+        meshName: result.meshName,
+        mappingStatus: result.mappingStatus,
+        reason: result.reason || ""
+      };
     }
-    return true;
+    if (viewerInstance.showPartOnAssembly) {
+      const mesh = viewerInstance.showPartOnAssembly(part, target);
+      if (mesh) {
+        return {
+          ok: true,
+          meshName: mesh.name || target?.meshName,
+          mappingStatus: "exact",
+          reason: "mesh_found"
+        };
+      }
+    }
+    return {
+      ok: false,
+      meshName: target?.meshName || null,
+      mappingStatus: "missing",
+      reason: target?.meshName ? "mesh_not_found" : "no_mapping_hint"
+    };
   }
-  return highlightPartInViewerWindow(part, { cadGeometry });
+  const opened = highlightPartInViewerWindow(part, { cadGeometry });
+  return opened
+    ? { ok: true, meshName: null, reason: "popup" }
+    : { ok: false, meshName: null, reason: "popup_blocked" };
 }
 
 async function handleAssemblyPartPick(part) {

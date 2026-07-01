@@ -522,16 +522,16 @@ describe("autoMapManifestNodes", () => {
     const parts = [{ id: 1, blockCode: "B1", partNo: "21", partName: "Бік" }];
     const nodes = [{ meshName: "B1-21", partNo: "21" }];
     const mapped = autoMapManifestNodes(parts, nodes);
-    assert.equal(mapped.length, 1);
-    assert.equal(mapped[0].partId, 1);
+    assert.equal(mapped.mappings.length, 1);
+    assert.equal(mapped.mappings[0].partId, 1);
   });
 
   it("зіставляє B1-21 з blockCode + partNo", () => {
     const parts = [{ id: 2, blockCode: "B1", partNo: "21", partName: "Бік" }];
     const nodes = [{ meshName: "B1-21", nodeId: "B1-21", partNo: "21", blockCode: "B1" }];
     const mapped = autoMapManifestNodes(parts, nodes);
-    assert.equal(mapped.length, 1);
-    assert.equal(mapped[0].modelMeshName, "B1-21");
+    assert.equal(mapped.mappings.length, 1);
+    assert.equal(mapped.mappings[0].modelMeshName, "B1-21");
   });
 
   it("mergeParseResults збирає manifestNodes з блоків PDF", () => {

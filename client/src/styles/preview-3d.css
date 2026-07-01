@@ -136,3 +136,64 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+.cp-mapping-diagnostics {
+  margin: 0.85rem 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--surface-2, #f8fafc);
+}
+
+.cp-mapping-diagnostics--ready {
+  border-color: color-mix(in srgb, #245c3b 35%, var(--border, #e5e7eb));
+}
+
+.cp-mapping-diagnostics--review {
+  border-color: color-mix(in srgb, #b45309 35%, var(--border, #e5e7eb));
+}
+
+.cp-mapping-diagnostics--bad {
+  border-color: color-mix(in srgb, #b91c1c 35%, var(--border, #e5e7eb));
+}
+
+.cp-mapping-diagnostics-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+}
+
+.cp-mapping-diagnostics-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.cp-mapping-diagnostics-stats dt {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}
+
+.cp-mapping-diagnostics-stats dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cp-mapping-diagnostics-table-wrap {
+  overflow-x: auto;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.cp-mapping-diagnostics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.cp-mapping-diagnostics-table th,
+.cp-mapping-diagnostics-table td {
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  padding: 0.35rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}

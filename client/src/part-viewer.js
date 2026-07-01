@@ -26,6 +26,13 @@ import {
 } from "@enver/shared/production/part-viewer-cad.js";
 import { takePrefetchedModelBuffer } from "./part-viewer-prefetch.js";
 import { escapeHtml } from "./utils.js";
+import { createCameraAnimator, EXTENDED_CAMERA_PRESETS } from "./3d/enver-3d-camera.js";
+import {
+  buildHighlightResult,
+  detectAmbiguousMeshes
+} from "./3d/enver-3d-selection.js";
+import { tintMaterialForStatus, pulseEmissiveIntensity } from "./3d/enver-3d-materials.js";
+import { resolvePartMappingStatus } from "@enver/shared/production/part-model-mapping.js";
 
 /** Палітри 3D-перегляду. `bazis` — наближено до вікна 3D у Базіс-Мебельщик (лише превʼю). */
 const THEMES = {
@@ -225,6 +232,14 @@ export function createPartViewer(
   controls.panSpeed = 0.75;
   controls.maxPolarAngle = Math.PI;
 
+  const cameraAnimator = createCameraAnimator({
+    camera,
+    controls,
+    onTick: () => {
+      /* render у animate() */
+    }
+  });
+
   if (palette.cinematic) {
     scene.add(new THREE.HemisphereLight(0xe8eef8, 0x2a3544, 0.62));
     const dir = new THREE.DirectionalLight(0xfffaf5, 1.05);
@@ -275,6 +290,10 @@ export function createPartViewer(
   let pendingDetailPart = null;
   let pendingDetailHint = null;
   let proceduralDetailGroup = null;
+  /** @type {Map<string, string>} */
+  let productionStatusByMesh = new Map();
+  let pulseActive = false;
+  let pulseStartMs = 0;
 
   const meshMap = new Map();
   const zoomVector = new THREE.Vector3();
@@ -659,7 +678,8 @@ export function createPartViewer(
       center.clone().add(new THREE.Vector3(0, maxDim * 0.15, maxDim * 1.6)),
     left: (center, maxDim) =>
       center.clone().add(new THREE.Vector3(-maxDim * 1.6, maxDim * 0.15, 0)),
-    right: (center, maxDim) => center.clone().add(new THREE.Vector3(maxDim * 1.6, maxDim * 0.15, 0))
+    right: (center, maxDim) => center.clone().add(new THREE.Vector3(maxDim * 1.6, maxDim * 0.15, 0)),
+    back: EXTENDED_CAMERA_PRESETS.back
   };
 
   function setCameraPreset(preset = "iso") {
@@ -1288,6 +1308,7 @@ export function createPartViewer(
         setEdgeStyle(child, child.userData.originalEdgeColor ?? EDGE_COLOR);
       }
     });
+    applyProductionStatusTints();
   }
 
   function clearSelection() {
@@ -1394,8 +1415,43 @@ export function createPartViewer(
     updatePickHint();
   }
 
+  function applyPulseToHighlight() {
+    if (!pulseActive || !highlightMesh?.material) return;
+    const elapsed = (performance.now() - pulseStartMs) / 1000;
+    const intensity = pulseEmissiveIntensity(elapsed);
+    if (intensity <= 0) {
+      pulseActive = false;
+      return;
+    }
+    const mat = highlightMesh.material;
+    if (mat.emissiveIntensity != null) mat.emissiveIntensity = intensity;
+  }
+
+  function triggerScanPulse() {
+    pulseActive = true;
+    pulseStartMs = performance.now();
+    wrap.classList.add("part-viewer-wrap--scan-pulse");
+    window.setTimeout(() => wrap.classList.remove("part-viewer-wrap--scan-pulse"), 1300);
+  }
+
+  function applyProductionStatusTints() {
+    if (!model || highlightMesh || assemblyGhostActive) return;
+    model.traverse((child) => {
+      if (!isRenderableMesh(child)) return;
+      if (hiddenMeshes.has(child.name)) return;
+      const status = productionStatusByMesh.get(child.name);
+      if (!status) {
+        child.material = child.userData.originalMaterial || child.material;
+        return;
+      }
+      const base = child.userData.originalMaterial || child.material;
+      child.material = tintMaterialForStatus(base, status, { useLambert: palette.useLambert });
+    });
+  }
+
   function animate() {
     animId = requestAnimationFrame(animate);
+    applyPulseToHighlight();
     controls.update();
     renderer.render(scene, camera);
   }
@@ -1602,12 +1658,20 @@ export function createPartViewer(
     fitToView();
   }
 
-  function applyHighlight({ meshName, nodeId, isolate = false, ghost = true }) {
+  function applyHighlight({
+    meshName,
+    nodeId,
+    isolate = false,
+    ghost = true,
+    ghostOthers = null,
+    pulse = false
+  } = {}) {
+    const useGhost = ghostOthers != null ? Boolean(ghostOthers) : Boolean(ghost);
     exitDrawingModeForOverlay();
-    assemblyGhostActive = Boolean(ghost && !isolate);
+    assemblyGhostActive = Boolean(useGhost && !isolate);
     if (!model) return;
     highlightMesh = resolveMesh({ meshName, nodeId });
-    if (ghost && !highlightMesh && (meshName || nodeId)) {
+    if (useGhost && !highlightMesh && (meshName || nodeId)) {
       showAll();
       return;
     }
@@ -1630,7 +1694,7 @@ export function createPartViewer(
         child.visible = true;
       } else if (isolate) {
         child.visible = false;
-      } else if (ghost) {
+      } else if (useGhost) {
         child.visible = true;
         applyGhostMaterial(child);
       } else {
@@ -1639,6 +1703,8 @@ export function createPartViewer(
         child.visible = true;
       }
     });
+
+    if (pulse && highlightMesh) triggerScanPulse();
   }
 
   function resolveMeshForPart(part, targetHint = null) {
@@ -1654,17 +1720,57 @@ export function createPartViewer(
   }
 
   /** Підсвітка деталі на загальному виробі + кріплення та вирізи кромки. */
-  function showPartOnAssembly(part, targetHint = null) {
-    if (!model || !part) return null;
-    clearDetailMarkers();
+  function showPartOnAssemblyImpl(part, targetHint = null) {
+    return showPartOnAssemblyResultImpl(part, targetHint).mesh;
+  }
 
-    const mesh = resolveMeshForPart(part, targetHint);
-    if (!mesh) {
-      fitToView(model);
-      return null;
+  function showPartOnAssemblyResultImpl(part, targetHint = null) {
+    if (!model || !part) {
+      return buildHighlightResult({
+        ok: false,
+        part,
+        reason: "viewer_not_ready"
+      });
     }
 
-    applyHighlight({ meshName: mesh.name, nodeId: mesh.name, ghost: true, isolate: false });
+    clearDetailMarkers();
+    const hint = targetHint || resolvePartHighlightMesh(part) || {};
+
+    if (detectAmbiguousMeshes(model, meshesForPart, part, hint, resolveMesh)) {
+      fitToView(model);
+      return buildHighlightResult({
+        ok: false,
+        meshName: hint.meshName || null,
+        nodeId: hint.nodeId || null,
+        part,
+        mappingStatus: "ambiguous",
+        reason: "ambiguous_mesh"
+      });
+    }
+
+    const mesh = resolveMeshForPart(part, targetHint);
+
+    if (!mesh) {
+      fitToView(model);
+      const expected = hint.meshName || hint.nodeId || null;
+      const mapping = resolvePartMappingStatus(part);
+      return buildHighlightResult({
+        ok: false,
+        meshName: expected,
+        nodeId: hint.nodeId || null,
+        part,
+        mappingStatus: mapping.mappingStatus,
+        reason: expected ? "mesh_not_found" : "no_mapping_hint"
+      });
+    }
+
+    applyHighlight({
+      meshName: mesh.name,
+      nodeId: mesh.name,
+      ghostOthers: true,
+      isolate: false,
+      pulse: true
+    });
     const primary = highlightMesh || mesh;
 
     applyKromkaEdgeHighlight(primary, part.edgeCode || part.edge_code, cadGeometry?.edgeMask);
@@ -1677,8 +1783,24 @@ export function createPartViewer(
       panelDimsHud.hidden = true;
     }
 
-    frameMesh(primary);
-    return primary;
+    animateFocusPart(primary, { duration: 520, padding: 1.45, mode: "smooth" });
+
+    const mapping = resolvePartMappingStatus(part);
+    return {
+      ...buildHighlightResult({
+        ok: true,
+        mesh: primary,
+        part,
+        mappingStatus: mapping.mappingStatus,
+        reason: "mesh_found"
+      }),
+      mesh: primary
+    };
+  }
+
+  function animateFocusPart(target, opts = {}) {
+    if (!target) return;
+    cameraAnimator.focusPart(target, opts);
   }
 
   function resetCamera() {
@@ -1773,6 +1895,47 @@ export function createPartViewer(
     highlightPart(opts) {
       applyHighlight(opts || {});
     },
+    ghostOthers(meshName) {
+      if (!meshName) return;
+      applyHighlight({ meshName, ghostOthers: true, isolate: false });
+    },
+    focusPart(target, opts) {
+      animateFocusPart(target, opts);
+    },
+    fitToPart(part, targetHint = null) {
+      const mesh = resolveMeshForPart(part, targetHint);
+      if (mesh) animateFocusPart(mesh, { duration: 400, padding: 1.35 });
+      else fitToView();
+    },
+    triggerScanPulse() {
+      triggerScanPulse();
+    },
+    setProductionStatusOverlay(statusMap = []) {
+      productionStatusByMesh.clear();
+      for (const item of statusMap) {
+        const key = item.meshName || item.resolvedMeshName;
+        if (key && item.status) productionStatusByMesh.set(String(key), String(item.status));
+      }
+      applyProductionStatusTints();
+    },
+    getDiagnostics() {
+      const meshes = listMeshes();
+      return {
+        hasModel: Boolean(model),
+        meshCount: meshes.length,
+        meshes,
+        drawingMode: drawingModeEnabled,
+        wireframe: wireframeEnabled,
+        measureEnabled,
+        sectionEnabled,
+        highlightMesh: highlightMesh?.name || null,
+        selectedMesh: selectedMesh?.name || null,
+        productionStatusCount: productionStatusByMesh.size,
+        sceneExtentsPreferMm,
+        detailOnly,
+        theme
+      };
+    },
     setPartCatalog(parts) {
       setPartCatalog(parts);
     },
@@ -1789,7 +1952,10 @@ export function createPartViewer(
       return queueDetailPart(part, targetHint);
     },
     showPartOnAssembly(part, targetHint) {
-      return showPartOnAssembly(part, targetHint);
+      return showPartOnAssemblyImpl(part, targetHint);
+    },
+    showPartOnAssemblyResult(part, targetHint) {
+      return showPartOnAssemblyResultImpl(part, targetHint);
     },
     setCadGeometry(geometry) {
       setCadGeometry(geometry);
@@ -1837,6 +2003,7 @@ export function createPartViewer(
     },
     destroy() {
       if (animId) cancelAnimationFrame(animId);
+      cameraAnimator.cancel();
       clearDetailMarkers();
       clearProceduralDetail();
       clearMeasure();

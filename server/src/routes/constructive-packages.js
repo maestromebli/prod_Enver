@@ -19,6 +19,8 @@ import {
   rejectPackage,
   releasePackageToCnc,
   deletePackageFile,
+  computeModelMappingDiagnostics,
+  recalculateModelMapping,
   saveModelManifest,
   updatePartModelMapping,
   uploadConstructivePackageFiles
@@ -241,6 +243,41 @@ router.post(
       await saveModelManifest(packageId, req.body.manifest, req.body.glbFileId || null);
     }
     res.json(await getPackageDetail(packageId));
+  }
+);
+
+router.get("/:packageId/model-mapping/diagnostics", requirePositionAccess, async (req, res) => {
+  const packageId = Number(req.params.packageId);
+  const positionId = Number(req.params.id);
+  if (!(await assertPackageForPosition(packageId, positionId))) {
+    res.status(404).json({ error: "Пакет не знайдено" });
+    return;
+  }
+  try {
+    res.json(await computeModelMappingDiagnostics(packageId));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post(
+  "/:packageId/model-mapping/diagnostics",
+  requirePermissionOrAdmin("canMap3dParts"),
+  async (req, res) => {
+    const packageId = Number(req.params.packageId);
+    const positionId = Number(req.params.id);
+    if (!(await assertPackageForPosition(packageId, positionId))) {
+      res.status(404).json({ error: "Пакет не знайдено" });
+      return;
+    }
+    try {
+      const result = req.body?.apply
+        ? await recalculateModelMapping(packageId)
+        : await computeModelMappingDiagnostics(packageId);
+      res.json(result);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
   }
 );
 
