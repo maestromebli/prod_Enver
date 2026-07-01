@@ -40,7 +40,12 @@ export function formatEnver3dscanSyncMessage(syncResult) {
   if (syncResult.reason === "already_has_enver_3dscan") {
     return "ENVER_3dscan уже є в .b3d";
   }
-  if (syncResult.reason === "no_3dscan_json" || syncResult.reason === "empty_3dscan_json") {
+  if (
+    syncResult.reason === "no_3dscan_json" ||
+    syncResult.reason === "no_3dscan_source" ||
+    syncResult.reason === "empty_3dscan_json" ||
+    syncResult.reason === "empty_3dscan_derived"
+  ) {
     return null;
   }
   return null;

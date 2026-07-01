@@ -8,9 +8,7 @@ import {
 import {
   detectPackageFileKind,
   isPackageApprovedForCnc,
-  canAutoParsePackage,
   canAppendFilesToPackage,
-  canCreateModelMapping,
   findSplitMappingPackages,
   hasB3dMappingFile,
   hasProjectMappingFile,
@@ -724,7 +722,7 @@ async function saveFilesToPackage(packageId, positionId, files = []) {
 
 /**
  * Завантажує файли в останній пакет (uploaded) або створює новий.
- * Якщо є файли конструктора + ЧПК — автоматично розбирає пакет і створює мапінг 3D.
+ * Розбір пакета — окремо, за запитом користувача (кнопка «Розібрати»).
  */
 export async function uploadConstructivePackageFiles({
   positionId,
@@ -799,39 +797,8 @@ export async function uploadConstructivePackageFiles({
     actor
   });
 
-  let detail = await getPackageDetail(packageId);
-  let autoParsed = false;
-  let autoParseError = null;
-
-  if (canAutoParsePackage(detail)) {
-    try {
-      detail = await parseConstructivePackage(packageId, actor);
-      autoParsed = true;
-      const summaryParts = [];
-      if (canCreateModelMapping(detail)) summaryParts.push("мапінг 3D");
-      if (detail?.procurement?.id || detail?.autoProcurement) summaryParts.push("закупівля з XLS");
-      await recordHistory({
-        entityType: "position",
-        entityId: positionId,
-        action: "update",
-        meta: {
-          summary: `Автоматично розібрано пакет v${pkgRow.version}${summaryParts.length ? ` (${summaryParts.join(", ")})` : ""}`,
-          orderNumber: positionRow.order_number,
-          item: positionRow.item
-        },
-        actor
-      });
-    } catch (err) {
-      autoParseError = err.message || "Помилка автоматичного розбору";
-      await run(
-        `UPDATE constructive_packages SET status = 'uploaded', updated_at = now() WHERE id = $1 AND status = 'parsing'`,
-        [packageId]
-      );
-      detail = await getPackageDetail(packageId);
-    }
-  }
-
-  return { ...detail, autoParsed, autoParseError };
+  const detail = await getPackageDetail(packageId);
+  return detail;
 }
 
 /** @deprecated Використовуйте uploadConstructivePackageFiles */
@@ -849,7 +816,7 @@ export async function createConstructivePackage({
     uploadedBy,
     actor
   });
-  return { package: result.package, files: result.files, autoParsed: result.autoParsed };
+  return { package: result.package, files: result.files };
 }
 
 /** Розбір пакета → parts/materials/hardware. */

@@ -83,6 +83,39 @@ export function removeOrder(id) {
   markDerivedDataStale();
 }
 
+/** Локально застосувати відповідь assignConstructorDesk без повного reload. */
+export function applyConstructorAssignmentResult(result) {
+  const desk = result?.position;
+  if (!desk?.id) return;
+
+  const idx = state.positions.findIndex((p) => p.id === desk.id);
+  const existing = idx >= 0 ? state.positions[idx] : null;
+  upsertPosition({
+    ...(existing || { id: desk.id }),
+    constructor: desk.constructor ?? existing?.constructor ?? "",
+    constructorUserId: desk.constructorUserId ?? null,
+    constructorUserName: desk.constructorUserName ?? "",
+    constructorDueAt: desk.constructorDueAt ?? null,
+    constructorAssignedAt: desk.constructorAssignedAt ?? null,
+    constructorEstimatedHours: desk.constructorEstimatedHours ?? null
+  });
+
+  const sync = result?.orderStatusSync;
+  if (sync?.updated) {
+    const orderId = sync.order?.id ?? existing?.orderId ?? null;
+    if (orderId) {
+      const oIdx = state.orders.findIndex((o) => o.id === orderId);
+      if (oIdx >= 0) {
+        const nextStatus = sync.status || sync.order?.status || state.orders[oIdx].status;
+        state.orders[oIdx] = { ...state.orders[oIdx], status: nextStatus };
+        reconcileOrderFromPositions(orderId);
+      }
+    }
+  }
+}
+
+let refreshInFlight = null;
+
 /** Оновити вкладки, що читають окремі API, після зміни позицій. */
 export async function syncWorkflowViews() {
   const { CONSTRUCTOR_DESK_TAB, PRODUCTION_FLOOR_TAB } = await import("./constants.js");
@@ -112,7 +145,7 @@ export async function syncWorkflowViews() {
  * Повне оновлення з сервера + синхронізація похідних екранів.
  * Після будь-якої мутації позиції/замовлення — єдине джерело правди.
  */
-export async function refreshAppData({ includeDirectories = false, syncViews = false } = {}) {
+async function fetchAppData({ includeDirectories = false, syncViews = false } = {}) {
   const tasks = [api.getOrders(), api.getPositions(), api.getKpis()];
   if (includeDirectories) tasks.push(api.getDirectories());
 
@@ -130,6 +163,14 @@ export async function refreshAppData({ includeDirectories = false, syncViews = f
   markDerivedDataStale();
   if (syncViews) await syncWorkflowViews();
   return state;
+}
+
+export async function refreshAppData(options = {}) {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = fetchAppData(options).finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 /** Після зміни на етапі: оновити позицію локально і за потреби підтягнути все з сервера. */

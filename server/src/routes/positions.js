@@ -98,7 +98,10 @@ function mapEnrichedRow(row, planMap, extraContext = {}) {
   });
 }
 
+const CONSTRUCTOR_USER_NAME_SUBQUERY = `(SELECT u.name FROM users u WHERE u.id = p.constructor_user_id LIMIT 1) AS constructor_user_name`;
+
 const POSITION_SELECT = `SELECT p.*,
+  ${CONSTRUCTOR_USER_NAME_SUBQUERY},
   ${CONSTRUCTIVE_FILE_NAME_SUBQUERY},
   ${CONSTRUCTIVE_FILE_COUNT_SUBQUERY},
   ${PACKAGE_STATUS_SUBQUERY},

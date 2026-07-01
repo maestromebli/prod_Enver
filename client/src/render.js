@@ -347,11 +347,13 @@ export function renderApp(options = {}) {
           window.scrollTo({ top: 0, behavior: "instant" });
         },
         onRefresh: async (opts) => {
-          try {
-            const { refreshAppData } = await import("./data-sync.js");
-            await refreshAppData({ includeDirectories: false });
-          } catch {
-            /* локальний стан уже оновлено */
+          if (!opts?.skipDataRefresh) {
+            try {
+              const { refreshAppData } = await import("./data-sync.js");
+              await refreshAppData({ includeDirectories: false });
+            } catch {
+              /* локальний стан уже оновлено */
+            }
           }
           renderApp(opts);
         },

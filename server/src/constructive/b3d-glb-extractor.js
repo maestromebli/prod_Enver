@@ -311,7 +311,7 @@ export function extractPackagePreviewGlb({
   }
 
   const err = new Error(
-    "Не вдалося зібрати 3D-превʼю — додайте .project (Базіс) і .b3d, або запустіть scripts/enver-3dscan-export.js"
+    "Не вдалося зібрати 3D-превʼю — додайте .project (Базіс) і .b3d (GibLab), потім натисніть «Розібрати»"
   );
   err.code = "NO_PREVIEW";
   throw err;

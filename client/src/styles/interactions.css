@@ -429,7 +429,11 @@
   font-weight: 700;
 }
 
-.constructive-upload-zone[data-state="uploading"] .constructive-upload-status::after {
+.constructive-upload-zone[data-state="uploading"] .constructive-upload-status:not(:empty) {
+  color: var(--enver-primary, var(--navy));
+}
+
+.constructive-upload-zone[data-state="uploading"] .constructive-upload-status:empty::after {
   content: "Завантаження…";
   color: var(--enver-primary, var(--navy));
 }
@@ -498,6 +502,121 @@
 
 .cp-uploaded-files {
   margin-bottom: 12px;
+}
+
+.cp-upload-progress {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--enver-radius-md, 10px);
+  border: 1px solid color-mix(in srgb, var(--enver-primary, #245c3b) 25%, transparent);
+  background: var(--enver-primary-soft, #e2efe7);
+}
+
+.cp-upload-progress-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 8px;
+}
+
+.cp-upload-progress-title {
+  font-size: 0.875rem;
+}
+
+.cp-upload-progress-bar-wrap {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.cp-upload-progress-bar {
+  height: 100%;
+  background: var(--enver-primary, var(--navy));
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.cp-upload-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.cp-upload-queue-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.cp-upload-queue-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--enver-text-muted, #94a3b8);
+}
+
+.cp-upload-queue-item.is-reading .cp-upload-queue-dot,
+.cp-upload-queue-item.is-uploading .cp-upload-queue-dot {
+  background: var(--enver-primary, #245c3b);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--enver-primary, #245c3b) 20%, transparent);
+  animation: cp-upload-pulse 1s ease-in-out infinite;
+}
+
+.cp-upload-queue-item.is-done .cp-upload-queue-dot {
+  background: var(--enver-success, #047857);
+}
+
+.cp-upload-queue-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-upload-ready-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--enver-radius-md, 10px);
+  border: 1px solid color-mix(in srgb, var(--enver-success, #047857) 35%, transparent);
+  background: var(--enver-success-soft, #e1f3e6);
+}
+
+.cp-upload-ready-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--enver-success, #047857);
+}
+
+.cp-upload-ready-text {
+  flex: 1;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@keyframes cp-upload-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .cp-unified-upload {

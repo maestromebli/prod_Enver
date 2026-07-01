@@ -156,6 +156,7 @@ export async function runPackageParseWithProgress(positionId, packageId, ctx = {
   );
   if (block && position) {
     applyPackageParseUi(block, position, optimistic);
+    applyPackageWizardUi(block, optimistic, 1);
   }
 
   const stopProgress = startParseProgressAnimation(block);
@@ -240,14 +241,26 @@ export function applyPackageParseUi(block, position, detail, _constructiveFiles)
   }
 
   const parsing = pkg?.status === "parsing" && !isStalePackageParsing(pkg);
+  const display = pkg ? packageParseDisplay(pkg.status, detail?.parts?.length || 0) : null;
   block.classList.toggle("constructive-package-block--parsing", parsing);
   block.querySelectorAll("[data-cp-parse-btn]").forEach((btn) => {
     btn.disabled = parsing;
-    if (parsing) btn.textContent = "Розбір…";
-    else if (btn.dataset.cpParseDefaultLabel) btn.textContent = btn.dataset.cpParseDefaultLabel;
+    if (parsing) {
+      if (!btn.dataset.cpParseDefaultLabel) {
+        btn.dataset.cpParseDefaultLabel = btn.textContent.trim();
+      }
+      btn.textContent = "Розбір…";
+    } else if (btn.dataset.cpParseDefaultLabel) {
+      btn.textContent = btn.dataset.cpParseDefaultLabel;
+    }
   });
 
-  const display = pkg ? packageParseDisplay(pkg.status, detail?.parts?.length || 0) : null;
+  const uploadReady = block.querySelector("[data-cp-upload-ready]");
+  if (uploadReady && (parsing || display?.parsed)) {
+    uploadReady.hidden = true;
+  } else if (uploadReady && pkg?.status === "uploaded" && !detail?.parts?.length) {
+    uploadReady.hidden = false;
+  }
   applyPackageWizardUi(block, detail);
   if (display?.parsed && detail?.parts?.length) {
     applyPackageWizardUi(block, detail, 2);

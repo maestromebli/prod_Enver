@@ -69,8 +69,11 @@ export function mapPosition(row) {
     managerDataCompletedAt: row.manager_data_completed_at ?? null,
     managerFilesCount: Number(row.manager_files_count) || 0,
     constructorUserId: row.constructor_user_id ?? null,
+    constructorUserName: row.constructor_user_name ?? "",
     constructorDueAt: row.constructor_due_at ?? null,
     constructorAssignedAt: row.constructor_assigned_at ?? null,
+    constructorEstimatedHours:
+      row.constructor_estimated_hours != null ? Number(row.constructor_estimated_hours) : null,
     createdAt: row.created_at ?? null
   };
 }

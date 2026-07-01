@@ -7,6 +7,7 @@ import {
   isEnver3dscanSidecarName,
   parseEnver3dscanJson
 } from "../../../shared/production/enver-3dscan.js";
+import { fuseBazisPackage } from "./enver-3dscan-fusion.js";
 import { run } from "../db.js";
 
 export { isEnver3dscanSidecarName };
@@ -61,7 +62,14 @@ export async function overwritePackageFileBuffer(fileRow, buffer) {
   return { storagePath, size: buffer.length, checksum };
 }
 
-/** Дописати ENVER_3dscan у .b3d з sidecar JSON, якщо хвоста ще немає. */
+/** Побудувати ENVER_3dscan з .b3d + .project без sidecar JSON (еквівалент скрипта Базіс). */
+export function deriveScanDocumentFromPackage({ b3dBuffer = null, projectBuffer = null } = {}) {
+  if (!b3dBuffer?.length && !projectBuffer?.length) return null;
+  const fused = fuseBazisPackage({ b3dBuffer, projectBuffer });
+  return fused.scan?.panels?.length ? fused.scan : null;
+}
+
+/** Дописати ENVER_3dscan у .b3d з sidecar JSON або з .project + .b3d, якщо хвоста ще немає. */
 export async function autoSyncEnver3dscanToPackageB3d({ fileRows = [] } = {}) {
   const b3dRow = fileRows.find((f) => f.kind === "b3d");
   const b3dPath = b3dRow?.storage_path || b3dRow?.storagePath;
@@ -74,15 +82,28 @@ export async function autoSyncEnver3dscanToPackageB3d({ fileRows = [] } = {}) {
     return { applied: false, reason: "already_has_enver_3dscan" };
   }
 
+  let scanDocument = null;
+  let syncReason = "enver_3dscan_appended_from_json";
+
   const scanRow = findEnver3dscanJsonFileRow(fileRows);
   const scanPath = scanRow?.storage_path || scanRow?.storagePath;
-  if (!scanPath) {
-    return { applied: false, reason: "no_3dscan_json" };
-  }
-
-  const scanDocument = await loadEnver3dscanFromJsonBuffer(await readStoredFile(scanPath));
-  if (!scanDocument?.panels?.length) {
-    return { applied: false, reason: "empty_3dscan_json" };
+  if (scanPath) {
+    scanDocument = await loadEnver3dscanFromJsonBuffer(await readStoredFile(scanPath));
+    if (!scanDocument?.panels?.length) {
+      return { applied: false, reason: "empty_3dscan_json" };
+    }
+  } else {
+    const projectRow = fileRows.find((f) => f.kind === "project");
+    const projectPath = projectRow?.storage_path || projectRow?.storagePath;
+    if (!projectPath) {
+      return { applied: false, reason: "no_3dscan_source" };
+    }
+    const projectBuffer = await readStoredFile(projectPath);
+    scanDocument = deriveScanDocumentFromPackage({ b3dBuffer, projectBuffer });
+    if (!scanDocument?.panels?.length) {
+      return { applied: false, reason: "empty_3dscan_derived" };
+    }
+    syncReason = "enver_3dscan_derived_from_package";
   }
 
   const patched = await buildPatchedB3dWithEnver3dscan(b3dBuffer, scanDocument);
@@ -94,6 +115,6 @@ export async function autoSyncEnver3dscanToPackageB3d({ fileRows = [] } = {}) {
   return {
     applied: true,
     panelCount: patched.panelCount,
-    reason: "enver_3dscan_appended_from_json"
+    reason: syncReason
   };
 }

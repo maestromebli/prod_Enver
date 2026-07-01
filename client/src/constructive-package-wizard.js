@@ -24,7 +24,8 @@ export function resolvePackageWizardStep(detail) {
   if (!pkg || !hasFiles) return 0;
 
   const status = String(pkg.status || "").trim();
-  if (isPackageNotParsedStatus(status) || isPackageParsingStatus(status)) return 1;
+  if (isPackageParsingStatus(status)) return 1;
+  if (isPackageNotParsedStatus(status)) return 0;
   if (["parsed", "needs_review", "rejected"].includes(status)) return 2;
   return 3;
 }

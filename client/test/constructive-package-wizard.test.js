@@ -11,9 +11,17 @@ describe("constructive-package-wizard", () => {
     assert.equal(resolvePackageWizardStep({ package: { status: "uploaded" }, files: [] }), 0);
   });
 
-  it("resolvePackageWizardStep — uploaded → розбір", () => {
+  it("resolvePackageWizardStep — uploaded з файлами лишається на завантаженні", () => {
     const detail = {
       package: { status: "uploaded" },
+      files: [{ id: 1 }]
+    };
+    assert.equal(resolvePackageWizardStep(detail), 0);
+  });
+
+  it("resolvePackageWizardStep — parsing → розбір", () => {
+    const detail = {
+      package: { status: "parsing" },
       files: [{ id: 1 }]
     };
     assert.equal(resolvePackageWizardStep(detail), 1);

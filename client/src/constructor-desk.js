@@ -832,8 +832,11 @@ export function bindConstructorDeskWorkspace(onChange = () => {}) {
               ? "Призначення збережено · замовлення переведено в «У конструктиві»"
               : "Призначення збережено"
           );
+          const { applyConstructorAssignmentResult, syncWorkflowViews } =
+            await import("./data-sync.js");
+          applyConstructorAssignmentResult(res);
           await refreshConstructorWorkspace(positionId, { showLoading: false });
-          await refreshAppData({ syncViews: true });
+          await syncWorkflowViews();
           void loadConstructorDesk({ silent: true }).then(() => onChange());
           onChange();
         } catch (err) {
@@ -1013,8 +1016,14 @@ function bindDeskAssetUploads(root, onChange) {
 
 let actionsBound = false;
 
-async function syncDeskWithOrders(onChange) {
-  await refreshAppData({ syncViews: true });
+async function syncDeskWithOrders(onChange, result = null) {
+  if (result?.position) {
+    const { applyConstructorAssignmentResult, syncWorkflowViews } = await import("./data-sync.js");
+    applyConstructorAssignmentResult(result);
+    await syncWorkflowViews();
+  } else {
+    await refreshAppData({ syncViews: true });
+  }
   onChange?.();
 }
 
@@ -1102,7 +1111,7 @@ export function bindConstructorDeskActions(onChange = () => {}) {
             ? "Призначення збережено · замовлення переведено в «У конструктиві»"
             : "Призначення збережено"
         );
-        await syncDeskWithOrders(onChange);
+        await syncDeskWithOrders(onChange, res);
       } catch (err) {
         toastError(err.message);
       }

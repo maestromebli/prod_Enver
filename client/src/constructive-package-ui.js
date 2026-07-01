@@ -23,16 +23,13 @@ import {
   canCreateProcurement,
   hasConstructorProcurementSource,
   PROCUREMENT_ELIGIBLE_PACKAGE_STATUSES,
-  hasModelMappingResult,
-  hasModelMappingSources,
-  has3dPreviewFile,
-  shouldShowModelMappingTab
+  has3dPreviewFile
 } from "@enver/shared/production/constructive-package.js";
 import { canWorkConstructorDesk, canEditPositions, canManageProcurement } from "./auth.js";
 import { escapeHtml } from "./utils.js";
 import { renderConstructiveFileList } from "./position-drawer-render.js";
 import { toastError, toastSuccess } from "./toast.js";
-import { renderPackage3dStatusBlock, renderGiblabEnver3HookHelp } from "./preview-3d-ui.js";
+import { renderPackage3dStatusBlock } from "./preview-3d-ui.js";
 import {
   preview3dLayout,
   preview3dLayoutLabel
@@ -44,8 +41,7 @@ import {
 } from "@enver/shared/production/package-readiness.js";
 import {
   formatAssemblyMissingMessage,
-  formatEnver3SyncMessage,
-  formatEnver3dscanSyncMessage
+  formatEnver3SyncMessage
 } from "@enver/shared/production/preview-3d-meta.js";
 import {
   renderConstructivePipeline,
@@ -68,6 +64,129 @@ const packageDropZones = new WeakMap();
 const packageBindAbort = new WeakMap();
 const packageUploadQueues = new WeakMap();
 
+const UPLOAD_PHASE_LABELS = {
+  reading: "Підготовка файлів…",
+  uploading: "Завантаження на сервер…",
+  done: "Готово"
+};
+
+function escapeFileLabel(name) {
+  return String(name || "файл").slice(0, 64);
+}
+
+function renderUploadQueueItems(files, { activeIndex = -1, phase = "reading" } = {}) {
+  return files
+    .map((file, index) => {
+      let status = "pending";
+      let statusLabel = "очікує";
+      if (index < activeIndex) {
+        status = "done";
+        statusLabel = "готово";
+      } else if (index === activeIndex) {
+        status = phase === "uploading" ? "uploading" : "reading";
+        statusLabel = phase === "uploading" ? "на сервері" : "читання";
+      }
+      return `<li class="cp-upload-queue-item is-${status}">
+        <span class="cp-upload-queue-dot" aria-hidden="true"></span>
+        <span class="cp-upload-queue-name">${escapeHtml(escapeFileLabel(file.name))}</span>
+        <span class="cp-upload-queue-status enver-meta">${statusLabel}</span>
+      </li>`;
+    })
+    .join("");
+}
+
+function ensureUploadProgressMount(root) {
+  let mount = root.querySelector("[data-cp-upload-progress]");
+  if (mount) return mount;
+  const anchor = root.querySelector(".cp-unified-upload");
+  if (!anchor) return null;
+  anchor.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="cp-upload-progress" data-cp-upload-progress hidden>
+      <div class="cp-upload-progress-head">
+        <strong class="cp-upload-progress-title" data-cp-upload-progress-title>Завантаження…</strong>
+        <span class="enver-meta cp-upload-progress-detail" data-cp-upload-progress-detail></span>
+      </div>
+      <div class="cp-upload-progress-bar-wrap" aria-hidden="true">
+        <div class="cp-upload-progress-bar" data-cp-upload-progress-bar style="width:0%"></div>
+      </div>
+      <ul class="cp-upload-queue" data-cp-upload-queue aria-label="Черга завантаження"></ul>
+    </div>`
+  );
+  return root.querySelector("[data-cp-upload-progress]");
+}
+
+function setPackageUploadProgressUi(
+  root,
+  { visible, phase = "reading", percent = 0, files = [], activeIndex = -1 } = {}
+) {
+  const mount = ensureUploadProgressMount(root);
+  const zone = root.querySelector("[data-cp-package-drop]");
+  if (!mount) {
+    if (zone) {
+      zone.dataset.state = visible
+        ? "uploading"
+        : zone.dataset.state === "uploading"
+          ? "success"
+          : zone.dataset.state;
+      zone.classList.toggle("is-uploading", visible);
+      const status = zone.querySelector(".constructive-upload-status");
+      if (status) status.textContent = visible ? UPLOAD_PHASE_LABELS[phase] || "Завантаження…" : "";
+    }
+    return;
+  }
+
+  mount.hidden = !visible;
+  const title = mount.querySelector("[data-cp-upload-progress-title]");
+  const detail = mount.querySelector("[data-cp-upload-progress-detail]");
+  const bar = mount.querySelector("[data-cp-upload-progress-bar]");
+  const queue = mount.querySelector("[data-cp-upload-queue]");
+
+  if (title) title.textContent = UPLOAD_PHASE_LABELS[phase] || "Завантаження…";
+  if (detail) {
+    const total = files.length;
+    if (total > 1 && activeIndex >= 0) {
+      detail.textContent = `Файл ${Math.min(activeIndex + 1, total)} з ${total}`;
+    } else if (total === 1 && files[0]?.name) {
+      detail.textContent = escapeFileLabel(files[0].name);
+    } else {
+      detail.textContent = total ? `${total} файл(ів)` : "";
+    }
+  }
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  if (queue && files.length) {
+    queue.innerHTML = renderUploadQueueItems(files, { activeIndex, phase });
+  }
+
+  if (zone) {
+    zone.dataset.state = visible
+      ? "uploading"
+      : zone.dataset.state === "uploading"
+        ? "idle"
+        : zone.dataset.state;
+    zone.classList.toggle("is-uploading", visible);
+    zone.setAttribute("aria-busy", visible ? "true" : "false");
+    const status = zone.querySelector(".constructive-upload-status");
+    if (status) {
+      status.textContent = visible ? UPLOAD_PHASE_LABELS[phase] || "Завантаження…" : "";
+    }
+  }
+}
+
+function hidePackageUploadProgressUi(root, hasFiles = true) {
+  setPackageUploadProgressUi(root, { visible: false, phase: "done", percent: 100 });
+  const zone = root.querySelector("[data-cp-package-drop]");
+  if (zone) {
+    zone.classList.remove("is-uploading");
+    zone.removeAttribute("aria-busy");
+    zone.dataset.state = hasFiles ? "success" : "idle";
+    const status = zone.querySelector(".constructive-upload-status");
+    if (status) status.textContent = "";
+  }
+  const mount = root.querySelector("[data-cp-upload-progress]");
+  if (mount) mount.hidden = true;
+}
+
 const PACKAGE_EXTRA_EXT = [".glb", ".gltf", ".wrl"];
 const PACKAGE_CNC_EXT = [".nc", ".giblab", ".kdt", ".gcode", ".tap", ".cnc"];
 const PACKAGE_ALL_ACCEPT = [...CONSTRUCTIVE_ACCEPT_EXT, ...PACKAGE_EXTRA_EXT, ...PACKAGE_CNC_EXT];
@@ -89,20 +208,55 @@ async function fileToPackagePayload(file) {
 }
 
 async function flushPackageUploadQueue(position, root, notify) {
-  const state = packageUploadQueues.get(root);
-  if (!state || state.busy || !state.pending.length) return;
+  const queueState = packageUploadQueues.get(root);
+  if (!queueState || queueState.busy || !queueState.pending.length) return;
 
-  state.busy = true;
-  const files = state.pending.splice(0, state.pending.length);
-  const zone = root.querySelector("[data-cp-package-drop]");
-  zone?.classList.add("is-uploading");
-  zone?.setAttribute("aria-busy", "true");
+  queueState.busy = true;
+  const files = queueState.pending.splice(0, queueState.pending.length);
 
+  setPackageUploadProgressUi(root, {
+    visible: true,
+    phase: "reading",
+    percent: 4,
+    files,
+    activeIndex: 0
+  });
+
+  let result = null;
   try {
-    const payload = await Promise.all(files.map(fileToPackagePayload));
-    const result = await api.uploadConstructivePackage(position.id, payload);
+    const payload = [];
+    for (let i = 0; i < files.length; i++) {
+      setPackageUploadProgressUi(root, {
+        visible: true,
+        phase: "reading",
+        percent: 8 + Math.round((i / Math.max(files.length, 1)) * 52),
+        files,
+        activeIndex: i
+      });
+      payload.push(await fileToPackagePayload(files[i]));
+    }
+
+    setPackageUploadProgressUi(root, {
+      visible: true,
+      phase: "uploading",
+      percent: 72,
+      files,
+      activeIndex: files.length - 1
+    });
+
+    result = await api.uploadConstructivePackage(position.id, payload);
+
+    setPackageUploadProgressUi(root, {
+      visible: true,
+      phase: "uploading",
+      percent: 96,
+      files,
+      activeIndex: files.length
+    });
+
     const ctx = getPackagePanelContext(position.id);
     handlePackageUploadResult(root, result, {
+      uploadedCount: files.length,
       onDetailPatched: ctx?.onDetailPatched,
       hideProcurement: ctx?.hideProcurement === true
     });
@@ -118,11 +272,12 @@ async function flushPackageUploadQueue(position, root, notify) {
     }
   } catch (err) {
     toastError(err.message);
+    const zone = root.querySelector("[data-cp-package-drop]");
+    if (zone) zone.dataset.state = "error";
   } finally {
-    state.busy = false;
-    zone?.classList.remove("is-uploading");
-    zone?.removeAttribute("aria-busy");
-    if (state.pending.length) {
+    hidePackageUploadProgressUi(root, Boolean(result?.files?.length));
+    queueState.busy = false;
+    if (queueState.pending.length) {
       void flushPackageUploadQueue(position, root, notify);
     }
   }
@@ -164,8 +319,6 @@ export function isPackageUploadFile(file) {
 function appendPreview3dUploadNotes(parts, result) {
   const enver3 = formatEnver3SyncMessage(result?.preview3d?.enver3Sync);
   if (enver3) parts.push(enver3);
-  const enver3dscan = formatEnver3dscanSyncMessage(result?.preview3d?.enver3dscanSync);
-  if (enver3dscan) parts.push(enver3dscan);
   const partial = formatAssemblyMissingMessage({
     missingCodes: result?.preview3d?.missingCodes,
     totalPanels: result?.parts?.length,
@@ -177,68 +330,37 @@ function appendPreview3dUploadNotes(parts, result) {
 function handlePackageUploadResult(
   root,
   result,
-  { onDetailPatched, hideProcurement = false } = {}
+  { uploadedCount = 0, onDetailPatched, hideProcurement = false } = {}
 ) {
   onDetailPatched?.(result);
 
-  if (result?.autoParseError) {
-    toastError(`Файли збережено, але автоматичний розбір не вдався: ${result.autoParseError}`);
-    return;
-  }
+  const count = uploadedCount || result?.files?.length || 0;
+  const parts = [count === 1 ? "1 файл завантажено" : `${count} файлів завантажено`];
 
-  const mappingReady = hasModelMappingResult(result) || shouldShowModelMappingTab(result);
-
-  if (result?.autoParsed) {
-    const parts = ["Файли збережено"];
-    if (has3dPreviewFile(result)) {
-      const layout = result.preview3d?.layout || preview3dLayout(result);
-      parts.push(
-        result.preview3d?.isPartialAssembly
-          ? "3D-збірка (частково)"
-          : layout === "assembly"
-            ? "3D-збірка готова"
-            : `3D: ${preview3dLayoutLabel(layout)}`
-      );
-      appendPreview3dUploadNotes(parts, result);
-      const hint = get3dUpgradeHintText({ layout, packageDetail: result });
-      toastSuccess(hint ? `${parts.join(" — ")}. ${hint}` : `${parts.join(" — ")}.`);
-      return;
-    }
-    if (mappingReady) parts.push("мапінг 3D створено");
-    if (!hideProcurement && (result?.autoProcurement || result?.procurement?.id)) {
-      parts.push("закупівлю з Excel");
-    }
-    toastSuccess(`${parts.join(" — ")}.`);
-    return;
-  }
-
-  if (!mappingReady && !hasModelMappingSources(result)) {
-    const files = result?.files || [];
-    const missing = [];
-    if (!files.some((f) => f.kind === "project")) missing.push(".project");
-    if (!files.some((f) => f.kind === "b3d")) missing.push(".b3d");
-    if (missing.length) {
-      toastSuccess(
-        `Файли збережено. Додайте ${missing.join(" та ")} у той самий пакет — розбір і мапінг 3D запустяться автоматично`
-      );
-      return;
-    }
-  }
-
-  const msg = packageUploadSuccessMessage(result);
-  const notes = [];
-  appendPreview3dUploadNotes(notes, result);
-  toastSuccess(notes.length ? `${msg} · ${notes.join(" · ")}` : msg);
-}
-
-function packageUploadSuccessMessage(result) {
   if (has3dPreviewFile(result)) {
-    const layout = preview3dLayout(result);
-    return layout === "assembly"
-      ? "Файли збережено — 3D-збірка готова"
-      : "Файли збережено — розкладка деталей (для збірки — ENVER3 або .wrl)";
+    const layout = result.preview3d?.layout || preview3dLayout(result);
+    parts.push(
+      result.preview3d?.isPartialAssembly
+        ? "3D-збірка (частково)"
+        : layout === "assembly"
+          ? "3D-збірка готова"
+          : `3D: ${preview3dLayoutLabel(layout)}`
+    );
+    appendPreview3dUploadNotes(parts, result);
+    const hint = get3dUpgradeHintText({ layout, packageDetail: result });
+    toastSuccess(hint ? `${parts.join(" — ")}. ${hint}` : `${parts.join(" — ")}.`);
+    return;
   }
-  return "Файли завантажено";
+
+  const status = result?.package?.status;
+  const parsed = Boolean(result?.parts?.length) && status !== "uploaded";
+  if (!parsed) {
+    parts.push("Натисніть «Розібрати» для обробки");
+  } else if (!hideProcurement && (result?.autoProcurement || result?.procurement?.id)) {
+    parts.push("закупівлю з Excel");
+  }
+
+  toastSuccess(parts.join(" · "));
 }
 
 function renderUploadedConstructiveFiles(
@@ -470,13 +592,62 @@ export function renderPackageHandoffActionBar(
     ${hint}`;
 }
 
+function renderUploadReadyHint(detail) {
+  const pkg = detail?.package;
+  const hasFiles = Boolean(detail?.files?.length);
+  const needsParse = pkg && hasFiles && pkg.status === "uploaded" && !detail?.parts?.length;
+  if (!needsParse) return "";
+
+  const fileCount = detail.files.length;
+  return `
+    <div class="cp-upload-ready-hint" data-cp-upload-ready role="status">
+      <span class="cp-upload-ready-icon" aria-hidden="true">✓</span>
+      <div class="cp-upload-ready-text">
+        <strong>${fileCount} ${fileCount === 1 ? "файл" : fileCount < 5 ? "файли" : "файлів"} на сервері</strong>
+        <span class="enver-meta">Натисніть «Розібрати», коли всі потрібні файли завантажено.</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-primary" data-cp-parse-btn data-cp-parse-default-label="Розібрати">Розібрати</button>
+    </div>`;
+}
+
+function patchUploadReadyHint(block, detail) {
+  if (!block) return;
+  const html = renderUploadReadyHint(detail);
+  const existing = block.querySelector("[data-cp-upload-ready]");
+  if (!html) {
+    existing?.remove();
+    return;
+  }
+  if (existing) {
+    existing.outerHTML = html;
+    return;
+  }
+  const progress = block.querySelector("[data-cp-upload-progress]");
+  if (progress) {
+    progress.insertAdjacentHTML("afterend", html);
+  } else {
+    block.querySelector(".cp-unified-upload")?.insertAdjacentHTML("afterbegin", html);
+  }
+}
+
 function renderUnifiedPackageUpload(detail, { hideProcurement = false } = {}) {
   const hasFiles = Boolean(detail?.files?.length);
   const autoHint = hideProcurement
-    ? "3D-збірка — після скрипта <strong>enver-b3d-assembly-export.js</strong> у Базісі на .b3d (ENVER3). Без скрипта — лише розкладка деталей."
-    : "3D-збірка: .project + .b3d з ENVER3 (скрипт Базіс). Закупівля — після Excel.";
+    ? "Завантажте <strong>.project</strong> + <strong>.b3d</strong> — після «Розібрати» зʼявиться 3D."
+    : "Завантажте <strong>.project</strong> + <strong>.b3d</strong> — після «Розібрати» зʼявиться 3D. Закупівля — після Excel.";
   return `
     <div class="cp-unified-upload file-upload-wrap">
+      <div class="cp-upload-progress" data-cp-upload-progress hidden>
+        <div class="cp-upload-progress-head">
+          <strong class="cp-upload-progress-title" data-cp-upload-progress-title>Завантаження…</strong>
+          <span class="enver-meta cp-upload-progress-detail" data-cp-upload-progress-detail></span>
+        </div>
+        <div class="cp-upload-progress-bar-wrap" aria-hidden="true">
+          <div class="cp-upload-progress-bar" data-cp-upload-progress-bar style="width:0%"></div>
+        </div>
+        <ul class="cp-upload-queue" data-cp-upload-queue aria-label="Черга завантаження"></ul>
+      </div>
+      ${renderUploadReadyHint(detail)}
       ${renderFileUploadZone({
         zoneAttr: "data-cp-package-drop",
         inputAttr: "data-cp-package-input",
@@ -488,7 +659,6 @@ function renderUnifiedPackageUpload(detail, { hideProcurement = false } = {}) {
         accept: PACKAGE_ALL_ACCEPT.join(",")
       })}
       <p class="enver-meta cp-auto-hint">${autoHint}</p>
-      ${renderGiblabEnver3HookHelp()}
     </div>`;
 }
 
@@ -530,7 +700,7 @@ export function renderConstructivePackageBlock(
       ${pkg ? renderPackage3dStatusBlock(detail) : ""}
       ${pkg ? `<p class="cp-status enver-meta cp-status--${parseDisplay.parsed ? "parsed" : parseDisplay.parsing ? "parsing" : "pending"}">${escapeHtml(parseDisplay.title)}${partsSuffix}</p>` : ""}
       <div class="constructive-actions constructive-actions--cta cp-actions">
-        ${showManualParseBtn ? `<button type="button" class="btn btn-sm btn-primary" data-cp-parse-btn">${parseBtnLabel}</button>` : ""}
+        ${showManualParseBtn ? `<button type="button" class="btn btn-sm btn-primary" data-cp-parse-btn data-cp-parse-default-label="${parseBtnLabel}">${parseBtnLabel}</button>` : ""}
       </div>
     `,
     stepCtx
@@ -608,17 +778,18 @@ function patchConstructiveActionButtons(block, detail, { hideProcurement = false
   const parseBtnLabel = status === "uploaded" ? "Розібрати" : "Розібрати знову";
   const canStartProcurement = !hideProcurement && canCreateProcurement(detail);
 
-  const parseBtn = block.querySelector("[data-cp-parse-btn]");
-  if (parseBtn) {
+  block.querySelectorAll("[data-cp-parse-btn]").forEach((parseBtn) => {
     parseBtn.textContent = parseBtnLabel;
+    parseBtn.dataset.cpParseDefaultLabel = parseBtnLabel;
     parseBtn.hidden = !showManualParseBtn;
     parseBtn.disabled = false;
-  } else if (showManualParseBtn) {
+  });
+  if (!block.querySelector("[data-cp-parse-btn]") && showManualParseBtn) {
     const actions = block.querySelector(".cp-actions");
     if (actions && !actions.querySelector("[data-cp-parse-btn]")) {
       actions.insertAdjacentHTML(
         "afterbegin",
-        `<button type="button" class="btn btn-sm btn-ghost" data-cp-parse-btn">${parseBtnLabel}</button>`
+        `<button type="button" class="btn btn-sm btn-ghost" data-cp-parse-btn data-cp-parse-default-label="${parseBtnLabel}">${parseBtnLabel}</button>`
       );
     }
   }
@@ -659,6 +830,7 @@ function applyPackageDetailToDom(root, position, detail, constructiveFiles = [])
     hideProcurement: getPackagePanelContext(position.id)?.hideProcurement === true
   });
   patchConstructiveUploadedFiles(root, position, detail, constructiveFiles);
+  patchUploadReadyHint(block, detail);
   applyPackageWizardUi(block, detail);
   const aiMount = block.querySelector("[data-cp-package-ai]");
   if (aiMount) {

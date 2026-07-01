@@ -130,9 +130,11 @@ export function bindPositionResponsiblesPanel(root, position, { onSaved } = {}) 
             constructorEstimatedHours: hoursRaw ? Number(hoursRaw) : null
           }),
         successMessage: "Конструктора призначено",
-        onSuccess: async () => {
-          const { refreshAppData } = await import("./data-sync.js");
-          await refreshAppData({ includeDirectories: false, syncViews: true });
+        onSuccess: async (result) => {
+          const { applyConstructorAssignmentResult, syncWorkflowViews } =
+            await import("./data-sync.js");
+          applyConstructorAssignmentResult(result);
+          await syncWorkflowViews();
           await onSaved?.();
         }
       }).catch(() => {});

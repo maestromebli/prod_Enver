@@ -12,7 +12,9 @@ export function constructorAssigneeKey(entry) {
 }
 
 export function selectedConstructorAssigneeValue(position, entry) {
-  if (entry.id != null && position.constructorUserId === entry.id) {
+  const userId = position.constructorUserId != null ? Number(position.constructorUserId) : null;
+  const entryId = entry.id != null ? Number(entry.id) : null;
+  if (entryId != null && userId != null && userId === entryId) {
     return constructorAssigneeKey(entry);
   }
   const assignedName = normalizePersonName(

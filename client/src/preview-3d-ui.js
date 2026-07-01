@@ -8,8 +8,7 @@ import {
 import { get3dUpgradeHintText } from "@enver/shared/production/resolve-3d-preview.js";
 import {
   formatAssemblyMissingMessage,
-  formatEnver3SyncMessage,
-  formatEnver3dscanSyncMessage
+  formatEnver3SyncMessage
 } from "@enver/shared/production/preview-3d-meta.js";
 
 export function renderPreview3dBadge(layout, label = "") {
@@ -39,14 +38,9 @@ export function renderAssemblyMissingBanner(preview3d, totalPanels = 0) {
 }
 
 export function renderEnver3SyncNote(preview3d) {
-  const msgs = [
-    formatEnver3SyncMessage(preview3d?.enver3Sync),
-    formatEnver3dscanSyncMessage(preview3d?.enver3dscanSync)
-  ].filter(Boolean);
-  if (!msgs.length) return "";
-  return msgs
-    .map((msg) => `<p class="enver-meta preview-3d-enver3-note">${escapeHtml(msg)}</p>`)
-    .join("");
+  const msg = formatEnver3SyncMessage(preview3d?.enver3Sync);
+  if (!msg) return "";
+  return `<p class="enver-meta preview-3d-enver3-note">${escapeHtml(msg)}</p>`;
 }
 
 /** Блок статусу 3D для пакета конструктива. */
@@ -67,31 +61,4 @@ export function renderPackage3dStatusBlock(detail) {
   const enver3 = renderEnver3SyncNote(detail.preview3d);
 
   return `<div class="cp-3d-status">${badge}${missing}${enver3}${renderPreview3dUpgradeBanner(hint)}</div>`;
-}
-
-export function renderGiblabEnver3HookHelp() {
-  const hook3dscan = `try {
-  ENVER_AUTO_B3D_PATH = savedB3dPath;
-  Execute(system.getFileName("enver-3dscan-export.js"));
-} catch (e) {}`;
-
-  const hookLegacy = `try {
-  ENVER_AUTO_B3D_PATH = savedB3dPath;
-  Execute(system.getFileName("enver-b3d-assembly-export.js"));
-} catch (e) {}`;
-
-  return `
-    <details class="cp-enver3-hook">
-      <summary class="cp-enver3-hook-summary">ENVER_3dscan після експорту .b3d з Базіс</summary>
-      <ol class="cp-enver3-hook-steps enver-meta">
-        <li>Скопіюйте <code>scripts/enver-3dscan-export.js</code> у папку скриптів Базіс (рекомендовано).</li>
-        <li>У кінець <code>GibLabExport_Vx.x.js</code> додайте після збереження .b3d:</li>
-      </ol>
-      <pre class="cp-enver3-hook-code" tabindex="0">${escapeHtml(hook3dscan)}</pre>
-      <p class="enver-meta">ENVER_3dscan зберігає збірку, отвори, кромку та коди операцій у хвіст .b3d (EN3DSC) + sidecar JSON. Завантажте <strong>.b3d + .project</strong> у пакет конструктива.</p>
-      <details class="cp-enver3-hook-legacy">
-        <summary class="enver-meta">Лише координати збірки (ENVER3, застарілий)</summary>
-        <pre class="cp-enver3-hook-code" tabindex="0">${escapeHtml(hookLegacy)}</pre>
-      </details>
-    </details>`;
 }

@@ -237,9 +237,7 @@ export function bindPositionOrderTab(
   if (shouldShowResponsiblesPanel(position)) {
     bindPositionResponsiblesPanel(root, position, {
       onSaved: async () => {
-        const { refreshAppData } = await import("./data-sync.js");
-        await refreshAppData({ includeDirectories: false, syncViews: true });
-        await handlePositionRefresh({ contentOnly: true });
+        await handlePositionRefresh({ contentOnly: true, skipDataRefresh: true });
       }
     });
     if (!state.ordersView.constructorAssignees?.length && canManageConstructorDesk()) {

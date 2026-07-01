@@ -56,6 +56,24 @@ describe("mapPosition", () => {
     assert.equal(mapped.constructor, "Петро");
     assert.equal(mapped.currentStage, "cutting");
   });
+
+  it("мапить поля призначення конструктора", () => {
+    const mapped = mapPosition({
+      id: 11,
+      order_number: "Е-101",
+      item: "Кухня",
+      constructor_name: "Ігор",
+      constructor_user_id: 5,
+      constructor_user_name: "Ігор",
+      constructor_due_at: "2026-07-01T12:00:00Z",
+      constructor_assigned_at: "2026-06-01T10:00:00Z",
+      constructor_estimated_hours: 4.5
+    });
+    assert.equal(mapped.constructorUserId, 5);
+    assert.equal(mapped.constructorUserName, "Ігор");
+    assert.equal(mapped.constructorDueAt, "2026-07-01T12:00:00Z");
+    assert.equal(mapped.constructorEstimatedHours, 4.5);
+  });
 });
 
 describe("orderToDb", () => {

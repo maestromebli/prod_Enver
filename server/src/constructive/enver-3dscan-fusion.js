@@ -275,7 +275,7 @@ export function fuseBazisPackage({
       manifestNodes: [],
       assemblyExport: null,
       warnings: mergeWarnings(warnings, [
-        "Не вдалося зібрати ENVER_3dscan — додайте .project, декодуйте .b3d (BZ85) або запустіть enver-3dscan-export.js у Базіс"
+        "Не вдалося зібрати ENVER_3dscan — додайте .project разом із .b3d (GibLab)"
       ]),
       stats
     };

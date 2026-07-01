@@ -665,7 +665,7 @@ export function canAutoParsePackageForMapping(detail) {
   return status === "uploaded";
 }
 
-/** Чи запускати автоматичний розбір після завантаження (XLS, .project+.b3d). */
+/** Чи запускати автоматичний розбір після завантаження (XLS, .project+.b3d). Застаріло на сервері — розбір лише вручну. */
 export function canAutoParsePackage(detail) {
   const status = detail?.package?.status ?? detail?.status ?? "";
   if (status !== "uploaded") return false;
