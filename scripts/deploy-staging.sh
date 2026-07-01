@@ -8,7 +8,14 @@ export IMAGE_TAG="${2:-staging}"
 cd /opt/enver-staging
 chmod +x deploy-staging.sh 2>/dev/null || true
 
-COMPOSE_FILE="docker-compose.staging.yml"
+if [ -f docker-compose.staging.yml ]; then
+  COMPOSE_FILE="docker-compose.staging.yml"
+elif [ -f docker-compose.yml ]; then
+  COMPOSE_FILE="docker-compose.yml"
+else
+  echo "✗ немає docker-compose.staging.yml або docker-compose.yml у /opt/enver-staging"
+  exit 1
+fi
 PREV_TAG_FILE=".previous-staging-tag"
 
 save_previous_tag() {

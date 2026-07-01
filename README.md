@@ -51,13 +51,16 @@ npm run dev               # сервер + Vite на :3000
 
 | Тригер              | Кроки                                                                                                                               |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Pull request → main | `validate` (format + lint + tests), `build-android` (APK), `build` (Docker без push)                                                |
-| Push до main        | `validate`, `build-android`, `build` (push до GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (health check + rollback при збої) |
+| Pull request → main/test | `validate`, `build-android`, `build` (Docker без push)                                                |
+| Push до **main**    | `validate`, `build-android`, `build` (GHCR `latest` + `${{ sha }}`), `migrate`, `deploy` (production)                               |
+| Push до **test**    | `validate`, `build-android`, `build` (GHCR `test` + `${{ sha }}`), `migrate` (staging DB), `deploy-staging` (`/opt/enver-staging`) |
 
 Потрібні GitHub Secrets:
 
-- `DATABASE_URL_MIGRATIONS` — direct connection (port 5432) для застосування міграцій
-- `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою
+- `DATABASE_URL_MIGRATIONS` — direct connection (port 5432) для застосування міграцій production
+- `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` — для SSH-деплою production
+- `STAGING_DATABASE_URL_MIGRATIONS` — опційно, міграції для staging (гілка `test`)
+- `STAGING_SSH_HOST`, `STAGING_SSH_USER`, `STAGING_SSH_PRIVATE_KEY` — опційно, окремий SSH для staging; інакше використовуються production `SSH_*` на `/opt/enver-staging`
 
 ## Env
 
