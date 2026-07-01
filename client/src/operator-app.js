@@ -23,7 +23,7 @@ import {
   renderOperatorView
 } from "./operator-panel.js";
 import { bindOperatorScanPanel, syncOperatorClientScanButtons } from "./part-scan.js";
-import { bindOperatorOrder3d, destroyOperatorOrder3d } from "./operator-3d.js";
+import { bindOperatorOrder3d } from "./operator-3d.js";
 import { warmPartViewerChunk } from "./part-viewer-prefetch.js";
 import {
   registerOperatorServiceWorker,
@@ -77,7 +77,6 @@ function setLoginSubmitting(loading) {
 }
 
 function renderOperatorClient() {
-  destroyOperatorOrder3d();
   const user = state.currentUser;
   const chip = $("#userChip");
   if (chip && user) chip.textContent = user.name;
